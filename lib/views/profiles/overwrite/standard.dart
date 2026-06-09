@@ -166,7 +166,7 @@ class _StandardContentState extends ConsumerState<StandardContent> {
                   );
                 },
                 itemExtent: ruleItemHeight,
-                onReorderItem: (oldIndex, newIndex) {
+                onReorder: (oldIndex, newIndex) {
                   final nextIndex = oldIndex < newIndex
                       ? newIndex + 1
                       : newIndex;

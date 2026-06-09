@@ -726,7 +726,7 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
           proxyDecorator: (child, index, animation) {
             return commonProxyDecorator(_buildItem(index), index, animation);
           },
-          onReorderItem: (oldIndex, newIndex) {
+          onReorder: (oldIndex, newIndex) {
             setState(() {
               final profile = profiles.removeAt(oldIndex);
               profiles.insert(newIndex, profile);

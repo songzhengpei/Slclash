@@ -280,7 +280,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                     animation,
                   );
                 },
-                onReorderItem: (int oldIndex, int newIndex) {
+                onReorder: (int oldIndex, int newIndex) {
                   _handleReorder(oldIndex, newIndex);
                 },
               )
