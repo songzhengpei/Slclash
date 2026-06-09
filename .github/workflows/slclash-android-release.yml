@@ -117,6 +117,7 @@ jobs:
           keyAlias=$ANDROID_KEY_ALIAS
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
+          sed -i 's/^[[:space:]]*//' android/local.properties
 
           echo "Android signing files prepared."
 
@@ -128,7 +129,7 @@ jobs:
 
       - name: Build APK
         run: |
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --target-platform android-arm64
 
       - name: Rename arm64 APK
         shell: bash
