@@ -5,12 +5,14 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'card.dart';
 import 'common.dart';
+import 'empty.dart';
 
 typedef GroupNameProxiesMap = Map<String, List<Proxy>>;
 
@@ -63,11 +65,11 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     );
   }
 
-  double _getListItemHeight(Type type, ProxyCardType proxyCardType) {
-    return switch (type) {
-      const (SizedBox) => 8,
+  double _getListItemHeight(Widget item) {
+    return switch (item.runtimeType) {
+      const (SizedBox) => (item as SizedBox).height ?? 0,
       const (ListHeader) => listHeaderHeight,
-      Type() => getItemHeight(proxyCardType),
+      Type() => getProxyTileHeight(),
     };
   }
 
@@ -93,10 +95,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     });
   }
 
-  List<double> _getItemHeightList(
-    List<Widget> items,
-    ProxyCardType proxyCardType,
-  ) {
+  List<double> _getItemHeightList(List<Widget> items) {
     final itemHeightList = <double>[];
     final List<double> headerOffset = [];
     double currentHeight = 0;
@@ -104,7 +103,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
       if (item.runtimeType == ListHeader) {
         headerOffset.add(currentHeight);
       }
-      final itemHeight = _getListItemHeight(item.runtimeType, proxyCardType);
+      final itemHeight = _getListItemHeight(item);
       itemHeightList.add(itemHeight);
       currentHeight = currentHeight + itemHeight;
     }
@@ -115,7 +114,6 @@ class _ProxiesListViewState extends State<ProxiesListView> {
   List<Widget> _buildItems(
     WidgetRef ref, {
     required List<Group> groups,
-    required int columns,
     required Set<String> currentUnfoldSet,
     required ProxyCardType cardType,
   }) {
@@ -136,35 +134,23 @@ class _ProxiesListViewState extends State<ProxiesListView> {
       ]);
       if (isExpand) {
         final proxies = group.all;
-        final chunks = proxies.chunks(columns);
-        final rows = chunks
-            .map<Widget>((proxies) {
-              final children = proxies
-                  .map<Widget>(
-                    (proxy) => Flexible(
-                      child: SizedBox(
-                        height: getItemHeight(cardType),
-                        child: ProxyCard(
-                          testUrl: group.testUrl,
-                          type: cardType,
-                          groupType: group.type,
-                          key: ValueKey('$groupName.${proxy.name}'),
-                          proxy: proxy,
-                          groupName: groupName,
-                        ),
-                      ),
-                    ),
-                  )
-                  .fill(
-                    columns,
-                    filler: (_) => const Flexible(child: SizedBox()),
-                  )
-                  .separated(const SizedBox(width: 8));
-
-              return Row(children: children.toList());
-            })
-            .separated(const SizedBox(height: 8));
-        items.addAll([...rows, const SizedBox(height: 8)]);
+        final proxyItems = proxies.expand<Widget>((proxy) {
+          return [
+            SizedBox(
+              height: getProxyTileHeight(),
+              child: ProxyCard(
+                testUrl: group.testUrl,
+                type: cardType,
+                groupType: group.type,
+                key: ValueKey('$groupName.${proxy.name}'),
+                proxy: proxy,
+                groupName: groupName,
+              ),
+            ),
+            const SizedBox(height: 6),
+          ];
+        });
+        items.addAll([...proxyItems, const SizedBox(height: 2)]);
       }
     }
     return items;
@@ -289,8 +275,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         final state = ref.watch(proxiesListStateProvider);
         ref.watch(themeSettingProvider.select((state) => state.textScale));
         if (state.groups.isEmpty) {
-          return NullStatus(
-            illustration: const ProxyEmptyIllustration(),
+          return ProxiesEmptyState(
             label: appLocalizations.nullTip(appLocalizations.proxies),
           );
         }
@@ -298,10 +283,9 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           ref,
           groups: state.groups,
           currentUnfoldSet: state.currentUnfoldSet,
-          columns: state.columns,
           cardType: state.proxyCardType,
         );
-        final itemsOffset = _getItemHeightList(items, state.proxyCardType);
+        final itemsOffset = _getItemHeightList(items);
         return CommonScrollBar(
           controller: _controller,
           thumbVisibility: true,
@@ -313,7 +297,12 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                   behavior: HiddenBarScrollBehavior(),
                   child: ListView.builder(
                     key: proxiesListStoreKey,
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      16,
+                      16,
+                      112 + MediaQuery.paddingOf(context).bottom,
+                    ),
                     controller: _controller,
                     itemExtentBuilder: (index, _) {
                       return itemsOffset[index];
@@ -347,7 +336,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                             top: -headerState.offset,
                             child: Container(
                               width: container.maxWidth,
-                              color: context.colorScheme.surface,
+                              color: SurgeTheme.of(context).background,
                               padding: const EdgeInsets.only(
                                 top: 16,
                                 left: 16,
@@ -422,6 +411,7 @@ class _ListHeaderState extends State<ListHeader> {
   Widget _buildIcon() {
     return Consumer(
       builder: (_, ref, child) {
+        final surge = SurgeTheme.of(context);
         final iconStyle = ref.watch(
           proxiesStyleSettingProvider.select((state) => state.iconStyle),
         );
@@ -429,17 +419,17 @@ class _ListHeaderState extends State<ListHeader> {
           ProxiesIconStyle.standard => LayoutBuilder(
             builder: (_, constraints) {
               return Container(
-                margin: const EdgeInsets.only(right: 16),
+                margin: const EdgeInsets.only(right: 12),
                 child: AspectRatio(
                   aspectRatio: 1,
                   child: Container(
                     height: constraints.maxHeight,
                     width: constraints.maxWidth,
                     alignment: Alignment.center,
-                    padding: EdgeInsets.all(6.ap),
+                    padding: EdgeInsets.all(5.ap),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: context.colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                      color: surge.primary.withValues(alpha: 0.1),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: IconTheme.merge(
@@ -452,7 +442,7 @@ class _ListHeaderState extends State<ListHeader> {
             },
           ),
           ProxiesIconStyle.icon => Container(
-            margin: const EdgeInsets.only(right: 16),
+            margin: const EdgeInsets.only(right: 12),
             child: LayoutBuilder(
               builder: (_, constraints) {
                 return IconTheme.merge(
@@ -470,11 +460,12 @@ class _ListHeaderState extends State<ListHeader> {
 
   @override
   Widget build(BuildContext context) {
-    return CommonCard(
-      enterAnimated: widget.enterAnimated,
+    final surge = SurgeTheme.of(context);
+    final card = SurgeCard(
       key: widget.key,
-      radius: 18.ap,
-      type: CommonCardType.filled,
+      padding: EdgeInsets.zero,
+      shadow: true,
+      borderRadius: surge.radii.card,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -491,7 +482,14 @@ class _ListHeaderState extends State<ListHeader> {
                       children: [
                         EmojiText(
                           groupName,
-                          style: context.textTheme.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.textTheme.titleMedium?.copyWith(
+                            color: surge.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Flexible(
@@ -503,7 +501,13 @@ class _ListHeaderState extends State<ListHeader> {
                             children: [
                               Text(
                                 groupType,
-                                style: context.textTheme.labelMedium?.toLight,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.textTheme.labelMedium?.copyWith(
+                                  color: surge.textSecondary,
+                                  fontSize: 12,
+                                  letterSpacing: 0,
+                                ),
                               ),
                               Flexible(
                                 flex: 1,
@@ -525,12 +529,18 @@ class _ListHeaderState extends State<ListHeader> {
                                           Flexible(
                                             flex: 1,
                                             child: EmojiText(
+                                              '  当前：$proxyName',
+                                              maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
-                                              ' · $proxyName',
                                               style: context
                                                   .textTheme
                                                   .labelMedium
-                                                  ?.toLight,
+                                                  ?.copyWith(
+                                                    color: surge.primary,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                    letterSpacing: 0,
+                                                  ),
                                             ),
                                           ),
                                         ],
@@ -554,36 +564,45 @@ class _ListHeaderState extends State<ListHeader> {
                 if (isExpand) ...[
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.all(2),
+                    padding: const EdgeInsets.all(1),
                     onPressed: () {
                       widget.onScrollToSelected(groupName);
                     },
-                    style: const ButtonStyle(
+                    style: ButtonStyle(
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      foregroundColor: WidgetStatePropertyAll(
+                        surge.textSecondary,
+                      ),
                     ),
-                    iconSize: 19,
+                    iconSize: 18,
                     icon: const Icon(Icons.adjust),
                   ),
-                  const SizedBox(width: 2),
                   IconButton(
-                    iconSize: 20,
+                    iconSize: 19,
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.all(2),
+                    padding: const EdgeInsets.all(1),
                     onPressed: _delayTest,
-                    style: const ButtonStyle(
+                    style: ButtonStyle(
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      foregroundColor: WidgetStatePropertyAll(
+                        surge.textSecondary,
+                      ),
                     ),
-                    icon: const Icon(Icons.network_ping),
+                    icon: const Icon(Icons.network_ping_rounded),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                 ] else
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                 IconButton.filledTonal(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.all(2),
-                  iconSize: 24,
-                  style: const ButtonStyle(
+                  padding: const EdgeInsets.all(1),
+                  iconSize: 22,
+                  style: ButtonStyle(
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: WidgetStatePropertyAll(
+                      surge.primary.withValues(alpha: 0.1),
+                    ),
+                    foregroundColor: WidgetStatePropertyAll(surge.primary),
                   ),
                   onPressed: () {
                     _handleChange(groupName);
@@ -595,9 +614,10 @@ class _ListHeaderState extends State<ListHeader> {
           ],
         ),
       ),
-      onPressed: () {
+      onTap: () {
         _handleChange(groupName);
       },
     );
+    return widget.enterAnimated ? FadeScaleEnterBox(child: card) : card;
   }
 }

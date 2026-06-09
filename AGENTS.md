@@ -93,6 +93,56 @@ fails for nested freezed types.
 
 **macOS:** `npm install -g appdmg` for DMG creation.
 
+### Windows Android Debug Build Notes
+
+On this workspace, `flutter`, `dart`, `adb`, and `go` may not be on `PATH` even though they are installed. Prefer these
+known local tool paths when plain commands are not found:
+
+```powershell
+D:\Code\Tools\flutter\bin\flutter.bat
+D:\Code\Tools\flutter\bin\dart.bat
+D:\Code\Tools\Android\Sdk\platform-tools\adb.exe
+D:\Code\Tools\Go\go\bin\go.exe
+```
+
+Android debug builds trigger the `plugins/setup` Gradle hook, which builds the Go ClashMeta core before Flutter packages
+the APK. The build tool reads `ANDROID_NDK` directly from the environment; `android/local.properties` with `sdk.dir` is
+not enough. If `ANDROID_NDK` is missing, the failure looks like:
+
+```txt
+PathNotFoundException: Directory listing failed, path = 'null\toolchains\llvm\prebuilt\*'
+Execution failed for task ':setup:buildGoCore'
+```
+
+Use a one-shot environment setup when building from PowerShell:
+
+```powershell
+Set-Location -LiteralPath 'D:\Code\Clash myself\FlClash-dev'
+$env:ANDROID_NDK='D:\Code\Tools\Android\Sdk\ndk\28.2.13676358'
+$env:PATH='D:\Code\Tools\Go\go\bin;' + $env:PATH
+& 'D:\Code\Tools\flutter\bin\flutter.bat' build apk --debug
+```
+
+If `go` is missing from `PATH`, the Go core step fails with:
+
+```txt
+'go' is not recognized as an internal or external command
+Command failed: go build ...
+```
+
+To install the debug build on the connected phone:
+
+```powershell
+& 'D:\Code\Tools\Android\Sdk\platform-tools\adb.exe' devices
+& 'D:\Code\Tools\Android\Sdk\platform-tools\adb.exe' -s 0604B44041A00540 install -r 'build\app\outputs\flutter-apk\app-debug.apk'
+& 'D:\Code\Tools\Android\Sdk\platform-tools\adb.exe' -s 0604B44041A00540 shell monkey -p com.follow.clash.dev -c android.intent.category.LAUNCHER 1
+```
+
+The debug application id is `com.follow.clash.dev`; release/fallback release builds may use a different suffix depending
+on signing config. First-time Go dependency downloads can make the Android build take several minutes. Flutter commands
+can also refresh platform generated plugin registrant files or line endings; check `git diff` content before treating
+those generated files as intentional source changes.
+
 ## Architecture
 
 ### Core Integration (Go ClashMeta <-> Flutter)

@@ -6,11 +6,13 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'widgets/start_button.dart';
+import 'widgets/surge_dashboard_hero.dart';
 
 typedef _IsEditWidgetBuilder = Widget Function(bool isEdit);
 
@@ -25,6 +27,16 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
   final key = GlobalKey<SuperGridState>();
   final _isEditNotifier = ValueNotifier<bool>(false);
   final _addedWidgetsNotifier = ValueNotifier<List<GridItem>>([]);
+  static const _hiddenDashboardWidgets = {
+    DashboardWidget.outboundMode,
+    DashboardWidget.outboundModeV2,
+  };
+  static const _dashboardOrder = [
+    DashboardWidget.networkSpeed,
+    DashboardWidget.networkDetection,
+    DashboardWidget.intranetIp,
+    DashboardWidget.trafficUsage,
+  ];
 
   @override
   void dispose() {
@@ -59,8 +71,9 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
 
   List<Widget> _buildActions(bool isEdit) {
     final appLocalizations = context.appLocalizations;
+    final showConnectionAction = !ref.watch(isMobileViewProvider);
     return [
-      if (!isEdit)
+      if (!isEdit && showConnectionAction)
         Consumer(
           builder: (_, ref, _) {
             final coreStatus = ref.watch(coreStatusProvider);
@@ -87,7 +100,10 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                           },
                         ),
                         onPressed: _handleConnection,
-                        icon: const Icon(Icons.check, fontWeight: FontWeight.w900),
+                        icon: const Icon(
+                          Icons.check,
+                          fontWeight: FontWeight.w900,
+                        ),
                       )
                     : FilledButton.icon(
                         key: ValueKey(coreStatus),
@@ -226,23 +242,53 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     }
   }
 
+  List<DashboardWidget> _getVisibleDashboardWidgets(
+    List<DashboardWidget> widgets,
+  ) {
+    final availableWidgets = widgets
+        .where(
+          (item) =>
+              !_hiddenDashboardWidgets.contains(item) &&
+              item.platforms.contains(SupportPlatform.currentPlatform),
+        )
+        .toList();
+    availableWidgets.sort((a, b) {
+      final aIndex = _dashboardOrder.indexOf(a);
+      final bIndex = _dashboardOrder.indexOf(b);
+      if (aIndex != -1 && bIndex != -1) {
+        return aIndex.compareTo(bIndex);
+      }
+      if (aIndex != -1) {
+        return -1;
+      }
+      if (bIndex != -1) {
+        return 1;
+      }
+      return widgets.indexOf(a).compareTo(widgets.indexOf(b));
+    });
+    return availableWidgets;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final dashboardState = ref.watch(dashboardStateProvider);
+    final isMobile = ref.watch(isMobileViewProvider);
     final columns = max(4 * ((dashboardState.contentWidth / 280).ceil()), 8);
     final spacing = 14.mAp;
-    final children = [
-      ...dashboardState.dashboardWidgets
-          .where(
-            (item) => item.platforms.contains(SupportPlatform.currentPlatform),
-          )
-          .map((item) => item.widget),
-    ];
+    final bottomPadding = 104 + MediaQuery.paddingOf(context).bottom;
+    final visibleDashboardWidgets = _getVisibleDashboardWidgets(
+      dashboardState.dashboardWidgets,
+    );
+    final children = visibleDashboardWidgets
+        .map((item) => item.widget)
+        .toList();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addedWidgetsNotifier.value = DashboardWidget.values
           .where(
             (item) =>
-                !children.contains(item.widget) &&
+                !_hiddenDashboardWidgets.contains(item) &&
+                !visibleDashboardWidgets.contains(item) &&
                 item.platforms.contains(SupportPlatform.currentPlatform),
           )
           .map((item) => item.widget)
@@ -252,36 +298,47 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       (isEdit) => CommonScaffold(
         title: context.appLocalizations.dashboard,
         actions: _buildActions(isEdit),
-        floatingActionButton: const StartButton(),
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16).copyWith(bottom: 88),
-            child: isEdit
-                ? SystemBackBlock(
-                    child: CommonPopScope(
-                      child: SuperGrid(
-                        key: key,
-                        crossAxisCount: columns,
-                        crossAxisSpacing: spacing,
-                        mainAxisSpacing: spacing,
-                        children: children,
-                        onUpdate: () {
-                          _handleSave();
+        floatingActionButton: isMobile ? null : const StartButton(),
+        backgroundColor: surge.background,
+        body: ColoredBox(
+          color: surge.background,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
+              child: Column(
+                children: [
+                  const SurgeDashboardHero(),
+                  const SizedBox(height: 18),
+                  if (isEdit)
+                    SystemBackBlock(
+                      child: CommonPopScope(
+                        child: SuperGrid(
+                          key: key,
+                          crossAxisCount: columns,
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing: spacing,
+                          children: children,
+                          onUpdate: () {
+                            _handleSave();
+                          },
+                        ),
+                        onPop: (context) {
+                          _handleUpdateIsEdit();
+                          return false;
                         },
                       ),
-                      onPop: (context) {
-                        _handleUpdateIsEdit();
-                        return false;
-                      },
+                    )
+                  else
+                    Grid(
+                      crossAxisCount: columns,
+                      crossAxisSpacing: spacing,
+                      mainAxisSpacing: spacing,
+                      children: children,
                     ),
-                  )
-                : Grid(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: spacing,
-                    mainAxisSpacing: spacing,
-                    children: children,
-                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

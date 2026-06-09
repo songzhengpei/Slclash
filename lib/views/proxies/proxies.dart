@@ -5,6 +5,7 @@ import 'package:fl_clash/models/state.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/views/proxies/list.dart';
 import 'package:fl_clash/views/proxies/providers.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,6 +135,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final proxiesType = ref.watch(
       proxiesStyleSettingProvider.select((state) => state.type),
     );
@@ -146,10 +148,14 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       actions: _buildActions(context),
       title: context.appLocalizations.proxies,
       searchState: AppBarSearchState(onSearch: _onSearch),
-      body: switch (proxiesType) {
-        ProxiesType.tab => ProxiesTabView(key: _proxiesTabKey),
-        ProxiesType.list => const ProxiesListView(),
-      },
+      backgroundColor: surge.background,
+      body: ColoredBox(
+        color: surge.background,
+        child: switch (proxiesType) {
+          ProxiesType.tab => ProxiesTabView(key: _proxiesTabKey),
+          ProxiesType.list => const ProxiesListView(),
+        },
+      ),
     );
   }
 }

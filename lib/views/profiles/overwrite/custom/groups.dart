@@ -36,9 +36,10 @@ class _CustomProxyGroupsViewState extends ConsumerState<CustomProxyGroupsView> {
   }
 
   void _handleReorder(int oldIndex, int newIndex) {
+    final nextIndex = oldIndex < newIndex ? newIndex + 1 : newIndex;
     ref
         .read(proxyGroupsProvider(widget.profileId).notifier)
-        .order(oldIndex, newIndex);
+        .order(oldIndex, nextIndex);
   }
 
   void _handleEditProxyGroup(
@@ -167,7 +168,7 @@ class _CustomProxyGroupsViewState extends ConsumerState<CustomProxyGroupsView> {
                     globalState.measure.bodyLargeHeight +
                     globalState.measure.bodyMediumHeight +
                     16,
-                onReorder: (oldIndex, newIndex) {
+                onReorderItem: (oldIndex, newIndex) {
                   _handleReorder(oldIndex, newIndex);
                 },
               ),

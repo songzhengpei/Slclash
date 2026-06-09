@@ -166,9 +166,14 @@ class _StandardContentState extends ConsumerState<StandardContent> {
                   );
                 },
                 itemExtent: ruleItemHeight,
-                onReorder: ref
-                    .read(profileAddedRulesProvider(_profileId).notifier)
-                    .order,
+                onReorderItem: (oldIndex, newIndex) {
+                  final nextIndex = oldIndex < newIndex
+                      ? newIndex + 1
+                      : newIndex;
+                  ref
+                      .read(profileAddedRulesProvider(_profileId).notifier)
+                      .order(oldIndex, nextIndex);
+                },
               );
             },
           ),

@@ -5,3 +5,4 @@ export 'outbound_mode.dart';
 export 'quick_options.dart';
 export 'traffic_usage.dart';
 export 'memory_info.dart';
+export 'surge_dashboard_card.dart';

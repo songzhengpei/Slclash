@@ -33,9 +33,10 @@ class _CustomRulesViewState extends ConsumerState<CustomRulesView>
   }
 
   void _handleReorder(int oldIndex, int newIndex) {
+    final nextIndex = oldIndex < newIndex ? newIndex + 1 : newIndex;
     ref
         .read(profileCustomRulesProvider(_profileId).notifier)
-        .order(oldIndex, newIndex);
+        .order(oldIndex, nextIndex);
   }
 
   void _handleSelected(int ruleId) {
@@ -245,7 +246,7 @@ class _CustomRulesViewState extends ConsumerState<CustomRulesView>
                     animation,
                   );
                 },
-                onReorder: _handleReorder,
+                onReorderItem: _handleReorder,
               ),
             ),
     );

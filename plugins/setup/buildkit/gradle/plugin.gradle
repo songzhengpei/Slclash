@@ -7,6 +7,7 @@
 
 def buildkitDir = file("${project.projectDir}/../buildkit").absolutePath
 def launcher = "${buildkitDir}/run_build_tool.sh"
+def windowsLauncher = "${buildkitDir}/run_build_tool.cmd"
 def projectRoot = file("${buildkitDir}/../../..").absolutePath
 def androidArch = System.getenv('ANDROID_ARCH')
 def targetPlatform = project.findProperty('target-platform') ?:
@@ -17,8 +18,13 @@ def archArgs = androidArch
         : (targetPlatform ? ['--target-platform', targetPlatform.toString()] : [])
 
 task buildGoCore(type: Exec) {
-    workingDir buildkitDir
-    commandLine 'bash', launcher, 'android', *archArgs
+    if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+        workingDir projectRoot
+        commandLine 'cmd', '/c', windowsLauncher, 'android', *archArgs
+    } else {
+        workingDir buildkitDir
+        commandLine 'bash', launcher, 'android', *archArgs
+    }
 
     environment 'ANDROID_NDK', androidNdk
     environment 'APP_ENV', project.hasProperty('appEnv') ? project.appEnv : 'pre'

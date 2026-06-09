@@ -60,6 +60,14 @@ docs/
 /android/core/**/cmake-build-*/
 /android/core/**/jniLibs/
 
+# Android signing
+/android/app/keystore.jks
+/android/app/*.keystore
+/android/key.properties
+/android/local.properties
+*.jks
+*.keystore
+
 #FlClash
 /libclash/
 /android/app/src/main/jniLibs/

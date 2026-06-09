@@ -6,12 +6,14 @@ import 'package:fl_clash/models/clash_config.dart';
 import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'card.dart';
 import 'common.dart';
+import 'empty.dart';
 
 typedef ProxyGroupViewKeyMap =
     Map<String, GlobalObjectKey<_ProxyGroupViewState>>;
@@ -168,109 +170,127 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     ref.watch(themeSettingProvider.select((state) => state.textScale));
     final state = ref.watch(proxiesTabStateProvider.select((state) => state));
     final groups = state.groups;
     if (groups.isEmpty || _tabController == null) {
-      return NullStatus(
-        illustration: const ProxyEmptyIllustration(),
+      return ProxiesEmptyState(
         label: appLocalizations.nullTip(appLocalizations.proxies),
       );
     }
     _keyMap = {};
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        NotificationListener<ScrollMetricsNotification>(
-          onNotification: (scrollNotification) {
-            _hasMoreButtonNotifier.value =
-                scrollNotification.metrics.maxScrollExtent > 0;
-            return false;
-          },
-          child: ValueListenableBuilder(
-            valueListenable: _hasMoreButtonNotifier,
-            builder: (_, value, child) {
-              return Stack(
-                alignment: AlignmentDirectional.centerStart,
-                children: [
-                  TabBar(
-                    controller: _tabController,
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16 + (value ? 16 : 0),
-                    ),
-                    dividerColor: Colors.transparent,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    overlayColor: const WidgetStatePropertyAll(
-                      Colors.transparent,
-                    ),
-                    tabs: [
-                      for (final group in groups)
-                        Tab(
-                          child: Builder(
-                            builder: (context) {
-                              return EmojiText(
-                                group.name,
-                                style: DefaultTextStyle.of(context).style,
-                              );
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (value) Positioned(right: 0, child: child!),
-                ],
-              );
+    return ColoredBox(
+      color: surge.background,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          NotificationListener<ScrollMetricsNotification>(
+            onNotification: (scrollNotification) {
+              _hasMoreButtonNotifier.value =
+                  scrollNotification.metrics.maxScrollExtent > 0;
+              return false;
             },
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    context.colorScheme.surface.opacity10,
-                    context.colorScheme.surface,
+            child: ValueListenableBuilder(
+              valueListenable: _hasMoreButtonNotifier,
+              builder: (_, value, child) {
+                return Stack(
+                  alignment: AlignmentDirectional.centerStart,
+                  children: [
+                    TabBar(
+                      controller: _tabController,
+                      padding: EdgeInsets.only(
+                        left: 16,
+                        right: 16 + (value ? 16 : 0),
+                        top: 8,
+                        bottom: 8,
+                      ),
+                      dividerColor: Colors.transparent,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      labelColor: surge.primary,
+                      unselectedLabelColor: surge.textSecondary,
+                      indicator: BoxDecoration(
+                        color: surge.card,
+                        borderRadius: BorderRadius.circular(surge.radii.button),
+                        border: Border.all(color: surge.separator, width: 0.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                      tabs: [
+                        for (final group in groups)
+                          Tab(
+                            child: Builder(
+                              builder: (context) {
+                                return EmojiText(
+                                  group.name,
+                                  style: DefaultTextStyle.of(context).style,
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (value) Positioned(right: 0, child: child!),
                   ],
-                  stops: const [0.0, 0.1],
+                );
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      surge.background.withValues(alpha: 0.1),
+                      surge.background,
+                    ],
+                    stops: const [0.0, 0.1],
+                  ),
                 ),
+                child: _buildMoreButton(),
               ),
-              child: _buildMoreButton(),
             ),
           ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              for (final group in groups)
-                ProxyGroupView(
-                  key: _keyMap.updateCacheValue(
-                    group.name,
-                    () => GlobalObjectKey<_ProxyGroupViewState>(group.name),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                for (final group in groups)
+                  ProxyGroupView(
+                    key: _keyMap.updateCacheValue(
+                      group.name,
+                      () => GlobalObjectKey<_ProxyGroupViewState>(group.name),
+                    ),
+                    group: group,
+                    cardType: state.proxyCardType,
                   ),
-                  group: group,
-                  columns: state.columns,
-                  cardType: state.proxyCardType,
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class ProxyGroupView extends ConsumerStatefulWidget {
   final Group group;
-  final int columns;
   final ProxyCardType cardType;
 
   const ProxyGroupView({
     super.key,
     required this.group,
-    required this.columns,
     required this.cardType,
   });
 
@@ -330,34 +350,118 @@ class _ProxyGroupViewState extends ConsumerState<ProxyGroupView> {
     final proxies = group.all;
     testUrl = group.testUrl;
     currentProxies = proxies;
-    return CommonScrollBar(
-      controller: _controller,
-      child: GridView.builder(
-        key: _getPageStorageKey(),
-        controller: _controller,
-        padding: const EdgeInsets.only(
-          top: 16,
-          left: 16,
-          right: 16,
-          bottom: 96,
-        ),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: widget.columns,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          mainAxisExtent: getItemHeight(widget.cardType),
-        ),
-        itemCount: currentProxies.length,
-        itemBuilder: (_, index) {
-          final proxy = currentProxies[index];
-          return ProxyCard(
-            testUrl: group.testUrl,
-            groupType: group.type,
-            type: widget.cardType,
-            proxy: proxy,
-            groupName: group.name,
-          );
-        },
+    return Consumer(
+      builder: (_, ref, _) {
+        final selectedProxyName = ref
+            .watch(selectedProxyNameProvider(group.name))
+            .takeFirstValid([]);
+        return CommonScrollBar(
+          controller: _controller,
+          child: CustomScrollView(
+            key: _getPageStorageKey(),
+            controller: _controller,
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                sliver: SliverToBoxAdapter(
+                  child: _PolicyGroupSummary(
+                    group: group,
+                    selectedProxyName: selectedProxyName,
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  0,
+                  16,
+                  112 + MediaQuery.paddingOf(context).bottom,
+                ),
+                sliver: SliverList.builder(
+                  itemCount: currentProxies.length,
+                  itemBuilder: (_, index) {
+                    final proxy = currentProxies[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == currentProxies.length - 1 ? 0 : 6,
+                      ),
+                      child: SizedBox(
+                        height: getProxyTileHeight(),
+                        child: ProxyCard(
+                          testUrl: group.testUrl,
+                          groupType: group.type,
+                          type: widget.cardType,
+                          proxy: proxy,
+                          groupName: group.name,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PolicyGroupSummary extends StatelessWidget {
+  const _PolicyGroupSummary({
+    required this.group,
+    required this.selectedProxyName,
+  });
+
+  final Group group;
+  final String selectedProxyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return SurgeCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      shadow: true,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                EmojiText(
+                  group.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.titleMedium?.copyWith(
+                    color: surge.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                EmojiText(
+                  selectedProxyName.isEmpty
+                      ? group.type.name
+                      : '当前：$selectedProxyName',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: selectedProxyName.isEmpty
+                        ? surge.textSecondary
+                        : surge.primary,
+                    fontSize: 12,
+                    fontWeight: selectedProxyName.isEmpty
+                        ? FontWeight.w500
+                        : FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.check_circle_rounded, color: surge.primary, size: 20),
+        ],
       ),
     );
   }
@@ -417,10 +521,13 @@ class _DelayTestButtonState extends State<DelayTestButton>
           child: ScaleTransition(scale: _animation, child: child),
         );
       },
-      child: CommonFloatingActionButton(
+      child: FloatingActionButton.extended(
         onPressed: _healthcheck,
-        label: appLocalizations.delayTest,
-        icon: const Icon(Icons.network_ping),
+        backgroundColor: SurgeTheme.of(context).primary,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        label: Text(appLocalizations.delayTest),
+        icon: const Icon(Icons.network_ping_rounded),
       ),
     );
   }

@@ -1,9 +1,9 @@
-import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/manager/app_manager.dart';
 import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,39 +25,39 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return HomeBackScopeContainer(
       child: AppSidebarContainer(
-        child: Material(
-          color: context.colorScheme.surface,
+        child: ColoredBox(
+          color: SurgeTheme.of(context).background,
           child: Consumer(
             builder: (context, ref, child) {
+              final surge = SurgeTheme.of(context);
               final state = ref.watch(navigationStateProvider);
-              final systemUiOverlayStyle = ref.read(
-                systemUiOverlayStyleStateProvider,
-              );
               final isMobile = state.viewMode == ViewMode.mobile;
               final navigationItems = state.navigationItems;
               final currentIndex = state.currentIndex;
-              final bottomNavigationBar = NavigationBarTheme(
-                data: _NavigationBarDefaultsM3(context),
-                child: NavigationBar(
-                  destinations: navigationItems
-                      .map(
-                        (e) => NavigationDestination(
-                          icon: e.icon,
-                          label: Intl.message(e.label.name),
-                        ),
-                      )
-                      .toList(),
-                  onDestinationSelected: (index) {
-                    _handleToPage(navigationItems[index].label);
-                  },
-                  selectedIndex: currentIndex,
-                ),
+              final bottomNavigationBar = SurgeBottomNav(
+                currentIndex: currentIndex,
+                items: navigationItems
+                    .map(
+                      (item) => SurgeBottomNavItem(
+                        icon: _getBottomNavIcon(item.label),
+                        activeIcon: _getBottomNavActiveIcon(item.label),
+                        label: Intl.message(item.label.name),
+                      ),
+                    )
+                    .toList(),
+                onTap: (index) {
+                  _handleToPage(navigationItems[index].label);
+                },
               );
               if (isMobile) {
                 return AnnotatedRegion<SystemUiOverlayStyle>(
-                  value: systemUiOverlayStyle.copyWith(
-                    systemNavigationBarColor:
-                        context.colorScheme.surfaceContainer,
+                  value: SystemUiOverlayStyle(
+                    statusBarColor: surge.background,
+                    statusBarIconBrightness: Brightness.dark,
+                    statusBarBrightness: Brightness.light,
+                    systemNavigationBarColor: surge.card,
+                    systemNavigationBarIconBrightness: Brightness.dark,
+                    systemNavigationBarDividerColor: surge.separator,
                   ),
                   child: Column(
                     children: [
@@ -117,6 +117,26 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+}
+
+IconData _getBottomNavIcon(PageLabel pageLabel) {
+  return switch (pageLabel) {
+    PageLabel.dashboard => Icons.space_dashboard_outlined,
+    PageLabel.proxies => Icons.article_outlined,
+    PageLabel.profiles => Icons.folder_outlined,
+    PageLabel.tools => Icons.construction_outlined,
+    _ => Icons.circle_outlined,
+  };
+}
+
+IconData _getBottomNavActiveIcon(PageLabel pageLabel) {
+  return switch (pageLabel) {
+    PageLabel.dashboard => Icons.space_dashboard_rounded,
+    PageLabel.proxies => Icons.article_rounded,
+    PageLabel.profiles => Icons.folder_rounded,
+    PageLabel.tools => Icons.construction_rounded,
+    _ => Icons.circle,
+  };
 }
 
 class _HomePageView extends ConsumerStatefulWidget {
@@ -209,63 +229,6 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
         return widget.pageBuilder(context, index);
       },
     );
-  }
-}
-
-class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
-  _NavigationBarDefaultsM3(this.context)
-    : super(
-        height: 80.0,
-        elevation: 3.0,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      );
-
-  final BuildContext context;
-  late final ColorScheme _colors = Theme.of(context).colorScheme;
-  late final TextTheme _textTheme = Theme.of(context).textTheme;
-
-  @override
-  Color? get backgroundColor => _colors.surfaceContainer;
-
-  @override
-  Color? get shadowColor => Colors.transparent;
-
-  @override
-  Color? get surfaceTintColor => Colors.transparent;
-
-  @override
-  WidgetStateProperty<IconThemeData?>? get iconTheme {
-    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
-      return IconThemeData(
-        size: 24.0,
-        color: states.contains(WidgetState.disabled)
-            ? _colors.onSurfaceVariant.opacity38
-            : states.contains(WidgetState.selected)
-            ? _colors.onSecondaryContainer
-            : _colors.onSurfaceVariant,
-      );
-    });
-  }
-
-  @override
-  Color? get indicatorColor => _colors.secondaryContainer;
-
-  @override
-  ShapeBorder? get indicatorShape => const StadiumBorder();
-
-  @override
-  WidgetStateProperty<TextStyle?>? get labelTextStyle {
-    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
-      final TextStyle style = _textTheme.labelMedium!;
-      return style.apply(
-        overflow: TextOverflow.ellipsis,
-        color: states.contains(WidgetState.disabled)
-            ? _colors.onSurfaceVariant.opacity38
-            : states.contains(WidgetState.selected)
-            ? _colors.onSurface
-            : _colors.onSurfaceVariant,
-      );
-    });
   }
 }
 

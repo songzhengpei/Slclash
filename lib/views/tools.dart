@@ -11,6 +11,7 @@ import 'package:fl_clash/views/application_setting.dart';
 import 'package:fl_clash/views/backup_and_restore.dart';
 import 'package:fl_clash/views/config/config.dart';
 import 'package:fl_clash/views/hotkey.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,53 +31,64 @@ class ToolsView extends ConsumerStatefulWidget {
 
 class _ToolViewState extends ConsumerState<ToolsView> {
   Widget _buildNavigationMenuItem(NavigationItem navigationItem) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: navigationItem.icon,
-      title: Text(Intl.message(navigationItem.label.name)),
+      title: Intl.message(navigationItem.label.name),
       subtitle: navigationItem.description != null
-          ? Text(Intl.message(navigationItem.description!))
+          ? Intl.message(navigationItem.description!)
           : null,
-      delegate: OpenDelegate(widget: navigationItem.builder(context)),
+      child: navigationItem.builder(context),
     );
   }
 
-  Widget _buildNavigationMenu(List<NavigationItem> navigationItems) {
-    return Column(
-      children: [
-        for (final navigationItem in navigationItems) ...[
-          _buildNavigationMenuItem(navigationItem),
-          navigationItems.last != navigationItem
-              ? const Divider(height: 0)
-              : Container(),
-        ],
-      ],
-    );
+  List<Widget> _buildNavigationMenu(List<NavigationItem> navigationItems) {
+    return [
+      for (var index = 0; index < navigationItems.length; index++)
+        _SurgeTilePosition(
+          isLast: index == navigationItems.length - 1,
+          child: _buildNavigationMenuItem(navigationItems[index]),
+        ),
+    ];
   }
 
-  List<Widget> _getOtherList(bool enableDeveloperMode) {
-    return generateSection(
+  Widget _getOtherList(bool enableDeveloperMode) {
+    final items = [
+      const _DisclaimerItem(),
+      if (enableDeveloperMode) const _DeveloperItem(),
+      const _InfoItem(),
+    ];
+    return SurgeSection(
       title: context.appLocalizations.other,
-      items: [
-        const _DisclaimerItem(),
-        if (enableDeveloperMode) const _DeveloperItem(),
-        const _InfoItem(),
+      children: [
+        for (var index = 0; index < items.length; index++)
+          _SurgeTilePosition(
+            isLast: index == items.length - 1,
+            child: items[index],
+          ),
       ],
     );
   }
 
-  List<Widget> _getSettingList() {
-    return generateSection(
+  Widget _getSettingList() {
+    final items = [
+      const _LocaleItem(),
+      const _ThemeItem(),
+      const _BackupItem(),
+      if (system.isDesktop) const _HotkeyItem(),
+      if (system.isWindows) const _LoopbackItem(),
+      if (system.isAndroid) const _AccessItem(),
+      const _ConfigItem(),
+      const _AdvancedConfigItem(),
+      const _SettingItem(),
+    ];
+    return SurgeSection(
       title: context.appLocalizations.settings,
-      items: [
-        const _LocaleItem(),
-        const _ThemeItem(),
-        const _BackupItem(),
-        if (system.isDesktop) const _HotkeyItem(),
-        if (system.isWindows) const _LoopbackItem(),
-        if (system.isAndroid) const _AccessItem(),
-        const _ConfigItem(),
-        const _AdvancedConfigItem(),
-        const _SettingItem(),
+      children: [
+        for (var index = 0; index < items.length; index++)
+          _SurgeTilePosition(
+            isLast: index == items.length - 1,
+            child: items[index],
+          ),
       ],
     );
   }
@@ -95,25 +107,119 @@ class _ToolViewState extends ConsumerState<ToolsView> {
           if (state.navigationItems.isEmpty) {
             return Container();
           }
-          return Column(
-            children: [
-              ListHeader(title: context.appLocalizations.more),
-              _buildNavigationMenu(state.navigationItems),
-            ],
+          return SurgeSection(
+            title: context.appLocalizations.more,
+            children: _buildNavigationMenu(state.navigationItems),
           );
         },
       ),
-      ..._getSettingList(),
-      ..._getOtherList(vm2.b),
+      _getSettingList(),
+      _getOtherList(vm2.b),
     ];
+    final surge = SurgeTheme.of(context);
     return CommonScaffold(
+      backgroundColor: surge.background,
       title: context.appLocalizations.tools,
       body: ListView.builder(
         key: toolsStoreKey,
         itemCount: items.length,
         itemBuilder: (_, index) => items[index],
-        padding: const EdgeInsets.only(bottom: 20),
+        padding: EdgeInsets.only(
+          top: 12,
+          bottom: 112 + MediaQuery.paddingOf(context).bottom,
+        ),
       ),
+    );
+  }
+}
+
+class _SurgeTilePosition extends StatelessWidget {
+  const _SurgeTilePosition({required this.child, required this.isLast});
+
+  final Widget child;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurgeTileDividerProvider(showDivider: !isLast, child: child);
+  }
+}
+
+class _SurgeTileDividerProvider extends InheritedWidget {
+  const _SurgeTileDividerProvider({
+    required this.showDivider,
+    required super.child,
+  });
+
+  final bool showDivider;
+
+  static bool of(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<_SurgeTileDividerProvider>()
+            ?.showDivider ??
+        true;
+  }
+
+  @override
+  bool updateShouldNotify(_SurgeTileDividerProvider oldWidget) {
+    return showDivider != oldWidget.showDivider;
+  }
+}
+
+class _SurgeOpenTile extends StatelessWidget {
+  const _SurgeOpenTile({
+    required this.leading,
+    required this.title,
+    required this.child,
+    this.subtitle,
+  });
+
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SurgeListTile(
+      leading: leading,
+      title: title,
+      subtitle: subtitle,
+      showChevron: true,
+      showDivider: _SurgeTileDividerProvider.of(context),
+      onTap: () {
+        showExtend(
+          context,
+          builder: (_) {
+            return child;
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SurgeActionTile extends StatelessWidget {
+  const _SurgeActionTile({
+    required this.leading,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SurgeListTile(
+      leading: leading,
+      title: title,
+      subtitle: subtitle,
+      showDivider: _SurgeTileDividerProvider.of(context),
+      onTap: onTap,
     );
   }
 }
@@ -133,21 +239,23 @@ class _LocaleItem extends ConsumerWidget {
     );
     final subTitle = locale ?? context.appLocalizations.defaultText;
     final currentLocale = utils.getLocaleForString(locale);
-    return ListItem<Locale?>.options(
+    return _SurgeActionTile(
       leading: const Icon(Icons.language_outlined),
-      title: Text(context.appLocalizations.language),
-      subtitle: Text(Intl.message(subTitle)),
-      delegate: OptionsDelegate(
-        title: context.appLocalizations.language,
-        options: [null, ...AppLocalizations.delegate.supportedLocales],
-        onChanged: (Locale? locale) {
-          ref
-              .read(appSettingProvider.notifier)
-              .update((state) => state.copyWith(locale: locale?.toString()));
-        },
-        textBuilder: (locale) => _getLocaleString(context, locale),
-        value: currentLocale,
-      ),
+      title: context.appLocalizations.language,
+      subtitle: Intl.message(subTitle),
+      onTap: () async {
+        final locale = await globalState.showCommonDialog<Locale?>(
+          child: OptionsDialog<Locale?>(
+            title: context.appLocalizations.language,
+            options: [null, ...AppLocalizations.delegate.supportedLocales],
+            textBuilder: (locale) => _getLocaleString(context, locale),
+            value: currentLocale,
+          ),
+        );
+        ref
+            .read(appSettingProvider.notifier)
+            .update((state) => state.copyWith(locale: locale?.toString()));
+      },
     );
   }
 }
@@ -157,11 +265,11 @@ class _ThemeItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.style),
-      title: Text(context.appLocalizations.theme),
-      subtitle: Text(context.appLocalizations.themeDesc),
-      delegate: const OpenDelegate(widget: ThemeView()),
+      title: context.appLocalizations.theme,
+      subtitle: context.appLocalizations.themeDesc,
+      child: const ThemeView(),
     );
   }
 }
@@ -171,11 +279,11 @@ class _BackupItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.cloud_sync),
-      title: Text(context.appLocalizations.backupAndRestore),
-      subtitle: Text(context.appLocalizations.backupAndRestoreDesc),
-      delegate: const OpenDelegate(widget: BackupAndRestore()),
+      title: context.appLocalizations.backupAndRestore,
+      subtitle: context.appLocalizations.backupAndRestoreDesc,
+      child: const BackupAndRestore(),
     );
   }
 }
@@ -185,11 +293,11 @@ class _HotkeyItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.keyboard),
-      title: Text(context.appLocalizations.hotkeyManagement),
-      subtitle: Text(context.appLocalizations.hotkeyManagementDesc),
-      delegate: const OpenDelegate(widget: HotKeyView()),
+      title: context.appLocalizations.hotkeyManagement,
+      subtitle: context.appLocalizations.hotkeyManagementDesc,
+      child: const HotKeyView(),
     );
   }
 }
@@ -199,10 +307,10 @@ class _LoopbackItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem(
+    return _SurgeActionTile(
       leading: const Icon(Icons.lock),
-      title: Text(context.appLocalizations.loopback),
-      subtitle: Text(context.appLocalizations.loopbackDesc),
+      title: context.appLocalizations.loopback,
+      subtitle: context.appLocalizations.loopbackDesc,
       onTap: () {
         windows?.runas(
           '"${join(dirname(Platform.resolvedExecutable), "EnableLoopback.exe")}"',
@@ -218,11 +326,11 @@ class _AccessItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.view_list),
-      title: Text(context.appLocalizations.accessControl),
-      subtitle: Text(context.appLocalizations.accessControlDesc),
-      delegate: const OpenDelegate(widget: AccessView()),
+      title: context.appLocalizations.accessControl,
+      subtitle: context.appLocalizations.accessControlDesc,
+      child: const AccessView(),
     );
   }
 }
@@ -232,11 +340,11 @@ class _ConfigItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.edit),
-      title: Text(context.appLocalizations.basicConfig),
-      subtitle: Text(context.appLocalizations.basicConfigDesc),
-      delegate: const OpenDelegate(widget: ConfigView()),
+      title: context.appLocalizations.basicConfig,
+      subtitle: context.appLocalizations.basicConfigDesc,
+      child: const ConfigView(),
     );
   }
 }
@@ -246,11 +354,11 @@ class _AdvancedConfigItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.build),
-      title: Text(context.appLocalizations.advancedConfig),
-      subtitle: Text(context.appLocalizations.advancedConfigDesc),
-      delegate: const OpenDelegate(widget: AdvancedConfigView()),
+      title: context.appLocalizations.advancedConfig,
+      subtitle: context.appLocalizations.advancedConfigDesc,
+      child: const AdvancedConfigView(),
     );
   }
 }
@@ -260,11 +368,11 @@ class _SettingItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.settings),
-      title: Text(context.appLocalizations.application),
-      subtitle: Text(context.appLocalizations.applicationDesc),
-      delegate: const OpenDelegate(widget: ApplicationSettingView()),
+      title: context.appLocalizations.application,
+      subtitle: context.appLocalizations.applicationDesc,
+      child: const ApplicationSettingView(),
     );
   }
 }
@@ -274,9 +382,9 @@ class _DisclaimerItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    return ListItem(
+    return _SurgeActionTile(
       leading: const Icon(Icons.gavel),
-      title: Text(context.appLocalizations.disclaimer),
+      title: context.appLocalizations.disclaimer,
       onTap: () async {
         final isDisclaimerAccepted = await globalState.showDisclaimer();
         if (!isDisclaimerAccepted) {
@@ -292,10 +400,10 @@ class _InfoItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.info),
-      title: Text(context.appLocalizations.about),
-      delegate: const OpenDelegate(widget: AboutView()),
+      title: context.appLocalizations.about,
+      child: const AboutView(),
     );
   }
 }
@@ -305,10 +413,10 @@ class _DeveloperItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem.open(
+    return _SurgeOpenTile(
       leading: const Icon(Icons.developer_board),
-      title: Text(context.appLocalizations.developerMode),
-      delegate: const OpenDelegate(widget: DeveloperView()),
+      title: context.appLocalizations.developerMode,
+      child: const DeveloperView(),
     );
   }
 }

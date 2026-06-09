@@ -1,13 +1,12 @@
-import 'dart:math';
-
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
-import 'package:fl_clash/widgets/widgets.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+
+import 'surge_dashboard_card.dart';
 
 class OutboundMode extends StatelessWidget {
   const OutboundMode({super.key});
@@ -19,76 +18,31 @@ class OutboundMode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
-    final height = getWidgetHeight(2);
+
     return SizedBox(
-      height: height,
+      height: getWidgetHeight(2),
       child: Consumer(
         builder: (_, ref, _) {
           final mode = ref.watch(
             patchClashConfigProvider.select((state) => state.mode),
           );
-          return Theme(
-            data: Theme.of(context).copyWith(
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-            ),
-            child: CommonCard(
-              onPressed: () {},
-              info: Info(
-                label: appLocalizations.outboundMode,
-                iconData: Icons.call_split_sharp,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 12),
-                child: RadioGroup<Mode>(
-                  groupValue: mode,
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-                    _handleChangeMode(value);
-                  },
-                  child: LayoutBuilder(
-                    builder: (_, constraints) {
-                      final maxHeight = constraints.maxHeight;
-                      return Column(
-                        mainAxisSize: MainAxisSize.max,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          for (final item in Mode.values)
-                            ListItem.radio(
-                              horizontalTitleGap: 8,
-                              tileTitleAlignment: ListTileTitleAlignment.center,
-                              minTileHeight: min(
-                                maxHeight / 3,
-                                globalState.measure.bodyMediumHeight + 16,
-                              ),
-                              minVerticalPadding: 0,
-                              padding: EdgeInsets.only(
-                                left: 12.ap,
-                                right: 16.ap,
-                              ),
-                              delegate: RadioDelegate(
-                                onTab: () {
-                                  _handleChangeMode(item);
-                                },
-                                value: item,
-                              ),
-                              title: Text(
-                                Intl.message(item.name),
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.bodyMedium?.toSoftBold,
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
+          return SurgeDashboardCard(
+            title: appLocalizations.outboundMode,
+            subtitle: 'Outbound Mode',
+            icon: Icons.call_split_rounded,
+            height: getWidgetHeight(2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SurgeSegmentedControl<Mode>(
+                  value: mode,
+                  items: _modeItems,
+                  onChanged: _handleChangeMode,
+                  height: 38,
                 ),
-              ),
+                const SizedBox(height: 12),
+                Expanded(child: _ModeDescription(mode: mode)),
+              ],
             ),
           );
         },
@@ -104,101 +58,74 @@ class OutboundModeV2 extends StatelessWidget {
     globalState.container.read(setupActionProvider.notifier).changeMode(mode);
   }
 
-  Color _getTextColor(BuildContext context, Mode mode) {
-    return switch (mode) {
-      Mode.rule => context.colorScheme.onSecondaryContainer,
-      Mode.global => context.colorScheme.onPrimaryContainer,
-      Mode.direct => context.colorScheme.onTertiaryContainer,
-    };
+  @override
+  Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
+
+    return SizedBox(
+      height: getWidgetHeight(1),
+      child: Consumer(
+        builder: (_, ref, _) {
+          final mode = ref.watch(
+            patchClashConfigProvider.select((state) => state.mode),
+          );
+          return SurgeDashboardCard(
+            title: appLocalizations.outboundMode,
+            icon: Icons.call_split_rounded,
+            height: getWidgetHeight(1),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SurgeSegmentedControl<Mode>(
+                value: mode,
+                items: _modeItems,
+                onChanged: _handleChangeMode,
+                height: 34,
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
+}
+
+const _modeItems = [
+  SurgeSegmentedItem(value: Mode.rule, label: 'Rule'),
+  SurgeSegmentedItem(value: Mode.global, label: 'Global'),
+  SurgeSegmentedItem(value: Mode.direct, label: 'Direct'),
+];
+
+class _ModeDescription extends StatelessWidget {
+  const _ModeDescription({required this.mode});
+
+  final Mode mode;
 
   @override
   Widget build(BuildContext context) {
-    final height = getWidgetHeight(1);
-    return SizedBox(
-      height: height,
-      child: CommonCard(
-        child: Consumer(
-          builder: (_, ref, _) {
-            final mode = ref.watch(
-              patchClashConfigProvider.select((state) => state.mode),
-            );
-            final thumbColor = switch (mode) {
-              Mode.rule => context.colorScheme.secondaryContainer,
-              Mode.global => globalState.theme.darken3PrimaryContainer,
-              Mode.direct => context.colorScheme.tertiaryContainer,
-            };
-            return LayoutBuilder(
-              builder: (_, constraints) {
-                return Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        constraints: const BoxConstraints.expand(),
-                        child: CommonTabBar<Mode>(
-                          children: Map.fromEntries(
-                            Mode.values.map(
-                              (item) => MapEntry(
-                                item,
-                                Container(
-                                  clipBehavior: Clip.antiAlias,
-                                  alignment: Alignment.center,
-                                  decoration: const BoxDecoration(),
-                                  height: height - 8.ap - 24,
-                                  padding: const EdgeInsets.all(4),
-                                  child: Text(
-                                    Intl.message(item.name),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.adjustSize(1)
-                                        .copyWith(
-                                          color: item == mode
-                                              ? _getTextColor(context, item)
-                                              : null,
-                                        ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 0),
-                          groupValue: mode,
-                          onValueChanged: (value) {
-                            if (value == null) {
-                              return;
-                            }
-                            _handleChangeMode(value);
-                          },
-                          thumbColor: thumbColor,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      color: thumbColor.opacity50,
-                      height: 8.ap,
-                      width: constraints.maxWidth,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      // child: Row(
-                      //   children: [
-                      //     Container(
-                      //       width: (constraints.maxWidth - 32) / 3,
-                      //       height: 3,
-                      //       decoration: BoxDecoration(
-                      //         color: _getTextColor(context, mode),
-                      //         borderRadius: BorderRadius.circular(2),
-                      //       ),
-                      //     ),
-                      //   ],
-                      // ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
+    final surge = SurgeTheme.of(context);
+    final text = switch (mode) {
+      Mode.rule => 'Rule Mode',
+      Mode.global => 'Global Mode',
+      Mode.direct => 'Direct Mode',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: surge.background,
+        borderRadius: BorderRadius.circular(surge.radii.smallCard),
+        border: Border.all(color: surge.separator, width: 0.5),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: surge.textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
         ),
       ),
     );

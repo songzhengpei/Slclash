@@ -298,7 +298,7 @@ enum DashboardWidget {
   networkSpeed(GridItem(crossAxisCellCount: 8, child: NetworkSpeed())),
   outboundModeV2(GridItem(crossAxisCellCount: 8, child: OutboundModeV2())),
   outboundMode(GridItem(crossAxisCellCount: 4, child: OutboundMode())),
-  trafficUsage(GridItem(crossAxisCellCount: 4, child: TrafficUsage())),
+  trafficUsage(GridItem(crossAxisCellCount: 8, child: TrafficUsage())),
   networkDetection(GridItem(crossAxisCellCount: 4, child: NetworkDetection())),
   tunButton(
     GridItem(crossAxisCellCount: 4, child: TUNButton()),

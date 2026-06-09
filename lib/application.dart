@@ -10,9 +10,11 @@ import 'package:fl_clash/manager/manager.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import 'pages/pages.dart';
 
@@ -40,7 +42,36 @@ class ApplicationState extends ConsumerState<Application> {
     required Brightness brightness,
     int? primaryColor,
   }) {
-    return ref.read(genColorSchemeProvider(brightness));
+    final surge = SurgeColors.light();
+    return ColorScheme(
+      brightness: brightness,
+      primary: surge.primary,
+      onPrimary: Colors.white,
+      secondary: surge.primary,
+      onSecondary: Colors.white,
+      error: surge.red,
+      onError: Colors.white,
+      surface: surge.card,
+      onSurface: surge.textPrimary,
+      surfaceContainer: surge.card,
+      surfaceContainerHigh: surge.background,
+      surfaceContainerHighest: surge.background,
+      onSurfaceVariant: surge.textSecondary,
+      outline: surge.separator,
+      outlineVariant: surge.separator,
+    );
+  }
+
+  SystemUiOverlayStyle _getSystemUiOverlayStyle() {
+    final surge = SurgeColors.light();
+    return SystemUiOverlayStyle(
+      statusBarColor: surge.background,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: surge.card,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarDividerColor: surge.separator,
+    );
   }
 
   @override
@@ -138,6 +169,7 @@ class ApplicationState extends ConsumerState<Application> {
           appSettingProvider.select((state) => state.locale),
         );
         final themeProps = ref.watch(themeSettingProvider);
+        final surge = SurgeColors.light();
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           navigatorKey: globalState.navigatorKey,
@@ -148,10 +180,13 @@ class ApplicationState extends ConsumerState<Application> {
             GlobalWidgetsLocalizations.delegate,
           ],
           builder: (_, child) {
-            return AppEnvManager(
-              child: _buildApp(
-                child: _buildPlatformState(
-                  child: _buildState(child: _buildPlatformApp(child: child!)),
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: _getSystemUiOverlayStyle(),
+              child: AppEnvManager(
+                child: _buildApp(
+                  child: _buildPlatformState(
+                    child: _buildState(child: _buildPlatformApp(child: child!)),
+                  ),
                 ),
               ),
             );
@@ -164,6 +199,44 @@ class ApplicationState extends ConsumerState<Application> {
           theme: ThemeData(
             useMaterial3: true,
             pageTransitionsTheme: _pageTransitionsTheme,
+            extensions: [SurgeTheme.light()],
+            scaffoldBackgroundColor: surge.background,
+            canvasColor: surge.background,
+            appBarTheme: AppBarTheme(
+              backgroundColor: surge.background,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: surge.textPrimary,
+              elevation: 0,
+              shadowColor: Colors.transparent,
+              iconTheme: IconThemeData(color: surge.textPrimary),
+              actionsIconTheme: IconThemeData(color: surge.textPrimary),
+              titleTextStyle: TextStyle(
+                color: surge.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: surge.card,
+              indicatorColor: surge.primary.withValues(alpha: 0.1),
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                final selected = states.contains(WidgetState.selected);
+                return TextStyle(
+                  color: selected ? surge.primary : surge.textSecondary,
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  letterSpacing: 0,
+                );
+              }),
+              iconTheme: WidgetStateProperty.resolveWith((states) {
+                final selected = states.contains(WidgetState.selected);
+                return IconThemeData(
+                  color: selected ? surge.primary : surge.textSecondary,
+                  size: 22,
+                );
+              }),
+            ),
             colorScheme: _getAppColorScheme(
               brightness: Brightness.light,
               primaryColor: themeProps.primaryColor,
@@ -172,10 +245,13 @@ class ApplicationState extends ConsumerState<Application> {
           darkTheme: ThemeData(
             useMaterial3: true,
             pageTransitionsTheme: _pageTransitionsTheme,
+            extensions: [SurgeTheme.light()],
+            scaffoldBackgroundColor: surge.background,
+            canvasColor: surge.background,
             colorScheme: _getAppColorScheme(
               brightness: Brightness.dark,
               primaryColor: themeProps.primaryColor,
-            ).toPureBlack(themeProps.pureBlack),
+            ),
           ),
           home: child!,
         );

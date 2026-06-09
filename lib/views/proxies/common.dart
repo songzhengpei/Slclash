@@ -6,19 +6,24 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+double getProxyTileHeight() {
+  final measure = globalState.measure;
+  return 22 + measure.bodyMediumHeight + measure.bodySmallHeight + 3;
+}
+
 double get listHeaderHeight {
   final measure = globalState.measure;
-  return 20 + measure.titleMediumHeight + 4 + measure.bodyMediumHeight + 2;
+  return 24 + measure.titleMediumHeight + 4 + measure.bodyMediumHeight + 2;
 }
 
 double getItemHeight(ProxyCardType proxyCardType) {
   final measure = globalState.measure;
   final baseHeight =
-      16 + measure.bodyMediumHeight * 2 + measure.bodySmallHeight + 8 + 4;
+      20 + measure.bodyMediumHeight + measure.bodySmallHeight + 4;
   return switch (proxyCardType) {
-    ProxyCardType.expand => baseHeight + measure.labelSmallHeight + 6,
-    ProxyCardType.shrink => baseHeight,
-    ProxyCardType.min => baseHeight - measure.bodyMediumHeight,
+    ProxyCardType.expand => baseHeight + measure.labelSmallHeight + 8,
+    ProxyCardType.shrink => baseHeight + 4,
+    ProxyCardType.min => baseHeight,
   };
 }
 
@@ -90,15 +95,10 @@ double getScrollToSelectedOffset({
   required List<Proxy> proxies,
 }) {
   final ref = globalState.container;
-  final columns = ref.read(proxiesColumnsProvider);
-  final proxyCardType = ref.read(
-    proxiesStyleSettingProvider.select((state) => state.cardType),
-  );
   final selectedProxyName = ref.read(selectedProxyNameProvider(groupName));
   final findSelectedIndex = proxies.indexWhere(
     (proxy) => proxy.name == selectedProxyName,
   );
   final selectedIndex = findSelectedIndex != -1 ? findSelectedIndex : 0;
-  final rows = (selectedIndex / columns).floor();
-  return rows * getItemHeight(proxyCardType) + (rows - 1) * 8;
+  return selectedIndex * (getProxyTileHeight() + 6);
 }

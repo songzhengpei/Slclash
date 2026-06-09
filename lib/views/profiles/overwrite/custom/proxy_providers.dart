@@ -138,9 +138,6 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
   }
 
   void _handleReorder(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
     ref.read(proxyGroupProvider.notifier).update((state) {
       final nextItems = List<String>.from(state.use ?? []);
       final item = nextItems.removeAt(oldIndex);
@@ -283,7 +280,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                     animation,
                   );
                 },
-                onReorder: (int oldIndex, int newIndex) {
+                onReorderItem: (int oldIndex, int newIndex) {
                   _handleReorder(oldIndex, newIndex);
                 },
               )

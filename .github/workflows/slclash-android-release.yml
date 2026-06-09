@@ -1,0 +1,172 @@
+name: SlClash Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v0.1.0"
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+env:
+  IS_STABLE: ${{ !contains(github.ref, '-') }}
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Android arm64-v8a APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Resolve release tag
+        id: vars
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ inputs.tag }}"
+          else
+            TAG_NAME="${GITHUB_REF_NAME}"
+          fi
+
+          if [ -z "$TAG_NAME" ]; then
+            echo "TAG_NAME is empty"
+            exit 1
+          fi
+
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk_name=SlClash-${TAG_NAME}-arm64-v8a.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag for manual dispatch if needed
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.vars.outputs.tag_name }}"
+
+          git fetch --tags
+
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists locally."
+          elif git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists on origin."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG_NAME" "$GITHUB_SHA"
+            git push origin "$TAG_NAME"
+          fi
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+          cache-dependency-path: |
+            core/go.sum
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.9
+          cache: true
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r28c
+          add-to-path: true
+          link-to-sdk: true
+
+      - name: Prepare Android signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.KEYSTORE }}
+          ANDROID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "KEYSTORE secret is missing."
+            exit 1
+          fi
+
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+
+          cat > android/local.properties <<EOF
+          sdk.dir=$ANDROID_HOME
+          storeFile=keystore.jks
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+
+          echo "Android signing files prepared."
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Build APK
+        run: |
+          flutter build apk --release --split-per-abi
+
+      - name: Rename arm64 APK
+        shell: bash
+        run: |
+          SRC="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          DEST="${{ steps.vars.outputs.apk_name }}"
+
+          if [ ! -f "$SRC" ]; then
+            echo "Expected APK not found: $SRC"
+            echo "Available files:"
+            find build/app/outputs -type f || true
+            exit 1
+          fi
+
+          cp "$SRC" "$DEST"
+          ls -lh "$DEST"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.apk_name }}
+          path: ${{ steps.vars.outputs.apk_name }}
+
+      - name: Publish GitHub Release
+        if: ${{ env.IS_STABLE == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="${{ steps.vars.outputs.tag_name }}"
+          APK_NAME="${{ steps.vars.outputs.apk_name }}"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists. Uploading asset..."
+            gh release upload "$TAG_NAME" "$APK_NAME" --clobber
+          else
+            echo "Creating release $TAG_NAME..."
+            gh release create "$TAG_NAME" "$APK_NAME" \
+              --title "SlClash $TAG_NAME" \
+              --notes "Android arm64-v8a release build."
+          fi
