@@ -31,34 +31,50 @@ class SurgeBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom + 16;
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: surge.card.withValues(alpha: 0.92),
-            border: Border(top: BorderSide(color: surge.separator, width: 0.5)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 56 + bottomPadding,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: bottomPadding),
-                child: Row(
-                  children: [
-                    for (var index = 0; index < items.length; index++)
-                      Expanded(
-                        child: _SurgeBottomNavTile(
-                          item: items[index],
-                          selected: index == currentIndex,
-                          onTap: () => onTap(index),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18, 0, 18, bottomPadding),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: SizedBox(
+                height: 56,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      for (var index = 0; index < items.length; index++)
+                        Expanded(
+                          child: _SurgeBottomNavTile(
+                            item: items[index],
+                            selected: index == currentIndex,
+                            onTap: () => onTap(index),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -90,24 +106,32 @@ class _SurgeBottomNavTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 3),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                letterSpacing: 0,
+        borderRadius: BorderRadius.circular(20),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedScale(
+                scale: selected ? 1.08 : 1,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                child: Icon(icon, color: color, size: selected ? 23 : 22),
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  height: 1.0,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

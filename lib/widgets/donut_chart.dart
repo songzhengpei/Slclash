@@ -175,7 +175,7 @@ class DonutChartPainter extends CustomPainter {
     if (total <= 0) return;
 
     final center = Offset(size.width / 2, size.height / 2);
-    final strokeWidth = 10.0.ap;
+    final strokeWidth = 12.0.ap;
     final radius = min(size.width / 2, size.height / 2) - strokeWidth / 2;
 
     final gapAngle = 2 * asin(strokeWidth * 1 / (2 * radius)) * 1.2;

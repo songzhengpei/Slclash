@@ -135,7 +135,7 @@ class LineChartPainter extends CustomPainter {
   }) {
     _strokePaint = Paint()
       ..color = color
-      ..strokeWidth = 2.0
+      ..strokeWidth = 2.2
       ..style = PaintingStyle.stroke;
 
     _fillPaint = Paint()..style = PaintingStyle.fill;
@@ -204,7 +204,7 @@ class LineChartPainter extends CustomPainter {
       final gradient = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [color.opacity38, color.opacity10],
+        colors: [color.withValues(alpha: 0.16), color.withValues(alpha: 0.03)],
       );
 
       const strokeWidth = 2.0;
