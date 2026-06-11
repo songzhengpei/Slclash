@@ -4,11 +4,10 @@ import 'package:test/test.dart';
 
 void main() {
   group('resolveAndroidTargets', () {
-    test('defaults to all Android targets', () {
+    test('defaults to arm64 Android target', () {
       final targets = Target.resolveAndroidTargets();
 
-      expect(targets,
-          [Target.androidArm, Target.androidArm64, Target.androidAmd64]);
+      expect(targets, [Target.androidArm64]);
     });
 
     test('maps a Flutter target platform to the matching Android target', () {
@@ -19,18 +18,10 @@ void main() {
       expect(targets, [Target.androidArm64]);
     });
 
-    test('maps multiple Flutter target platforms in order', () {
-      final targets = Target.resolveAndroidTargets(
-        flutterTargetPlatforms: 'android-arm64,android-x64',
-      );
-
-      expect(targets, [Target.androidArm64, Target.androidAmd64]);
-    });
-
     test('uses explicit arch when provided', () {
-      final targets = Target.resolveAndroidTargets(archName: 'arm');
+      final targets = Target.resolveAndroidTargets(archName: 'arm64');
 
-      expect(targets, [Target.androidArm]);
+      expect(targets, [Target.androidArm64]);
     });
 
     test('rejects unsupported Flutter target platforms', () {

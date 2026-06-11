@@ -1,4 +1,7 @@
-import 'package:fl_clash/common/system.dart';
-import 'package:proxy/proxy.dart';
+class SystemProxy {
+  Future<bool?> startProxy(int port, String bassDomain) async => false;
 
-final proxy = system.isDesktop ? Proxy() : null;
+  Future<void> stopProxy() async {}
+}
+
+const SystemProxy? proxy = null;

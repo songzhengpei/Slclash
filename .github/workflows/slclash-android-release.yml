@@ -4,12 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag, for example v0.1.0"
+        description: "Release tag, for example 0.5.0 or v0.5.0"
         required: true
         type: string
   push:
     tags:
-      - "v*"
+      - "[0-9]*"
+      - "v[0-9]*"
 
 permissions:
   contents: write
@@ -40,8 +41,8 @@ jobs:
             exit 1
           fi
 
-          if ! [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Tag must look like v0.1.0"
+          if ! [[ "$TAG_NAME" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag must look like 0.5.0 or v0.5.0"
             exit 1
           fi
 
@@ -75,7 +76,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.0'
+          go-version: "1.24.0"
           cache-dependency-path: |
             core/go.sum
 
@@ -83,7 +84,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "21"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2

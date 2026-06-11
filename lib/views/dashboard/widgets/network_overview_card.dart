@@ -32,7 +32,9 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
     num Function(Traffic traffic) valueOf,
     List<double> placeholder,
   ) {
-    final values = traffics.map((traffic) => valueOf(traffic).toDouble()).toList();
+    final values = traffics
+        .map((traffic) => valueOf(traffic).toDouble())
+        .toList();
     final hasRealData = values.any((value) => value > 0);
     final source = hasRealData ? values : placeholder;
     return source
@@ -50,20 +52,23 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
     final totalTraffic = ref.watch(totalTrafficProvider);
     final networkDetection = ref.watch(networkDetectionProvider);
     final lastTraffic = traffics.isEmpty ? const Traffic() : traffics.last;
+    final hasLiveTraffic = traffics.any(
+      (traffic) => traffic.up > 0 || traffic.down > 0,
+    );
     final uploadPoints = _buildSeries(traffics, (traffic) => traffic.up, const [
-      0.06,
-      0.06,
-      0.06,
-      0.06,
-      0.06,
-      0.06,
-      0.06,
-      0.06,
+      0.13,
+      0.13,
+      0.13,
+      0.13,
+      0.13,
+      0.13,
+      0.13,
+      0.13,
     ]);
     final downloadPoints = _buildSeries(
       traffics,
       (traffic) => traffic.down,
-      const [0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10],
+      const [0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077],
     );
 
     return Container(
@@ -85,18 +90,21 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: surge.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Icon(
+                    Icons.public_rounded,
+                    color: surge.primary,
+                    size: 18,
+                  ),
                 ),
-                child: Icon(Icons.public_rounded, color: surge.primary, size: 16),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,6 +153,8 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
                     color: surge.green,
                     gradient: true,
                     duration: commonDuration,
+                    minY: hasLiveTraffic ? null : 0,
+                    maxY: hasLiveTraffic ? null : 0.2,
                   ),
                 ),
                 Positioned.fill(
@@ -153,16 +163,15 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
                     color: surge.primary,
                     gradient: true,
                     duration: commonDuration,
+                    minY: hasLiveTraffic ? null : 0,
+                    maxY: hasLiveTraffic ? null : 0.2,
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 14),
-          Container(
-            height: 1,
-            color: const Color(0xFFE8ECF2),
-          ),
+          Container(height: 1, color: const Color(0xFFE8ECF2)),
           const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,8 +183,9 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Align(
-                          alignment: Alignment.topLeft,
+                        SizedBox(
+                          width: 18,
+                          height: 18,
                           child: Icon(
                             Icons.data_saver_off_rounded,
                             size: 18,
@@ -212,20 +222,23 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 18),
-                    SizedBox(
-                      width: 66,
-                      height: 66,
-                      child: DonutChart(
-                        data: [
-                          DonutChartData(
-                            value: totalTraffic.up.toDouble(),
-                            color: surge.primary,
-                          ),
-                          DonutChartData(
-                            value: totalTraffic.down.toDouble(),
-                            color: surge.green,
-                          ),
-                        ],
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: SizedBox(
+                        width: 66,
+                        height: 66,
+                        child: DonutChart(
+                          data: [
+                            DonutChartData(
+                              value: totalTraffic.up.toDouble(),
+                              color: surge.primary,
+                            ),
+                            DonutChartData(
+                              value: totalTraffic.down.toDouble(),
+                              color: surge.green,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -257,10 +270,7 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Container(
-            height: 1,
-            color: const Color(0xFFE8ECF2),
-          ),
+          Container(height: 1, color: const Color(0xFFE8ECF2)),
           const SizedBox(height: 14),
           _NetworkDetectionBar(
             networkDetection: networkDetection,
@@ -446,8 +456,8 @@ class _NetworkDetectionBar extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: TextStyle(
-              color: const Color(0xFF8D95A1),
+            style: const TextStyle(
+              color: Color(0xFF8D95A1),
               fontSize: 11,
               fontWeight: FontWeight.w500,
               height: 1.0,
@@ -491,7 +501,7 @@ class _TrafficLineItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: context.textTheme.labelMedium?.copyWith(
               color: surge.textSecondary,
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
               height: 1.08,
               letterSpacing: 0,
@@ -517,7 +527,7 @@ class _TrafficLineItem extends StatelessWidget {
                 text: ' ${formatted.unit}',
                 style: context.textTheme.labelMedium?.copyWith(
                   color: surge.textSecondary,
-                  fontSize: 6,
+                  fontSize: 8,
                   fontWeight: FontWeight.w600,
                   height: 1.0,
                   letterSpacing: 0,

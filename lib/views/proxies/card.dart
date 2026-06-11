@@ -59,56 +59,85 @@ class ProxyCard extends StatelessWidget {
           selectedProxyNameProvider(groupName),
         );
         final isSelected = selectedProxyName == proxy.name;
-        return SurgeCard(
-          key: key,
-          onTap: () {
-            _changeProxy(ref);
-          },
-          padding: EdgeInsets.zero,
-          shadow: false,
-          borderRadius: surge.radii.list,
-          backgroundColor: isSelected
-              ? surge.primary.withValues(alpha: 0.055)
-              : surge.card,
-          border: Border.all(
-            color: isSelected
-                ? surge.primary.withValues(alpha: 0.16)
-                : surge.separator,
-            width: 0.5,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _ProxyTextBlock(proxy: proxy, type: type),
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            SurgeCard(
+              key: key,
+              onTap: () {
+                _changeProxy(ref);
+              },
+              padding: EdgeInsets.zero,
+              shadow: false,
+              borderRadius: surge.radii.list,
+              backgroundColor: isSelected
+                  ? surge.primary.withValues(alpha: 0.055)
+                  : surge.card,
+              border: Border.all(
+                color: isSelected
+                    ? surge.primary.withValues(alpha: 0.16)
+                    : surge.separator,
+                width: 0.5,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
                 ),
-                if (groupType.isComputedSelected) ...[
-                  const SizedBox(width: 8),
-                  _ProxyComputedMark(groupName: groupName, proxy: proxy),
-                ],
-                const SizedBox(width: 8),
-                _DelayBadge(
-                  proxyName: proxy.name,
-                  testUrl: testUrl,
-                  onTap: _handleTestCurrentDelay,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _ProxyTextBlock(proxy: proxy, type: type),
+                    ),
+                    if (groupType.isComputedSelected) ...[
+                      const SizedBox(width: 8),
+                      _ProxyComputedMark(groupName: groupName, proxy: proxy),
+                    ],
+                    const SizedBox(width: 12),
+                    _DelayBadge(
+                      proxyName: proxy.name,
+                      testUrl: testUrl,
+                      onTap: _handleTestCurrentDelay,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                SizedBox(
-                  width: 18,
-                  child: AnimatedOpacity(
-                    opacity: isSelected ? 1 : 0,
-                    duration: const Duration(milliseconds: 160),
-                    child: Icon(
-                      Icons.check_rounded,
+              ),
+            ),
+            Positioned(
+              right: 10,
+              top: -6,
+              child: AnimatedScale(
+                scale: isSelected ? 1 : 0.65,
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  opacity: isSelected ? 1 : 0,
+                  duration: const Duration(milliseconds: 160),
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
                       color: surge.primary,
-                      size: 18,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: surge.card, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: surge.primary.withValues(alpha: 0.22),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 12,
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         );
       },
     );
@@ -149,40 +178,58 @@ class _DelayBadge extends ConsumerWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(
-          minWidth: 50,
-          maxWidth: 76,
-          minHeight: 24,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: delay == null
-              ? surge.separator.withValues(alpha: 0.55)
-              : color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(surge.radii.button),
-        ),
-        child: Center(
-          child: FadeThroughBox(
-            child: delay == 0
-                ? SizedBox.square(
-                    dimension: 12,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: color,
+      child: SizedBox(
+        width: 64,
+        height: 30,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: delay == null
+                ? const Color(0xFFF4F6FA)
+                : color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: delay == null
+                  ? surge.separator.withValues(alpha: 0.55)
+                  : color.withValues(alpha: 0.18),
+              width: 0.5,
+            ),
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 160),
+            layoutBuilder: (currentChild, previousChildren) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [...previousChildren, ?currentChild],
+              );
+            },
+            child: Center(
+              key: ValueKey(label),
+              child: delay == 0
+                  ? SizedBox.square(
+                      dimension: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      strutStyle: const StrutStyle(
+                        forceStrutHeight: true,
+                        height: 1,
+                      ),
+                      style: context.textTheme.labelSmall?.copyWith(
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                        letterSpacing: 0,
+                      ),
                     ),
-                  )
-                : Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelSmall?.copyWith(
-                      color: color,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0,
-                    ),
-                  ),
+            ),
           ),
         ),
       ),

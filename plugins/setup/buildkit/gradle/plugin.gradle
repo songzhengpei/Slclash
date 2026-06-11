@@ -15,7 +15,7 @@ def targetPlatform = project.findProperty('target-platform') ?:
 def androidNdk = System.getenv('ANDROID_NDK')
 def archArgs = androidArch
         ? ['--arch', androidArch]
-        : (targetPlatform ? ['--target-platform', targetPlatform.toString()] : [])
+        : (targetPlatform ? ['--target-platform', targetPlatform.toString()] : ['--arch', 'arm64'])
 
 task buildGoCore(type: Exec) {
     if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {

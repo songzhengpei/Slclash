@@ -8,11 +8,10 @@ import 'package:fl_clash/models/core.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-typedef UpdatingMap = Map<String, bool>;
 
 class ProvidersView extends ConsumerStatefulWidget {
   const ProvidersView({super.key});
@@ -25,7 +24,7 @@ class _ProvidersViewState extends ConsumerState<ProvidersView> {
   Future<void> _updateProviders() async {
     final ref = globalState.container;
     final providers = ref.read(providersProvider);
-    final List<UpdatingMessage> messages = [];
+    final messages = <UpdatingMessage>[];
     final updateProviders = providers.map<Future>((provider) async {
       final message = await ref
           .read(proxiesActionProvider.notifier)
@@ -44,33 +43,83 @@ class _ProvidersViewState extends ConsumerState<ProvidersView> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     final providers = ref.watch(providersProvider);
     final proxyProviders = providers
         .where((item) => item.type == 'Proxy')
-        .map((item) => ProviderItem(provider: item));
+        .toList();
     final ruleProviders = providers
         .where((item) => item.type == 'Rule')
-        .map((item) => ProviderItem(provider: item));
-    final proxySection = generateSection(
-      title: appLocalizations.proxyProviders,
-      items: proxyProviders,
-    );
-    final ruleSection = generateSection(
-      title: appLocalizations.ruleProviders,
-      items: ruleProviders,
-    );
+        .toList();
+
     return AdaptiveSheetScaffold(
-      actions: [IconButtonData(icon: Icons.sync, onPressed: _updateProviders)],
-      body: generateListView([...proxySection, ...ruleSection]),
+      actions: [
+        IconButtonData(icon: Icons.sync_rounded, onPressed: _updateProviders),
+      ],
+      body: ColoredBox(
+        color: surge.background,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+          children: [
+            if (proxyProviders.isNotEmpty)
+              _ProviderSection(
+                title: appLocalizations.proxyProviders,
+                providers: proxyProviders,
+              ),
+            if (proxyProviders.isNotEmpty && ruleProviders.isNotEmpty)
+              const SizedBox(height: 14),
+            if (ruleProviders.isNotEmpty)
+              _ProviderSection(
+                title: appLocalizations.ruleProviders,
+                providers: ruleProviders,
+              ),
+          ],
+        ),
+      ),
       title: appLocalizations.providers,
     );
   }
 }
 
-class ProviderItem extends StatelessWidget {
-  final ExternalProvider provider;
+class _ProviderSection extends StatelessWidget {
+  const _ProviderSection({required this.title, required this.providers});
 
+  final String title;
+  final List<ExternalProvider> providers;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+          child: Text(
+            title,
+            style: context.textTheme.titleSmall?.copyWith(
+              color: surge.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+        for (var i = 0; i < providers.length; i++) ...[
+          ProviderItem(provider: providers[i]),
+          if (i != providers.length - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class ProviderItem extends StatelessWidget {
   const ProviderItem({super.key, required this.provider});
+
+  final ExternalProvider provider;
 
   Future<void> _handleUpdateProvider() async {
     if (provider.vehicleType != 'HTTP') return;
@@ -91,80 +140,165 @@ class ProviderItem extends StatelessWidget {
       final bytes = platformFile?.bytes;
       if (bytes == null || provider.path == null) return;
       await File(provider.path!).safeWriteAsBytes(bytes);
-      final providerName = provider.name;
       final message = await coreController.sideLoadExternalProvider(
-        providerName: providerName,
+        providerName: provider.name,
         data: utf8.decode(bytes),
       );
       if (message.isNotEmpty) throw message;
       ref
           .read(providersProvider.notifier)
           .setProvider(await coreController.getExternalProvider(provider.name));
-      if (message.isNotEmpty) throw message;
     });
     ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
   }
 
-  String _buildProviderDesc(BuildContext context) {
+  String _providerDesc(BuildContext context) {
     final baseInfo = provider.updateAt.getLastUpdateTimeDesc(context);
     final count = provider.count;
-    return switch (count == 0) {
-      true => baseInfo,
-      false => '$baseInfo  ·  $count${context.appLocalizations.entries}',
-    };
+    return count == 0
+        ? baseInfo
+        : '$baseInfo  ·  $count${context.appLocalizations.entries}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListItem(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      title: Text(provider.name),
-      subtitle: Column(
+    final surge = SurgeTheme.of(context);
+    final hasUpdated = provider.updateAt.microsecondsSinceEpoch > 0;
+
+    return SurgeCard(
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+      borderRadius: 18,
+      shadow: true,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 4),
-          if (provider.updateAt.microsecondsSinceEpoch > 0)
-            Text(_buildProviderDesc(context)),
-          const SizedBox(height: 4),
-          if (provider.subscriptionInfo != null)
-            SubscriptionInfoView(subscriptionInfo: provider.subscriptionInfo),
-          const SizedBox(height: 8),
-          Wrap(
-            runSpacing: 6,
-            spacing: 12,
-            runAlignment: WrapAlignment.center,
+          Row(
             children: [
-              CommonChip(
-                avatar: const Icon(Icons.upload),
-                label: context.appLocalizations.upload,
-                onPressed: _handleSideLoadProvider,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      provider.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.titleSmall?.copyWith(
+                        color: surge.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      hasUpdated ? _providerDesc(context) : provider.type,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.labelMedium?.copyWith(
+                        color: surge.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        height: 1,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              if (provider.vehicleType == 'HTTP')
+            ],
+          ),
+          if (provider.subscriptionInfo != null) ...[
+            const SizedBox(height: 10),
+            SubscriptionInfoView(subscriptionInfo: provider.subscriptionInfo),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _ProviderActionButton(
+                icon: Icons.upload_file_rounded,
+                label: context.appLocalizations.upload,
+                onTap: _handleSideLoadProvider,
+              ),
+              if (provider.vehicleType == 'HTTP') ...[
+                const SizedBox(width: 8),
                 Consumer(
                   builder: (_, ref, _) {
                     final isUpdating = ref.watch(
                       isUpdatingProvider(provider.updatingKey),
                     );
-                    return isUpdating
-                        ? const SizedBox(
-                            height: 30,
-                            width: 30,
-                            child: Padding(
-                              padding: EdgeInsets.all(2),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        : CommonChip(
-                            avatar: const Icon(Icons.sync),
-                            label: context.appLocalizations.sync,
-                            onPressed: _handleUpdateProvider,
-                          );
+                    return _ProviderActionButton(
+                      icon: Icons.sync_rounded,
+                      label: context.appLocalizations.sync,
+                      loading: isUpdating,
+                      onTap: _handleUpdateProvider,
+                    );
                   },
                 ),
+              ],
             ],
           ),
-          const SizedBox(height: 4),
         ],
+      ),
+    );
+  }
+}
+
+class _ProviderActionButton extends StatelessWidget {
+  const _ProviderActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.loading = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: loading ? null : onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F6FA),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (loading)
+                SizedBox.square(
+                  dimension: 13,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: surge.primary,
+                  ),
+                )
+              else
+                Icon(icon, size: 15, color: surge.primary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: context.textTheme.labelMedium?.copyWith(
+                  color: surge.primary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

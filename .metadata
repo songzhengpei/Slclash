@@ -15,10 +15,6 @@ migration:
     - platform: root
       create_revision: adc901062556672b4138e18a4dc62a4be8f4b3c2
       base_revision: adc901062556672b4138e18a4dc62a4be8f4b3c2
-    - platform: windows
-      create_revision: adc901062556672b4138e18a4dc62a4be8f4b3c2
-      base_revision: adc901062556672b4138e18a4dc62a4be8f4b3c2
-
   # User provided section
 
   # List of Local paths (relative to this file) that should be

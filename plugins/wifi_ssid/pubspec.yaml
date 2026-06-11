@@ -23,9 +23,3 @@ flutter:
       android:
         package: com.example.wifi_ssid
         pluginClass: WifiSsidPlugin
-      macos:
-        pluginClass: WifiSsidPlugin
-      windows:
-        pluginClass: WifiSsidPluginCApi
-      linux:
-        pluginClass: WifiSsidPlugin

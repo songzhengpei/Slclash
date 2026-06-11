@@ -14,6 +14,8 @@ class LineChart extends StatefulWidget {
   final Color color;
   final Duration duration;
   final bool gradient;
+  final double? minY;
+  final double? maxY;
 
   const LineChart({
     super.key,
@@ -21,6 +23,8 @@ class LineChart extends StatefulWidget {
     required this.points,
     required this.color,
     this.duration = Duration.zero,
+    this.minY,
+    this.maxY,
   });
 
   @override
@@ -47,7 +51,9 @@ class _LineChartState extends State<LineChart>
   @override
   void didUpdateWidget(LineChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.points != _points) {
+    if (widget.points != _points ||
+        widget.minY != oldWidget.minY ||
+        widget.maxY != oldWidget.maxY) {
       _points = widget.points;
       _prevRenderPoints = _currentRenderPoints;
       _currentRenderPoints = _getRenderPoints(_points);
@@ -65,14 +71,14 @@ class _LineChartState extends State<LineChart>
     if (points.isEmpty) return [];
     double maxX = points[0].x;
     double minX = points[0].x;
-    double maxY = points[0].y;
-    double minY = points[0].y;
+    double maxY = widget.maxY ?? points[0].y;
+    double minY = widget.minY ?? points[0].y;
 
     for (final point in points) {
       if (point.x > maxX) maxX = point.x;
       if (point.x < minX) minX = point.x;
-      if (point.y > maxY) maxY = point.y;
-      if (point.y < minY) minY = point.y;
+      if (widget.maxY == null && point.y > maxY) maxY = point.y;
+      if (widget.minY == null && point.y < minY) minY = point.y;
     }
 
     return points.map((e) {
