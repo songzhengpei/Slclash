@@ -138,6 +138,7 @@ jobs:
       - name: Build APK
         run: |
           flutter build apk --release --split-per-abi --target-platform android-arm64 \
+            --android-project-arg=slclashSkipAbiFilters=true \
             --build-name "${{ steps.vars.outputs.version_name }}" \
             --build-number "${{ steps.vars.outputs.build_number }}" \
             --dart-define=APP_ENV=stable

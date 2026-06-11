@@ -20,6 +20,9 @@ val mKeyAlias: String? = localProperties.getProperty("keyAlias")
 val mKeyPassword: String? = localProperties.getProperty("keyPassword")
 val isRelease =
     mStoreFile.exists() && mStorePassword != null && mKeyAlias != null && mKeyPassword != null
+val skipAbiFilters = providers.gradleProperty("slclashSkipAbiFilters")
+    .map { it.toBoolean() }
+    .getOrElse(false)
 
 
 android {
@@ -40,8 +43,10 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        ndk {
-            abiFilters += listOf("arm64-v8a")
+        if (!skipAbiFilters) {
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
         }
     }
 

@@ -5,6 +5,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val skipAbiFilters = providers.gradleProperty("slclashSkipAbiFilters")
+    .map { it.toBoolean() }
+    .getOrElse(false)
+
 android {
     namespace = "com.follow.clash.core"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -12,8 +16,10 @@ android {
 
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
-        ndk {
-            abiFilters += listOf("arm64-v8a")
+        if (!skipAbiFilters) {
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
         }
     }
 
