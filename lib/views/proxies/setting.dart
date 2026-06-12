@@ -195,7 +195,8 @@ class _SettingOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final foreground = selected ? surge.primary : surge.textSecondary;
+    final foreground = selected ? surge.textPrimary : surge.textSecondary;
+    final selectedFill = surge.textSecondary.withValues(alpha: 0.16);
 
     return Material(
       color: Colors.transparent,
@@ -209,7 +210,9 @@ class _SettingOption extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: foreground.withValues(alpha: selected ? 0.13 : 0.08),
+                  color: selected
+                      ? selectedFill
+                      : surge.textSecondary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 17, color: foreground),
@@ -234,10 +237,10 @@ class _SettingOption extends StatelessWidget {
                 width: 18,
                 height: 18,
                 decoration: BoxDecoration(
-                  color: selected ? surge.primary : Colors.transparent,
+                  color: selected ? surge.textPrimary : Colors.transparent,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: selected ? surge.primary : surge.separator,
+                    color: selected ? surge.textPrimary : surge.separator,
                     width: 1.2,
                   ),
                 ),

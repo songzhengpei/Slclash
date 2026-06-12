@@ -29,7 +29,13 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
           tooltip: appLocalizations.providers,
           icon: Icons.cloud_sync_rounded,
           onPressed: () {
-            showExtend(context, builder: (_) => const ProvidersView());
+            showSheet(
+              context: context,
+              props: const SheetProps(isScrollControlled: true),
+              builder: (_) {
+                return const ProvidersView();
+              },
+            );
           },
         ),
       _ProxiesActionButton(

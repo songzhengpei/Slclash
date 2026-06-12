@@ -99,7 +99,7 @@ class _SurgeBottomNavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final color = selected ? surge.primary : surge.textSecondary;
+    final color = selected ? surge.textPrimary : surge.textSecondary;
     final icon = selected ? item.activeIcon ?? item.icon : item.icon;
 
     return Material(

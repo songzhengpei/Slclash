@@ -73,7 +73,7 @@ class ApplicationState extends ConsumerState<Application> {
   NavigationBarThemeData _getNavigationBarTheme(SurgeColors surge) {
     return NavigationBarThemeData(
       backgroundColor: surge.card,
-      indicatorColor: surge.primary.withValues(alpha: 0.1),
+      indicatorColor: surge.textSecondary.withValues(alpha: 0.12),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(

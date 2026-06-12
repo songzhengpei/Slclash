@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -6,6 +8,7 @@ import 'package:fl_clash/pages/scan.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/profiles/overwrite/overwrite.dart';
+import 'package:fl_clash/views/proxies/common.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -659,7 +662,7 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                   ),
                   _ProfilePill(
                     label: widget.profile.type.name,
-                    color: surge.primary,
+                    color: surge.textSecondary,
                     filled: true,
                   ),
                 ],
@@ -721,7 +724,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
         height: 34,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F6FA),
+          color: surge.textSecondary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(17),
           border: Border.all(color: surge.separator.withValues(alpha: 0.55)),
         ),
@@ -768,7 +771,6 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final visibleProxies = proxies.take(8).toList();
     if (proxies.isEmpty) {
       return Text(
         '当前订阅没有可展示的节点',
@@ -809,27 +811,94 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
                     letterSpacing: 0,
                   ),
                 ),
+                const SizedBox(width: 8),
+                _ProfileProxyTestAllButton(proxies: proxies),
               ],
             ),
           ),
-          for (final proxy in visibleProxies)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: _ProfileProxyPreviewCard(proxy: proxy),
-            ),
-          if (proxies.length > visibleProxies.length)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                '还有 ${proxies.length - visibleProxies.length} 个节点，可到代理页查看完整分组',
-                style: context.textTheme.labelSmall?.copyWith(
-                  color: surge.textSecondary,
-                  fontSize: 11,
-                  letterSpacing: 0,
-                ),
+          SizedBox(
+            height: math.min(300, proxies.length * 53).toDouble(),
+            child: ScrollConfiguration(
+              behavior: HiddenBarScrollBehavior(),
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                itemCount: proxies.length,
+                itemBuilder: (_, index) =>
+                    _ProfileProxyPreviewCard(proxy: proxies[index]),
+                separatorBuilder: (_, _) => const SizedBox(height: 6),
               ),
             ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileProxyTestAllButton extends StatefulWidget {
+  const _ProfileProxyTestAllButton({required this.proxies});
+
+  final List<Proxy> proxies;
+
+  @override
+  State<_ProfileProxyTestAllButton> createState() =>
+      _ProfileProxyTestAllButtonState();
+}
+
+class _ProfileProxyTestAllButtonState
+    extends State<_ProfileProxyTestAllButton> {
+  var _testing = false;
+
+  Future<void> _handleTestAll() async {
+    if (_testing) return;
+    setState(() {
+      _testing = true;
+    });
+    await delayTest(widget.proxies);
+    if (!mounted) return;
+    setState(() {
+      _testing = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Tooltip(
+      message: '测试全部延迟',
+      child: GestureDetector(
+        onTap: _handleTestAll,
+        child: Container(
+          width: 28,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: surge.textSecondary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: surge.separator.withValues(alpha: 0.55),
+              width: 0.5,
+            ),
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 160),
+            child: _testing
+                ? SizedBox.square(
+                    key: const ValueKey('loading'),
+                    dimension: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: surge.textSecondary,
+                    ),
+                  )
+                : Icon(
+                    Icons.network_ping_rounded,
+                    key: const ValueKey('icon'),
+                    size: 15,
+                    color: surge.textSecondary,
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -916,7 +985,7 @@ class _ProfileDelayBadge extends ConsumerWidget {
     final color = delay == null
         ? surge.textSecondary
         : delay == 0
-        ? surge.primary
+        ? surge.textSecondary
         : delay < 0
         ? surge.red
         : utils.getDelayColor(delay) ?? surge.textSecondary;
@@ -938,7 +1007,7 @@ class _ProfileDelayBadge extends ConsumerWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: delay == null
-                ? const Color(0xFFF4F6FA)
+                ? surge.textSecondary.withValues(alpha: 0.08)
                 : color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(15),
             border: Border.all(
@@ -1153,11 +1222,11 @@ class ProfileItem extends StatelessWidget {
       children: [
         SurgeCard(
           backgroundColor: isSelected
-              ? surge.primary.withValues(alpha: 0.055)
+              ? surge.textSecondary.withValues(alpha: 0.08)
               : surge.card,
           border: Border.all(
             color: isSelected
-                ? surge.primary.withValues(alpha: 0.16)
+                ? surge.textSecondary.withValues(alpha: 0.24)
                 : surge.separator,
             width: 0.5,
           ),
@@ -1183,7 +1252,10 @@ class ProfileItem extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                _ProfilePill(label: profile.type.name, color: surge.primary),
+                _ProfilePill(
+                  label: profile.type.name,
+                  color: surge.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 SizedBox(
                   height: 40,
@@ -1252,12 +1324,12 @@ class ProfileItem extends StatelessWidget {
                 width: 18,
                 height: 18,
                 decoration: BoxDecoration(
-                  color: surge.primary,
+                  color: surge.textPrimary,
                   shape: BoxShape.circle,
                   border: Border.all(color: surge.card, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: surge.primary.withValues(alpha: 0.22),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -1407,7 +1479,7 @@ class _ProfileActionMenuItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: danger
                     ? surge.red.withValues(alpha: 0.09)
-                    : const Color(0xFFF4F6FA),
+                    : surge.textSecondary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(icon, size: 16, color: color),

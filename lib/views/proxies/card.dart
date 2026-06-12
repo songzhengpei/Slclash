@@ -71,11 +71,11 @@ class ProxyCard extends StatelessWidget {
               shadow: false,
               borderRadius: surge.radii.list,
               backgroundColor: isSelected
-                  ? surge.primary.withValues(alpha: 0.055)
+                  ? surge.textSecondary.withValues(alpha: 0.08)
                   : surge.card,
               border: Border.all(
                 color: isSelected
-                    ? surge.primary.withValues(alpha: 0.16)
+                    ? surge.textSecondary.withValues(alpha: 0.24)
                     : surge.separator,
                 width: 0.5,
               ),
@@ -117,12 +117,12 @@ class ProxyCard extends StatelessWidget {
                     width: 18,
                     height: 18,
                     decoration: BoxDecoration(
-                      color: surge.primary,
+                      color: surge.textPrimary,
                       shape: BoxShape.circle,
                       border: Border.all(color: surge.card, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: surge.primary.withValues(alpha: 0.22),
+                          color: Colors.black.withValues(alpha: 0.12),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -164,7 +164,7 @@ class _DelayBadge extends ConsumerWidget {
     final color = delay == null
         ? surge.textSecondary
         : delay == 0
-        ? surge.primary
+        ? surge.textSecondary
         : delay < 0
         ? surge.red
         : utils.getDelayColor(delay) ?? surge.textSecondary;
@@ -184,7 +184,7 @@ class _DelayBadge extends ConsumerWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: delay == null
-                ? const Color(0xFFF4F6FA)
+                ? surge.textSecondary.withValues(alpha: 0.08)
                 : color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(15),
             border: Border.all(
@@ -297,9 +297,13 @@ class _ProxyComputedMark extends ConsumerWidget {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: surge.primary.withValues(alpha: 0.14),
+        color: surge.textSecondary.withValues(alpha: 0.12),
       ),
-      child: Icon(Icons.auto_awesome_rounded, size: 12, color: surge.primary),
+      child: Icon(
+        Icons.auto_awesome_rounded,
+        size: 12,
+        color: surge.textPrimary,
+      ),
     );
   }
 }

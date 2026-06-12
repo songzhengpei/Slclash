@@ -260,6 +260,7 @@ class _ProviderActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final foreground = loading ? surge.textSecondary : surge.textPrimary;
 
     return Material(
       color: Colors.transparent,
@@ -269,7 +270,7 @@ class _ProviderActionButton extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F6FA),
+            color: surge.textSecondary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -280,16 +281,16 @@ class _ProviderActionButton extends StatelessWidget {
                   dimension: 13,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: surge.primary,
+                    color: foreground,
                   ),
                 )
               else
-                Icon(icon, size: 15, color: surge.primary),
+                Icon(icon, size: 15, color: foreground),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: context.textTheme.labelMedium?.copyWith(
-                  color: surge.primary,
+                  color: foreground,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   height: 1,

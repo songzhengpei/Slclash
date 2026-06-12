@@ -429,7 +429,7 @@ class _ListHeaderState extends State<ListHeader> {
                     padding: EdgeInsets.all(5.ap),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
-                      color: surge.primary.withValues(alpha: 0.1),
+                      color: surge.textSecondary.withValues(alpha: 0.08),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: IconTheme.merge(
@@ -600,9 +600,9 @@ class _ListHeaderState extends State<ListHeader> {
                   style: ButtonStyle(
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     backgroundColor: WidgetStatePropertyAll(
-                      surge.primary.withValues(alpha: 0.1),
+                      surge.textSecondary.withValues(alpha: 0.12),
                     ),
-                    foregroundColor: WidgetStatePropertyAll(surge.primary),
+                    foregroundColor: WidgetStatePropertyAll(surge.textPrimary),
                   ),
                   onPressed: () {
                     _handleChange(groupName);
