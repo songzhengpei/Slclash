@@ -7,6 +7,7 @@ import 'package:fl_clash/pages/editor.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,26 +59,39 @@ class _ScriptsViewState extends ConsumerState<ScriptsView> {
         label: appLocalizations.nullTip(appLocalizations.script),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      itemCount: scripts.length,
-      itemBuilder: (_, index) {
-        final script = scripts[index];
-        return CommonSelectedListItem(
-          isSelected: selectedScriptId == script.id,
-          title: Text(
-            script.label,
-            style: context.textTheme.bodyLarge,
-            maxLines: 3,
+    return ColoredBox(
+      color: SurgeTheme.of(context).background,
+      child: ListView(
+        padding: EdgeInsets.only(
+          top: 12,
+          bottom: 32 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
+          SurgeSection(
+            showDividers: true,
+            children: [
+              for (final script in scripts)
+                ListItem(
+                  onTap: () {
+                    _handleSelected(script.id);
+                  },
+                  title: Text(
+                    script.label,
+                    style: context.textTheme.bodyLarge,
+                    maxLines: 3,
+                  ),
+                  trailing: CommonCheckBox(
+                    value: selectedScriptId == script.id,
+                    isCircle: true,
+                    onChanged: (_) {
+                      _handleSelected(script.id);
+                    },
+                  ),
+                ),
+            ],
           ),
-          onSelected: () {
-            _handleSelected(script.id);
-          },
-          onPressed: () {
-            _handleSelected(script.id);
-          },
-        );
-      },
+        ],
+      ),
     );
   }
 

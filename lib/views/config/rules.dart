@@ -4,6 +4,7 @@ import 'package:fl_clash/features/features.dart';
 import 'package:fl_clash/models/clash_config.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -103,40 +104,46 @@ class _AddedRulesViewState extends ConsumerState<AddedRulesView> {
           ),
           const SizedBox(width: 8),
         ],
-        body: rules.isEmpty
-            ? NullStatus(
-                label: appLocalizations.nullTip(appLocalizations.rule),
-                illustration: const RuleEmptyIllustration(),
-              )
-            : ReorderableList(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                itemBuilder: (context, index) {
-                  final rule = rules[index];
-                  final position = ItemPosition.get(index, rules.length);
-                  return ReorderableDelayedDragStartListener(
-                    key: ObjectKey(rule),
-                    index: index,
-                    child: ItemPositionProvider(
-                      position: position,
-                      child: RuleItem(
-                        hasMatch: true,
-                        isEditing: selectedRules.isNotEmpty,
-                        rule: rule,
-                        isSelected: selectedRules.contains(rule.id),
-                        onSelected: () {
-                          _handleSelected(rule.id);
-                        },
-                        onEdit: (Rule rule) {
-                          _handleAddOrUpdate(rule);
-                        },
+        body: ColoredBox(
+          color: SurgeTheme.of(context).background,
+          child: rules.isEmpty
+              ? NullStatus(
+                  label: appLocalizations.nullTip(appLocalizations.rule),
+                  illustration: const RuleEmptyIllustration(),
+                )
+              : ReorderableList(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 16,
+                  ),
+                  itemBuilder: (context, index) {
+                    final rule = rules[index];
+                    final position = ItemPosition.get(index, rules.length);
+                    return ReorderableDelayedDragStartListener(
+                      key: ObjectKey(rule),
+                      index: index,
+                      child: ItemPositionProvider(
+                        position: position,
+                        child: RuleItem(
+                          hasMatch: true,
+                          isEditing: selectedRules.isNotEmpty,
+                          rule: rule,
+                          isSelected: selectedRules.contains(rule.id),
+                          onSelected: () {
+                            _handleSelected(rule.id);
+                          },
+                          onEdit: (Rule rule) {
+                            _handleAddOrUpdate(rule);
+                          },
+                        ),
                       ),
-                    ),
-                  );
-                },
-                itemExtent: ruleItemHeight,
-                itemCount: rules.length,
-                onReorder: ref.read(globalRulesProvider.notifier).order,
-              ),
+                    );
+                  },
+                  itemExtent: ruleItemHeight,
+                  itemCount: rules.length,
+                  onReorder: ref.read(globalRulesProvider.notifier).order,
+                ),
+        ),
       ),
     );
   }

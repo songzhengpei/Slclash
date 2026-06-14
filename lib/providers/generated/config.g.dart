@@ -580,58 +580,6 @@ abstract class _$PatchClashConfig extends $Notifier<PatchClashConfig> {
   }
 }
 
-@ProviderFor(ExcludeSSIDs)
-final excludeSSIDsProvider = ExcludeSSIDsProvider._();
-
-final class ExcludeSSIDsProvider
-    extends $NotifierProvider<ExcludeSSIDs, List<String>> {
-  ExcludeSSIDsProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'excludeSSIDsProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$excludeSSIDsHash();
-
-  @$internal
-  @override
-  ExcludeSSIDs create() => ExcludeSSIDs();
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(List<String> value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<List<String>>(value),
-    );
-  }
-}
-
-String _$excludeSSIDsHash() => r'a67805c76b58d19da1656783f4514111d6bf4e35';
-
-abstract class _$ExcludeSSIDs extends $Notifier<List<String>> {
-  List<String> build();
-  @$mustCallSuper
-  @override
-  void runBuild() {
-    final ref = this.ref as $Ref<List<String>, List<String>>;
-    final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<List<String>, List<String>>,
-              List<String>,
-              Object?,
-              Object?
-            >;
-    element.handleCreate(ref, build);
-  }
-}
-
 @ProviderFor(_config)
 final configProvider = _ConfigProvider._();
 
@@ -670,4 +618,4 @@ final class _ConfigProvider extends $FunctionalProvider<Config, Config, Config>
   }
 }
 
-String _$_configHash() => r'7f29da1e31a3393fb36ab43c21f0d1b38223afec';
+String _$_configHash() => r'17dad8563f5727690a7fd484815e7344e6a46ffa';

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
-import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/list.dart';
@@ -10,21 +9,11 @@ import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-@immutable
-class Contributor {
-  final String avatar;
-  final String name;
-  final String link;
-
-  const Contributor({
-    required this.avatar,
-    required this.name,
-    required this.link,
-  });
-}
-
 class AboutView extends StatelessWidget {
   const AboutView({super.key});
+
+  static const _slclashDesc =
+      'SlClash 是基于 FlClash 和 Mihomo 内核私有裁剪和重设计的 Android 代理客户端。';
 
   Future<void> _checkUpdate(BuildContext context) async {
     final data = await globalState.safeRun<Map<String, dynamic>?>(
@@ -41,6 +30,7 @@ class AboutView extends StatelessWidget {
     return SurgeSection(
       title: appLocalizations.more,
       margin: EdgeInsets.zero,
+      showDividers: true,
       children: [
         ListItem(
           title: Text(appLocalizations.checkUpdate),
@@ -49,9 +39,9 @@ class AboutView extends StatelessWidget {
           },
         ),
         ListItem(
-          title: const Text('Telegram'),
+          title: const Text('原生项目'),
           onTap: () {
-            globalState.openUrl('https://t.me/FlClash');
+            globalState.openUrl('https://github.com/chen08209/FlClash');
           },
           trailing: const Icon(Icons.launch),
         ),
@@ -70,39 +60,6 @@ class AboutView extends StatelessWidget {
             );
           },
           trailing: const Icon(Icons.launch),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContributorsSection(AppLocalizations appLocalizations) {
-    const contributors = [
-      Contributor(
-        avatar: 'assets/images/avatar/june2.jpg',
-        name: 'June2',
-        link: 'https://t.me/Jibadong',
-      ),
-      Contributor(
-        avatar: 'assets/images/avatar/arue.jpg',
-        name: 'Arue',
-        link: 'https://t.me/xrcm6868',
-      ),
-    ];
-    return SurgeSection(
-      title: appLocalizations.otherContributors,
-      margin: EdgeInsets.zero,
-      children: [
-        ListItem(
-          title: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Wrap(
-              spacing: 24,
-              children: [
-                for (final contributor in contributors)
-                  Avatar(contributor: contributor),
-              ],
-            ),
-          ),
         ),
       ],
     );
@@ -183,8 +140,10 @@ class AboutView extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 14),
+                  Divider(height: 0, color: surge.separator),
+                  const SizedBox(height: 12),
                   Text(
-                    appLocalizations.desc,
+                    _slclashDesc,
                     style: context.textTheme.bodySmall?.copyWith(
                       color: surge.textSecondary,
                       height: 1.35,
@@ -195,40 +154,10 @@ class AboutView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildContributorsSection(appLocalizations),
-            const SizedBox(height: 16),
             _buildMoreSection(context),
           ],
         ),
       ),
-    );
-  }
-}
-
-class Avatar extends StatelessWidget {
-  final Contributor contributor;
-
-  const Avatar({super.key, required this.contributor});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      child: Column(
-        children: [
-          SizedBox(
-            width: 36,
-            height: 36,
-            child: CircleAvatar(
-              foregroundImage: AssetImage(contributor.avatar),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(contributor.name, style: context.textTheme.bodySmall),
-        ],
-      ),
-      // onTap: () {
-      //   globalState.openUrl(contributor.link);
-      // },
     );
   }
 }

@@ -9,7 +9,6 @@ import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
-import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -160,14 +159,6 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(true)
             }
 
-            "isBatteryOptimizationDisabled" -> {
-                result.success(isBatteryOptimizationDisabled())
-            }
-
-            "openBatteryOptimizationSettings" -> {
-                result.success(openBatteryOptimizationSettings())
-            }
-
             "openAppSettings" -> {
                 result.success(openAppSettings())
             }
@@ -209,24 +200,6 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun tip(message: String?) {
         GlobalState.application.showToast(message)
-    }
-
-    private fun isBatteryOptimizationDisabled(): Boolean {
-        val powerManager = getSystemService(GlobalState.application, PowerManager::class.java)
-        return powerManager?.isIgnoringBatteryOptimizations(GlobalState.application.packageName)
-            ?: false
-    }
-
-    private fun openBatteryOptimizationSettings(): Boolean {
-        return try {
-            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = "package:${GlobalState.application.packageName}".toUri()
-            }
-            activityRef?.get()?.startActivity(intent)
-            true
-        } catch (_: Exception) {
-            false
-        }
     }
 
     private fun openAppSettings(): Boolean {

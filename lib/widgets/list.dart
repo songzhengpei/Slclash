@@ -449,7 +449,7 @@ class SurgeSwitch extends StatelessWidget {
     final trackColor = !enabled
         ? surge.textSecondary.withValues(alpha: 0.1)
         : value
-        ? surge.textPrimary
+        ? surge.primary
         : surge.textSecondary.withValues(alpha: 0.14);
     final knobAlign = value ? Alignment.centerRight : Alignment.centerLeft;
 
@@ -649,10 +649,20 @@ List<Widget> generateInfoSection({
 }
 
 Widget generateListView(List<Widget> items) {
-  return ListView.builder(
-    itemCount: items.length,
-    itemBuilder: (_, index) => items[index],
-    padding: const EdgeInsets.only(bottom: 16),
+  return Builder(
+    builder: (context) {
+      final surge = SurgeTheme.of(context);
+      return ColoredBox(
+        color: surge.background,
+        child: ListView(
+          padding: EdgeInsets.only(
+            top: 12,
+            bottom: 32 + MediaQuery.paddingOf(context).bottom,
+          ),
+          children: [SurgeSection(showDividers: true, children: items)],
+        ),
+      );
+    },
   );
 }
 

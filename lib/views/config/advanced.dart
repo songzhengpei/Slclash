@@ -4,7 +4,6 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/config/dns.dart';
 import 'package:fl_clash/views/config/network.dart';
-import 'package:fl_clash/views/config/on_demand.dart';
 import 'package:fl_clash/views/config/scripts.dart';
 import 'package:fl_clash/widgets/list.dart';
 import 'package:fl_clash/widgets/scaffold.dart';
@@ -31,12 +30,6 @@ class AdvancedConfigView extends StatelessWidget {
             body: const NetworkListView(),
           ),
         ),
-      ),
-      ListItem.open(
-        title: Text(appLocalizations.onDemand),
-        subtitle: Text(appLocalizations.onDemandDesc),
-        leading: const Icon(Icons.ssid_chart, fontWeight: FontWeight.w900),
-        delegate: const OpenDelegate(widget: OnDemandView(), blur: false),
       ),
       ListItem.open(
         title: const Text('DNS'),
@@ -87,9 +80,7 @@ class AdvancedConfigView extends StatelessWidget {
     ];
     return BaseScaffold(
       title: appLocalizations.advancedConfig,
-      body: generateListView(
-        items.separated(const Divider(height: 0)).toList(),
-      ),
+      body: generateListView(items),
     );
   }
 }

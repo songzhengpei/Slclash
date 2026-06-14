@@ -55,30 +55,42 @@ class HomePage extends StatelessWidget {
                     statusBarColor: surge.background,
                     statusBarIconBrightness: Brightness.dark,
                     statusBarBrightness: Brightness.light,
-                    systemNavigationBarColor: surge.card,
+                    systemNavigationBarColor: surge.background,
                     systemNavigationBarIconBrightness: Brightness.dark,
                     systemNavigationBarDividerColor: surge.separator,
                   ),
-                  child: Column(
+                  child: Stack(
                     children: [
-                      Flexible(
-                        flex: 1,
+                      Positioned.fill(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.paddingOf(context).bottom + 88,
+                          ),
+                          child: MediaQuery.removePadding(
+                            removeTop: false,
+                            removeBottom: true,
+                            removeLeft: true,
+                            removeRight: true,
+                            context: context,
+                            child: child!,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
                         child: MediaQuery.removePadding(
-                          removeTop: false,
-                          removeBottom: true,
+                          removeTop: true,
+                          removeBottom: false,
                           removeLeft: true,
                           removeRight: true,
                           context: context,
-                          child: child!,
+                          child: Transform.translate(
+                            offset: const Offset(0, 2),
+                            child: bottomNavigationBar,
+                          ),
                         ),
-                      ),
-                      MediaQuery.removePadding(
-                        removeTop: true,
-                        removeBottom: false,
-                        removeLeft: true,
-                        removeRight: true,
-                        context: context,
-                        child: bottomNavigationBar,
                       ),
                     ],
                   ),

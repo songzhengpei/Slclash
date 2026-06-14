@@ -528,9 +528,19 @@ ColorScheme genColorScheme(
 }) {
   final vm2 = ref.watch(
     themeSettingProvider.select(
-      (state) => VM2(state.primaryColor, state.schemeVariant),
+      (state) =>
+          VM3(state.primaryColor, state.schemeVariant, state.dynamicColor),
     ),
   );
+  if (!vm2.c && !ignoreConfig) {
+    return ColorScheme.fromSeed(
+      seedColor: brightness == Brightness.dark
+          ? const Color(0xFF4DA3FF)
+          : const Color(0xFF0A84FF),
+      brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.content,
+    );
+  }
   if (color == null && (ignoreConfig == true || vm2.a == null)) {
     // if (globalState.corePalette != null) {
     //   return globalState.corePalette!.toColorScheme(brightness: brightness);
@@ -844,7 +854,5 @@ class RuleProvider extends _$RuleProvider with AutoDisposeNotifierMixin {
 
 @riverpod
 bool suspend(Ref ref) {
-  final currentSSID = ref.watch(currentSSIDProvider);
-  final excludeSSIDs = ref.watch(excludeSSIDsProvider);
-  return excludeSSIDs.contains(currentSSID);
+  return false;
 }

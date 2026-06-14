@@ -331,10 +331,10 @@ Future<String> _encodeLogsTask(List<Log> data) async {
 
 Future<MigrationData> oldToNowTask(Map<String, Object?> data) async {
   final homeDir = await appPath.homeDirPath;
-  return compute<
-    VM3<Map<String, Object?>, String, String>,
-    MigrationData
-  >(_oldToNowTask, VM3(data, homeDir, homeDir));
+  return compute<VM3<Map<String, Object?>, String, String>, MigrationData>(
+    _oldToNowTask,
+    VM3(data, homeDir, homeDir),
+  );
 }
 
 Future<MigrationData> _oldToNowTask(

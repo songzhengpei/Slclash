@@ -322,7 +322,6 @@ class GlobalState {
     await container.read(coreActionProvider.notifier).initCore();
     await container.read(setupActionProvider.notifier).initStatus();
     container.read(initProvider.notifier).value = true;
-    permissions.check();
   }
 
   Future<void> _handleFailedPreference() async {

@@ -6,6 +6,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -319,19 +320,45 @@ class _AccessViewState extends ConsumerState<AccessView> {
             ? NullStatus(label: appLocalizations.noData)
             : CommonScrollBar(
                 controller: _controller,
-                child: ListView.builder(
+                child: ListView.separated(
                   controller: _controller,
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    12,
+                    16,
+                    32 + MediaQuery.paddingOf(context).bottom,
+                  ),
                   itemCount: packages.length,
-                  itemExtent: 72,
+                  separatorBuilder: (_, _) {
+                    final surge = SurgeTheme.of(context);
+                    return ColoredBox(
+                      color: surge.card,
+                      child: Divider(height: 0, color: surge.separator),
+                    );
+                  },
                   itemBuilder: (_, index) {
+                    final surge = SurgeTheme.of(context);
                     final package = packages[index];
-                    return PackageListItem(
-                      key: Key(package.packageName),
-                      package: package,
-                      value: valueList.contains(package.packageName),
-                      onChanged: (value) {
-                        _handleSelected(package.packageName);
-                      },
+                    final isFirst = index == 0;
+                    final isLast = index == packages.length - 1;
+                    return ClipRRect(
+                      borderRadius: BorderRadius.vertical(
+                        top: isFirst ? const Radius.circular(18) : Radius.zero,
+                        bottom: isLast
+                            ? const Radius.circular(18)
+                            : Radius.zero,
+                      ),
+                      child: ColoredBox(
+                        color: surge.card,
+                        child: PackageListItem(
+                          key: Key(package.packageName),
+                          package: package,
+                          value: valueList.contains(package.packageName),
+                          onChanged: (value) {
+                            _handleSelected(package.packageName);
+                          },
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -412,6 +439,7 @@ class _AccessViewState extends ConsumerState<AccessView> {
     return CommonScaffold(
       key: _scaffoldKey,
       isLoading: isLoading,
+      backgroundColor: SurgeTheme.of(context).background,
       searchState: AppBarSearchState(onSearch: _onSearch, autoAddSearch: false),
       title: context.appLocalizations.appAccessControl,
       actions: _buildActions(context, enable: accessControl.enable),

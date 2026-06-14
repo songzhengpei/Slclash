@@ -11,6 +11,7 @@ class SurgeSection extends StatelessWidget {
     this.footer,
     this.padding,
     this.margin,
+    this.showDividers = false,
   });
 
   final String? title;
@@ -18,6 +19,17 @@ class SurgeSection extends StatelessWidget {
   final List<Widget> children;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
+  final bool showDividers;
+
+  List<Widget> _buildChildren(SurgeTheme surge) {
+    if (!showDividers) return children;
+    return [
+      for (var i = 0; i < children.length; i++) ...[
+        if (i != 0) Divider(height: 0, color: surge.separator),
+        children[i],
+      ],
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +65,7 @@ class SurgeSection extends StatelessWidget {
             borderRadius: surge.radii.list,
             padding: padding ?? EdgeInsets.zero,
             shadow: false,
-            child: Column(children: children),
+            child: Column(children: _buildChildren(surge)),
           ),
           if (footer != null) ...[
             Padding(

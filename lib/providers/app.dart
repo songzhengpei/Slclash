@@ -9,7 +9,6 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:flutter/services.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:wifi_ssid/wifi_ssid.dart';
 
 part 'generated/app.g.dart';
 
@@ -431,32 +430,6 @@ class NetworkDetection extends _$NetworkDetection
   void _cancelTimeoutTimer() {
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
-  }
-}
-
-@Riverpod(keepAlive: true)
-class CurrentSSID extends _$CurrentSSID with AutoDisposeNotifierMixin {
-  @override
-  String? build() {
-    return null;
-  }
-}
-
-@Riverpod(keepAlive: true)
-class BatteryOptimizationDisable extends _$BatteryOptimizationDisable
-    with AutoDisposeNotifierMixin {
-  @override
-  bool build() {
-    return false;
-  }
-}
-
-@Riverpod(keepAlive: true)
-class LocationPermissions extends _$LocationPermissions
-    with AutoDisposeNotifierMixin {
-  @override
-  WifiSsidPermission build() {
-    return WifiSsidPermission.denied;
   }
 }
 

@@ -1929,7 +1929,7 @@ final class GenColorSchemeProvider
   }
 }
 
-String _$genColorSchemeHash() => r'25f648db7c33ac00e7152f3d304da372a4de9fdd';
+String _$genColorSchemeHash() => r'202ed6e5c0adef1dc07ab0322773e29cb332b73a';
 
 final class GenColorSchemeFamily extends $Family
     with
@@ -3177,4 +3177,4 @@ final class SuspendProvider extends $FunctionalProvider<bool, bool, bool>
   }
 }
 
-String _$suspendHash() => r'9ab9210f4f3c70f63d9858d492a9c09b3fb24bf1';
+String _$suspendHash() => r'a8274b8067f0898213b003074cdd41cc59c7b332';

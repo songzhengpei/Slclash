@@ -266,6 +266,7 @@ _ThemeProps _$ThemePropsFromJson(Map<String, dynamic> json) => _ThemeProps(
         json['schemeVariant'],
       ) ??
       DynamicSchemeVariant.content,
+  dynamicColor: json['dynamicColor'] as bool? ?? true,
   pureBlack: json['pureBlack'] as bool? ?? false,
   textScale: json['textScale'] == null
       ? const TextScale()
@@ -278,6 +279,7 @@ Map<String, dynamic> _$ThemePropsToJson(_ThemeProps instance) =>
       'primaryColors': instance.primaryColors,
       'themeMode': _$ThemeModeEnumMap[instance.themeMode]!,
       'schemeVariant': _$DynamicSchemeVariantEnumMap[instance.schemeVariant]!,
+      'dynamicColor': instance.dynamicColor,
       'pureBlack': instance.pureBlack,
       'textScale': instance.textScale,
     };
@@ -338,11 +340,6 @@ _Config _$ConfigFromJson(Map<String, dynamic> json) => _Config(
       : PatchClashConfig.fromJson(
           json['patchClashConfig'] as Map<String, dynamic>,
         ),
-  excludeSSIDs:
-      (json['excludeSSIDs'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList() ??
-      const [],
 );
 
 Map<String, dynamic> _$ConfigToJson(_Config instance) => <String, dynamic>{
@@ -357,5 +354,4 @@ Map<String, dynamic> _$ConfigToJson(_Config instance) => <String, dynamic>{
   'proxiesStyleProps': instance.proxiesStyleProps,
   'windowProps': instance.windowProps,
   'patchClashConfig': instance.patchClashConfig,
-  'excludeSSIDs': instance.excludeSSIDs,
 };

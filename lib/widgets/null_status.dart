@@ -206,7 +206,7 @@ class _ThemeAwareSvg extends StatelessWidget {
           // primary ??
           svgString = svgString.replaceAll(
             '#6750A4',
-            '#${_colorToHex(colorScheme.primary)}',
+            '#${_colorToHex(colorScheme.outlineVariant)}',
           );
           // surface ??
           svgString = svgString.replaceAll(

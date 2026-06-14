@@ -8,6 +8,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,19 +39,27 @@ class ThemeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     return BaseScaffold(
       title: appLocalizations.theme,
-      body: const CustomScrollView(
-        slivers: [
-          _ThemeModeItem(),
-          SliverToBoxAdapter(child: SizedBox(height: 16)),
-          _PrimaryColorItem(),
-          SliverToBoxAdapter(child: SizedBox(height: 16)),
-          _PrueBlackItem(),
-          SliverToBoxAdapter(child: SizedBox(height: 16)),
-          _TextScaleFactorItem(),
-          SliverToBoxAdapter(child: SizedBox(height: 32)),
-        ],
+      body: ColoredBox(
+        color: surge.background,
+        child: ListView(
+          padding: EdgeInsets.only(
+            top: 12,
+            bottom: 32 + MediaQuery.paddingOf(context).bottom,
+          ),
+          children: const [
+            SurgeSection(
+              showDividers: true,
+              children: [
+                _ThemeModeItem(),
+                _DynamicColorItem(),
+                _TextScaleFactorItem(),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -70,12 +79,42 @@ class ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      runSpacing: 16,
-      children: [
-        InfoHeader(info: info, actions: actions),
-        child,
-      ],
+    final surge = SurgeTheme.of(context);
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: surge.spacing.pagePadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    info.label,
+                    style: context.textTheme.labelMedium?.copyWith(
+                      color: surge.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Row(mainAxisSize: MainAxisSize.min, children: actions),
+                ],
+              ],
+            ),
+          ),
+          SurgeCard(
+            borderRadius: surge.radii.list,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shadow: false,
+            child: child,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -86,6 +125,7 @@ class _ThemeModeItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     final themeMode = ref.watch(
       themeSettingProvider.select((state) => state.themeMode),
     );
@@ -106,49 +146,162 @@ class _ThemeModeItem extends ConsumerWidget {
         themeMode: ThemeMode.dark,
       ),
     ];
-    return SliverToBoxAdapter(
-      child: ItemCard(
-        info: Info(
-          label: appLocalizations.themeMode,
-          iconData: Icons.brightness_high,
-        ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          height: 56,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: themeModeItems.length,
-            itemBuilder: (_, index) {
-              final themeModeItem = themeModeItems[index];
-              return CommonCard(
-                isSelected: themeModeItem.themeMode == themeMode,
-                onPressed: () {
-                  ref
-                      .read(themeSettingProvider.notifier)
-                      .update(
-                        (state) =>
-                            state.copyWith(themeMode: themeModeItem.themeMode),
-                      );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Flexible(child: Icon(themeModeItem.iconData)),
-                      const SizedBox(width: 8),
-                      Flexible(child: Text(themeModeItem.label)),
-                    ],
-                  ),
-                ),
-              );
-            },
-            separatorBuilder: (_, _) {
-              return const SizedBox(width: 16);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            appLocalizations.themeMode,
+            style: context.textTheme.bodyMedium?.copyWith(
+              color: surge.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _SurgeThemeModeControl(
+            value: themeMode,
+            items: themeModeItems,
+            onChanged: (value) {
+              ref
+                  .read(themeSettingProvider.notifier)
+                  .update((state) => state.copyWith(themeMode: value));
             },
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SurgeThemeModeControl extends StatelessWidget {
+  const _SurgeThemeModeControl({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final ThemeMode value;
+  final List<ThemeModeItem> items;
+  final ValueChanged<ThemeMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: surge.textSecondary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          for (final item in items)
+            Expanded(
+              child: _SurgeThemeModeButton(
+                item: item,
+                selected: value == item.themeMode,
+                onTap: () => onChanged(item.themeMode),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SurgeThemeModeButton extends StatelessWidget {
+  const _SurgeThemeModeButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ThemeModeItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(13),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? surge.card : Colors.transparent,
+            borderRadius: BorderRadius.circular(13),
+            boxShadow: selected ? SurgeShadows.subtle : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                item.iconData,
+                size: 17,
+                color: selected ? surge.primary : surge.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                item.label,
+                style: context.textTheme.labelMedium?.copyWith(
+                  color: selected ? surge.textPrimary : surge.textSecondary,
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _DynamicColorItem extends ConsumerWidget {
+  const _DynamicColorItem();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final surge = SurgeTheme.of(context);
+    final dynamicColor = ref.watch(
+      themeSettingProvider.select((state) => state.dynamicColor),
+    );
+    return ListItem.switchItem(
+      title: Text(
+        '动态取色',
+        style: context.textTheme.bodyMedium?.copyWith(
+          color: surge.textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+      ),
+      subtitle: Text(
+        dynamicColor ? '跟随系统 Material You 色彩' : '使用 SlClash 默认 Surge 色彩',
+        style: context.textTheme.bodySmall?.copyWith(
+          color: surge.textSecondary,
+          fontSize: 12,
+          letterSpacing: 0,
+        ),
+      ),
+      delegate: SwitchDelegate(
+        value: dynamicColor,
+        onChanged: (value) {
+          ref
+              .read(themeSettingProvider.notifier)
+              .update((state) => state.copyWith(dynamicColor: value));
+        },
       ),
     );
   }
@@ -418,116 +571,91 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
   }
 }
 
-class _PrueBlackItem extends ConsumerWidget {
-  const _PrueBlackItem();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final appLocalizations = context.appLocalizations;
-    final prueBlack = ref.watch(
-      themeSettingProvider.select((state) => state.pureBlack),
-    );
-    return SliverToBoxAdapter(
-      child: ListItem.switchItem(
-        leading: const Icon(Icons.contrast),
-        horizontalTitleGap: 12,
-        title: Text(
-          appLocalizations.pureBlackMode,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: context.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        delegate: SwitchDelegate(
-          value: prueBlack,
-          onChanged: (value) {
-            ref
-                .read(themeSettingProvider.notifier)
-                .update((state) => state.copyWith(pureBlack: value));
-          },
-        ),
-      ),
-    );
-  }
-}
-
 class _TextScaleFactorItem extends ConsumerWidget {
   const _TextScaleFactorItem();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     final textScale = ref.watch(
       themeSettingProvider.select((state) => state.textScale),
     );
     final String process = '${(textScale.scale * 100).round()}%';
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: ListItem.switchItem(
-              leading: const Icon(Icons.text_fields),
-              horizontalTitleGap: 12,
-              title: Text(
-                appLocalizations.textScale,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: context.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              delegate: SwitchDelegate(
-                value: textScale.enable,
-                onChanged: (value) {
-                  ref
-                      .read(themeSettingProvider.notifier)
-                      .update(
-                        (state) => state.copyWith.textScale(enable: value),
-                      );
-                },
-              ),
-            ),
+    return Column(
+      children: [
+        ListItem.switchItem(
+          leading: const Icon(Icons.text_fields),
+          horizontalTitleGap: 12,
+          title: Text(appLocalizations.textScale),
+          delegate: SwitchDelegate(
+            value: textScale.enable,
+            onChanged: (value) {
+              ref
+                  .read(themeSettingProvider.notifier)
+                  .update((state) => state.copyWith.textScale(enable: value));
+            },
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              mainAxisSize: MainAxisSize.max,
-              spacing: 32,
-              children: [
-                Expanded(
-                  child: DisabledMask(
-                    status: !textScale.enable,
-                    child: ActivateBox(
-                      active: textScale.enable,
-                      child: SliderTheme(
-                        data: _SliderDefaultsM3(context),
-                        child: Slider(
-                          padding: EdgeInsets.zero,
-                          min: minTextScale,
-                          max: maxTextScale,
-                          value: textScale.scale,
-                          onChanged: (value) {
-                            ref
-                                .read(themeSettingProvider.notifier)
-                                .update(
-                                  (state) =>
-                                      state.copyWith.textScale(scale: value),
-                                );
-                          },
-                        ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.max,
+            spacing: 32,
+            children: [
+              Expanded(
+                child: DisabledMask(
+                  status: !textScale.enable,
+                  child: ActivateBox(
+                    active: textScale.enable,
+                    child: SliderTheme(
+                      data: _SliderDefaultsM3(context),
+                      child: Slider(
+                        padding: EdgeInsets.zero,
+                        min: minTextScale,
+                        max: maxTextScale,
+                        value: textScale.scale,
+                        onChanged: (value) {
+                          ref
+                              .read(themeSettingProvider.notifier)
+                              .update(
+                                (state) =>
+                                    state.copyWith.textScale(scale: value),
+                              );
+                        },
                       ),
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Text(process, style: context.textTheme.titleMedium),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 56),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: surge.textSecondary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    process,
+                    style: context.textTheme.labelMedium?.copyWith(
+                      color: surge.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

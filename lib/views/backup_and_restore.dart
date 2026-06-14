@@ -214,6 +214,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
         children: [
           SurgeSection(
             title: appLocalizations.remote,
+            showDividers: true,
             children: [
               if (dav == null)
                 ListItem(
@@ -314,6 +315,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
           ),
           SurgeSection(
             title: appLocalizations.local,
+            showDividers: true,
             children: [
               ListItem(
                 onTap: () {
@@ -333,6 +335,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
           ),
           SurgeSection(
             title: appLocalizations.options,
+            showDividers: true,
             children: [
               Consumer(
                 builder: (_, ref, _) {

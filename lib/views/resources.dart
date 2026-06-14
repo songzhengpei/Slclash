@@ -277,8 +277,7 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
             ),
             itemCount: _geoItems.length + 1,
             separatorBuilder: (_, index) {
-              if (index == 0) return const Divider(height: 0);
-              return const Divider(height: 0, indent: 62);
+              return const Divider(height: 0);
             },
             itemBuilder: (_, index) {
               if (index == 0) {
@@ -618,11 +617,8 @@ class _ResourceItemCard extends ConsumerWidget {
         item.label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: context.textTheme.titleSmall?.copyWith(
+        style: context.textTheme.bodyLarge?.copyWith(
           color: surge.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          height: 1,
           letterSpacing: 0,
         ),
       ),
