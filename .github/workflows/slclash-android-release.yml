@@ -136,6 +136,12 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 
+      - name: Tidy Go modules
+        shell: bash
+        run: |
+          cd core
+          go mod tidy
+
       - name: Build Go core
         shell: bash
         env:
