@@ -471,9 +471,7 @@ class _ResourceSettingOption extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: selected
-                      ? surge.textSecondary.withValues(alpha: 0.16)
-                      : surge.textSecondary.withValues(alpha: 0.08),
+                  color: selected ? surge.selectedFill : surge.fill,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 17, color: foreground),
@@ -518,18 +516,18 @@ class _ResourceSettingOption extends StatelessWidget {
                 width: 18,
                 height: 18,
                 decoration: BoxDecoration(
-                  color: selected ? surge.textPrimary : Colors.transparent,
+                  color: selected ? surge.primary : Colors.transparent,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: selected ? surge.textPrimary : surge.separator,
+                    color: selected ? surge.primary : surge.separator,
                     width: 1.2,
                   ),
                 ),
                 child: selected
-                    ? const Icon(
+                    ? Icon(
                         Icons.check_rounded,
                         size: 13,
-                        color: Colors.white,
+                        color: surge.onPrimary,
                       )
                     : null,
               ),

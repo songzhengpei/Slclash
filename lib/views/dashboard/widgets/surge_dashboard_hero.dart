@@ -153,16 +153,9 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surge.card,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: Border.all(color: surge.separator),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,6 +320,7 @@ class _HeroModeCardSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final foreground = Colors.white;
     final secondary = onBlue
         ? Colors.white.withValues(alpha: 0.82)
@@ -336,10 +330,13 @@ class _HeroModeCardSurface extends StatelessWidget {
       height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       decoration: BoxDecoration(
-        color: onBlue ? null : const Color(0xFF858681),
+        color: onBlue ? null : surge.inactive,
         gradient: onBlue
-            ? const LinearGradient(
-                colors: [Color(0xFF1495FF), Color(0xFF0068F5)],
+            ? LinearGradient(
+                colors: [
+                  surge.primary,
+                  Color.lerp(surge.primary, Colors.black, 0.18)!,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
@@ -357,11 +354,7 @@ class _HeroModeCardSurface extends StatelessWidget {
                   : Colors.white.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              Icons.call_split_rounded,
-              color: Colors.white,
-              size: 21,
-            ),
+            child: Icon(Icons.call_split_rounded, color: foreground, size: 21),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -374,7 +367,7 @@ class _HeroModeCardSurface extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   style: context.textTheme.titleLarge?.copyWith(
-                    color: foreground,
+                    color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     height: 1.05,
@@ -424,17 +417,18 @@ class _HeroActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF34C759), Color(0xFF20B84D)],
+        gradient: LinearGradient(
+          colors: [surge.green, Color.lerp(surge.green, Colors.black, 0.16)!],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF34C759).withValues(alpha: 0.2),
+            color: surge.green.withValues(alpha: 0.2),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -450,19 +444,19 @@ class _HeroActionButton extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: loading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.2,
-                        color: Colors.white,
+                        color: surge.onPrimary,
                       ),
                     )
                   : Center(
                       child: Text(
                         isStart ? '停止' : '启动',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.white,
+                          color: surge.onPrimary,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0,
@@ -744,30 +738,56 @@ class _ModeSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge =
         Theme.of(context).extension<SurgeTheme>() ?? SurgeTheme.light();
+    const modes = [Mode.rule, Mode.direct, Mode.global];
+    final selectedIndex = modes.indexOf(value).clamp(0, modes.length - 1);
 
     return Container(
       height: 32,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F4F7),
+        color: surge.fill,
         borderRadius: BorderRadius.circular(26),
       ),
-      child: Row(
-        children: [
-          for (final mode in const [Mode.rule, Mode.direct, Mode.global])
-            Expanded(
-              child: _ModeSwitchItem(
-                label: switch (mode) {
-                  Mode.rule => context.appLocalizations.rule,
-                  Mode.direct => context.appLocalizations.direct,
-                  Mode.global => context.appLocalizations.global,
-                },
-                selected: mode == value,
-                primary: surge.primary,
-                onTap: () => onChanged(mode),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = constraints.maxWidth / modes.length;
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                left: itemWidth * selectedIndex,
+                top: 0,
+                bottom: 0,
+                width: itemWidth,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: surge.elevatedCard,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
               ),
-            ),
-        ],
+              Row(
+                children: [
+                  for (final mode in modes)
+                    Expanded(
+                      child: _ModeSwitchItem(
+                        label: switch (mode) {
+                          Mode.rule => context.appLocalizations.rule,
+                          Mode.direct => context.appLocalizations.direct,
+                          Mode.global => context.appLocalizations.global,
+                        },
+                        selected: mode == value,
+                        primary: surge.primary,
+                        textSecondary: surge.textSecondary,
+                        onTap: () => onChanged(mode),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -778,50 +798,42 @@ class _ModeSwitchItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.primary,
+    required this.textSecondary,
     required this.onTap,
   });
 
   final String label;
   final bool selected;
   final Color primary;
+  final Color textSecondary;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: selected ? Colors.white : Colors.transparent,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.055),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+        child: Center(
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            style:
+                Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: selected ? primary : textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.0,
+                  letterSpacing: 0,
+                ) ??
+                TextStyle(
+                  color: selected ? primary : textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.0,
                 ),
-              ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: Center(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: selected ? primary : const Color(0xFF8D94A1),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.0,
-                letterSpacing: 0,
-              ),
-            ),
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ),
       ),
@@ -843,12 +855,13 @@ class _HeroInfoBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return Container(
       width: double.infinity,
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F6FA),
+        color: surge.fill,
         borderRadius: BorderRadius.circular(22),
       ),
       child: Row(
@@ -861,7 +874,7 @@ class _HeroInfoBar extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: const Color(0xFF8D95A1),
+                    color: surge.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     height: 1.0,
@@ -874,7 +887,7 @@ class _HeroInfoBar extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: const Color(0xFF111318),
+                    color: surge.textPrimary,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     height: 1.0,
@@ -888,7 +901,7 @@ class _HeroInfoBar extends StatelessWidget {
             width: 1,
             height: 16,
             margin: const EdgeInsets.symmetric(horizontal: 10),
-            color: const Color(0xFFD9DEE7),
+            color: surge.separator,
           ),
           Expanded(
             child: Row(
@@ -898,7 +911,7 @@ class _HeroInfoBar extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: const Color(0xFF8D95A1),
+                    color: surge.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     height: 1.0,
@@ -911,7 +924,7 @@ class _HeroInfoBar extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: const Color(0xFF111318),
+                    color: surge.textPrimary,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     height: 1.0,

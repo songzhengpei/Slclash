@@ -32,6 +32,7 @@ class SurgeBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 16;
     final navWidth = math.max(MediaQuery.sizeOf(context).width - 36, 0.0);
 
@@ -43,12 +44,12 @@ class SurgeBottomNav extends StatelessWidget {
           width: navWidth,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.94),
+              color: surge.navBar,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+              border: Border.all(color: surge.navBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
+                  color: surge.shadow,
                   blurRadius: 26,
                   offset: const Offset(0, 12),
                 ),
@@ -60,7 +61,7 @@ class SurgeBottomNav extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.94),
+                    color: surge.navBar,
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: SizedBox(

@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:fl_clash/providers/app.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,11 +26,13 @@ class CommonDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final size = ref.watch(viewSizeProvider);
+    final surge = SurgeTheme.of(context);
     return AlertDialog(
       title: Text(title),
       actions: actions,
       contentPadding: padding,
-      backgroundColor: backgroundColor,
+      backgroundColor: backgroundColor ?? surge.card,
+      surfaceTintColor: Colors.transparent,
       content: Container(
         constraints: BoxConstraints(
           maxHeight: min(size.height - 40, 500),
@@ -50,11 +53,15 @@ class CommonModal extends ConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final size = ref.watch(viewSizeProvider);
+    final surge = SurgeTheme.of(context);
     return Center(
       child: Container(
         width: size.width * 0.85,
         height: size.height * 0.85,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: surge.card,
+          borderRadius: BorderRadius.circular(12),
+        ),
         clipBehavior: Clip.antiAlias,
         child: child,
       ),

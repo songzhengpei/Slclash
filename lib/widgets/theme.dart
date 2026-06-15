@@ -65,7 +65,7 @@ class SurgeAddButton extends ConsumerWidget {
         ? FilledButton.styleFrom(visualDensity: VisualDensity.compact)
         : FilledButton.styleFrom(
             backgroundColor: surge.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: surge.onPrimary,
             padding: const EdgeInsets.symmetric(horizontal: 14),
             minimumSize: const Size(0, 36),
             shape: RoundedRectangleBorder(

@@ -30,6 +30,7 @@ class SurgeFeatureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final baseColor = color ?? surge.primary;
+    final onBaseColor = color == null ? surge.onPrimary : Colors.white;
     final radius = BorderRadius.circular(surge.radii.card);
     final effectiveGradient =
         gradient ??
@@ -69,7 +70,7 @@ class SurgeFeatureCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (icon != null) ...[
-                      Icon(icon, color: Colors.white, size: 24),
+                      Icon(icon, color: onBaseColor, size: 24),
                       const SizedBox(width: 10),
                     ],
                     Expanded(
@@ -83,7 +84,7 @@ class SurgeFeatureCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
-                                  color: Colors.white,
+                                  color: onBaseColor,
                                   fontSize: 17,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0,
@@ -97,7 +98,7 @@ class SurgeFeatureCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.78),
+                                    color: onBaseColor.withValues(alpha: 0.78),
                                     fontSize: 13,
                                     letterSpacing: 0,
                                   ),

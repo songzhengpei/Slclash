@@ -217,7 +217,7 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
                         border: Border.all(color: surge.separator, width: 0.5),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: surge.shadow.withValues(alpha: 0.55),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -513,6 +513,7 @@ class _DelayTestButtonState extends State<DelayTestButton>
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     return AnimatedBuilder(
       animation: _controller.view,
       builder: (_, child) {
@@ -523,8 +524,8 @@ class _DelayTestButtonState extends State<DelayTestButton>
       },
       child: FloatingActionButton.extended(
         onPressed: _healthcheck,
-        backgroundColor: SurgeTheme.of(context).primary,
-        foregroundColor: Colors.white,
+        backgroundColor: surge.primary,
+        foregroundColor: surge.onPrimary,
         elevation: 2,
         label: Text(appLocalizations.delayTest),
         icon: const Icon(Icons.network_ping_rounded),

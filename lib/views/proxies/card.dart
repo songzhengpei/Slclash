@@ -70,13 +70,9 @@ class ProxyCard extends StatelessWidget {
               padding: EdgeInsets.zero,
               shadow: false,
               borderRadius: surge.radii.list,
-              backgroundColor: isSelected
-                  ? surge.textSecondary.withValues(alpha: 0.08)
-                  : surge.card,
+              backgroundColor: isSelected ? surge.selectedFill : surge.card,
               border: Border.all(
-                color: isSelected
-                    ? surge.textSecondary.withValues(alpha: 0.24)
-                    : surge.separator,
+                color: isSelected ? surge.primary : surge.separator,
                 width: 0.5,
               ),
               child: Padding(
@@ -117,12 +113,12 @@ class ProxyCard extends StatelessWidget {
                     width: 18,
                     height: 18,
                     decoration: BoxDecoration(
-                      color: surge.textPrimary,
+                      color: surge.primary,
                       shape: BoxShape.circle,
                       border: Border.all(color: surge.card, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
+                          color: surge.shadow,
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -178,9 +174,7 @@ class _DelayBadge extends ConsumerWidget {
         height: 30,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: delay == null
-                ? surge.textSecondary.withValues(alpha: 0.08)
-                : color.withValues(alpha: 0.1),
+            color: delay == null ? surge.fill : color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(15),
             border: Border.all(
               color: delay == null

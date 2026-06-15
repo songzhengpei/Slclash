@@ -185,23 +185,52 @@ class _SurgeThemeModeControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final selectedIndex = items
+        .indexWhere((item) => item.themeMode == value)
+        .clamp(0, items.length - 1);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: surge.textSecondary.withValues(alpha: 0.08),
+        color: surge.fill,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        children: [
-          for (final item in items)
-            Expanded(
-              child: _SurgeThemeModeButton(
-                item: item,
-                selected: value == item.themeMode,
-                onTap: () => onChanged(item.themeMode),
-              ),
-            ),
-        ],
+      child: SizedBox(
+        height: 40,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth = constraints.maxWidth / items.length;
+            return Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  left: itemWidth * selectedIndex,
+                  top: 0,
+                  bottom: 0,
+                  width: itemWidth,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: surge.elevatedCard,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    for (final item in items)
+                      Expanded(
+                        child: _SurgeThemeModeButton(
+                          item: item,
+                          selected: value == item.themeMode,
+                          onTap: () => onChanged(item.themeMode),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -226,16 +255,8 @@ class _SurgeThemeModeButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(13),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
+        child: SizedBox(
           height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? surge.card : Colors.transparent,
-            borderRadius: BorderRadius.circular(13),
-            boxShadow: selected ? SurgeShadows.subtle : null,
-          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -246,14 +267,22 @@ class _SurgeThemeModeButton extends StatelessWidget {
                 color: selected ? surge.primary : surge.textSecondary,
               ),
               const SizedBox(width: 6),
-              Text(
-                item.label,
-                style: context.textTheme.labelMedium?.copyWith(
-                  color: selected ? surge.textPrimary : surge.textSecondary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0,
-                ),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOutCubic,
+                style:
+                    context.textTheme.labelMedium?.copyWith(
+                      color: selected ? surge.textPrimary : surge.textSecondary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0,
+                    ) ??
+                    TextStyle(
+                      color: selected ? surge.textPrimary : surge.textSecondary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                    ),
+                child: Text(item.label),
               ),
             ],
           ),

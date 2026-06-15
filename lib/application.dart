@@ -47,16 +47,21 @@ class ApplicationState extends ConsumerState<Application> {
     );
   }
 
-  SurgeTheme _getSurgeTheme(Brightness brightness) {
+  SurgeTheme _getSurgeTheme({
+    required Brightness brightness,
+    required ThemeProps themeProps,
+    required ColorScheme colorScheme,
+  }) {
+    if (themeProps.dynamicColor) {
+      return SurgeTheme.fromColorScheme(colorScheme);
+    }
     return brightness == Brightness.dark
         ? SurgeTheme.dark()
         : SurgeTheme.light();
   }
 
-  SystemUiOverlayStyle _getSystemUiOverlayStyle(Brightness brightness) {
-    final surge = brightness == Brightness.dark
-        ? SurgeColors.dark()
-        : SurgeColors.light();
+  SystemUiOverlayStyle _getSystemUiOverlayStyle(SurgeTheme surge) {
+    final brightness = ThemeData.estimateBrightnessForColor(surge.background);
     final iconBrightness = brightness == Brightness.dark
         ? Brightness.light
         : Brightness.dark;
@@ -64,16 +69,16 @@ class ApplicationState extends ConsumerState<Application> {
       statusBarColor: surge.background,
       statusBarIconBrightness: iconBrightness,
       statusBarBrightness: brightness,
-      systemNavigationBarColor: surge.card,
+      systemNavigationBarColor: surge.background,
       systemNavigationBarIconBrightness: iconBrightness,
       systemNavigationBarDividerColor: surge.separator,
     );
   }
 
-  NavigationBarThemeData _getNavigationBarTheme(SurgeColors surge) {
+  NavigationBarThemeData _getNavigationBarTheme(SurgeTheme surge) {
     return NavigationBarThemeData(
       backgroundColor: surge.card,
-      indicatorColor: surge.textSecondary.withValues(alpha: 0.12),
+      indicatorColor: surge.selectedFill,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(
@@ -93,7 +98,7 @@ class ApplicationState extends ConsumerState<Application> {
     );
   }
 
-  SwitchThemeData _getSwitchTheme(SurgeColors surge) {
+  SwitchThemeData _getSwitchTheme(SurgeTheme surge) {
     return SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {
@@ -108,7 +113,7 @@ class ApplicationState extends ConsumerState<Application> {
         if (states.contains(WidgetState.selected)) {
           return surge.primary;
         }
-        return surge.textSecondary.withValues(alpha: 0.16);
+        return surge.fill;
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -119,12 +124,9 @@ class ApplicationState extends ConsumerState<Application> {
     );
   }
 
-  RadioThemeData _getRadioTheme(SurgeColors surge, ThemeProps themeProps) {
+  RadioThemeData _getRadioTheme(SurgeTheme surge) {
     return RadioThemeData(
       fillColor: WidgetStateProperty.resolveWith((states) {
-        if (!themeProps.dynamicColor && states.contains(WidgetState.selected)) {
-          return surge.textSecondary;
-        }
         if (states.contains(WidgetState.selected)) {
           return surge.primary;
         }
@@ -133,7 +135,7 @@ class ApplicationState extends ConsumerState<Application> {
     );
   }
 
-  CheckboxThemeData _getCheckboxTheme(SurgeColors surge) {
+  CheckboxThemeData _getCheckboxTheme(SurgeTheme surge) {
     return CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -141,7 +143,7 @@ class ApplicationState extends ConsumerState<Application> {
         }
         return Colors.transparent;
       }),
-      checkColor: WidgetStateProperty.all(Colors.white),
+      checkColor: WidgetStateProperty.all(surge.onPrimary),
       side: BorderSide(color: surge.separator, width: 1.2),
     );
   }
@@ -150,9 +152,9 @@ class ApplicationState extends ConsumerState<Application> {
     required Brightness brightness,
     required ThemeProps themeProps,
   }) {
-    final surge = brightness == Brightness.dark
-        ? SurgeColors.dark()
-        : SurgeColors.light();
+    final fixedSurge = brightness == Brightness.dark
+        ? SurgeTheme.dark()
+        : SurgeTheme.light();
     final baseColorScheme = _getAppColorScheme(
       brightness: brightness,
       primaryColor: themeProps.primaryColor,
@@ -162,46 +164,59 @@ class ApplicationState extends ConsumerState<Application> {
                 ? baseColorScheme.toPureBlack(themeProps.pureBlack)
                 : baseColorScheme)
             .copyWith(
-              primary: themeProps.dynamicColor ? null : surge.primary,
-              onPrimary: themeProps.dynamicColor ? null : Colors.white,
+              primary: themeProps.dynamicColor ? null : fixedSurge.primary,
+              onPrimary: themeProps.dynamicColor ? null : fixedSurge.onPrimary,
               primaryContainer: themeProps.dynamicColor
                   ? null
-                  : const Color(0xFFF1F2F5),
+                  : fixedSurge.fill,
               onPrimaryContainer: themeProps.dynamicColor
                   ? null
-                  : surge.textPrimary,
-              secondary: themeProps.dynamicColor ? null : surge.textSecondary,
+                  : fixedSurge.textPrimary,
+              secondary: themeProps.dynamicColor
+                  ? null
+                  : fixedSurge.textSecondary,
               secondaryContainer: themeProps.dynamicColor
                   ? null
-                  : const Color(0xFFF1F2F5),
+                  : fixedSurge.fill,
               onSecondaryContainer: themeProps.dynamicColor
                   ? null
-                  : surge.textPrimary,
+                  : fixedSurge.textPrimary,
               tertiaryContainer: themeProps.dynamicColor
                   ? null
-                  : const Color(0xFFF1F2F5),
+                  : fixedSurge.fill,
               onTertiaryContainer: themeProps.dynamicColor
                   ? null
-                  : surge.textPrimary,
-              surface: themeProps.dynamicColor ? null : surge.card,
+                  : fixedSurge.textPrimary,
+              surface: themeProps.dynamicColor ? null : fixedSurge.card,
               surfaceContainerLowest: themeProps.dynamicColor
                   ? null
-                  : surge.card,
-              surfaceContainerLow: themeProps.dynamicColor ? null : surge.card,
+                  : fixedSurge.card,
+              surfaceContainerLow: themeProps.dynamicColor
+                  ? null
+                  : fixedSurge.card,
               surfaceContainer: themeProps.dynamicColor
                   ? null
-                  : surge.background,
-              surfaceContainerHigh: themeProps.dynamicColor ? null : surge.card,
+                  : fixedSurge.background,
+              surfaceContainerHigh: themeProps.dynamicColor
+                  ? null
+                  : fixedSurge.card,
               surfaceContainerHighest: themeProps.dynamicColor
                   ? null
-                  : surge.textSecondary.withValues(alpha: 0.14),
-              outline: themeProps.dynamicColor ? null : surge.separator,
-              outlineVariant: themeProps.dynamicColor ? null : surge.separator,
+                  : fixedSurge.fill,
+              outline: themeProps.dynamicColor ? null : fixedSurge.separator,
+              outlineVariant: themeProps.dynamicColor
+                  ? null
+                  : fixedSurge.separator,
             );
+    final surge = _getSurgeTheme(
+      brightness: brightness,
+      themeProps: themeProps,
+      colorScheme: colorScheme,
+    );
     return ThemeData(
       useMaterial3: true,
       pageTransitionsTheme: _pageTransitionsTheme,
-      extensions: [_getSurgeTheme(brightness)],
+      extensions: [surge],
       scaffoldBackgroundColor: surge.background,
       canvasColor: surge.background,
       appBarTheme: AppBarTheme(
@@ -221,7 +236,7 @@ class ApplicationState extends ConsumerState<Application> {
       ),
       navigationBarTheme: _getNavigationBarTheme(surge),
       switchTheme: _getSwitchTheme(surge),
-      radioTheme: _getRadioTheme(surge, themeProps),
+      radioTheme: _getRadioTheme(surge),
       checkboxTheme: _getCheckboxTheme(surge),
       colorScheme: colorScheme,
     );
@@ -236,6 +251,18 @@ class ApplicationState extends ConsumerState<Application> {
         );
         final themeProps = ref.watch(themeSettingProvider);
         final currentBrightness = ref.watch(currentBrightnessProvider);
+        final overlayBaseColorScheme = _getAppColorScheme(
+          brightness: currentBrightness,
+          primaryColor: themeProps.primaryColor,
+        );
+        final overlayColorScheme = currentBrightness == Brightness.dark
+            ? overlayBaseColorScheme.toPureBlack(themeProps.pureBlack)
+            : overlayBaseColorScheme;
+        final overlaySurge = _getSurgeTheme(
+          brightness: currentBrightness,
+          themeProps: themeProps,
+          colorScheme: overlayColorScheme,
+        );
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           navigatorKey: globalState.navigatorKey,
@@ -247,7 +274,7 @@ class ApplicationState extends ConsumerState<Application> {
           ],
           builder: (_, child) {
             return AnnotatedRegion<SystemUiOverlayStyle>(
-              value: _getSystemUiOverlayStyle(currentBrightness),
+              value: _getSystemUiOverlayStyle(overlaySurge),
               child: AppEnvManager(
                 child: _buildApp(
                   child: _buildPlatformState(

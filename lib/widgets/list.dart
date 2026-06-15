@@ -444,13 +444,13 @@ class SurgeSwitch extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     final enabled = onChanged != null;
     final knobColor = enabled
-        ? Colors.white
+        ? surge.elevatedCard
         : surge.textSecondary.withValues(alpha: 0.5);
     final trackColor = !enabled
         ? surge.textSecondary.withValues(alpha: 0.1)
         : value
         ? surge.primary
-        : surge.textSecondary.withValues(alpha: 0.14);
+        : surge.fill;
     final knobAlign = value ? Alignment.centerRight : Alignment.centerLeft;
 
     return Semantics(
@@ -487,7 +487,7 @@ class SurgeSwitch extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
+                    color: surge.shadow.withValues(alpha: 0.65),
                     blurRadius: 5,
                     offset: const Offset(0, 2),
                   ),

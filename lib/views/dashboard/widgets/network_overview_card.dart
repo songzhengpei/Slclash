@@ -11,9 +11,6 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
   const SurgeNetworkOverviewCard({super.key});
 
   static const _cardRadius = 26.0;
-  static const _inactiveUploadColor = Color(0xFF858681);
-  static const _inactiveDownloadColor = Color(0xFFA5A6A1);
-
   bool _isChinese(BuildContext context) {
     return Localizations.localeOf(context).languageCode.toLowerCase() == 'zh';
   }
@@ -74,8 +71,8 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
       (traffic) => traffic.down,
       const [0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077],
     );
-    final uploadColor = isStart ? surge.primary : _inactiveUploadColor;
-    final downloadColor = isStart ? surge.green : _inactiveDownloadColor;
+    final uploadColor = isStart ? surge.primary : surge.inactive;
+    final downloadColor = isStart ? surge.green : surge.inactiveVariant;
     final lineFillStartAlpha = isStart ? 0.16 : 1.0;
     final lineFillEndAlpha = isStart ? 0.03 : 0.08;
 
@@ -83,16 +80,9 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surge.card,
         borderRadius: BorderRadius.circular(_cardRadius),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: Border.all(color: surge.separator),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,7 +97,7 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
                   alignment: Alignment.topLeft,
                   child: Icon(
                     Icons.public_rounded,
-                    color: isStart ? surge.primary : _inactiveUploadColor,
+                    color: isStart ? surge.primary : surge.inactive,
                     size: 18,
                   ),
                 ),
@@ -183,7 +173,7 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Container(height: 1, color: const Color(0xFFE8ECF2)),
+          Container(height: 1, color: surge.separator),
           const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,13 +272,14 @@ class SurgeNetworkOverviewCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Container(height: 1, color: const Color(0xFFE8ECF2)),
+          Container(height: 1, color: surge.separator),
           const SizedBox(height: 14),
           _NetworkDetectionBar(
             networkDetection: networkDetection,
             primaryColor: surge.primary,
             textColor: surge.textPrimary,
             secondaryTextColor: surge.textSecondary,
+            fillColor: surge.fill,
             dangerColor: surge.red,
             label: appLocalizations.networkDetection,
           ),
@@ -371,6 +362,7 @@ class _NetworkDetectionBar extends StatelessWidget {
     required this.primaryColor,
     required this.textColor,
     required this.secondaryTextColor,
+    required this.fillColor,
     required this.dangerColor,
     required this.label,
   });
@@ -379,6 +371,7 @@ class _NetworkDetectionBar extends StatelessWidget {
   final Color primaryColor;
   final Color textColor;
   final Color secondaryTextColor;
+  final Color fillColor;
   final Color dangerColor;
   final String label;
 
@@ -457,7 +450,7 @@ class _NetworkDetectionBar extends StatelessWidget {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F6FA),
+        color: fillColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -468,8 +461,8 @@ class _NetworkDetectionBar extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: const TextStyle(
-              color: Color(0xFF8D95A1),
+            style: TextStyle(
+              color: secondaryTextColor,
               fontSize: 11,
               fontWeight: FontWeight.w500,
               height: 1.0,

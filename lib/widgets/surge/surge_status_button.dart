@@ -33,8 +33,8 @@ class SurgeStatusButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         backgroundColor: background,
         disabledBackgroundColor: background.withValues(alpha: 0.55),
-        foregroundColor: Colors.white,
-        disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
+        foregroundColor: surge.onPrimary,
+        disabledForegroundColor: surge.onPrimary.withValues(alpha: 0.8),
         minimumSize: Size(compact ? 0 : 96, compact ? 34 : 40),
         padding: EdgeInsets.symmetric(
           horizontal: compact ? 12 : 16,
@@ -56,8 +56,8 @@ class SurgeStatusButton extends StatelessWidget {
             SizedBox(
               height: compact ? 13 : 15,
               width: compact ? 13 : 15,
-              child: const CircularProgressIndicator(
-                color: Colors.white,
+              child: CircularProgressIndicator(
+                color: surge.onPrimary,
                 strokeWidth: 2,
               ),
             ),

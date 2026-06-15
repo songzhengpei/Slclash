@@ -40,7 +40,7 @@ class SurgeSegmentedControl<T> extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        color: surge.background,
+        color: surge.fill,
         borderRadius: radius,
         border: Border.all(color: surge.separator, width: 0.5),
       ),
@@ -81,12 +81,12 @@ class _SurgeSegment<T> extends StatelessWidget {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: selected ? surge.card : Colors.transparent,
+        color: selected ? surge.elevatedCard : Colors.transparent,
         borderRadius: BorderRadius.circular(surge.radii.button),
         boxShadow: selected
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
+                  color: surge.shadow.withValues(alpha: 0.7),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
