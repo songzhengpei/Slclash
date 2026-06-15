@@ -115,6 +115,8 @@ jobs:
 
             git -C core/Clash.Meta checkout -q "$LATEST_TAG"
 
+            UPSTREAM_VERSION_GO="$(git -C core/Clash.Meta show "$LATEST_TAG:constant/version.go" 2>/dev/null || true)"
+
             for patch_file in $(find "$PATCH_DIR" -name 'patch.go' -type f); do
               REL_PATH="${patch_file#$PATCH_DIR/}"
               TARGET="core/Clash.Meta/$REL_PATH"
@@ -123,7 +125,12 @@ jobs:
               echo "Applied patch: $REL_PATH"
             done
 
-            FLCLASH_DIFF="$(git -C core/Clash.Meta diff origin/FlClash~1..origin/FlClash -- . ':!*patch.go' 2>/dev/null || true)"
+            if [ -n "$UPSTREAM_VERSION_GO" ]; then
+              echo "$UPSTREAM_VERSION_GO" > core/Clash.Meta/constant/version.go
+              echo "Restored upstream constant/version.go"
+            fi
+
+            FLCLASH_DIFF="$(git -C core/Clash.Meta diff origin/FlClash~1..origin/FlClash -- . ':!*patch.go' ':!constant/version.go' 2>/dev/null || true)"
             if [ -n "$FLCLASH_DIFF" ]; then
               echo "$FLCLASH_DIFF" | git -C core/Clash.Meta apply --check 2>/dev/null && \
                 echo "$FLCLASH_DIFF" | git -C core/Clash.Meta apply 2>/dev/null || \
