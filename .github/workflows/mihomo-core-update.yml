@@ -84,18 +84,64 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git switch -c "$BRANCH"
 
-          git -C core/Clash.Meta remote set-url origin https://github.com/chen08209/Clash.Meta.git || true
+          # Fetch from upstream Mihomo to check if the tag exists
+          git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
+            git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
+          git -C core/Clash.Meta fetch --tags metacubex
+
+          # Check if the fork (chen08209/Clash.Meta) has the FlClash branch
+          # updated to support this Mihomo version
+          FORK_HAS_VERSION=false
           if git -C core/Clash.Meta ls-remote --exit-code origin "refs/tags/$LATEST_TAG" >/dev/null 2>&1; then
-            UPDATE_REMOTE="origin"
-          else
-            git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
-              git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
-            git submodule set-url core/Clash.Meta https://github.com/MetaCubeX/mihomo.git
-            UPDATE_REMOTE="metacubex"
+            FORK_HAS_VERSION=true
           fi
 
-          git -C core/Clash.Meta fetch --tags "$UPDATE_REMOTE"
-          git -C core/Clash.Meta checkout -q "$LATEST_TAG"
+          if [ "$FORK_HAS_VERSION" = "true" ]; then
+            # Fork has the tag - use it directly
+            git -C core/Clash.Meta checkout -q "$LATEST_TAG"
+          else
+            # Fork doesn't have the tag yet.
+            # Try to checkout upstream tag and apply FlClash patches from the fork's FlClash branch.
+            echo "Fork does not have tag $LATEST_TAG. Attempting to apply FlClash patches..."
+
+            # Save the FlClash patch files from the fork's FlClash branch
+            FORK_FLCLASH_SHA="$(git -C core/Clash.Meta rev-parse origin/FlClash 2>/dev/null || true)"
+            if [ -z "$FORK_FLCLASH_SHA" ]; then
+              echo "Cannot find fork's FlClash branch. Skipping update."
+              exit 0
+            fi
+
+            # Extract patch files from the fork's FlClash branch
+            PATCH_DIR="$(mktemp -d)"
+            for patch_file in $(git -C core/Clash.Meta ls-tree -r --name-only origin/FlClash | grep 'patch\.go$'); do
+              mkdir -p "$PATCH_DIR/$(dirname "$patch_file")"
+              git -C core/Clash.Meta show "origin/FlClash:$patch_file" > "$PATCH_DIR/$patch_file"
+            done
+
+            # Checkout upstream tag
+            git -C core/Clash.Meta checkout -q "$LATEST_TAG"
+
+            # Apply patches
+            PATCH_FAILED=false
+            for patch_file in $(find "$PATCH_DIR" -name 'patch.go' -type f); do
+              REL_PATH="${patch_file#$PATCH_DIR/}"
+              TARGET="core/Clash.Meta/$REL_PATH"
+              mkdir -p "$(dirname "$TARGET")"
+              cp "$patch_file" "$TARGET"
+              echo "Applied patch: $REL_PATH"
+            done
+
+            # Also apply any modifications to existing files from the FlClash branch
+            # by extracting the diff between the fork's base and FlClash branch
+            FLCLASH_DIFF="$(git -C core/Clash.Meta diff origin/FlClash~1..origin/FlClash -- . ':!*patch.go' 2>/dev/null || true)"
+            if [ -n "$FLCLASH_DIFF" ]; then
+              echo "$FLCLASH_DIFF" | git -C core/Clash.Meta apply --check 2>/dev/null && \
+                echo "$FLCLASH_DIFF" | git -C core/Clash.Meta apply 2>/dev/null || \
+                echo "Warning: Some FlClash modifications could not be applied cleanly."
+            fi
+
+            rm -rf "$PATCH_DIR"
+          fi
 
           VERSION_LINE="$(grep -E '^version: ' pubspec.yaml)"
           CURRENT_APP_VERSION="${VERSION_LINE#version: }"
@@ -124,7 +170,7 @@ jobs:
 
           NEW_COMMIT="$(git -C core/Clash.Meta rev-parse --short=12 HEAD)"
 
-          git add .gitmodules core/Clash.Meta pubspec.yaml
+          git add core/Clash.Meta pubspec.yaml
           if git diff --cached --quiet; then
             echo "No update changes were produced."
             exit 0
@@ -136,6 +182,7 @@ jobs:
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "fork_has_version=$FORK_HAS_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Open pull request
         if: ${{ steps.update.outputs.branch != '' }}
@@ -144,8 +191,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           BRANCH="${{ steps.update.outputs.branch }}"
+          FORK_HAS_VERSION="${{ steps.update.outputs.fork_has_version }}"
           TITLE="chore: update Mihomo core to ${{ steps.latest.outputs.tag }}"
           BODY_FILE="$(mktemp)"
+
+          if [ "$FORK_HAS_VERSION" = "true" ]; then
+            NOTES="Fork \`chen08209/Clash.Meta\` already supports this version."
+          else
+            NOTES="**Warning**: Fork \`chen08209/Clash.Meta\` does not yet have native support for this version. FlClash patches were applied automatically but may need manual verification."
+          fi
 
           cat > "$BODY_FILE" <<EOF
           ## Mihomo Core Update
@@ -156,10 +210,13 @@ jobs:
           - New Mihomo commit: ${{ steps.update.outputs.mihomo_commit }}
           - App version bump: ${{ steps.update.outputs.app_version }}
 
+          $NOTES
+
           ## Checklist
 
           - [ ] Confirm submodule points to the expected Mihomo tag
-          - [ ] Confirm \`.gitmodules\` is correct
+          - [ ] Confirm \`.gitmodules\` still points to \`chen08209/Clash.Meta\` (not upstream)
+          - [ ] Confirm FlClash patches are present in \`core/Clash.Meta/\`
           - [ ] Confirm Android arm64-v8a local build passes
           - [ ] Confirm GitHub Actions release workflow still targets Android only
           - [ ] Install generated APK manually after release
