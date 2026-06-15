@@ -38,7 +38,7 @@ jobs:
           git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
             git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
           git -C core/Clash.Meta fetch --tags origin 2>/dev/null || true
-          git -C core/Clash.Meta fetch --tags metacubex 2>/dev/null || true
+          git -C core/Clash.Meta fetch --tags --force metacubex 2>/dev/null || true
 
       - name: Resolve latest stable Mihomo release
         id: latest
@@ -98,7 +98,7 @@ jobs:
           # Fetch from upstream Mihomo to check if the tag exists
           git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
             git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
-          git -C core/Clash.Meta fetch --tags metacubex
+          git -C core/Clash.Meta fetch --tags --force metacubex
 
           # Ensure fork's FlClash branch is available locally
           git -C core/Clash.Meta fetch origin FlClash 2>/dev/null || true
