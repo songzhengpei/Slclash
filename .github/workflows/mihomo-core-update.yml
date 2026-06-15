@@ -11,6 +11,10 @@ on:
   schedule:
     - cron: "20 3 * * 1"
 
+concurrency:
+  group: mihomo-core-update
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -144,16 +148,24 @@ jobs:
           BODY_FILE="$(mktemp)"
 
           cat > "$BODY_FILE" <<EOF
-          Updates the Android arm64 Mihomo core source to ${{ steps.latest.outputs.tag }}.
+          ## Mihomo Core Update
 
-          - Previous core: v${{ steps.current.outputs.version }} (${{ steps.current.outputs.commit }})
-          - New core: ${{ steps.latest.outputs.tag }} (${{ steps.update.outputs.mihomo_commit }})
+          - Previous Mihomo version: v${{ steps.current.outputs.version }}
+          - Previous Mihomo commit: ${{ steps.current.outputs.commit }}
+          - New Mihomo version: ${{ steps.latest.outputs.tag }}
+          - New Mihomo commit: ${{ steps.update.outputs.mihomo_commit }}
           - App version bump: ${{ steps.update.outputs.app_version }}
 
-          This keeps the Android APK update path conservative: the app ships a newly built libclash.so instead of hot-swapping native code at runtime.
+          ## Checklist
+
+          - [ ] Confirm submodule points to the expected Mihomo tag
+          - [ ] Confirm \`.gitmodules\` is correct
+          - [ ] Confirm Android arm64-v8a local build passes
+          - [ ] Confirm GitHub Actions release workflow still targets Android only
+          - [ ] Install generated APK manually after release
           EOF
 
-          EXISTING_PR="$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')"
+          EXISTING_PR="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING_PR" ]; then
             gh pr edit "$EXISTING_PR" --title "$TITLE" --body-file "$BODY_FILE"
           else

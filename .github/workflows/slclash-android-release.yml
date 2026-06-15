@@ -270,12 +270,11 @@ jobs:
           APK_NAME="${{ steps.vars.outputs.apk_name }}"
 
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Release $TAG_NAME already exists. Uploading asset..."
-            gh release edit "$TAG_NAME" --notes-file "${{ steps.notes.outputs.file }}"
-            gh release upload "$TAG_NAME" "$APK_NAME" --clobber
-          else
-            echo "Creating release $TAG_NAME..."
-            gh release create "$TAG_NAME" "$APK_NAME" \
-              --title "SlClash ${{ steps.vars.outputs.version_name }}" \
-              --notes-file "${{ steps.notes.outputs.file }}"
+            echo "Release $TAG_NAME already exists. Refusing to overwrite existing release."
+            exit 1
           fi
+
+          echo "Creating release $TAG_NAME..."
+          gh release create "$TAG_NAME" "$APK_NAME" \
+            --title "SlClash ${{ steps.vars.outputs.version_name }}" \
+            --notes-file "${{ steps.notes.outputs.file }}"
