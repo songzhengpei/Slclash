@@ -25,6 +25,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
+
+      - name: Fetch submodule tags
+        shell: bash
+        run: |
+          git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
+            git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
+          git -C core/Clash.Meta fetch --tags --force origin 2>/dev/null || true
+          git -C core/Clash.Meta fetch --tags --force metacubex 2>/dev/null || true
 
       - name: Resolve release tag
         id: vars
