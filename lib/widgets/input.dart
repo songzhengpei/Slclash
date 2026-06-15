@@ -403,11 +403,11 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
                     onPressed: _handleSelectAll,
                     child: Text(appLocalizations.selectAll),
                   )
-                : FilledButton.tonal(
+                : SurgeAddButton(
                     onPressed: () {
                       _handleAddOrEdit();
                     },
-                    child: Text(appLocalizations.add),
+                    label: appLocalizations.add,
                   ),
           ),
           const SizedBox(width: 8),
@@ -658,11 +658,11 @@ class _MapInputPageState extends ConsumerState<MapInputPage> {
                     onPressed: _handleSelectAll,
                     child: Text(appLocalizations.selectAll),
                   )
-                : FilledButton.tonal(
+                : SurgeAddButton(
                     onPressed: () {
                       _handleAddOrEdit();
                     },
-                    child: Text(appLocalizations.add),
+                    label: appLocalizations.add,
                   ),
           ),
           const SizedBox(width: 8),

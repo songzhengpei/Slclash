@@ -231,11 +231,11 @@ class _ScriptsViewState extends ConsumerState<ScriptsView> {
                     },
                     child: Text(appLocalizations.edit),
                   )
-                : FilledButton.tonal(
+                : SurgeAddButton(
                     onPressed: () {
                       _handleToEditor();
                     },
-                    child: Text(appLocalizations.add),
+                    label: appLocalizations.add,
                   ),
           ),
           const SizedBox(width: 8),

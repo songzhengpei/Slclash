@@ -95,11 +95,11 @@ class _AddedRulesViewState extends ConsumerState<AddedRulesView> {
                     onPressed: _handleSelectAll,
                     child: Text(appLocalizations.selectAll),
                   )
-                : FilledButton.tonal(
+                : SurgeAddButton(
                     onPressed: () {
                       _handleAddOrUpdate();
                     },
-                    child: Text(appLocalizations.add),
+                    label: appLocalizations.add,
                   ),
           ),
           const SizedBox(width: 8),

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -32,48 +33,55 @@ class SurgeBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom + 16;
+    final navWidth = math.max(MediaQuery.sizeOf(context).width - 36, 0.0);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(18, 0, 18, bottomPadding),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: SizedBox(
+          width: navWidth,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 26,
+                  offset: const Offset(0, 12),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.92),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: SizedBox(
-                height: 56,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      for (var index = 0; index < items.length; index++)
-                        Expanded(
-                          child: _SurgeBottomNavTile(
-                            item: items[index],
-                            selected: index == currentIndex,
-                            onTap: () => onTap(index),
-                          ),
-                        ),
-                    ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: SizedBox(
+                    height: 56,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          for (var index = 0; index < items.length; index++)
+                            Expanded(
+                              child: _SurgeBottomNavTile(
+                                item: items[index],
+                                selected: index == currentIndex,
+                                onTap: () => onTap(index),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -115,9 +123,9 @@ class _SurgeBottomNavTile extends StatelessWidget {
                 scale: selected ? 1.08 : 1,
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
-                child: Icon(icon, color: color, size: selected ? 23 : 22),
+                child: Icon(icon, color: color, size: selected ? 25 : 24),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 5),
               Text(
                 item.label,
                 maxLines: 1,

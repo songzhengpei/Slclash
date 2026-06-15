@@ -8,6 +8,9 @@ import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+const _heroFillDuration = Duration(milliseconds: 1500);
+const _statusLightPulseDuration = Duration(milliseconds: 112);
+
 class SurgeDashboardHero extends ConsumerStatefulWidget {
   const SurgeDashboardHero({super.key});
 
@@ -15,16 +18,36 @@ class SurgeDashboardHero extends ConsumerStatefulWidget {
   ConsumerState<SurgeDashboardHero> createState() => _SurgeDashboardHeroState();
 }
 
-class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero> {
+class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
+    with SingleTickerProviderStateMixin {
   Timer? _failureTimer;
   Timer? _connectingTimer;
   bool _showFailure = false;
   bool _showConnecting = false;
+  late final AnimationController _fillController;
+  late final Animation<double> _fillAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    final isStart = ref.read(isStartProvider);
+    _fillController = AnimationController(
+      vsync: this,
+      duration: _heroFillDuration,
+      value: isStart ? 1 : 0,
+    );
+    _fillAnimation = CurvedAnimation(
+      parent: _fillController,
+      curve: Curves.easeInOutCubic,
+      reverseCurve: Curves.easeInOutCubic,
+    );
+  }
 
   @override
   void dispose() {
     _failureTimer?.cancel();
     _connectingTimer?.cancel();
+    _fillController.dispose();
     super.dispose();
   }
 
@@ -48,6 +71,9 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero> {
     final nextIsStart = !ref.read(isStartProvider);
     if (nextIsStart) {
       _startConnectingAnimation();
+      _fillController.forward();
+    } else {
+      _fillController.reverse();
     }
     debouncer.call(FunctionTag.updateStatus, () {
       ref
@@ -65,7 +91,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero> {
     if (mounted) {
       setState(() => _showConnecting = true);
     }
-    _connectingTimer = Timer(const Duration(milliseconds: 1500), () {
+    _connectingTimer = Timer(_heroFillDuration, () {
       if (mounted) {
         setState(() => _showConnecting = false);
       }
@@ -91,9 +117,20 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero> {
         : appLocalizations.disconnected;
     final runtimeText = utils.getTimeText(runTime);
 
+    ref.listen(isStartProvider, (previous, next) {
+      if (next) {
+        _fillController.forward();
+      } else {
+        _fillController.reverse();
+      }
+    });
+
     ref.listen(coreStatusProvider, (previous, next) {
       final isFailedStart =
           previous == CoreStatus.connecting && next == CoreStatus.disconnected;
+      if (next == CoreStatus.disconnected) {
+        _fillController.reverse();
+      }
       if (next != CoreStatus.disconnected || !isFailedStart) {
         _failureTimer?.cancel();
         if (_showFailure && mounted) {
@@ -169,85 +206,20 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero> {
             ],
           ),
           const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1495FF), Color(0xFF0068F5)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0052FF).withValues(alpha: 0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.call_split_rounded,
-                    color: Colors.white,
-                    size: 21,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        appLocalizations.outboundMode,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: context.textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          height: 1.05,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${_modeLabel(mode)} Mode',
-                        maxLines: 1,
-                        softWrap: false,
-                        style: context.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.82),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          height: 1.08,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                _StatusPill(
-                  active: isStart,
-                  connecting:
-                      _showConnecting || coreStatus == CoreStatus.connecting,
-                  failed: _showFailure,
-                  label: statusLabel,
-                ),
-              ],
-            ),
+          AnimatedBuilder(
+            animation: _fillAnimation,
+            builder: (context, _) {
+              return _HeroModeCard(
+                fillProgress: _fillAnimation.value,
+                modeLabel: '${_modeLabel(mode)} Mode',
+                title: '出站流量',
+                active: isStart,
+                connecting:
+                    _showConnecting || coreStatus == CoreStatus.connecting,
+                failed: _showFailure,
+                statusLabel: statusLabel,
+              );
+            },
           ),
           const SizedBox(height: 12),
           _ModeSwitch(
@@ -263,6 +235,175 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero> {
                 value: _coreStatusLabel(context, coreStatus),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroModeCard extends StatelessWidget {
+  const _HeroModeCard({
+    required this.fillProgress,
+    required this.title,
+    required this.modeLabel,
+    required this.active,
+    required this.connecting,
+    required this.failed,
+    required this.statusLabel,
+  });
+
+  final double fillProgress;
+  final String title;
+  final String modeLabel;
+  final bool active;
+  final bool connecting;
+  final bool failed;
+  final String statusLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final progress = fillProgress.clamp(0.0, 1.0);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            children: [
+              _HeroModeCardSurface(
+                title: title,
+                modeLabel: modeLabel,
+                active: active,
+                connecting: connecting,
+                failed: failed,
+                statusLabel: statusLabel,
+                onBlue: false,
+              ),
+              if (progress > 0)
+                ClipRect(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: progress,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      child: _HeroModeCardSurface(
+                        title: title,
+                        modeLabel: modeLabel,
+                        active: active,
+                        connecting: connecting,
+                        failed: failed,
+                        statusLabel: statusLabel,
+                        onBlue: true,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HeroModeCardSurface extends StatelessWidget {
+  const _HeroModeCardSurface({
+    required this.title,
+    required this.modeLabel,
+    required this.active,
+    required this.connecting,
+    required this.failed,
+    required this.statusLabel,
+    required this.onBlue,
+  });
+
+  final String title;
+  final String modeLabel;
+  final bool active;
+  final bool connecting;
+  final bool failed;
+  final String statusLabel;
+  final bool onBlue;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = Colors.white;
+    final secondary = onBlue
+        ? Colors.white.withValues(alpha: 0.82)
+        : Colors.white.withValues(alpha: 0.78);
+    return Container(
+      width: double.infinity,
+      height: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      decoration: BoxDecoration(
+        color: onBlue ? null : const Color(0xFF858681),
+        gradient: onBlue
+            ? const LinearGradient(
+                colors: [Color(0xFF1495FF), Color(0xFF0068F5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: onBlue
+                  ? Colors.white.withValues(alpha: 0.14)
+                  : Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.call_split_rounded,
+              color: Colors.white,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: context.textTheme.titleLarge?.copyWith(
+                    color: foreground,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    height: 1.05,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  modeLabel,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: secondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.08,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          _StatusPill(
+            active: active,
+            connecting: connecting,
+            failed: failed,
+            label: statusLabel,
+            onBlue: onBlue,
           ),
         ],
       ),
@@ -286,12 +427,14 @@ class _HeroActionButton extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0A84FF), Color(0xFF0052FF)],
+          colors: [Color(0xFF34C759), Color(0xFF20B84D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0052FF).withValues(alpha: 0.18),
+            color: const Color(0xFF34C759).withValues(alpha: 0.2),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -317,10 +460,10 @@ class _HeroActionButton extends StatelessWidget {
                     )
                   : Center(
                       child: Text(
-                        isStart ? 'Disconnect' : 'Connect',
+                        isStart ? '停止' : '启动',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0,
                         ),
@@ -361,7 +504,7 @@ class _ConnectionStatusLightState extends State<_ConnectionStatusLight>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 160),
+      duration: _statusLightPulseDuration,
       lowerBound: 0.35,
       upperBound: 1,
     );
@@ -397,9 +540,9 @@ class _ConnectionStatusLightState extends State<_ConnectionStatusLight>
     if (widget.coreStatus == CoreStatus.connecting ||
         widget.showConnecting ||
         widget.isStart) {
-      return surge.green;
+      return const Color(0xFF2FAA67);
     }
-    return surge.textSecondary.withValues(alpha: 0.42);
+    return surge.textSecondary.withValues(alpha: 0.48);
   }
 
   @override
@@ -442,21 +585,30 @@ class _StatusPill extends StatelessWidget {
     required this.connecting,
     required this.failed,
     required this.label,
+    required this.onBlue,
   });
 
   final bool active;
   final bool connecting;
   final bool failed;
   final String label;
+  final bool onBlue;
 
   @override
   Widget build(BuildContext context) {
+    final background = onBlue
+        ? Colors.white.withValues(alpha: 0.18)
+        : Colors.white.withValues(alpha: 0.16);
+    final borderColor = onBlue
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.white.withValues(alpha: 0.18);
+    final textColor = Colors.white;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: background,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -465,6 +617,7 @@ class _StatusPill extends StatelessWidget {
             active: active,
             connecting: connecting,
             failed: failed,
+            onBlue: onBlue,
           ),
           const SizedBox(width: 7),
           Text(
@@ -472,7 +625,7 @@ class _StatusPill extends StatelessWidget {
             maxLines: 1,
             softWrap: false,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Colors.white,
+              color: textColor,
               fontSize: 11,
               fontWeight: FontWeight.w600,
               height: 1.0,
@@ -490,11 +643,13 @@ class _PillStatusLight extends StatefulWidget {
     required this.active,
     required this.connecting,
     required this.failed,
+    required this.onBlue,
   });
 
   final bool active;
   final bool connecting;
   final bool failed;
+  final bool onBlue;
 
   @override
   State<_PillStatusLight> createState() => _PillStatusLightState();
@@ -510,7 +665,7 @@ class _PillStatusLightState extends State<_PillStatusLight>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 160),
+      duration: _statusLightPulseDuration,
       lowerBound: 0.35,
       upperBound: 1,
     );
@@ -544,7 +699,9 @@ class _PillStatusLightState extends State<_PillStatusLight>
   Color _color() {
     if (widget.failed) return const Color(0xFFFF8A80);
     if (widget.connecting || widget.active) return const Color(0xFF7BFFB2);
-    return Colors.white.withValues(alpha: 0.75);
+    return widget.onBlue
+        ? Colors.white.withValues(alpha: 0.75)
+        : Colors.white.withValues(alpha: 0.72);
   }
 
   @override

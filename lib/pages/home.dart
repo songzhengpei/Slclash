@@ -62,18 +62,13 @@ class HomePage extends StatelessWidget {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            bottom: MediaQuery.paddingOf(context).bottom + 88,
-                          ),
-                          child: MediaQuery.removePadding(
-                            removeTop: false,
-                            removeBottom: true,
-                            removeLeft: true,
-                            removeRight: true,
-                            context: context,
-                            child: child!,
-                          ),
+                        child: MediaQuery.removePadding(
+                          removeTop: false,
+                          removeBottom: true,
+                          removeLeft: true,
+                          removeRight: true,
+                          context: context,
+                          child: child!,
                         ),
                       ),
                       Positioned(
@@ -86,10 +81,7 @@ class HomePage extends StatelessWidget {
                           removeLeft: true,
                           removeRight: true,
                           context: context,
-                          child: Transform.translate(
-                            offset: const Offset(0, 2),
-                            child: bottomNavigationBar,
-                          ),
+                          child: bottomNavigationBar,
                         ),
                       ),
                     ],

@@ -116,9 +116,9 @@ class _CustomProxyGroupsViewState extends ConsumerState<CustomProxyGroupsView> {
       title: appLocalizations.proxyGroup,
       actions: [
         CommonMinFilledButtonTheme(
-          child: FilledButton(
+          child: SurgeAddButton(
             onPressed: _handleAdd,
-            child: Text(appLocalizations.add),
+            label: appLocalizations.add,
           ),
         ),
         const SizedBox(width: 8),

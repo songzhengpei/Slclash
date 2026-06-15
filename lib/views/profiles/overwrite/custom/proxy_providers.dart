@@ -234,9 +234,9 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                   info: Info(label: appLocalizations.proxyProviders),
                   actions: [
                     CommonMinFilledButtonTheme(
-                      child: FilledButton.tonal(
+                      child: SurgeAddButton(
                         onPressed: _handleToAddProxyProvidersView,
-                        child: Text(appLocalizations.add),
+                        label: appLocalizations.add,
                       ),
                     ),
                   ],

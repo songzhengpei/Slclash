@@ -338,7 +338,6 @@ class NetworkListView extends StatelessWidget {
       if (system.isAndroid) const VPNItem(),
       if (system.isAndroid)
         ...generateSection(
-          title: 'VPN',
           items: [
             const VpnSystemProxyItem(),
             const BypassDomainItem(),

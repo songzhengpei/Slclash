@@ -153,12 +153,7 @@ class _ThemeModeItem extends ConsumerWidget {
         children: [
           Text(
             appLocalizations.themeMode,
-            style: context.textTheme.bodyMedium?.copyWith(
-              color: surge.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-            ),
+            style: _themePageTitleStyle(context, surge),
           ),
           const SizedBox(height: 10),
           _SurgeThemeModeControl(
@@ -255,8 +250,8 @@ class _SurgeThemeModeButton extends StatelessWidget {
                 item.label,
                 style: context.textTheme.labelMedium?.copyWith(
                   color: selected ? surge.textPrimary : surge.textSecondary,
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
                   letterSpacing: 0,
                 ),
               ),
@@ -278,15 +273,7 @@ class _DynamicColorItem extends ConsumerWidget {
       themeSettingProvider.select((state) => state.dynamicColor),
     );
     return ListItem.switchItem(
-      title: Text(
-        '动态取色',
-        style: context.textTheme.bodyMedium?.copyWith(
-          color: surge.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-        ),
-      ),
+      title: Text('动态取色', style: _themePageTitleStyle(context, surge)),
       subtitle: Text(
         dynamicColor ? '跟随系统 Material You 色彩' : '使用 SlClash 默认 Surge 色彩',
         style: context.textTheme.bodySmall?.copyWith(
@@ -585,9 +572,10 @@ class _TextScaleFactorItem extends ConsumerWidget {
     return Column(
       children: [
         ListItem.switchItem(
-          leading: const Icon(Icons.text_fields),
-          horizontalTitleGap: 12,
-          title: Text(appLocalizations.textScale),
+          title: Text(
+            appLocalizations.textScale,
+            style: _themePageTitleStyle(context, surge),
+          ),
           delegate: SwitchDelegate(
             value: textScale.enable,
             onChanged: (value) {
@@ -658,6 +646,15 @@ class _TextScaleFactorItem extends ConsumerWidget {
       ],
     );
   }
+}
+
+TextStyle? _themePageTitleStyle(BuildContext context, SurgeTheme surge) {
+  return context.textTheme.bodyMedium?.copyWith(
+    color: surge.textPrimary,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    letterSpacing: 0,
+  );
 }
 
 class _PaletteDialog extends StatefulWidget {

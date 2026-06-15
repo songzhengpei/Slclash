@@ -122,11 +122,11 @@ class _StandardContentState extends ConsumerState<StandardContent> {
                               },
                               child: Text(appLocalizations.selectAll),
                             )
-                          : FilledButton.tonal(
+                          : SurgeAddButton(
                               onPressed: () {
                                 _handleAddOrUpdate();
                               },
-                              child: Text(appLocalizations.add),
+                              label: appLocalizations.add,
                             ),
                     ),
                   ],
