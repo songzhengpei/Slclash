@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   update-core:
-    name: Check Mihomo stable and open update PR
+    name: Check Mihomo stable, update and release
     runs-on: ubuntu-latest
 
     steps:
@@ -29,6 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Resolve latest stable Mihomo release
         id: latest
@@ -90,39 +91,30 @@ jobs:
           git -C core/Clash.Meta fetch --tags metacubex
 
           # Check if the fork (chen08209/Clash.Meta) has the FlClash branch
-          # updated to support this Mihomo version
           FORK_HAS_VERSION=false
           if git -C core/Clash.Meta ls-remote --exit-code origin "refs/tags/$LATEST_TAG" >/dev/null 2>&1; then
             FORK_HAS_VERSION=true
           fi
 
           if [ "$FORK_HAS_VERSION" = "true" ]; then
-            # Fork has the tag - use it directly
             git -C core/Clash.Meta checkout -q "$LATEST_TAG"
           else
-            # Fork doesn't have the tag yet.
-            # Try to checkout upstream tag and apply FlClash patches from the fork's FlClash branch.
             echo "Fork does not have tag $LATEST_TAG. Attempting to apply FlClash patches..."
 
-            # Save the FlClash patch files from the fork's FlClash branch
             FORK_FLCLASH_SHA="$(git -C core/Clash.Meta rev-parse origin/FlClash 2>/dev/null || true)"
             if [ -z "$FORK_FLCLASH_SHA" ]; then
               echo "Cannot find fork's FlClash branch. Skipping update."
               exit 0
             fi
 
-            # Extract patch files from the fork's FlClash branch
             PATCH_DIR="$(mktemp -d)"
             for patch_file in $(git -C core/Clash.Meta ls-tree -r --name-only origin/FlClash | grep 'patch\.go$'); do
               mkdir -p "$PATCH_DIR/$(dirname "$patch_file")"
               git -C core/Clash.Meta show "origin/FlClash:$patch_file" > "$PATCH_DIR/$patch_file"
             done
 
-            # Checkout upstream tag
             git -C core/Clash.Meta checkout -q "$LATEST_TAG"
 
-            # Apply patches
-            PATCH_FAILED=false
             for patch_file in $(find "$PATCH_DIR" -name 'patch.go' -type f); do
               REL_PATH="${patch_file#$PATCH_DIR/}"
               TARGET="core/Clash.Meta/$REL_PATH"
@@ -131,8 +123,6 @@ jobs:
               echo "Applied patch: $REL_PATH"
             done
 
-            # Also apply any modifications to existing files from the FlClash branch
-            # by extracting the diff between the fork's base and FlClash branch
             FLCLASH_DIFF="$(git -C core/Clash.Meta diff origin/FlClash~1..origin/FlClash -- . ':!*patch.go' 2>/dev/null || true)"
             if [ -n "$FLCLASH_DIFF" ]; then
               echo "$FLCLASH_DIFF" | git -C core/Clash.Meta apply --check 2>/dev/null && \
@@ -186,6 +176,7 @@ jobs:
 
       - name: Open pull request
         if: ${{ steps.update.outputs.branch != '' }}
+        id: pr
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -193,38 +184,125 @@ jobs:
           BRANCH="${{ steps.update.outputs.branch }}"
           FORK_HAS_VERSION="${{ steps.update.outputs.fork_has_version }}"
           TITLE="chore: update Mihomo core to ${{ steps.latest.outputs.tag }}"
-          BODY_FILE="$(mktemp)"
 
           if [ "$FORK_HAS_VERSION" = "true" ]; then
             NOTES="Fork \`chen08209/Clash.Meta\` already supports this version."
           else
-            NOTES="**Warning**: Fork \`chen08209/Clash.Meta\` does not yet have native support for this version. FlClash patches were applied automatically but may need manual verification."
+            NOTES="**Warning**: Fork does not yet have native support. FlClash patches were auto-applied."
           fi
 
+          BODY_FILE="$(mktemp)"
           cat > "$BODY_FILE" <<EOF
           ## Mihomo Core Update
 
-          - Previous Mihomo version: v${{ steps.current.outputs.version }}
-          - Previous Mihomo commit: ${{ steps.current.outputs.commit }}
-          - New Mihomo version: ${{ steps.latest.outputs.tag }}
-          - New Mihomo commit: ${{ steps.update.outputs.mihomo_commit }}
-          - App version bump: ${{ steps.update.outputs.app_version }}
+          - Previous: v${{ steps.current.outputs.version }} (${{ steps.current.outputs.commit }})
+          - New: ${{ steps.latest.outputs.tag }} (${{ steps.update.outputs.mihomo_commit }})
+          - App version: ${{ steps.update.outputs.app_version }}
 
           $NOTES
-
-          ## Checklist
-
-          - [ ] Confirm submodule points to the expected Mihomo tag
-          - [ ] Confirm \`.gitmodules\` still points to \`chen08209/Clash.Meta\` (not upstream)
-          - [ ] Confirm FlClash patches are present in \`core/Clash.Meta/\`
-          - [ ] Confirm Android arm64-v8a local build passes
-          - [ ] Confirm GitHub Actions release workflow still targets Android only
-          - [ ] Install generated APK manually after release
           EOF
 
           EXISTING_PR="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING_PR" ]; then
-            gh pr edit "$EXISTING_PR" --title "$TITLE" --body-file "$BODY_FILE"
+            PR_NUMBER="$EXISTING_PR"
+            gh pr edit "$PR_NUMBER" --title "$TITLE" --body-file "$BODY_FILE"
           else
-            gh pr create --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE"
+            PR_NUMBER="$(gh pr create --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE" --json number --jq '.number')"
+          fi
+
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "PR #$PR_NUMBER created/updated"
+
+      - name: Wait for PR checks and auto-merge
+        if: ${{ steps.pr.outputs.pr_number != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+          echo "Waiting for PR #$PR_NUMBER to be mergeable..."
+
+          MAX_WAIT=300
+          ELAPSED=0
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            MERGEABLE="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json mergeable --jq '.mergeable')"
+            STATE="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json state --jq '.state')"
+
+            if [ "$STATE" != "OPEN" ]; then
+              echo "PR #$PR_NUMBER is no longer open (state=$STATE). Skipping merge."
+              exit 0
+            fi
+
+            if [ "$MERGEABLE" = "MERGEABLE" ]; then
+              echo "PR #$PR_NUMBER is mergeable. Merging..."
+              gh pr merge "$PR_NUMBER" --repo songzhengpei/Slclash --merge --delete-branch
+              echo "PR #$PR_NUMBER merged."
+              break
+            fi
+
+            echo "Not yet mergeable (mergeable=$MERGEABLE). Waiting 10s..."
+            sleep 10
+            ELAPSED=$((ELAPSED + 10))
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "Timed out waiting for PR #$PR_NUMBER to become mergeable."
+            exit 1
+          fi
+
+      - name: Create release tag
+        if: ${{ steps.pr.outputs.pr_number != '' }}
+        id: tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Syncing main..."
+          git fetch origin main
+          git checkout main
+          git merge origin/main --ff-only
+
+          APP_VERSION="$(python3 -c "
+          import re
+          from pathlib import Path
+          text = Path('pubspec.yaml').read_text(encoding='utf-8')
+          m = re.search(r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)(?:\+.*)?$', text, re.M)
+          if not m:
+              raise SystemExit('Cannot parse version from pubspec.yaml')
+          print(m.group(1))
+          ")"
+
+          TAG_NAME="v${APP_VERSION}"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists locally. Skipping."
+            exit 0
+          fi
+
+          if git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
+            echo "Tag $TAG_NAME already exists on origin. Skipping."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+          echo "Tag $TAG_NAME created and pushed. Release workflow will trigger."
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Mihomo Core Update Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Latest Mihomo: ${{ steps.latest.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Previous core: v${{ steps.current.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.update.outputs.branch }}" != "" ]; then
+            echo "- PR: #${{ steps.pr.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- App version: ${{ steps.update.outputs.app_version }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Tag: ${{ steps.tag.outputs.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- No update needed" >> "$GITHUB_STEP_SUMMARY"
           fi
