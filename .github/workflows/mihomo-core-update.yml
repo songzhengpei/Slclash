@@ -90,6 +90,9 @@ jobs:
             git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
           git -C core/Clash.Meta fetch --tags metacubex
 
+          # Ensure fork's FlClash branch is available locally
+          git -C core/Clash.Meta fetch origin FlClash 2>/dev/null || true
+
           # Check if the fork (chen08209/Clash.Meta) has the FlClash branch
           FORK_HAS_VERSION=false
           if git -C core/Clash.Meta ls-remote --exit-code origin "refs/tags/$LATEST_TAG" >/dev/null 2>&1; then
