@@ -52,14 +52,15 @@ jobs:
         id: current
         shell: bash
         run: |
-          CURRENT_VERSION="$(sed -n 's/.*Version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' core/Clash.Meta/constant/version.go | head -n 1)"
+          CURRENT_VERSION="$(git -C core/Clash.Meta describe --tags --abbrev=0 2>/dev/null || true)"
           CURRENT_COMMIT="$(git -C core/Clash.Meta rev-parse --short=12 HEAD)"
 
           if [ -z "$CURRENT_VERSION" ]; then
-            echo "Could not resolve current Mihomo version."
+            echo "Could not resolve current Mihomo version from git tag."
             exit 1
           fi
 
+          CURRENT_VERSION="${CURRENT_VERSION#v}"
           echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
           echo "commit=$CURRENT_COMMIT" >> "$GITHUB_OUTPUT"
           echo "Current Mihomo core: v$CURRENT_VERSION ($CURRENT_COMMIT)"

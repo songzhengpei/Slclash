@@ -166,12 +166,12 @@ jobs:
           fi
 
           CORE_SHA256="$(sha256sum "$CORE_LIB" | awk '{print $1}')"
-          MIHOMO_VERSION="$(sed -n 's/.*Version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' core/Clash.Meta/constant/version.go | head -n 1)"
+          MIHOMO_VERSION="$(git -C core/Clash.Meta describe --tags --abbrev=0 2>/dev/null || true)"
           MIHOMO_COMMIT="$(git -C core/Clash.Meta rev-parse --short=12 HEAD)"
           CORE_BUILD_TIME="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
           if [ -z "$MIHOMO_VERSION" ]; then
-            echo "Could not resolve Mihomo version."
+            echo "Could not resolve Mihomo version from git tag."
             exit 1
           fi
 
