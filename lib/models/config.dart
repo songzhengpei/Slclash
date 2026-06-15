@@ -206,7 +206,7 @@ abstract class ThemeProps with _$ThemeProps {
     int? primaryColor,
     @Default(defaultPrimaryColors) List<int> primaryColors,
     @Default(ThemeMode.dark) ThemeMode themeMode,
-    @Default(DynamicSchemeVariant.content) DynamicSchemeVariant schemeVariant,
+    @Default(DynamicSchemeVariant.tonalSpot) DynamicSchemeVariant schemeVariant,
     @Default(false) bool dynamicColor,
     @Default(false) bool pureBlack,
     @Default(TextScale()) TextScale textScale,
