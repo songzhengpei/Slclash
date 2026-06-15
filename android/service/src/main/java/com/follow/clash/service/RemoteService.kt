@@ -122,9 +122,9 @@ class RemoteService : Service(),
                             }
                         }
                     }
+                    onStarted.invoke()
                 }
             }
-            onStarted.invoke()
         }
 
         override fun updateNotificationParams(params: NotificationParams?) {
