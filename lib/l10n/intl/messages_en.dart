@@ -223,6 +223,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "confirmClearAllData": MessageLookupByLibrary.simpleMessage(
       "Are you sure you want to clear all data?",
     ),
+    "confirmFactoryReset": MessageLookupByLibrary.simpleMessage(
+      "This will clear settings, profiles, scripts, cache, and backup restore files. The app will exit afterwards.",
+    ),
     "confirmDeleteProxyGroup": MessageLookupByLibrary.simpleMessage(
       "Are you sure you want to delete the current proxy group?",
     ),
@@ -363,6 +366,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "externalLink": MessageLookupByLibrary.simpleMessage("External link"),
     "fakeipFilter": MessageLookupByLibrary.simpleMessage("Fakeip filter"),
     "fakeipRange": MessageLookupByLibrary.simpleMessage("Fakeip range"),
+    "factoryReset": MessageLookupByLibrary.simpleMessage("Factory reset"),
+    "factoryResetDesc": MessageLookupByLibrary.simpleMessage(
+      "Clear all app data and restart from the default first-run state",
+    ),
     "fallback": MessageLookupByLibrary.simpleMessage("Fallback"),
     "fallbackDesc": MessageLookupByLibrary.simpleMessage(
       "Generally use offshore DNS",

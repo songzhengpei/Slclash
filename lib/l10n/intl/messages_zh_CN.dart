@@ -155,6 +155,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "configDataDetected": MessageLookupByLibrary.simpleMessage("检测到配置中存在数据"),
     "confirm": MessageLookupByLibrary.simpleMessage("确定"),
     "confirmClearAllData": MessageLookupByLibrary.simpleMessage("确定要清除所有数据？"),
+    "confirmFactoryReset": MessageLookupByLibrary.simpleMessage(
+      "这会清空设置、配置文件、脚本、缓存和备份恢复临时文件。完成后应用将退出。",
+    ),
     "confirmDeleteProxyGroup": MessageLookupByLibrary.simpleMessage(
       "确定要删除当前策略组吗？",
     ),
@@ -253,6 +256,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "externalLink": MessageLookupByLibrary.simpleMessage("外部链接"),
     "fakeipFilter": MessageLookupByLibrary.simpleMessage("Fakeip过滤"),
     "fakeipRange": MessageLookupByLibrary.simpleMessage("Fakeip范围"),
+    "factoryReset": MessageLookupByLibrary.simpleMessage("恢复出厂设置"),
+    "factoryResetDesc": MessageLookupByLibrary.simpleMessage(
+      "清空所有应用数据，并按首次安装的默认状态重新开始",
+    ),
     "fallback": MessageLookupByLibrary.simpleMessage("Fallback"),
     "fallbackDesc": MessageLookupByLibrary.simpleMessage("一般情况下使用境外DNS"),
     "fallbackFilter": MessageLookupByLibrary.simpleMessage("Fallback过滤"),

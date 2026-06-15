@@ -574,6 +574,7 @@ class BackupAction extends _$BackupAction {
     final profileFileNames = res[0];
     final scriptFileNames = res[1];
     final configMap = ref.read(configProvider).toJson();
+    _removeDynamicThemeSeedColor(configMap);
     configMap['version'] = await preferences.getVersion();
     return backupTask(configMap, [...profileFileNames, ...scriptFileNames]);
   }
@@ -600,6 +601,7 @@ class BackupAction extends _$BackupAction {
       );
       final configMap = migrationData.configMap;
       if (option == RestoreOption.onlyProfiles || configMap == null) return;
+      _removeDynamicThemeSeedColor(configMap);
       final config = Config.fromJson(configMap);
       ref.read(patchClashConfigProvider.notifier).value =
           config.patchClashConfig;
@@ -619,6 +621,17 @@ class BackupAction extends _$BackupAction {
     } finally {
       await restoreDir.safeDelete(recursive: true);
     }
+  }
+
+  void _removeDynamicThemeSeedColor(Map<String, Object?> configMap) {
+    final themeProps = configMap['themeProps'];
+    if (themeProps is! Map) {
+      return;
+    }
+    if (themeProps['dynamicColor'] != true) {
+      return;
+    }
+    themeProps['primaryColor'] = null;
   }
 }
 
@@ -827,16 +840,38 @@ class StoreAction extends _$StoreAction {
   }
 
   Future handleClear() async {
+    _resetConfigState();
     await preferences.clearPreferences();
     commonPrint.log('clear preferences');
     await database.close();
-    await File(await appPath.databasePath).safeDelete(recursive: true);
-    final homeDir = Directory(await appPath.profilesPath);
-    await for (final file in homeDir.list(recursive: true)) {
-      await coreController.deleteFile(file.path);
-    }
+    await _clearDirectoryContents(Directory(await appPath.homeDirPath));
+    await _clearDirectoryContents(await appPath.cacheDir.future);
     await preferences.clearPreferences();
     ref.read(systemActionProvider.notifier).handleExit(false);
+  }
+
+  void _resetConfigState() {
+    ref.read(appSettingProvider.notifier).value = defaultAppSettingProps;
+    ref.read(windowSettingProvider.notifier).value = defaultWindowProps;
+    ref.read(vpnSettingProvider.notifier).value = defaultVpnProps;
+    ref.read(networkSettingProvider.notifier).value = defaultNetworkProps;
+    ref.read(themeSettingProvider.notifier).value = defaultThemeProps;
+    ref.read(currentProfileIdProvider.notifier).value = null;
+    ref.read(davSettingProvider.notifier).value = null;
+    ref.read(overrideDnsProvider.notifier).value = false;
+    ref.read(hotKeyActionsProvider.notifier).value = [];
+    ref.read(proxiesStyleSettingProvider.notifier).value =
+        defaultProxiesStyleProps;
+    ref.read(patchClashConfigProvider.notifier).value = defaultClashConfig;
+  }
+
+  Future<void> _clearDirectoryContents(Directory directory) async {
+    if (!await directory.exists()) {
+      return;
+    }
+    await for (final entity in directory.list()) {
+      await entity.safeDelete(recursive: true);
+    }
   }
 }
 

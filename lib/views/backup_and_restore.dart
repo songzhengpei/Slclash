@@ -197,6 +197,19 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
         .update((state) => state.copyWith(restoreStrategy: res));
   }
 
+  Future<void> _handleFactoryReset() async {
+    final res = await globalState.showMessage(
+      title: context.appLocalizations.factoryReset,
+      message: TextSpan(text: context.appLocalizations.confirmFactoryReset),
+    );
+    if (res != true) {
+      return;
+    }
+    await globalState.container
+        .read(storeActionProvider.notifier)
+        .handleClear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
@@ -355,6 +368,11 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
                     ),
                   );
                 },
+              ),
+              ListItem(
+                onTap: _handleFactoryReset,
+                title: Text(appLocalizations.factoryReset),
+                subtitle: Text(appLocalizations.factoryResetDesc),
               ),
             ],
           ),

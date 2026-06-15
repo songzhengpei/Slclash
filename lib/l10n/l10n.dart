@@ -2979,6 +2979,36 @@ class AppLocalizations {
     );
   }
 
+  /// `Factory reset`
+  String get factoryReset {
+    return Intl.message(
+      'Factory reset',
+      name: 'factoryReset',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Clear all app data and restart from the default first-run state`
+  String get factoryResetDesc {
+    return Intl.message(
+      'Clear all app data and restart from the default first-run state',
+      name: 'factoryResetDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `This will clear settings, profiles, scripts, cache, and backup restore files. The app will exit afterwards.`
+  String get confirmFactoryReset {
+    return Intl.message(
+      'This will clear settings, profiles, scripts, cache, and backup restore files. The app will exit afterwards.',
+      name: 'confirmFactoryReset',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Loading...`
   String get loading {
     return Intl.message('Loading...', name: 'loading', desc: '', args: []);
