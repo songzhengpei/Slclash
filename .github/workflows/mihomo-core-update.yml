@@ -29,7 +29,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch submodule tags
+        shell: bash
+        run: |
+          git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
+            git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
+          git -C core/Clash.Meta fetch --tags origin 2>/dev/null || true
+          git -C core/Clash.Meta fetch --tags metacubex 2>/dev/null || true
 
       - name: Resolve latest stable Mihomo release
         id: latest
