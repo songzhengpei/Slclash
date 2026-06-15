@@ -214,7 +214,8 @@ jobs:
             PR_NUMBER="$EXISTING_PR"
             gh pr edit "$PR_NUMBER" --title "$TITLE" --body-file "$BODY_FILE"
           else
-            PR_NUMBER="$(gh pr create --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE" --json number --jq '.number')"
+            PR_URL="$(gh pr create --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE")"
+            PR_NUMBER="$(echo "$PR_URL" | grep -oE '[0-9]+$')"
           fi
 
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
