@@ -145,11 +145,12 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 
-      - name: Tidy Go modules
+      - name: Verify Go modules are tidy
         shell: bash
         run: |
           cd core
           go mod tidy
+          git diff --exit-code go.mod go.sum
 
       - name: Build Go core
         shell: bash

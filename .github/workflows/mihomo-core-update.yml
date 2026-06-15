@@ -96,7 +96,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git switch -c "$BRANCH"
 
-          # Fetch from upstream Mihomo to check if the tag exists
+          # Fetch upstream tags for version comparison only. The checked-out
+          # core must come from the FlClash fork so local patches are preserved.
           git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
             git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
           git -C core/Clash.Meta fetch --tags --force metacubex
@@ -104,20 +105,18 @@ jobs:
           # Ensure fork's FlClash branch is available locally
           git -C core/Clash.Meta fetch origin FlClash 2>/dev/null || true
 
-          # Check if the fork (chen08209/Clash.Meta) has the FlClash branch
-          FORK_HAS_VERSION=false
-          if git -C core/Clash.Meta ls-remote --exit-code origin "refs/tags/$LATEST_TAG" >/dev/null 2>&1; then
-            FORK_HAS_VERSION=true
-          fi
-
-          if [ "$FORK_HAS_VERSION" = "true" ]; then
-            git -C core/Clash.Meta checkout -q "$LATEST_TAG"
-          else
+          FORK_TAG_SHA="$(git -C core/Clash.Meta ls-remote origin "refs/tags/$LATEST_TAG" | awk '{print $1}' | head -n 1)"
+          if [ -z "$FORK_TAG_SHA" ]; then
             echo "Fork does not have tag $LATEST_TAG. Skipping submodule update."
             echo "The fork (chen08209/Clash.Meta) needs to release a FlClash branch"
             echo "that supports Mihomo $LATEST_TAG before the submodule can be updated."
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            echo "blocked_reason=fork_missing_tag" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          git -C core/Clash.Meta fetch --no-tags origin "+refs/tags/$LATEST_TAG:refs/tags/flclash-$LATEST_TAG"
+          git -C core/Clash.Meta checkout -q "$FORK_TAG_SHA"
 
           VERSION_LINE="$(grep -E '^version: ' pubspec.yaml)"
           CURRENT_APP_VERSION="${VERSION_LINE#version: }"
@@ -158,7 +157,7 @@ jobs:
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "fork_has_version=$FORK_HAS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "blocked=false" >> "$GITHUB_OUTPUT"
 
       - name: Open pull request
         if: ${{ steps.update.outputs.branch != '' }}
@@ -168,14 +167,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           BRANCH="${{ steps.update.outputs.branch }}"
-          FORK_HAS_VERSION="${{ steps.update.outputs.fork_has_version }}"
           TITLE="chore: update Mihomo core to ${{ steps.latest.outputs.tag }}"
-
-          if [ "$FORK_HAS_VERSION" = "true" ]; then
-            NOTES="Fork \`chen08209/Clash.Meta\` already supports this version."
-          else
-            NOTES="**Warning**: Fork does not yet have native support. FlClash patches were auto-applied."
-          fi
 
           BODY_FILE="$(mktemp)"
           cat > "$BODY_FILE" <<EOF
@@ -185,7 +177,7 @@ jobs:
           - New: ${{ steps.latest.outputs.tag }} (${{ steps.update.outputs.mihomo_commit }})
           - App version: ${{ steps.update.outputs.app_version }}
 
-          $NOTES
+          Fork \`chen08209/Clash.Meta\` already has this tag, so the FlClash-patched core source is used instead of vanilla Mihomo.
           EOF
 
           EXISTING_PR="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
@@ -202,43 +194,56 @@ jobs:
 
       - name: Wait for PR checks and auto-merge
         if: ${{ steps.pr.outputs.pr_number != '' }}
+        id: merge
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
-          echo "Waiting for PR #$PR_NUMBER to be mergeable..."
+          echo "Waiting for PR #$PR_NUMBER checks and mergeability..."
 
-          MAX_WAIT=300
+          MAX_WAIT=900
           ELAPSED=0
           while [ $ELAPSED -lt $MAX_WAIT ]; do
             MERGEABLE="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json mergeable --jq '.mergeable')"
             STATE="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json state --jq '.state')"
+            CHECK_TOTAL="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json statusCheckRollup --jq '.statusCheckRollup | length')"
+            CHECK_PENDING="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json statusCheckRollup --jq '[.statusCheckRollup[] | select(((.status // "COMPLETED") != "COMPLETED") or ((.state // "SUCCESS") == "PENDING") or ((.state // "SUCCESS") == "EXPECTED"))] | length')"
+            CHECK_FAILED="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json statusCheckRollup --jq '[.statusCheckRollup[] | select(((.conclusion // "SUCCESS") != "SUCCESS" and (.conclusion // "SUCCESS") != "NEUTRAL" and (.conclusion // "SUCCESS") != "SKIPPED") or ((.state // "SUCCESS") != "SUCCESS" and (.state // "SUCCESS") != "PENDING" and (.state // "SUCCESS") != "EXPECTED"))] | length')"
 
             if [ "$STATE" != "OPEN" ]; then
               echo "PR #$PR_NUMBER is no longer open (state=$STATE). Skipping merge."
+              echo "merged=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
 
-            if [ "$MERGEABLE" = "MERGEABLE" ]; then
+            if [ "$CHECK_FAILED" != "0" ]; then
+              echo "PR #$PR_NUMBER has failing checks."
+              echo "merged=false" >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
+
+            if [ "$CHECK_TOTAL" != "0" ] && [ "$CHECK_PENDING" = "0" ] && [ "$MERGEABLE" = "MERGEABLE" ]; then
               echo "PR #$PR_NUMBER is mergeable. Merging..."
               gh pr merge "$PR_NUMBER" --repo songzhengpei/Slclash --merge --delete-branch
+              echo "merged=true" >> "$GITHUB_OUTPUT"
               echo "PR #$PR_NUMBER merged."
               break
             fi
 
-            echo "Not yet mergeable (mergeable=$MERGEABLE). Waiting 10s..."
+            echo "Waiting: checks total=$CHECK_TOTAL pending=$CHECK_PENDING failed=$CHECK_FAILED mergeable=$MERGEABLE."
             sleep 10
             ELAPSED=$((ELAPSED + 10))
           done
 
           if [ $ELAPSED -ge $MAX_WAIT ]; then
             echo "Timed out waiting for PR #$PR_NUMBER to become mergeable."
+            echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
       - name: Create release tag
-        if: ${{ steps.pr.outputs.pr_number != '' }}
+        if: ${{ steps.merge.outputs.merged == 'true' }}
         id: tag
         shell: bash
         env:
@@ -296,8 +301,12 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Latest Mihomo: ${{ steps.latest.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Previous core: v${{ steps.current.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.update.outputs.branch }}" != "" ]; then
+          if [ "${{ steps.update.outputs.blocked }}" = "true" ]; then
+            echo "- Status: blocked" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Reason: FlClash fork does not have ${{ steps.latest.outputs.tag }} yet; no PR, tag, or release was created." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.update.outputs.branch }}" != "" ]; then
             echo "- PR: #${{ steps.pr.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Merged: ${{ steps.merge.outputs.merged }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- App version: ${{ steps.update.outputs.app_version }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- Tag: ${{ steps.tag.outputs.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
           else
