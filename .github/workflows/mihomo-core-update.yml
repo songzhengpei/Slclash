@@ -300,7 +300,17 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
-          echo "Tag $TAG_NAME created and pushed. Release workflow will trigger."
+          echo "Tag $TAG_NAME created and pushed."
+
+      - name: Trigger release workflow
+        if: ${{ steps.tag.outputs.tag_name != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="${{ steps.tag.outputs.tag_name }}"
+          echo "Triggering SlClash Android Release for $TAG_NAME..."
+          gh workflow run "SlClash Android Release" --repo songzhengpei/Slclash -f tag="$TAG_NAME"
+          echo "Release workflow triggered."
 
       - name: Summary
         if: always()
