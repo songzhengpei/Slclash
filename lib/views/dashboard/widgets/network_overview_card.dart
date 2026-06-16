@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/app.dart';
@@ -22,14 +23,26 @@ class SurgeNetworkOverviewCard extends ConsumerStatefulWidget {
 class _SurgeNetworkOverviewCardState
     extends ConsumerState<SurgeNetworkOverviewCard> {
   static const _cardRadius = 26.0;
-  static const _latencyRefreshInterval = Duration(seconds: 15);
+  static const _latencyRefreshInterval = Duration(seconds: 60);
   static const _latencyTargets = [
-    _LatencyTarget(name: 'GitHub', url: 'https://github.com'),
-    _LatencyTarget(name: 'YouTube', url: 'https://www.youtube.com'),
-    _LatencyTarget(name: 'ChatGPT', url: 'https://chatgpt.com'),
+    _LatencyTarget(
+      name: 'GitHub',
+      url: 'https://github.com',
+      probeUrl: 'https://github.com/favicon.ico',
+    ),
+    _LatencyTarget(
+      name: 'YouTube',
+      url: 'https://www.youtube.com',
+      probeUrl: 'https://www.youtube.com/generate_204',
+    ),
+    _LatencyTarget(
+      name: 'ChatGPT',
+      url: 'https://chatgpt.com',
+      probeUrl: 'https://chatgpt.com/favicon.ico',
+    ),
   ];
 
-  static const _latencyTimeout = Duration(seconds: 10);
+  static const _latencyTimeout = Duration(seconds: 5);
 
   final Map<String, _LatencyResult> _latencyResults = {};
   Timer? _latencyRefreshTimer;
@@ -61,6 +74,32 @@ class _SurgeNetworkOverviewCardState
         .toList();
   }
 
+  Map<String, String> _getLatencyRouteNames(List<TrackerInfo> requests) {
+    final Map<String, String> routeNames = {};
+    for (final target in _latencyTargets) {
+      final targetHost = target.host;
+      final targetBareHost = target.bareHost;
+      final request = requests.reversed.firstWhereOrNull((request) {
+        final metadata = request.metadata;
+        final host = metadata.host.toLowerCase();
+        final remoteDestination = metadata.remoteDestination.toLowerCase();
+        final destination = metadata.destinationIP.toLowerCase();
+        return host == targetHost ||
+            host == targetBareHost ||
+            host.endsWith('.$targetBareHost') ||
+            remoteDestination.contains(targetBareHost) ||
+            destination.contains(targetBareHost);
+      });
+      final routeName = request?.chains.lastWhereOrNull(
+        (chain) => chain.trim().isNotEmpty,
+      );
+      if (routeName != null) {
+        routeNames[target.name] = routeName;
+      }
+    }
+    return routeNames;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -85,21 +124,42 @@ class _SurgeNetworkOverviewCardState
     });
   }
 
-  Future<int?> _measureLatency(String url) async {
-    final uri = Uri.parse(url);
-    final host = uri.host;
-    final port = uri.port != 0 ? uri.port : 443;
+  Future<int?> _measureLatency(_LatencyTarget target) async {
+    Future<HttpClientResponse> request(
+      HttpClient client,
+      Uri uri,
+      String method,
+    ) async {
+      final httpRequest = await client
+          .openUrl(method, uri)
+          .timeout(_latencyTimeout);
+      httpRequest.followRedirects = false;
+      httpRequest.maxRedirects = 0;
+      httpRequest.headers.set(HttpHeaders.userAgentHeader, 'FlClash');
+      if (method == 'GET') {
+        httpRequest.headers.set(HttpHeaders.rangeHeader, 'bytes=0-0');
+      }
+      return httpRequest.close().timeout(_latencyTimeout);
+    }
+
+    final client = HttpClient()..connectionTimeout = _latencyTimeout;
+    final uri = Uri.parse(target.probeUrl);
     final stopwatch = Stopwatch()..start();
     try {
-      // TCP + TLS handshake — measures DNS + TCP + TLS, no HTTP overhead
-      final socket = await SecureSocket.connect(host, port,
-          timeout: _latencyTimeout);
+      HttpClientResponse response;
+      try {
+        response = await request(client, uri, 'HEAD');
+      } catch (_) {
+        response = await request(client, uri, 'GET');
+      }
       stopwatch.stop();
-      socket.destroy();
+      unawaited(response.drain<void>());
       return stopwatch.elapsedMilliseconds;
     } catch (_) {
       stopwatch.stop();
       return null;
+    } finally {
+      client.close(force: true);
     }
   }
 
@@ -114,7 +174,7 @@ class _SurgeNetworkOverviewCardState
     });
     final entries = await Future.wait(
       _latencyTargets.map((target) async {
-        final latency = await _measureLatency(target.url);
+        final latency = await _measureLatency(target);
         return MapEntry(target.name, _LatencyResult(latency));
       }),
     );
@@ -133,6 +193,7 @@ class _SurgeNetworkOverviewCardState
     final appLocalizations = context.appLocalizations;
     final traffics = ref.watch(trafficsProvider).list;
     final totalTraffic = ref.watch(totalTrafficProvider);
+    final requests = ref.watch(requestsProvider);
     final networkDetection = ref.watch(networkDetectionProvider);
     final isStart = ref.watch(isStartProvider);
     final checkIpNum = ref.watch(checkIpNumProvider);
@@ -173,6 +234,7 @@ class _SurgeNetworkOverviewCardState
     final downloadColor = isStart
         ? dashboardActiveGreenFill
         : dashboardInactiveVariantFill;
+    final latencyRouteNames = _getLatencyRouteNames(requests.list);
     final lineFillStartAlpha = isStart ? 0.16 : 1.0;
     final lineFillEndAlpha = isStart ? 0.03 : 0.08;
 
@@ -328,12 +390,12 @@ class _SurgeNetworkOverviewCardState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 28),
                     Padding(
-                      padding: const EdgeInsets.only(left: 4),
+                      padding: const EdgeInsets.only(left: 2),
                       child: SizedBox(
-                        width: 66,
-                        height: 66,
+                        width: 78,
+                        height: 78,
                         child: DonutChart(
                           data: [
                             DonutChartData(
@@ -371,14 +433,16 @@ class _SurgeNetworkOverviewCardState
                     _PlatformLatencyPanel(
                       targets: _latencyTargets,
                       results: _latencyResults,
-                      isStart: isStart,
-                      activeColor: uploadColor,
-                      secondaryActiveColor: downloadColor,
-                      inactiveColor: dashboardInactiveFill,
+                      routeNames: latencyRouteNames,
+                      fallbackCountryCode: networkDetection.ipInfo?.countryCode,
+                      activeColor: dashboardDynamicActiveFill,
                       fillColor: surge.fill,
                       textColor: surge.textPrimary,
                       secondaryTextColor: surge.textSecondary,
                       dangerColor: surge.red,
+                      onRetest: () {
+                        unawaited(_testLatencies(force: true));
+                      },
                     ),
                   ],
                 ),
@@ -592,10 +656,19 @@ class _NetworkDetectionBar extends StatelessWidget {
 }
 
 class _LatencyTarget {
-  const _LatencyTarget({required this.name, required this.url});
+  const _LatencyTarget({
+    required this.name,
+    required this.url,
+    required this.probeUrl,
+  });
 
   final String name;
   final String url;
+  final String probeUrl;
+
+  String get host => Uri.parse(url).host.toLowerCase();
+
+  String get bareHost => host.startsWith('www.') ? host.substring(4) : host;
 }
 
 class _LatencyResult {
@@ -680,30 +753,29 @@ class _PlatformLatencyPanel extends StatelessWidget {
   const _PlatformLatencyPanel({
     required this.targets,
     required this.results,
-    required this.isStart,
+    required this.routeNames,
+    required this.fallbackCountryCode,
     required this.activeColor,
-    required this.secondaryActiveColor,
-    required this.inactiveColor,
     required this.fillColor,
     required this.textColor,
     required this.secondaryTextColor,
     required this.dangerColor,
+    required this.onRetest,
   });
 
   final List<_LatencyTarget> targets;
   final Map<String, _LatencyResult> results;
-  final bool isStart;
+  final Map<String, String> routeNames;
+  final String? fallbackCountryCode;
   final Color activeColor;
-  final Color secondaryActiveColor;
-  final Color inactiveColor;
   final Color fillColor;
   final Color textColor;
   final Color secondaryTextColor;
   final Color dangerColor;
+  final VoidCallback onRetest;
 
   Color _flowColor(_LatencyResult? result) {
-    if (result == null || result.pending) return inactiveColor;
-    if (!isStart) return inactiveColor;
+    if (result == null || result.pending) return activeColor;
     final latency = result.latency;
     if (latency == null) return dashboardSunsetError;
     if (latency < 180) return dashboardSunsetSuccess;
@@ -712,13 +784,12 @@ class _PlatformLatencyPanel extends StatelessWidget {
   }
 
   Color _trackColor(_LatencyResult? result) {
-    if (!isStart) return fillColor;
     final flow = _flowColor(result);
     return Color.lerp(flow, Colors.black, 0.76)!.withValues(alpha: 0.58);
   }
 
   double _barWidth(_LatencyResult? result) {
-    if (result == null || result.pending) return 0;
+    if (result == null || result.pending) return 1;
     final latency = result.latency;
     if (latency == null) return 1;
     return (latency / 640).clamp(0.08, 1).toDouble();
@@ -776,14 +847,16 @@ class _PlatformLatencyPanel extends StatelessWidget {
       children: [
         for (final target in targets) ...[
           _PlatformLatencyRow(
-            name: target.name,
-            isStart: isStart,
+            target: target,
+            routeName: routeNames[target.name],
+            fallbackCountryCode: fallbackCountryCode,
             trackColor: _trackColor(results[target.name]),
             flowColor: _flowColor(results[target.name]),
             barWidthFactor: _barWidth(results[target.name]),
             textColor: textColor,
             secondaryTextColor: secondaryTextColor,
             trailing: _value(context, results[target.name]),
+            onRetest: onRetest,
           ),
           if (target != targets.last) const SizedBox(height: 12),
         ],
@@ -794,69 +867,251 @@ class _PlatformLatencyPanel extends StatelessWidget {
 
 class _PlatformLatencyRow extends StatelessWidget {
   const _PlatformLatencyRow({
-    required this.name,
-    required this.isStart,
+    required this.target,
+    required this.routeName,
+    required this.fallbackCountryCode,
     required this.trackColor,
     required this.flowColor,
     required this.barWidthFactor,
     required this.textColor,
     required this.secondaryTextColor,
     required this.trailing,
+    required this.onRetest,
   });
 
-  final String name;
-  final bool isStart;
+  final _LatencyTarget target;
+  final String? routeName;
+  final String? fallbackCountryCode;
   final Color trackColor;
   final Color flowColor;
   final double barWidthFactor;
   final Color textColor;
   final Color secondaryTextColor;
   final Widget trailing;
+  final VoidCallback onRetest;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Transform.translate(
-          offset: const Offset(-10, 0),
-          child: SizedBox(
-            width: 56,
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: context.textTheme.labelMedium?.copyWith(
-                color: textColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.0,
-                letterSpacing: 0,
+        _PlatformBrandIcon(target: target),
+        const SizedBox(width: 6),
+        _RouteFlagBadge(
+          routeName: routeName,
+          fallbackCountryCode: fallbackCountryCode,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onRetest,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: _FlowingLatencyBar(
+                widthFactor: barWidthFactor,
+                trackColor: trackColor,
+                flowColor: flowColor,
               ),
             ),
           ),
         ),
-        const SizedBox(width: 0),
-        Expanded(
-          child: Transform.translate(
-            offset: const Offset(-8, 0),
-            child: _FlowingLatencyBar(
-              widthFactor: barWidthFactor,
-              trackColor: trackColor,
-              flowColor: flowColor,
-            ),
-          ),
-        ),
-        const SizedBox(width: 3),
-        Transform.translate(
-          offset: const Offset(-7, 0),
-          child: SizedBox(
-            width: 46,
-            child: Align(alignment: Alignment.centerRight, child: trailing),
-          ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 50,
+          child: Align(alignment: Alignment.centerRight, child: trailing),
         ),
       ],
+    );
+  }
+}
+
+class _PlatformBrandIcon extends StatelessWidget {
+  const _PlatformBrandIcon({required this.target});
+
+  final _LatencyTarget target;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = target.name.toLowerCase();
+    if (name == 'youtube') {
+      return _BrandImageIcon(
+        tooltip: target.name,
+        assetPath: 'assets/images/icon/latency_youtube.png',
+      );
+    }
+    if (name == 'chatgpt') {
+      return _BrandImageIcon(
+        tooltip: target.name,
+        assetPath: 'assets/images/icon/latency_chatgpt.png',
+      );
+    }
+    return _BrandImageIcon(
+      tooltip: target.name,
+      assetPath: 'assets/images/icon/latency_github.png',
+    );
+  }
+}
+
+class _BrandImageIcon extends StatelessWidget {
+  const _BrandImageIcon({required this.tooltip, required this.assetPath});
+
+  final String tooltip;
+  final String assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 25,
+        height: 25,
+        child: Image.asset(
+          assetPath,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteFlagBadge extends StatelessWidget {
+  const _RouteFlagBadge({
+    required this.routeName,
+    required this.fallbackCountryCode,
+  });
+
+  final String? routeName;
+  final String? fallbackCountryCode;
+
+  static const Map<String, String> _countryKeywords = {
+    'hk': 'HK',
+    'hong kong': 'HK',
+    '香港': 'HK',
+    'tw': 'TW',
+    'taiwan': 'TW',
+    '台湾': 'TW',
+    '臺灣': 'TW',
+    'jp': 'JP',
+    'japan': 'JP',
+    '日本': 'JP',
+    'sg': 'SG',
+    'singapore': 'SG',
+    '新加坡': 'SG',
+    'us': 'US',
+    'usa': 'US',
+    'united states': 'US',
+    'america': 'US',
+    '美国': 'US',
+    '美國': 'US',
+    'kr': 'KR',
+    'korea': 'KR',
+    '韩国': 'KR',
+    '韓國': 'KR',
+    'uk': 'GB',
+    'gb': 'GB',
+    'united kingdom': 'GB',
+    'britain': 'GB',
+    '英国': 'GB',
+    '英國': 'GB',
+    'de': 'DE',
+    'germany': 'DE',
+    '德国': 'DE',
+    '德國': 'DE',
+    'fr': 'FR',
+    'france': 'FR',
+    '法国': 'FR',
+    '法國': 'FR',
+    'ca': 'CA',
+    'canada': 'CA',
+    '加拿大': 'CA',
+    'au': 'AU',
+    'australia': 'AU',
+    '澳大利亚': 'AU',
+    'nl': 'NL',
+    'netherlands': 'NL',
+    '荷兰': 'NL',
+  };
+
+  String _countryCodeToEmoji(String countryCode) {
+    final code = countryCode.toUpperCase();
+    if (code.length != 2) return '';
+    final firstLetter = code.codeUnitAt(0) - 0x41 + 0x1F1E6;
+    final secondLetter = code.codeUnitAt(1) - 0x41 + 0x1F1E6;
+    return String.fromCharCode(firstLetter) + String.fromCharCode(secondLetter);
+  }
+
+  String? _extractFlag(String text) {
+    return RegExp(
+      r'[\u{1F1E6}-\u{1F1FF}]{2}',
+      unicode: true,
+    ).firstMatch(text)?.group(0);
+  }
+
+  String? _inferCountryCode(String text) {
+    final lowerText = text.toLowerCase();
+    for (final entry in _countryKeywords.entries) {
+      if (_matchesCountryKeyword(lowerText, entry.key)) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  bool _matchesCountryKeyword(String text, String keyword) {
+    final isShortLatinKeyword = RegExp(r'^[a-z]{2,3}$').hasMatch(keyword);
+    if (!isShortLatinKeyword) {
+      return text.contains(keyword);
+    }
+    return RegExp(
+      '(^|[^a-z])${RegExp.escape(keyword)}([^a-z]|\$)',
+    ).hasMatch(text);
+  }
+
+  String? _flagText() {
+    final name = routeName?.trim();
+    if (name != null && name.isNotEmpty) {
+      final embeddedFlag = _extractFlag(name);
+      if (embeddedFlag != null) return embeddedFlag;
+      final countryCode = _inferCountryCode(name);
+      if (countryCode != null) return _countryCodeToEmoji(countryCode);
+      if (name.toUpperCase() == 'DIRECT' && fallbackCountryCode != null) {
+        return _countryCodeToEmoji(fallbackCountryCode!);
+      }
+    }
+    if (fallbackCountryCode != null) {
+      return _countryCodeToEmoji(fallbackCountryCode!);
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final flag = _flagText();
+    return SizedBox(
+      width: 20,
+      height: 20,
+      child: flag == null || flag.isEmpty
+          ? Center(
+              child: Icon(
+                Icons.public_rounded,
+                size: 13,
+                color: surge.textSecondary,
+              ),
+            )
+          : Center(
+              child: Text(
+                flag,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontFamily: 'Twemoji',
+                  fontSize: 15,
+                  height: 1.0,
+                ),
+              ),
+            ),
     );
   }
 }

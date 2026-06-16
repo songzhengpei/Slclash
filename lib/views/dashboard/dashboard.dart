@@ -12,7 +12,7 @@ class DashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pageBackground = SurgeTheme.of(context).background;
-    final bottomPadding = 80 + MediaQuery.paddingOf(context).bottom;
+    final bottomPadding = 112 + MediaQuery.paddingOf(context).bottom;
 
     return CommonScaffold(
       title: context.appLocalizations.dashboard,

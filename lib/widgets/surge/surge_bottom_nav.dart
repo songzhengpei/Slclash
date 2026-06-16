@@ -33,7 +33,7 @@ class SurgeBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final bottomPadding = MediaQuery.paddingOf(context).bottom + 16;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom + 5;
     final navWidth = math.max(MediaQuery.sizeOf(context).width - 36, 0.0);
 
     return Padding(
