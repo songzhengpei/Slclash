@@ -478,7 +478,7 @@ class _HeroActionButton extends StatelessWidget {
                         isStart ? '停止' : '启动',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: surge.onPrimary,
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0,
                         ),
@@ -844,14 +844,14 @@ class _ModeSwitchItem extends StatelessWidget {
             style:
                 Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: selected ? primary : textSecondary,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 1.0,
                   letterSpacing: 0,
                 ) ??
                 TextStyle(
                   color: selected ? primary : textSecondary,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 1.0,
                 ),
@@ -880,7 +880,7 @@ class _HeroInfoBar extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     return Container(
       width: double.infinity,
-      height: 32,
+      height: 34,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: surge.fill,
@@ -897,7 +897,7 @@ class _HeroInfoBar extends StatelessWidget {
                   softWrap: false,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     height: 1.0,
                     letterSpacing: 0,
@@ -910,7 +910,7 @@ class _HeroInfoBar extends StatelessWidget {
                   softWrap: false,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     height: 1.0,
                     letterSpacing: 0,
@@ -934,7 +934,7 @@ class _HeroInfoBar extends StatelessWidget {
                   softWrap: false,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     height: 1.0,
                     letterSpacing: 0,
@@ -947,7 +947,7 @@ class _HeroInfoBar extends StatelessWidget {
                   softWrap: false,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     height: 1.0,
                     letterSpacing: 0,
