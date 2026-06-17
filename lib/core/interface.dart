@@ -347,7 +347,7 @@ abstract class CoreHandlerInterface with CoreInterface {
     bool healthOnly = false,
     String mode = 'full',
   }) async {
-    final requestTimeout = timeout ?? Duration(seconds: healthOnly ? 12 : 22);
+    final requestTimeout = timeout ?? Duration(seconds: healthOnly ? 12 : 15);
     final mediaCheckParams = {
       'proxy-name': proxyName,
       'profile-path': ?profilePath,

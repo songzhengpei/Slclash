@@ -11,12 +11,18 @@ import 'package:flutter/material.dart';
 
 const _mediaCheckCacheKey = 'media-check-cache-v2';
 const _mediaCheckObserveSettingsKey = 'media-check-observe-settings-v1';
+const _mediaCheckConcurrencyKey = 'media-check-concurrency-v1';
 const _healthyMinSamples = 3;
 const _healthyMinGreenStreak = 3;
-const _healthyMinGreenRate = 0.9;
+const _healthyMinGreenRate = 0.85;
 const _healthyMaxMedianDelay = 800;
-const _observeIdleDelay = Duration(minutes: 5);
+const _observeIdleDelay = Duration(seconds: 30);
 const _resultPanelMaxHeight = 460.0;
+const _cacheTTLSuccess = Duration(hours: 48);
+const _cacheTTLUnknown = Duration(hours: 24);
+const _cacheTTLError = Duration(hours: 6);
+const _cacheTTLHealth = Duration(days: 7);
+const _maxCacheEntries = 500;
 
 typedef MediaCheckConfigLoader =
     Future<Map<String, dynamic>> Function(int profileId);
@@ -47,8 +53,8 @@ class ProfileMediaCheckView extends StatefulWidget {
 
 class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     with WidgetsBindingObserver {
-  static const _defaultConcurrency = 4;
-  static const _maxConcurrency = 8;
+  static const _defaultConcurrency = 5;
+  static const _maxConcurrency = 10;
 
   late Profile _profile;
   final _cacheStore = MediaCheckCacheStore();
@@ -77,8 +83,18 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _profile = widget.initialProfile;
+    _restoreConcurrency();
     _restoreObserveSettings();
     _loadTargets();
+  }
+
+  Future<void> _restoreConcurrency() async {
+    final value = await preferences.getInt(_mediaCheckConcurrencyKey);
+    if (value != null && mounted) {
+      setState(() {
+        _concurrency = value.clamp(1, _maxConcurrency);
+      });
+    }
   }
 
   @override
@@ -92,15 +108,9 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    setState(() {
-      _paused =
-          state == AppLifecycleState.paused ||
-          state == AppLifecycleState.inactive ||
-          state == AppLifecycleState.hidden;
-    });
-    if (!_paused) {
-      _maybeRunObservation();
-    }
+    // Always try to run observation on lifecycle changes —
+    // paused state no longer blocks health checks.
+    _maybeRunObservation();
   }
 
   Future<void> _restoreObserveSettings() async {
@@ -187,6 +197,36 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     await _cacheStore.save(nextCache);
   }
 
+  /// Update in-memory cache only — no disk I/O, instant.
+  void _updateCacheInMemory(
+    _MediaCheckTarget target,
+    MediaCheckResult result,
+    _MediaCheckFilter mode,
+  ) {
+    final nextCache = mode == _MediaCheckFilter.green
+        ? _cache.addHealthResult(
+            key: target.key,
+            profileId: target.profile.id,
+            profileLabel: target.profile.realLabel,
+            proxyName: target.proxy.name,
+            result: result,
+          )
+        : _cache.addResult(
+            key: target.key,
+            profileId: target.profile.id,
+            profileLabel: target.profile.realLabel,
+            proxyName: target.proxy.name,
+            result: result,
+            mode: mode.cacheKey,
+          );
+    _cache = nextCache;
+  }
+
+  /// Persist current cache to disk asynchronously — fire and forget.
+  void _persistCache() {
+    _cacheStore.save(_cache);
+  }
+
   Future<void> _start({_MediaCheckFilter? mode, bool automatic = false}) async {
     final runMode = mode ?? _filter;
     final healthOnly = runMode == _MediaCheckFilter.green;
@@ -238,12 +278,15 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
                 profileId: target.profile.id,
                 profileLabel: target.profile.realLabel,
               );
-          await _saveResult(target, result, runMode);
+          // Update in-memory cache synchronously, then update UI immediately
+          _updateCacheInMemory(target, result, runMode);
           if (!mounted || generation != _generation) continue;
           setState(() {
             final cached = _cache.entries[target.key]?.lastResult;
             if (cached != null) _results[target.key] = cached;
           });
+          // Persist to disk asynchronously — don't block the UI
+          _persistCache();
         } catch (e) {
           if (!mounted || generation != _generation) continue;
           final result = MediaCheckResult.failed(
@@ -252,12 +295,13 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
             profileId: target.profile.id,
             profileLabel: target.profile.realLabel,
           );
-          await _saveResult(target, result, runMode);
+          _updateCacheInMemory(target, result, runMode);
           if (!mounted || generation != _generation) continue;
           setState(() {
             final cached = _cache.entries[target.key]?.lastResult;
             if (cached != null) _results[target.key] = cached;
           });
+          _persistCache();
         } finally {
           if (mounted && generation == _generation) {
             setState(() {
@@ -347,7 +391,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         !_observeSettings.enabled ||
         _checking ||
         _loading ||
-        _paused ||
         _targets.isEmpty ||
         _results.isEmpty ||
         !idleEnough ||
@@ -384,7 +427,13 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   bool _hasModeCache(_MediaCheckTarget target, _MediaCheckFilter mode) {
     final entry = _cache.entries[target.key];
     if (entry == null) return false;
-    return entry.hasMode(mode.cacheKey);
+    return entry.hasModeAny(mode.cacheKey);
+  }
+
+  bool _isModeExpired(_MediaCheckTarget target, _MediaCheckFilter mode) {
+    final entry = _cache.entries[target.key];
+    if (entry == null) return true;
+    return entry.isModeExpired(mode.cacheKey);
   }
 
   int? get _lastCachedAt {
@@ -435,6 +484,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
           result: result,
           health: cacheEntry?.health ?? const MediaHealthStats.empty(),
           running: _running.contains(target.key),
+          expired: _isModeExpired(target, _filter),
         ),
       );
     }
@@ -515,6 +565,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
                           setState(() {
                             _concurrency = value;
                           });
+                          preferences.setInt(_mediaCheckConcurrencyKey, value);
                         },
                   onStart: () {
                     _markInteraction();
@@ -713,8 +764,8 @@ class _MediaCheckControlCard extends StatelessWidget {
                 child: Slider(
                   value: concurrency.toDouble(),
                   min: 1,
-                  max: 8,
-                  divisions: 7,
+                  max: 10,
+                  divisions: 9,
                   onChanged: onConcurrencyChanged == null
                       ? null
                       : (value) => onConcurrencyChanged!(value.round()),
@@ -1283,6 +1334,28 @@ class _MediaCheckResultCard extends StatelessWidget {
                   ),
                 ),
               ],
+              if (row.expired) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: surge.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '已过期',
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: surge.orange,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -1652,35 +1725,42 @@ class _MediaCheckRow {
     required this.result,
     required this.health,
     required this.running,
+    this.expired = false,
   });
 
   final _MediaCheckTarget target;
   final MediaCheckResult? result;
   final MediaHealthStats health;
   final bool running;
+  final bool expired;
 
   int get delay => result?.https.normalizedDelay ?? 999999;
 
+  /// Independent ranking per mode — no cross-reference to other modes.
   int rankScore(_MediaCheckFilter filter) {
     final r = result;
     if (r == null) return -1;
-    final base = r.score + health.score;
+    final d = delay;
     return switch (filter) {
+      // ChatGPT: available first (sorted by delay asc), then others (sorted by delay asc)
       _MediaCheckFilter.chatGPT =>
-        (r.chatGPT.isChatGPTAvailable ? 100000 : 0) +
-            (health.isStableLowLatency ? 16000 : 0) +
-            (r.youTube.isYouTubeCN ? 8000 : 0) +
-            base,
+        r.chatGPT.isChatGPTAvailable
+            ? 200000 - d.clamp(0, 199999)
+            : -d,
+      // YouTube: CN first → available → others; each group sorted by delay asc
       _MediaCheckFilter.youTubeCN =>
-        (r.youTube.isYouTubeCN ? 100000 : 0) +
-            (health.isStableLowLatency ? 16000 : 0) +
-            (r.chatGPT.isChatGPTAvailable ? 8000 : 0) +
-            base,
+        r.youTube.isYouTubeCN
+            ? 300000 - d.clamp(0, 299999)
+            : r.youTube.status == 'available'
+                ? 200000 - d.clamp(0, 199999)
+                : -d,
+      // Green: stable-low-latency first → others; each sorted by median delay asc
       _MediaCheckFilter.green =>
-        (health.isStableLowLatency ? 100000 : 0) +
-            (r.chatGPT.isChatGPTAvailable ? 12000 : 0) +
-            (r.youTube.isYouTubeCN ? 10000 : 0) +
-            health.score,
+        health.isStableLowLatency
+            ? 200000 -
+                (health.medianDelay > 0 ? health.medianDelay : 999999)
+                    .clamp(0, 199999)
+            : -(health.medianDelay > 0 ? health.medianDelay : 999999),
     };
   }
 }
@@ -1745,7 +1825,9 @@ class MediaCheckCacheStore {
     final raw = await preferences.getString(_mediaCheckCacheKey);
     if (raw == null || raw.isEmpty) return const MediaCheckCache(entries: {});
     try {
-      return MediaCheckCache.fromJson(json.decode(raw) as Map<String, dynamic>);
+      return MediaCheckCache.fromJson(
+        json.decode(raw) as Map<String, dynamic>,
+      ).purgeExpired();
     } catch (_) {
       return const MediaCheckCache(entries: {});
     }
@@ -1793,7 +1875,7 @@ class MediaCheckObserveSettings {
     );
   }
 
-  static const intervalOptions = [60, 180, 360, 1440];
+  static const intervalOptions = [20, 40, 60, 120];
 
   final bool enabled;
   final int intervalMinutes;
@@ -1870,7 +1952,7 @@ class MediaCheckCache {
                   samples: const [],
                 ))
             .addModeResult(result, mode);
-    return MediaCheckCache(entries: nextEntries);
+    return MediaCheckCache(entries: nextEntries)._enforceCapacity();
   }
 
   MediaCheckCache addHealthResult({
@@ -1892,7 +1974,7 @@ class MediaCheckCache {
                   samples: const [],
                 ))
             .addHealthResult(result);
-    return MediaCheckCache(entries: nextEntries);
+    return MediaCheckCache(entries: nextEntries)._enforceCapacity();
   }
 
   MediaCheckCache clearModeForKeys({
@@ -1909,6 +1991,39 @@ class MediaCheckCache {
       } else {
         nextEntries[key] = nextEntry;
       }
+    }
+    return MediaCheckCache(entries: nextEntries);
+  }
+
+  /// Remove entries where every mode is expired and no health samples remain.
+  MediaCheckCache purgeExpired() {
+    final nextEntries = Map<String, MediaCheckCacheEntry>.from(entries);
+    final keysToRemove = <String>[];
+    for (final entry in nextEntries.entries) {
+      final e = entry.value;
+      final allExpired = e.modeTimes.keys.every((mode) => e.isModeExpired(mode));
+      if (allExpired && e.samples.isEmpty) {
+        keysToRemove.add(entry.key);
+      }
+    }
+    for (final key in keysToRemove) {
+      nextEntries.remove(key);
+    }
+    return MediaCheckCache(entries: nextEntries);
+  }
+
+  /// Evict oldest entries when exceeding [_maxCacheEntries].
+  MediaCheckCache _enforceCapacity() {
+    if (entries.length <= _maxCacheEntries) return this;
+    final sorted = entries.entries.toList()
+      ..sort((a, b) {
+        int maxTime(Map<String, int> m) =>
+            m.values.fold(0, (prev, v) => v > prev ? v : prev);
+        return maxTime(a.value.modeTimes).compareTo(maxTime(b.value.modeTimes));
+      });
+    final nextEntries = Map<String, MediaCheckCacheEntry>.from(entries);
+    while (sorted.length > _maxCacheEntries) {
+      nextEntries.remove(sorted.removeAt(0).key);
     }
     return MediaCheckCache(entries: nextEntries);
   }
@@ -2032,7 +2147,34 @@ class MediaCheckCacheEntry {
     );
   }
 
-  bool hasMode(String mode) => modeTime(mode) != null;
+  bool hasMode(String mode) => modeTime(mode) != null && !isModeExpired(mode);
+
+  /// Has cached data for mode, regardless of expiry.
+  bool hasModeAny(String mode) => modeTime(mode) != null;
+
+  /// Whether the cached result for [mode] has exceeded its TTL.
+  bool isModeExpired(String mode) {
+    final t = modeTime(mode);
+    if (t == null || t <= 0) return true;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - t;
+    return elapsed > _ttlForMode(mode).inMilliseconds;
+  }
+
+  Duration _ttlForMode(String mode) {
+    if (mode == 'health') return _cacheTTLHealth;
+    final r = lastResult;
+    if (r == null) return _cacheTTLError;
+    if (mode == 'gpt') {
+      return r.chatGPT.isChatGPTAvailable ? _cacheTTLSuccess : _cacheTTLError;
+    }
+    if (mode == 'youtube') {
+      if (r.youTube.isYouTubeCN) return _cacheTTLSuccess;
+      if (r.youTube.status == 'available') return _cacheTTLSuccess;
+      if (r.youTube.status == 'unknown') return _cacheTTLUnknown;
+      return _cacheTTLError;
+    }
+    return _cacheTTLError;
+  }
 
   int? modeTime(String mode) {
     if (mode == 'health') {
@@ -2151,6 +2293,7 @@ class MediaHealthStats {
     required this.chatGPTRate,
     required this.medianDelay,
     required this.score,
+    this.recentFiveClean = true,
   });
 
   const MediaHealthStats.empty()
@@ -2159,7 +2302,8 @@ class MediaHealthStats {
       greenStreak = 0,
       chatGPTRate = 0,
       medianDelay = -1,
-      score = 0;
+      score = 0,
+      recentFiveClean = true;
 
   factory MediaHealthStats.fromSamples(List<MediaHealthSample> samples) {
     if (samples.isEmpty) return const MediaHealthStats.empty();
@@ -2178,6 +2322,12 @@ class MediaHealthStats {
       if (!sample.green) break;
       streak++;
     }
+    // Exit mechanism: check if any of the last 5 samples is non-green
+    final recentFive = sorted.length >= 5
+        ? sorted.sublist(sorted.length - 5)
+        : sorted;
+    final recentFiveClean = !recentFive.any((s) => !s.green);
+
     final medianDelay = delays.isEmpty ? -1 : delays[delays.length ~/ 2];
     final greenRate = greenCount / sorted.length;
     final chatGPTRate = chatGPTCount / sorted.length;
@@ -2193,6 +2343,7 @@ class MediaHealthStats {
       chatGPTRate: chatGPTRate,
       medianDelay: medianDelay,
       score: score,
+      recentFiveClean: recentFiveClean,
     );
   }
 
@@ -2202,6 +2353,7 @@ class MediaHealthStats {
   final double chatGPTRate;
   final int medianDelay;
   final int score;
+  final bool recentFiveClean;
 
   bool get hasEnoughHistory => sampleCount >= _healthyMinSamples;
 
@@ -2212,7 +2364,8 @@ class MediaHealthStats {
       hasEnoughHistory &&
       greenStreak >= _healthyMinGreenStreak &&
       greenRate >= _healthyMinGreenRate &&
-      isLowLatency;
+      isLowLatency &&
+      recentFiveClean;
 
   String get label {
     if (sampleCount == 0) return '暂无历史';

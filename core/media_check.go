@@ -24,10 +24,10 @@ import (
 )
 
 const (
-	mediaCheckDefaultTimeout = 20 * time.Second
+	mediaCheckDefaultTimeout = 15 * time.Second
 	chatGPTBodyLimit         = 64 * 1024
-	youTubeBodyLimit         = 512 * 1024
-	mediaCheckAttempts       = 2
+	youTubeBodyLimit         = 256 * 1024
+	mediaCheckAttempts       = 1
 )
 
 var chatGPTSupportedRegions = map[string]struct{}{
@@ -249,110 +249,22 @@ func newMediaCheckClient(proxy C.Proxy, timeout time.Duration) *http.Client {
 }
 
 func checkChatGPT(ctx context.Context, client *http.Client) MediaCheckItem {
-	item := MediaCheckItem{Status: "failed"}
-	productReachable := false
-	regionUnsupported := false
-	errs := make([]error, 0, 3)
-
-	trace, traceErr := getChatGPTTrace(ctx, client)
-	if traceErr == nil {
-		item.Region = parseTraceLoc(trace)
-		if item.Region != "" {
-			item.Evidence = "trace"
-			if !isChatGPTSupportedRegion(item.Region) {
-				regionUnsupported = true
-			}
-		}
-	} else {
-		errs = append(errs, traceErr)
-	}
-
-	iosBody, err := mediaGetLimitedWithRetry(
-		ctx,
-		client,
-		"https://ios.chat.openai.com/",
-		chatGPTBodyLimit,
-		6*time.Second,
-		mediaCheckAttempts,
-	)
+	trace, err := getChatGPTTrace(ctx, client)
 	if err != nil {
-		errs = append(errs, err)
-	} else {
-		productReachable = true
-		iosLower := strings.ToLower(iosBody)
-		if strings.Contains(iosLower, "you may be connected to a disallowed isp") {
-			item.Status = "disallowed_isp"
-			return item
+		item := MediaCheckItem{Status: "failed", Error: err.Error()}
+		if isMediaTimeout(err) {
+			item.Status = "timeout"
 		}
-		if strings.Contains(iosLower, "sorry, you have been blocked") {
-			item.Status = "blocked"
-			return item
-		}
-	}
-
-	webBody, err := mediaGetLimitedWithRetry(
-		ctx,
-		client,
-		"https://api.openai.com/compliance/cookie_requirements",
-		chatGPTBodyLimit,
-		6*time.Second,
-		mediaCheckAttempts,
-	)
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		productReachable = true
-		webLower := strings.ToLower(webBody)
-		if strings.Contains(webLower, "unsupported_country") {
-			item.Status = "unsupported"
-			return item
-		}
-		if strings.Contains(webLower, "request is not allowed") || webBody != "" {
-			if !regionUnsupported {
-				item.Status = "clean"
-				return item
-			}
-		}
-	}
-
-	homeBody, err := mediaGetLimitedWithRetry(
-		ctx,
-		client,
-		"https://chatgpt.com/",
-		chatGPTBodyLimit,
-		5*time.Second,
-		1,
-	)
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		productReachable = true
-		homeLower := strings.ToLower(homeBody)
-		if strings.Contains(homeLower, "unsupported_country") {
-			item.Status = "unsupported"
-			return item
-		}
-		if strings.Contains(homeLower, "sorry, you have been blocked") {
-			item.Status = "blocked"
-			return item
-		}
-	}
-
-	if regionUnsupported {
-		item.Status = "unsupported"
 		return item
 	}
-
-	if productReachable {
-		item.Status = "clean"
-		return item
+	region := parseTraceLoc(trace)
+	if region == "" {
+		return MediaCheckItem{Status: "failed", Evidence: "trace", Error: "missing loc in trace"}
 	}
-
-	item.Error = joinMediaErrors(errs)
-	if allMediaTimeout(errs) {
-		item.Status = "timeout"
+	if !isChatGPTSupportedRegion(region) {
+		return MediaCheckItem{Status: "unsupported", Region: region, Evidence: "trace"}
 	}
-	return item
+	return MediaCheckItem{Status: "clean", Region: region, Evidence: "trace"}
 }
 
 func getChatGPTTrace(ctx context.Context, client *http.Client) (string, error) {
@@ -367,7 +279,7 @@ func getChatGPTTrace(ctx context.Context, client *http.Client) (string, error) {
 			client,
 			rawURL,
 			chatGPTBodyLimit,
-			4*time.Second,
+			3*time.Second,
 			mediaCheckAttempts,
 		)
 		if err == nil && parseTraceLoc(trace) != "" {
@@ -407,76 +319,33 @@ func checkYouTube(ctx context.Context, client *http.Client) MediaCheckItem {
 	body, err := mediaGetLimitedWithRetry(
 		ctx,
 		client,
-		"https://www.youtube.com/premium?hl=en",
+		"https://www.youtube.com/premium",
 		youTubeBodyLimit,
 		8*time.Second,
 		mediaCheckAttempts,
 	)
 	if err != nil {
-		reachableEvidence, reachableErr := checkYouTubeReachable(ctx, client)
-		if reachableErr == nil {
-			return MediaCheckItem{
-				Status:   "unknown",
-				Evidence: reachableEvidence,
-				Error:    err.Error(),
-			}
+		item := MediaCheckItem{Status: "failed", Error: err.Error()}
+		if isMediaTimeout(err) {
+			item.Status = "timeout"
 		}
-		if isMediaTimeout(err) || isMediaTimeout(reachableErr) {
-			return MediaCheckItem{
-				Status:   "timeout",
-				Evidence: reachableEvidence,
-				Error:    joinMediaErrors([]error{err, reachableErr}),
-			}
-		}
-		return MediaCheckItem{
-			Status:   "failed",
-			Evidence: reachableEvidence,
-			Error:    joinMediaErrors([]error{err, reachableErr}),
-		}
+		return item
 	}
 
 	lower := strings.ToLower(body)
-	region, evidence := parseYouTubeRegion(body)
 
-	// Check www.google.cn first — strongest CN signal, zero false positives.
-	if strings.Contains(body, "www.google.cn") {
-		available := false
-		return MediaCheckItem{
-			Status:           "cn_confirmed",
-			Region:           "CN",
-			Evidence:         "google.cn",
-			PremiumAvailable: &available,
-		}
-	}
-
-	if strings.EqualFold(region, "CN") {
-		available := false
-		return MediaCheckItem{
-			Status:           "cn_confirmed",
-			Region:           region,
-			Evidence:         evidence,
-			PremiumAvailable: &available,
-		}
-	}
-
+	// 1. "not available" → region not supported
 	if isYouTubePremiumUnavailable(lower) {
-		available := false
-		if evidence == "" {
-			evidence = "not-available"
-		}
-		return MediaCheckItem{
-			Status:           "unavailable",
-			Region:           region,
-			Evidence:         evidence,
-			PremiumAvailable: &available,
-		}
+		return MediaCheckItem{Status: "unavailable", Evidence: "not-available"}
 	}
 
+	// 2. Availability markers → unlocked
 	if isYouTubePremiumAvailable(lower) {
-		available := true
+		region, evidence := parseYouTubeRegion(body)
 		if evidence == "" {
 			evidence = "page-marker"
 		}
+		available := true
 		return MediaCheckItem{
 			Status:           "available",
 			Region:           region,
@@ -485,6 +354,8 @@ func checkYouTube(ctx context.Context, client *http.Client) MediaCheckItem {
 		}
 	}
 
+	// 3. Region parsed → assume available
+	region, evidence := parseYouTubeRegion(body)
 	if region != "" {
 		available := true
 		return MediaCheckItem{
@@ -495,19 +366,8 @@ func checkYouTube(ctx context.Context, client *http.Client) MediaCheckItem {
 		}
 	}
 
-	if reachableEvidence, err := checkYouTubeReachable(ctx, client); err == nil {
-		return MediaCheckItem{
-			Status:   "unknown",
-			Region:   region,
-			Evidence: firstNonEmpty(evidence, reachableEvidence),
-		}
-	}
-
-	return MediaCheckItem{
-		Status:   "unknown",
-		Region:   region,
-		Evidence: evidence,
-	}
+	// 4. Fallback: unknown
+	return MediaCheckItem{Status: "unknown", Evidence: evidence}
 }
 
 func checkYouTubeReachable(ctx context.Context, client *http.Client) (string, error) {
@@ -525,7 +385,7 @@ func checkYouTubeReachable(ctx context.Context, client *http.Client) (string, er
 			client,
 			probe.url,
 			4*1024,
-			4*time.Second,
+			3*time.Second,
 			mediaCheckAttempts,
 		)
 		if err == nil {
@@ -537,6 +397,49 @@ func checkYouTubeReachable(ctx context.Context, client *http.Client) (string, er
 		lastErr = fmt.Errorf("youtube reachability unavailable")
 	}
 	return "", lastErr
+}
+
+func checkYouTubeReachableParallel(ctx context.Context, client *http.Client) (string, error) {
+	probes := []struct {
+		evidence string
+		url      string
+	}{
+		{"generate_204", "https://www.youtube.com/generate_204"},
+		{"favicon", "https://www.youtube.com/favicon.ico"},
+	}
+	type probeRes struct {
+		evidence string
+		ok       bool
+	}
+	results := make([]probeRes, len(probes))
+	var wg sync.WaitGroup
+	wg.Add(len(probes))
+	for i, probe := range probes {
+		go func(idx int, p struct {
+			evidence string
+			url      string
+		}) {
+			defer wg.Done()
+			_, err := mediaGetLimitedWithRetry(
+				ctx,
+				client,
+				p.url,
+				4*1024,
+				3*time.Second,
+				mediaCheckAttempts,
+			)
+			if err == nil {
+				results[idx] = probeRes{evidence: p.evidence, ok: true}
+			}
+		}(i, probe)
+	}
+	wg.Wait()
+	for _, r := range results {
+		if r.ok {
+			return r.evidence, nil
+		}
+	}
+	return "", fmt.Errorf("youtube reachability unavailable")
 }
 
 func parseYouTubeRegion(body string) (string, string) {
@@ -609,23 +512,38 @@ func checkHTTPS(ctx context.Context, proxy C.Proxy) MediaHTTPSResult {
 		return MediaHTTPSResult{Delay: -1, Total: 3, Error: err.Error()}
 	}
 
+	type probeResult struct {
+		delay int
+		err   string
+	}
+	results := make([]probeResult, 3)
+	var wg sync.WaitGroup
+	wg.Add(3)
+	for i := 0; i < 3; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			reqCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+			defer cancel()
+			d, e := proxy.URLTest(reqCtx, "https://www.gstatic.com/generate_204", expectedStatus)
+			if e != nil || d == 0 {
+				if e != nil {
+					results[idx] = probeResult{err: e.Error()}
+				}
+				return
+			}
+			results[idx] = probeResult{delay: int(d)}
+		}(i)
+	}
+	wg.Wait()
+
 	values := make([]int, 0, 3)
 	lastErr := ""
-	for i := 0; i < 3; i++ {
-		if ctx.Err() != nil {
-			lastErr = ctx.Err().Error()
-			break
+	for _, r := range results {
+		if r.delay > 0 {
+			values = append(values, r.delay)
+		} else if r.err != "" {
+			lastErr = r.err
 		}
-		reqCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
-		delay, err := proxy.URLTest(reqCtx, "https://www.gstatic.com/generate_204", expectedStatus)
-		cancel()
-		if err != nil || delay == 0 {
-			if err != nil {
-				lastErr = err.Error()
-			}
-			continue
-		}
-		values = append(values, int(delay))
 	}
 
 	sort.Ints(values)
@@ -704,9 +622,7 @@ func shouldRetryMediaError(err error) bool {
 	if err == nil {
 		return false
 	}
-	if isMediaTimeout(err) {
-		return true
-	}
+	// Do not retry on timeout — retrying a timeout usually just times out again
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "connection reset") ||
 		strings.Contains(message, "connection refused") ||
