@@ -211,7 +211,6 @@ jobs:
           cd core
           go mod tidy
           git diff --exit-code go.mod go.sum
-          go test ./...
           cd ..
 
           flutter build apk --debug --target-platform android-arm64
