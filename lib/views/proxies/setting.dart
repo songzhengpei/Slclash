@@ -64,7 +64,6 @@ class ProxiesSetting extends ConsumerWidget {
         children: [
           _SettingSection(
             title: appLocalizations.style,
-            subtitle: appLocalizations.proxies,
             children: [
               _SettingOption(
                 icon: Icons.view_list_rounded,
@@ -77,7 +76,6 @@ class ProxiesSetting extends ConsumerWidget {
           const SizedBox(height: 14),
           _SettingSection(
             title: appLocalizations.sort,
-            subtitle: appLocalizations.delay,
             children: [
               for (final item in ProxiesSortType.values)
                 _SettingOption(
@@ -97,7 +95,6 @@ class ProxiesSetting extends ConsumerWidget {
           const SizedBox(height: 14),
           _SettingSection(
             title: appLocalizations.iconStyle,
-            subtitle: appLocalizations.icon,
             children: [
               for (final item in ProxiesIconStyle.values)
                 _SettingOption(
@@ -121,14 +118,9 @@ class ProxiesSetting extends ConsumerWidget {
 }
 
 class _SettingSection extends StatelessWidget {
-  const _SettingSection({
-    required this.title,
-    required this.children,
-    this.subtitle,
-  });
+  const _SettingSection({required this.title, required this.children});
 
   final String title;
-  final String? subtitle;
   final List<Widget> children;
 
   @override
@@ -152,19 +144,6 @@ class _SettingSection extends StatelessWidget {
                   letterSpacing: 0,
                 ),
               ),
-              if (subtitle != null) ...[
-                const SizedBox(width: 8),
-                Text(
-                  subtitle!,
-                  style: context.textTheme.labelSmall?.copyWith(
-                    color: surge.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    height: 1,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
             ],
           ),
         ),

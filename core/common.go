@@ -31,13 +31,14 @@ import (
 )
 
 var (
-	currentConfig  *config.Config
-	version        = 0
-	isRunning      = false
-	defaultTestURL = constant.DefaultTestURL
-	runLock        sync.Mutex
-	mBatch, _      = batch.New[bool](context.Background(), batch.WithConcurrencyNum[bool](50))
-	debugError     = false
+	currentConfig          *config.Config
+	currentProxyGroupNames []string
+	version                = 0
+	isRunning              = false
+	defaultTestURL         = constant.DefaultTestURL
+	runLock                sync.Mutex
+	mBatch, _              = batch.New[bool](context.Background(), batch.WithConcurrencyNum[bool](50))
+	debugError             = false
 )
 
 func getExternalProvidersRaw() map[string]cp.Provider {
@@ -257,14 +258,38 @@ func applyConfig(params *SetupParams) error {
 	if defaultTestURL == "" {
 		defaultTestURL = constant.DefaultTestURL
 	}
-	currentConfig, err = executor.ParseWithPath(filepath.Join(constant.Path.HomeDir(), "config.yaml"))
+	configPath := filepath.Join(constant.Path.HomeDir(), "config.yaml")
+	currentConfig, err = executor.ParseWithPath(configPath)
 	if err != nil {
 		currentConfig, _ = config.ParseRawConfig(config.DefaultRawConfig())
+		currentProxyGroupNames = nil
+	} else {
+		currentProxyGroupNames = getRawProxyGroupNames(configPath)
 	}
 	hub.ApplyConfig(currentConfig)
 	patchSelectGroup(params.SelectedMap)
 	updateListeners()
 	return err
+}
+
+func getRawProxyGroupNames(path string) []string {
+	buf, err := readFile(path)
+	if err != nil {
+		return nil
+	}
+	rawConfig, err := config.UnmarshalRawConfig(buf)
+	if err != nil {
+		return nil
+	}
+	names := make([]string, 0, len(rawConfig.ProxyGroup))
+	for _, mapping := range rawConfig.ProxyGroup {
+		name, ok := mapping["name"].(string)
+		if !ok || name == "" {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names
 }
 
 func getProxySetSubscriptionInfo(psp *provider.ProxySetProvider) *provider.SubscriptionInfo {

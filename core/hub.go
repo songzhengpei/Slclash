@@ -265,6 +265,10 @@ func getProxyNameList() []string {
 		return nil
 	}
 
+	if len(currentProxyGroupNames) > 0 {
+		return append([]string{}, currentProxyGroupNames...)
+	}
+
 	names := make([]string, 0, len(currentConfig.Proxies))
 	for name := range currentConfig.Proxies {
 		names = append(names, name)
