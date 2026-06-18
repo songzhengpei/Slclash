@@ -1,4 +1,4 @@
-tags: with_gvisor
+tags: with_gvisor,cmfa
 go_ldflags: "-w -s"
 core_dir: core
 lib_name: libclash

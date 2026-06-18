@@ -96,27 +96,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git switch -c "$BRANCH"
 
-          # Fetch upstream tags for version comparison only. The checked-out
-          # core must come from the FlClash fork so local patches are preserved.
           git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
             git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
           git -C core/Clash.Meta fetch --tags --force metacubex
 
-          # Ensure fork's FlClash branch is available locally
-          git -C core/Clash.Meta fetch origin FlClash 2>/dev/null || true
-
-          FORK_TAG_SHA="$(git -C core/Clash.Meta ls-remote origin "refs/tags/$LATEST_TAG" | awk '{print $1}' | head -n 1)"
-          if [ -z "$FORK_TAG_SHA" ]; then
-            echo "Fork does not have tag $LATEST_TAG. Skipping submodule update."
-            echo "The fork (chen08209/Clash.Meta) needs to release a FlClash branch"
-            echo "that supports Mihomo $LATEST_TAG before the submodule can be updated."
-            echo "blocked=true" >> "$GITHUB_OUTPUT"
-            echo "blocked_reason=fork_missing_tag" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          git -C core/Clash.Meta fetch --no-tags origin "+refs/tags/$LATEST_TAG:refs/tags/flclash-$LATEST_TAG"
-          git -C core/Clash.Meta checkout -q "$FORK_TAG_SHA"
+          git -C core/Clash.Meta checkout -q "$LATEST_TAG"
 
           VERSION_LINE="$(grep -E '^version: ' pubspec.yaml)"
           CURRENT_APP_VERSION="${VERSION_LINE#version: }"
@@ -157,7 +141,6 @@ jobs:
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "blocked=false" >> "$GITHUB_OUTPUT"
 
       - name: Open pull request
         if: ${{ steps.update.outputs.branch != '' }}
@@ -177,7 +160,7 @@ jobs:
           - New: ${{ steps.latest.outputs.tag }} (${{ steps.update.outputs.mihomo_commit }})
           - App version: ${{ steps.update.outputs.app_version }}
 
-          Fork \`chen08209/Clash.Meta\` already has this tag, so the FlClash-patched core source is used instead of vanilla Mihomo.
+          Core source is checked out directly from the official \`MetaCubeX/mihomo\` stable release tag.
           EOF
 
           EXISTING_PR="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
@@ -301,10 +284,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Latest Mihomo: ${{ steps.latest.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Previous core: v${{ steps.current.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.update.outputs.blocked }}" = "true" ]; then
-            echo "- Status: blocked" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Reason: FlClash fork does not have ${{ steps.latest.outputs.tag }} yet; no PR, tag, or release was created." >> "$GITHUB_STEP_SUMMARY"
-          elif [ "${{ steps.update.outputs.branch }}" != "" ]; then
+          if [ "${{ steps.update.outputs.branch }}" != "" ]; then
             echo "- PR: #${{ steps.pr.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- Merged: ${{ steps.merge.outputs.merged }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- App version: ${{ steps.update.outputs.app_version }}" >> "$GITHUB_STEP_SUMMARY"

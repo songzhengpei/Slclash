@@ -711,39 +711,52 @@ class _MediaCheckControlCard extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              Flexible(
-                flex: 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: LinearProgressIndicator(
-                    value: checking ? progress : (cachedCount > 0 ? 1 : 0),
-                    minHeight: 5,
-                    backgroundColor: surge.textSecondary.withValues(alpha: 0.1),
-                    color: checking ? surge.primary : surge.green,
+              Expanded(
+                child: SizedBox(
+                  height: 22,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: checking
+                                ? progress
+                                : (cachedCount > 0 ? 1 : 0),
+                            minHeight: 5,
+                            backgroundColor: surge.textSecondary.withValues(
+                              alpha: 0.1,
+                            ),
+                            color: checking ? surge.primary : surge.green,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        checking
+                            ? '${(progress * 100).clamp(0, 100).round()}%'
+                            : cachedCount > 0
+                            ? '已缓存'
+                            : '未检测',
+                        style: context.textTheme.labelSmall?.copyWith(
+                          color: surge.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                checking
-                    ? '${(progress * 100).clamp(0, 100).round()}%'
-                    : cachedCount > 0
-                    ? '已缓存'
-                    : '未检测',
-                style: context.textTheme.labelSmall?.copyWith(
-                  color: surge.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               SizedBox(
-                width: 100,
+                width: 96,
                 height: 32,
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(trackHeight: 5),
                   child: Slider(
+                    padding: EdgeInsets.zero,
                     value: concurrency.toDouble(),
                     min: 1,
                     max: 10,

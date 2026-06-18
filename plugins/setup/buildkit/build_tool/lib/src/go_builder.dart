@@ -32,6 +32,7 @@ class GoBuilder {
   GoBuilder({required this.rootDir, required this.config});
 
   String get _corePath => p.join(rootDir, config.coreDir);
+  String get _mihomoPath => p.join(_corePath, 'Clash.Meta');
   String get _outputPath => p.join(rootDir, config.outputDir);
 
   Future<String> build(Target target) async {
@@ -159,16 +160,23 @@ class GoBuilder {
   }
 
   String _resolveMihomoVersion() {
-    try {
-      final result = Process.runSync(
-        'git',
-        ['describe', '--tags', '--abbrev=0'],
-        workingDirectory: _corePath,
-      );
-      if (result.exitCode == 0) {
-        return (result.stdout as String).trim();
-      }
-    } catch (_) {}
+    for (final path in [_mihomoPath, _corePath]) {
+      try {
+        if (!Directory(path).existsSync()) continue;
+        final result = Process.runSync(
+            'git',
+            [
+              'describe',
+              '--tags',
+              '--abbrev=0',
+            ],
+            workingDirectory: path);
+        if (result.exitCode == 0) {
+          final version = (result.stdout as String).trim();
+          if (version.isNotEmpty) return version;
+        }
+      } catch (_) {}
+    }
     return '';
   }
 }

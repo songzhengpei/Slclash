@@ -197,7 +197,7 @@ func handleMediaCheck(paramsString string) string {
 
 func getMediaCheckProxy(params *MediaCheckParams) (C.Proxy, error) {
 	if params.ProfilePath == "" {
-		return tunnel.AllProxies()[params.ProxyName], nil
+		return tunnel.Proxies()[params.ProxyName], nil
 	}
 
 	bytes, err := readFile(params.ProfilePath)

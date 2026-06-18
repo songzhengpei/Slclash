@@ -34,6 +34,13 @@ class AboutView extends StatelessWidget {
 
   String get _coreInfo => 'Mihomo Core $_coreVersion · 发布日期 $_coreReleaseDate';
 
+  String get _coreSourceUrl {
+    final version = globalState.mihomoVersion;
+    if (version.isEmpty) return 'https://github.com/MetaCubeX/mihomo';
+    final tag = version.startsWith('v') ? version : 'v$version';
+    return 'https://github.com/MetaCubeX/mihomo/tree/$tag';
+  }
+
   Future<void> _checkUpdate(BuildContext context) async {
     final data = await globalState.safeRun<Map<String, dynamic>?>(
       request.checkForUpdate,
@@ -74,9 +81,7 @@ class AboutView extends StatelessWidget {
         ListItem(
           title: Text(appLocalizations.core),
           onTap: () {
-            globalState.openUrl(
-              'https://github.com/chen08209/Clash.Meta/tree/FlClash',
-            );
+            globalState.openUrl(_coreSourceUrl);
           },
           trailing: const Icon(Icons.launch),
         ),

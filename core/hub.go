@@ -13,10 +13,8 @@ import (
 	"github.com/metacubex/mihomo/component/updater"
 	"github.com/metacubex/mihomo/config"
 	"github.com/metacubex/mihomo/constant"
-	"github.com/metacubex/mihomo/constant/features"
 	cp "github.com/metacubex/mihomo/constant/provider"
 	"github.com/metacubex/mihomo/hub/executor"
-	"github.com/metacubex/mihomo/listener"
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
@@ -62,7 +60,7 @@ func handleStopListener() bool {
 	runLock.Lock()
 	defer runLock.Unlock()
 	isRunning = false
-	listener.StopListener()
+	stopListeners()
 	resolver.ResetConnection()
 	return true
 }
@@ -74,7 +72,7 @@ func handleGetIsInit() bool {
 func handleForceGC() {
 	log.Infoln("[APP] request force GC")
 	runtime.GC()
-	if features.Android {
+	if runtime.GOOS == "android" {
 		debug.FreeOSMemory()
 	}
 }
@@ -100,9 +98,9 @@ func handleGetProxies() ProxiesData {
 	runLock.Lock()
 	defer runLock.Unlock()
 
-	nameList := config.GetProxyNameList()
+	nameList := getProxyNameList()
 
-	proxies := tunnel.AllProxies()
+	proxies := tunnel.Proxies()
 
 	hasGlobal := false
 
@@ -148,7 +146,7 @@ func handleChangeProxy(data string, fn func(string string)) {
 		}
 		groupName := *params.GroupName
 		proxyName := *params.ProxyName
-		proxies := tunnel.AllProxies()
+		proxies := tunnel.Proxies()
 		group, ok := proxies[groupName]
 		if !ok {
 			fn("Not found group")
@@ -176,7 +174,8 @@ func handleChangeProxy(data string, fn func(string string)) {
 }
 
 func handleGetTraffic(onlyStatisticsProxy bool) string {
-	up, down := statistic.DefaultManager.NowTraffic(onlyStatisticsProxy)
+	_ = onlyStatisticsProxy
+	up, down := statistic.DefaultManager.Now()
 	traffic := map[string]int64{
 		"up":   up,
 		"down": down,
@@ -190,7 +189,8 @@ func handleGetTraffic(onlyStatisticsProxy bool) string {
 }
 
 func handleGetTotalTraffic(onlyStatisticsProxy bool) string {
-	up, down := statistic.DefaultManager.TotalTraffic(onlyStatisticsProxy)
+	_ = onlyStatisticsProxy
+	up, down := statistic.DefaultManager.Total()
 	traffic := map[string]int64{
 		"up":   up,
 		"down": down,
@@ -225,7 +225,7 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(params.Timeout))
 		defer cancel()
 
-		proxies := tunnel.AllProxies()
+		proxies := tunnel.Proxies()
 		proxy := proxies[params.ProxyName]
 
 		delayData := &Delay{
@@ -239,7 +239,7 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 			return false, nil
 		}
 
-		testUrl := constant.DefaultTestURL
+		testUrl := defaultTestURL
 
 		if params.TestUrl != "" {
 			testUrl = params.TestUrl
@@ -258,6 +258,21 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 		fn(string(data))
 		return false, nil
 	})
+}
+
+func getProxyNameList() []string {
+	if currentConfig == nil {
+		return nil
+	}
+
+	names := make([]string, 0, len(currentConfig.Proxies))
+	for name := range currentConfig.Proxies {
+		names = append(names, name)
+	}
+	slices.SortFunc(names, func(a, b string) int {
+		return cmp.Compare(a, b)
+	})
+	return names
 }
 
 func handleGetConnections() string {
@@ -349,28 +364,28 @@ func handleGetExternalProvider(externalProviderName string) string {
 
 func handleUpdateGeoData(geoType string, geoName string, fn func(value string)) {
 	go func() {
-		path := constant.Path.Resolve(geoName)
+		_ = geoName
 		switch geoType {
 		case "MMDB":
-			err := updater.UpdateMMDBWithPath(path)
+			err := updater.UpdateMMDB()
 			if err != nil {
 				fn(err.Error())
 				return
 			}
 		case "ASN":
-			err := updater.UpdateASNWithPath(path)
+			err := updater.UpdateASN()
 			if err != nil {
 				fn(err.Error())
 				return
 			}
 		case "GEOIP":
-			err := updater.UpdateGeoIpWithPath(path)
+			err := updater.UpdateGeoIp()
 			if err != nil {
 				fn(err.Error())
 				return
 			}
 		case "GEOSITE":
-			err := updater.UpdateGeoSiteWithPath(path)
+			err := updater.UpdateGeoSite()
 			if err != nil {
 				fn(err.Error())
 				return
@@ -538,34 +553,4 @@ func handleSetupConfig(bytes []byte) string {
 		return err.Error()
 	}
 	return ""
-}
-
-func init() {
-	adapter.UrlTestHook = func(url string, name string, delay uint16) {
-		delayData := &Delay{
-			Url:  url,
-			Name: name,
-		}
-		if delay == 0 {
-			delayData.Value = -1
-		} else {
-			delayData.Value = int32(delay)
-		}
-		sendMessage(Message{
-			Type: DelayMessage,
-			Data: delayData,
-		})
-	}
-	statistic.DefaultRequestNotify = func(c statistic.Tracker) {
-		sendMessage(Message{
-			Type: RequestMessage,
-			Data: c,
-		})
-	}
-	executor.DefaultProviderLoadedHook = func(providerName string) {
-		sendMessage(Message{
-			Type: LoadedMessage,
-			Data: providerName,
-		})
-	}
 }

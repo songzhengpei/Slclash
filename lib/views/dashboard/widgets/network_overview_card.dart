@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/state.dart';
@@ -553,6 +554,8 @@ class _NetworkDetectionBar extends StatelessWidget {
   final Color dangerColor;
   final String label;
 
+  static const _flagVerticalOffset = 0.8;
+
   String _countryCodeToEmoji(String countryCode) {
     final code = countryCode.toUpperCase();
     if (code.length != 2) return countryCode;
@@ -570,20 +573,44 @@ class _NetworkDetectionBar extends StatelessWidget {
     if (ipInfo != null) {
       valueWidget = Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            _countryCodeToEmoji(ipInfo.countryCode),
-            style: const TextStyle(fontSize: 13),
+          SizedBox.square(
+            dimension: 16,
+            child: Center(
+              child: Transform.translate(
+                offset: const Offset(0, _flagVerticalOffset),
+                child: Text(
+                  _countryCodeToEmoji(ipInfo.countryCode),
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: FontFamily.twEmoji.value,
+                    fontSize: 14,
+                    height: 1.0,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 6),
-          Text(
-            ipInfo.ip,
-            maxLines: 1,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.0,
+          Flexible(
+            child: TooltipText(
+              text: Text(
+                ipInfo.ip,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                  leadingDistribution: TextLeadingDistribution.even,
+                  letterSpacing: 0,
+                ),
+              ),
             ),
           ),
         ],
@@ -647,8 +674,10 @@ class _NetworkDetectionBar extends StatelessWidget {
               letterSpacing: 0,
             ),
           ),
-          const Spacer(),
-          valueWidget,
+          const SizedBox(width: 12),
+          Flexible(
+            child: Align(alignment: Alignment.centerRight, child: valueWidget),
+          ),
         ],
       ),
     );
