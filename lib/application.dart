@@ -47,7 +47,9 @@ class ApplicationState extends ConsumerState<Application> {
     return ref.read(
       genColorSchemeProvider(
         brightness,
-        color: useDynamic ? null : (primaryColor == null ? null : Color(primaryColor)),
+        color: useDynamic
+            ? null
+            : (primaryColor == null ? null : Color(primaryColor)),
       ),
     );
   }
@@ -57,7 +59,8 @@ class ApplicationState extends ConsumerState<Application> {
     required ThemeProps themeProps,
     required ColorScheme colorScheme,
   }) {
-    if (themeProps.dynamicColor) {
+    if (themeProps.dynamicColor ||
+        themeProps.primaryColor == legacyGraySeedColor) {
       return SurgeTheme.fromColorScheme(colorScheme);
     }
     return brightness == Brightness.dark
@@ -157,6 +160,9 @@ class ApplicationState extends ConsumerState<Application> {
     required Brightness brightness,
     required ThemeProps themeProps,
   }) {
+    final useFixedSurge =
+        !themeProps.dynamicColor &&
+        themeProps.primaryColor != legacyGraySeedColor;
     final fixedSurge = brightness == Brightness.dark
         ? SurgeTheme.dark()
         : SurgeTheme.light();
@@ -169,49 +175,27 @@ class ApplicationState extends ConsumerState<Application> {
                 ? baseColorScheme.toPureBlack(themeProps.pureBlack)
                 : baseColorScheme)
             .copyWith(
-              primary: themeProps.dynamicColor ? null : fixedSurge.primary,
-              onPrimary: themeProps.dynamicColor ? null : fixedSurge.onPrimary,
-              primaryContainer: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.fill,
-              onPrimaryContainer: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.textPrimary,
-              secondary: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.textSecondary,
-              secondaryContainer: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.fill,
-              onSecondaryContainer: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.textPrimary,
-              tertiaryContainer: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.fill,
-              onTertiaryContainer: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.textPrimary,
-              surface: themeProps.dynamicColor ? null : fixedSurge.card,
-              surfaceContainerLowest: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.card,
-              surfaceContainerLow: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.card,
-              surfaceContainer: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.background,
-              surfaceContainerHigh: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.card,
-              surfaceContainerHighest: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.fill,
-              outline: themeProps.dynamicColor ? null : fixedSurge.separator,
-              outlineVariant: themeProps.dynamicColor
-                  ? null
-                  : fixedSurge.separator,
+              primary: useFixedSurge ? fixedSurge.primary : null,
+              onPrimary: useFixedSurge ? fixedSurge.onPrimary : null,
+              primaryContainer: useFixedSurge ? fixedSurge.fill : null,
+              onPrimaryContainer: useFixedSurge ? fixedSurge.textPrimary : null,
+              secondary: useFixedSurge ? fixedSurge.textSecondary : null,
+              secondaryContainer: useFixedSurge ? fixedSurge.fill : null,
+              onSecondaryContainer: useFixedSurge
+                  ? fixedSurge.textPrimary
+                  : null,
+              tertiaryContainer: useFixedSurge ? fixedSurge.fill : null,
+              onTertiaryContainer: useFixedSurge
+                  ? fixedSurge.textPrimary
+                  : null,
+              surface: useFixedSurge ? fixedSurge.card : null,
+              surfaceContainerLowest: useFixedSurge ? fixedSurge.card : null,
+              surfaceContainerLow: useFixedSurge ? fixedSurge.card : null,
+              surfaceContainer: useFixedSurge ? fixedSurge.background : null,
+              surfaceContainerHigh: useFixedSurge ? fixedSurge.card : null,
+              surfaceContainerHighest: useFixedSurge ? fixedSurge.fill : null,
+              outline: useFixedSurge ? fixedSurge.separator : null,
+              outlineVariant: useFixedSurge ? fixedSurge.separator : null,
             );
     final surge = _getSurgeTheme(
       brightness: brightness,

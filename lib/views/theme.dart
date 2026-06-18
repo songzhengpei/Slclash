@@ -26,6 +26,18 @@ class ThemeModeItem {
   });
 }
 
+class _SegmentedItem<T> {
+  final T value;
+  final IconData iconData;
+  final String label;
+
+  const _SegmentedItem({
+    required this.value,
+    required this.iconData,
+    required this.label,
+  });
+}
+
 class FontFamilyItem {
   final FontFamily fontFamily;
   final String label;
@@ -184,9 +196,37 @@ class _SurgeThemeModeControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _SurgeSegmentedControl<ThemeMode>(
+      value: value,
+      items: [
+        for (final item in items)
+          _SegmentedItem(
+            value: item.themeMode,
+            iconData: item.iconData,
+            label: item.label,
+          ),
+      ],
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _SurgeSegmentedControl<T> extends StatelessWidget {
+  const _SurgeSegmentedControl({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final T value;
+  final List<_SegmentedItem<T>> items;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final selectedIndex = items
-        .indexWhere((item) => item.themeMode == value)
+        .indexWhere((item) => item.value == value)
         .clamp(0, items.length - 1);
     return Container(
       padding: const EdgeInsets.all(4),
@@ -219,10 +259,10 @@ class _SurgeThemeModeControl extends StatelessWidget {
                   children: [
                     for (final item in items)
                       Expanded(
-                        child: _SurgeThemeModeButton(
+                        child: _SurgeSegmentedButton<T>(
                           item: item,
-                          selected: value == item.themeMode,
-                          onTap: () => onChanged(item.themeMode),
+                          selected: value == item.value,
+                          onTap: () => onChanged(item.value),
                         ),
                       ),
                   ],
@@ -236,14 +276,14 @@ class _SurgeThemeModeControl extends StatelessWidget {
   }
 }
 
-class _SurgeThemeModeButton extends StatelessWidget {
-  const _SurgeThemeModeButton({
+class _SurgeSegmentedButton<T> extends StatelessWidget {
+  const _SurgeSegmentedButton({
     required this.item,
     required this.selected,
     required this.onTap,
   });
 
-  final ThemeModeItem item;
+  final _SegmentedItem<T> item;
   final bool selected;
   final VoidCallback onTap;
 
@@ -292,41 +332,137 @@ class _SurgeThemeModeButton extends StatelessWidget {
   }
 }
 
+enum _StaticThemePreset { blueWhite, grayBlack }
+
 class _DynamicColorItem extends ConsumerWidget {
   const _DynamicColorItem();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final surge = SurgeTheme.of(context);
-    final dynamicColor = ref.watch(
-      themeSettingProvider.select((state) => state.dynamicColor),
-    );
-    return ListItem.switchItem(
-      title: Text('动态取色', style: _themePageTitleStyle(context, surge)),
-      subtitle: Text(
-        dynamicColor ? '跟随系统 Material You 色彩' : '使用 SlClash 默认 Surge 色彩',
-        style: context.textTheme.bodySmall?.copyWith(
-          color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
+    final theme = ref.watch(themeSettingProvider);
+    final dynamicColor = theme.dynamicColor;
+    final isLegacyGray =
+        !dynamicColor && theme.primaryColor == legacyGraySeedColor;
+    final staticPreset = isLegacyGray
+        ? _StaticThemePreset.grayBlack
+        : _StaticThemePreset.blueWhite;
+    final schemeVariant = normalizeDynamicSchemeVariant(theme.schemeVariant);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListItem.switchItem(
+          title: Text('动态取色', style: _themePageTitleStyle(context, surge)),
+          subtitle: Text(
+            dynamicColor
+                ? '跟随系统 Material You 色彩 · ${_schemeVariantLabel(schemeVariant)}'
+                : isLegacyGray
+                ? '灰黑单色风格'
+                : '蓝白单色风格',
+            style: context.textTheme.bodySmall?.copyWith(
+              color: surge.textSecondary,
+              fontSize: 12,
+              letterSpacing: 0,
+            ),
+          ),
+          delegate: SwitchDelegate(
+            value: dynamicColor,
+            onChanged: (value) {
+              ref
+                  .read(themeSettingProvider.notifier)
+                  .update(
+                    (state) => state.copyWith(
+                      dynamicColor: value,
+                      primaryColor:
+                          value && state.primaryColor == defaultPrimaryColor
+                          ? null
+                          : state.primaryColor,
+                      schemeVariant: value
+                          ? normalizeDynamicSchemeVariant(state.schemeVariant)
+                          : state.schemeVariant,
+                    ),
+                  );
+            },
+          ),
         ),
-      ),
-      delegate: SwitchDelegate(
-        value: dynamicColor,
-        onChanged: (value) {
-          ref.read(themeSettingProvider.notifier).update(
-                (state) => state.copyWith(
-                  dynamicColor: value,
-                  primaryColor: value &&
-                          state.primaryColor == defaultPrimaryColor
-                      ? null
-                      : state.primaryColor,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: dynamicColor
+              ? _SurgeSegmentedControl<DynamicSchemeVariant>(
+                  value: schemeVariant,
+                  items: const [
+                    _SegmentedItem(
+                      value: DynamicSchemeVariant.monochrome,
+                      iconData: Icons.contrast,
+                      label: '单色',
+                    ),
+                    _SegmentedItem(
+                      value: DynamicSchemeVariant.tonalSpot,
+                      iconData: Icons.blur_on,
+                      label: '调性',
+                    ),
+                    _SegmentedItem(
+                      value: DynamicSchemeVariant.content,
+                      iconData: Icons.palette,
+                      label: '内容',
+                    ),
+                  ],
+                  onChanged: (value) {
+                    ref
+                        .read(themeSettingProvider.notifier)
+                        .update(
+                          (state) => state.copyWith(
+                            dynamicColor: true,
+                            schemeVariant: value,
+                          ),
+                        );
+                  },
+                )
+              : _SurgeSegmentedControl<_StaticThemePreset>(
+                  value: staticPreset,
+                  items: const [
+                    _SegmentedItem(
+                      value: _StaticThemePreset.blueWhite,
+                      iconData: Icons.water_drop,
+                      label: '蓝白单色',
+                    ),
+                    _SegmentedItem(
+                      value: _StaticThemePreset.grayBlack,
+                      iconData: Icons.contrast,
+                      label: '灰黑单色',
+                    ),
+                  ],
+                  onChanged: (value) {
+                    ref
+                        .read(themeSettingProvider.notifier)
+                        .update(
+                          (state) => switch (value) {
+                            _StaticThemePreset.blueWhite => state.copyWith(
+                              dynamicColor: false,
+                              primaryColor: null,
+                            ),
+                            _StaticThemePreset.grayBlack => state.copyWith(
+                              dynamicColor: false,
+                              primaryColor: legacyGraySeedColor,
+                            ),
+                          },
+                        );
+                  },
                 ),
-              );
-        },
-      ),
+        ),
+      ],
     );
   }
+}
+
+String _schemeVariantLabel(DynamicSchemeVariant schemeVariant) {
+  return switch (schemeVariant) {
+    DynamicSchemeVariant.monochrome => '单色',
+    DynamicSchemeVariant.tonalSpot => '调性',
+    DynamicSchemeVariant.content => '内容',
+    _ => '单色',
+  };
 }
 
 class _PrimaryColorItem extends ConsumerStatefulWidget {
@@ -354,7 +490,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
       return state.copyWith(
         primaryColors: defaultPrimaryColors,
         primaryColor: defaultPrimaryColor,
-        schemeVariant: DynamicSchemeVariant.tonalSpot,
+        schemeVariant: defaultDynamicSchemeVariant,
       );
     });
   }
@@ -451,7 +587,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
                 state.primaryColors,
                 defaultPrimaryColors,
               ) &&
-              state.schemeVariant == DynamicSchemeVariant.tonalSpot,
+              state.schemeVariant == defaultDynamicSchemeVariant,
         ),
       ),
     );

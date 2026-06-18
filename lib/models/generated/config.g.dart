@@ -265,7 +265,7 @@ _ThemeProps _$ThemePropsFromJson(Map<String, dynamic> json) => _ThemeProps(
         _$DynamicSchemeVariantEnumMap,
         json['schemeVariant'],
       ) ??
-      DynamicSchemeVariant.tonalSpot,
+      defaultDynamicSchemeVariant,
   dynamicColor: json['dynamicColor'] as bool? ?? true,
   pureBlack: json['pureBlack'] as bool? ?? false,
   textScale: json['textScale'] == null

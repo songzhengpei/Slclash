@@ -593,7 +593,6 @@ class BackupAction extends _$BackupAction {
     final restoreStrategy = ref.read(
       appSettingProvider.select((state) => state.restoreStrategy),
     );
-    final isOverride = restoreStrategy == RestoreStrategy.override;
     try {
       final restoreData = await restoreProfilesOnlyTask();
       if (!await restoreDir.exists()) {

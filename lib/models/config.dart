@@ -42,7 +42,23 @@ const defaultAccessControlProps = AccessControlProps();
 const defaultThemeProps = ThemeProps(
   themeMode: ThemeMode.system,
   dynamicColor: true,
+  schemeVariant: defaultDynamicSchemeVariant,
 );
+
+const defaultDynamicSchemeVariant = DynamicSchemeVariant.monochrome;
+const dynamicColorSchemeVariants = [
+  DynamicSchemeVariant.monochrome,
+  DynamicSchemeVariant.tonalSpot,
+  DynamicSchemeVariant.content,
+];
+
+DynamicSchemeVariant normalizeDynamicSchemeVariant(
+  DynamicSchemeVariant schemeVariant,
+) {
+  return dynamicColorSchemeVariants.contains(schemeVariant)
+      ? schemeVariant
+      : defaultDynamicSchemeVariant;
+}
 
 const List<DashboardWidget> defaultDashboardWidgets = [
   DashboardWidget.networkSpeed,
@@ -214,7 +230,7 @@ abstract class ThemeProps with _$ThemeProps {
     int? primaryColor,
     @Default(defaultPrimaryColors) List<int> primaryColors,
     @Default(ThemeMode.system) ThemeMode themeMode,
-    @Default(DynamicSchemeVariant.tonalSpot) DynamicSchemeVariant schemeVariant,
+    @Default(defaultDynamicSchemeVariant) DynamicSchemeVariant schemeVariant,
     @Default(true) bool dynamicColor,
     @Default(false) bool pureBlack,
     @Default(TextScale()) TextScale textScale,
@@ -225,8 +241,9 @@ abstract class ThemeProps with _$ThemeProps {
 
   factory ThemeProps.safeFromJson(Map<String, Object?>? json) {
     try {
-      final themeProps =
-          json == null ? defaultThemeProps : ThemeProps.fromJson(json);
+      final themeProps = json == null
+          ? defaultThemeProps
+          : ThemeProps.fromJson(json);
       return normalizeThemeProps(themeProps);
     } catch (_) {
       return normalizeThemeProps(defaultThemeProps);
@@ -235,15 +252,32 @@ abstract class ThemeProps with _$ThemeProps {
 }
 
 ThemeProps normalizeThemeProps(ThemeProps themeProps) {
+  var normalized = themeProps;
   final shouldClearLegacyPink =
-      themeProps.dynamicColor == true &&
-      themeProps.primaryColor == defaultPrimaryColor;
+      normalized.dynamicColor == true &&
+      normalized.primaryColor == defaultPrimaryColor;
+  final shouldMigrateLegacyGray =
+      !normalized.dynamicColor &&
+      normalized.primaryColor == deprecatedLegacyGraySeedColor;
 
   if (shouldClearLegacyPink) {
-    return themeProps.copyWith(primaryColor: null);
+    normalized = normalized.copyWith(primaryColor: null);
   }
 
-  return themeProps;
+  if (shouldMigrateLegacyGray) {
+    normalized = normalized.copyWith(primaryColor: legacyGraySeedColor);
+  }
+
+  if (normalized.dynamicColor) {
+    final schemeVariant = normalizeDynamicSchemeVariant(
+      normalized.schemeVariant,
+    );
+    if (schemeVariant != normalized.schemeVariant) {
+      normalized = normalized.copyWith(schemeVariant: schemeVariant);
+    }
+  }
+
+  return normalized;
 }
 
 @freezed
@@ -270,8 +304,6 @@ abstract class Config with _$Config {
     final config = json == null
         ? const Config(themeProps: defaultThemeProps)
         : _$ConfigFromJson(json);
-    return config.copyWith(
-      themeProps: normalizeThemeProps(config.themeProps),
-    );
+    return config.copyWith(themeProps: normalizeThemeProps(config.themeProps));
   }
 }

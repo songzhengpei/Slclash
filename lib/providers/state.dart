@@ -538,7 +538,17 @@ ColorScheme genColorScheme(
 
   if (color != null) {
     seedColor = color;
-  } else if (ignoreConfig || theme.c) {
+    if (color.toARGB32() == legacyGraySeedColor) {
+      schemeVariant = DynamicSchemeVariant.monochrome;
+    }
+  } else if (theme.c) {
+    seedColor =
+        globalState.corePalette
+            ?.toColorScheme(brightness: brightness)
+            .primary ??
+        globalState.accentColor;
+    schemeVariant = normalizeDynamicSchemeVariant(theme.b);
+  } else if (ignoreConfig) {
     seedColor =
         globalState.corePalette
             ?.toColorScheme(brightness: brightness)
@@ -546,6 +556,9 @@ ColorScheme genColorScheme(
         globalState.accentColor;
   } else if (theme.a != null) {
     seedColor = Color(theme.a!);
+    if (theme.a == legacyGraySeedColor) {
+      schemeVariant = DynamicSchemeVariant.monochrome;
+    }
   } else {
     seedColor = brightness == Brightness.dark
         ? const Color(0xFF4DA3FF)
