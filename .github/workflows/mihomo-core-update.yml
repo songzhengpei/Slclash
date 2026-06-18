@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      dry_run:
+        description: "Validate the update/build path without pushing, opening PRs, merging, tagging, or releasing"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "20 3 * * 1"
 
@@ -76,13 +81,21 @@ jobs:
           echo "Current Mihomo core: v$CURRENT_VERSION ($CURRENT_COMMIT)"
 
       - name: Stop when already up to date
-        if: ${{ inputs.force != true && steps.current.outputs.version == steps.latest.outputs.version }}
+        if: ${{ inputs.force != true && inputs.dry_run != true && steps.current.outputs.version == steps.latest.outputs.version }}
         shell: bash
         run: |
           echo "Mihomo core is already at ${{ steps.latest.outputs.tag }}."
 
+      - name: Setup Go for update
+        if: ${{ inputs.force == true || inputs.dry_run == true || steps.current.outputs.version != steps.latest.outputs.version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: |
+            core/go.sum
+
       - name: Update submodule and bump app patch version
-        if: ${{ inputs.force == true || steps.current.outputs.version != steps.latest.outputs.version }}
+        if: ${{ inputs.force == true || inputs.dry_run == true || steps.current.outputs.version != steps.latest.outputs.version }}
         id: update
         shell: bash
         run: |
@@ -91,6 +104,7 @@ jobs:
           LATEST_TAG="${{ steps.latest.outputs.tag }}"
           LATEST_VERSION="${{ steps.latest.outputs.version }}"
           BRANCH="codex/mihomo-core-${LATEST_TAG}"
+          DRY_RUN="${{ inputs.dry_run == true }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -127,11 +141,25 @@ jobs:
 
           perl -0pi -e "s/^version: .*/version: $NEXT_APP_VERSION/m" pubspec.yaml
 
+          (cd core && go mod tidy)
+
           NEW_COMMIT="$(git -C core/Clash.Meta rev-parse --short=12 HEAD)"
 
-          git add core/Clash.Meta pubspec.yaml
+          git add core/Clash.Meta core/go.mod core/go.sum pubspec.yaml
           if git diff --cached --quiet; then
             echo "No update changes were produced."
+            echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
+            echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
+            echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run enabled. Leaving update changes uncommitted for validation."
+            git diff --cached --stat
+            echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
+            echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -141,9 +169,63 @@ jobs:
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "dry_run=false" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java for dry run
+        if: ${{ steps.update.outputs.dry_run == 'true' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Flutter for dry run
+        if: ${{ steps.update.outputs.dry_run == 'true' }}
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.9
+          cache: true
+
+      - name: Setup NDK for dry run
+        if: ${{ steps.update.outputs.dry_run == 'true' }}
+        id: setup_ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r28c
+          add-to-path: true
+          link-to-sdk: true
+
+      - name: Validate dry-run update
+        if: ${{ steps.update.outputs.dry_run == 'true' }}
+        shell: bash
+        env:
+          ANDROID_NDK: ${{ steps.setup_ndk.outputs.ndk-path }}
+          APP_ENV: stable
+          PROJECT_DIR: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+
+          flutter pub get
+          flutter analyze --no-fatal-infos
+
+          cd core
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+          go test ./...
+          cd ..
+
+          flutter build apk --debug --target-platform android-arm64
+
+          ACTUAL_VERSION="$(git -C core/Clash.Meta describe --tags --abbrev=0)"
+          if [ "$ACTUAL_VERSION" != "${{ steps.latest.outputs.tag }}" ]; then
+            echo "Dry-run core version mismatch: expected ${{ steps.latest.outputs.tag }}, got $ACTUAL_VERSION"
+            exit 1
+          fi
+
+          echo "Dry-run validation completed for $ACTUAL_VERSION."
 
       - name: Open pull request
-        if: ${{ steps.update.outputs.branch != '' }}
+        if: ${{ steps.update.outputs.branch != '' && steps.update.outputs.dry_run != 'true' }}
         id: pr
         shell: bash
         env:
@@ -284,7 +366,12 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Latest Mihomo: ${{ steps.latest.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Previous core: v${{ steps.current.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.update.outputs.branch }}" != "" ]; then
+          if [ "${{ steps.update.outputs.dry_run }}" = "true" ]; then
+            echo "- Status: dry run validated" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Simulated app version: ${{ steps.update.outputs.app_version }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Mihomo commit: ${{ steps.update.outputs.mihomo_commit }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- PR/tag/release: skipped" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.update.outputs.branch }}" != "" ]; then
             echo "- PR: #${{ steps.pr.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- Merged: ${{ steps.merge.outputs.merged }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- App version: ${{ steps.update.outputs.app_version }}" >> "$GITHUB_STEP_SUMMARY"
