@@ -526,39 +526,37 @@ ColorScheme genColorScheme(
   Color? color,
   bool ignoreConfig = false,
 }) {
-  final vm2 = ref.watch(
+  final theme = ref.watch(
     themeSettingProvider.select(
       (state) =>
           VM3(state.primaryColor, state.schemeVariant, state.dynamicColor),
     ),
   );
-  if (!vm2.c && !ignoreConfig) {
-    return ColorScheme.fromSeed(
-      seedColor: brightness == Brightness.dark
-          ? const Color(0xFF4DA3FF)
-          : const Color(0xFF0A84FF),
-      brightness: brightness,
-      dynamicSchemeVariant: DynamicSchemeVariant.content,
-    );
+
+  Color seedColor;
+  DynamicSchemeVariant schemeVariant = theme.b;
+
+  if (color != null) {
+    seedColor = color;
+  } else if (ignoreConfig || theme.c) {
+    seedColor =
+        globalState.corePalette
+            ?.toColorScheme(brightness: brightness)
+            .primary ??
+        globalState.accentColor;
+  } else if (theme.a != null) {
+    seedColor = Color(theme.a!);
+  } else {
+    seedColor = brightness == Brightness.dark
+        ? const Color(0xFF4DA3FF)
+        : const Color(0xFF0A84FF);
+    schemeVariant = DynamicSchemeVariant.content;
   }
-  if (color == null && (ignoreConfig == true || vm2.a == null)) {
-    // if (globalState.corePalette != null) {
-    //   return globalState.corePalette!.toColorScheme(brightness: brightness);
-    // }
-    return ColorScheme.fromSeed(
-      seedColor:
-          globalState.corePalette
-              ?.toColorScheme(brightness: brightness)
-              .primary ??
-          globalState.accentColor,
-      brightness: brightness,
-      dynamicSchemeVariant: vm2.b,
-    );
-  }
+
   return ColorScheme.fromSeed(
-    seedColor: color ?? Color(vm2.a!),
+    seedColor: seedColor,
     brightness: brightness,
-    dynamicSchemeVariant: vm2.b,
+    dynamicSchemeVariant: schemeVariant,
   );
 }
 

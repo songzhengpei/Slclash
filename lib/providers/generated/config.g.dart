@@ -248,7 +248,7 @@ final class ThemeSettingProvider
   }
 }
 
-String _$themeSettingHash() => r'47c656bdac6ea1320d54c4599ce1fde993e989a1';
+String _$themeSettingHash() => r'a897d927badbcd1ac80a607c3b734a7b6d1aed70';
 
 abstract class _$ThemeSetting extends $Notifier<ThemeProps> {
   ThemeProps build();

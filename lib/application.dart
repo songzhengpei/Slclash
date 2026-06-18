@@ -40,10 +40,15 @@ class ApplicationState extends ConsumerState<Application> {
 
   ColorScheme _getAppColorScheme({
     required Brightness brightness,
-    int? primaryColor,
+    required ThemeProps themeProps,
   }) {
+    final useDynamic = themeProps.dynamicColor;
+    final primaryColor = themeProps.primaryColor;
     return ref.read(
-      genColorSchemeProvider(brightness, color: Color(primaryColor ?? 0)),
+      genColorSchemeProvider(
+        brightness,
+        color: useDynamic ? null : (primaryColor == null ? null : Color(primaryColor)),
+      ),
     );
   }
 
@@ -157,7 +162,7 @@ class ApplicationState extends ConsumerState<Application> {
         : SurgeTheme.light();
     final baseColorScheme = _getAppColorScheme(
       brightness: brightness,
-      primaryColor: themeProps.primaryColor,
+      themeProps: themeProps,
     );
     final colorScheme =
         (brightness == Brightness.dark
@@ -253,7 +258,7 @@ class ApplicationState extends ConsumerState<Application> {
         final currentBrightness = ref.watch(currentBrightnessProvider);
         final overlayBaseColorScheme = _getAppColorScheme(
           brightness: currentBrightness,
-          primaryColor: themeProps.primaryColor,
+          themeProps: themeProps,
         );
         final overlayColorScheme = currentBrightness == Brightness.dark
             ? overlayBaseColorScheme.toPureBlack(themeProps.pureBlack)

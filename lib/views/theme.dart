@@ -314,9 +314,15 @@ class _DynamicColorItem extends ConsumerWidget {
       delegate: SwitchDelegate(
         value: dynamicColor,
         onChanged: (value) {
-          ref
-              .read(themeSettingProvider.notifier)
-              .update((state) => state.copyWith(dynamicColor: value));
+          ref.read(themeSettingProvider.notifier).update(
+                (state) => state.copyWith(
+                  dynamicColor: value,
+                  primaryColor: value &&
+                          state.primaryColor == defaultPrimaryColor
+                      ? null
+                      : state.primaryColor,
+                ),
+              );
         },
       ),
     );

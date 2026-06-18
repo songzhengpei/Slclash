@@ -63,11 +63,12 @@ class GlobalState {
   }
 
   Future<void> _initDynamicColor() async {
+    accentColor = const Color(0xFF0A84FF);
     try {
       corePalette = await DynamicColorPlugin.getCorePalette();
       accentColor =
           await DynamicColorPlugin.getAccentColor() ??
-          const Color(defaultPrimaryColor);
+          const Color(0xFF0A84FF);
     } catch (_) {}
   }
 
@@ -91,7 +92,7 @@ class GlobalState {
     final appStateOverrides = buildAppStateOverrides(appState);
     packageInfo = await PackageInfo.fromPlatform();
     final configMap = await preferences.getConfigMap();
-    final config = await migration.migrationIfNeeded(
+    final migratedConfig = await migration.migrationIfNeeded(
       configMap,
       sync: (data) async {
         final newConfigMap = data.configMap;
@@ -109,6 +110,14 @@ class GlobalState {
         return config;
       },
     );
+
+    final config = migratedConfig.copyWith(
+      themeProps: normalizeThemeProps(migratedConfig.themeProps),
+    );
+    if (config != migratedConfig) {
+      await preferences.saveConfig(config);
+    }
+
     final configOverrides = buildConfigOverrides(config);
     container = ProviderContainer(
       overrides: [...appStateOverrides, ...configOverrides],

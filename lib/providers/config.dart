@@ -42,7 +42,7 @@ class NetworkSetting extends _$NetworkSetting with AutoDisposeNotifierMixin {
 class ThemeSetting extends _$ThemeSetting with AutoDisposeNotifierMixin {
   @override
   ThemeProps build() {
-    return const ThemeProps();
+    return defaultThemeProps;
   }
 }
 

@@ -40,7 +40,6 @@ const defaultProxiesStyleProps = ProxiesStyleProps(
 const defaultWindowProps = WindowProps();
 const defaultAccessControlProps = AccessControlProps();
 const defaultThemeProps = ThemeProps(
-  primaryColor: defaultPrimaryColor,
   themeMode: ThemeMode.system,
   dynamicColor: true,
 );
@@ -225,15 +224,26 @@ abstract class ThemeProps with _$ThemeProps {
       _$ThemePropsFromJson(json);
 
   factory ThemeProps.safeFromJson(Map<String, Object?>? json) {
-    if (json == null) {
-      return defaultThemeProps;
-    }
     try {
-      return ThemeProps.fromJson(json);
+      final themeProps =
+          json == null ? defaultThemeProps : ThemeProps.fromJson(json);
+      return normalizeThemeProps(themeProps);
     } catch (_) {
-      return defaultThemeProps;
+      return normalizeThemeProps(defaultThemeProps);
     }
   }
+}
+
+ThemeProps normalizeThemeProps(ThemeProps themeProps) {
+  final shouldClearLegacyPink =
+      themeProps.dynamicColor == true &&
+      themeProps.primaryColor == defaultPrimaryColor;
+
+  if (shouldClearLegacyPink) {
+    return themeProps.copyWith(primaryColor: null);
+  }
+
+  return themeProps;
 }
 
 @freezed
@@ -257,9 +267,11 @@ abstract class Config with _$Config {
   factory Config.fromJson(Map<String, Object?> json) => _$ConfigFromJson(json);
 
   factory Config.realFromJson(Map<String, Object?>? json) {
-    if (json == null) {
-      return const Config(themeProps: defaultThemeProps);
-    }
-    return _$ConfigFromJson(json);
+    final config = json == null
+        ? const Config(themeProps: defaultThemeProps)
+        : _$ConfigFromJson(json);
+    return config.copyWith(
+      themeProps: normalizeThemeProps(config.themeProps),
+    );
   }
 }
