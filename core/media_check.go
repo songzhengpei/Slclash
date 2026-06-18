@@ -333,113 +333,62 @@ func checkYouTube(ctx context.Context, client *http.Client) MediaCheckItem {
 	}
 
 	lower := strings.ToLower(body)
+	region, evidence := parseYouTubeRegion(body)
 
-	// 1. "not available" → region not supported
-	if isYouTubePremiumUnavailable(lower) {
-		return MediaCheckItem{Status: "unavailable", Evidence: "not-available"}
-	}
-
-	// 2. Availability markers → unlocked
-	if isYouTubePremiumAvailable(lower) {
-		region, evidence := parseYouTubeRegion(body)
-		if evidence == "" {
-			evidence = "page-marker"
-		}
-		available := true
+	// 1. CN region → cn_confirmed (always, never available)
+	if strings.EqualFold(region, "CN") {
+		available := false
 		return MediaCheckItem{
-			Status:           "available",
+			Status:           "cn_confirmed",
 			Region:           region,
 			Evidence:         evidence,
 			PremiumAvailable: &available,
 		}
 	}
 
-	// 3. Region parsed → assume available
-	region, evidence := parseYouTubeRegion(body)
+	// 2. "not available" → unavailable (with region if parsed)
+	if isYouTubePremiumUnavailable(lower) {
+		available := false
+		ev := evidence
+		if ev == "" {
+			ev = "not-available"
+		}
+		return MediaCheckItem{
+			Status:           "unavailable",
+			Region:           region,
+			Evidence:         ev,
+			PremiumAvailable: &available,
+		}
+	}
+
+	// 3. Region parsed (non-CN) → available
 	if region != "" {
 		available := true
+		ev := evidence
+		// Attach premium markers as supplementary evidence
+		if isYouTubePremiumAvailable(lower) && ev == "" {
+			ev = "page-marker"
+		}
 		return MediaCheckItem{
 			Status:           "available",
 			Region:           region,
-			Evidence:         evidence,
+			Evidence:         ev,
 			PremiumAvailable: &available,
 		}
 	}
 
-	// 4. Fallback: unknown
-	return MediaCheckItem{Status: "unknown", Evidence: evidence}
-}
-
-func checkYouTubeReachable(ctx context.Context, client *http.Client) (string, error) {
-	probes := []struct {
-		evidence string
-		url      string
-	}{
-		{"generate_204", "https://www.youtube.com/generate_204"},
-		{"favicon", "https://www.youtube.com/favicon.ico"},
-	}
-	var lastErr error
-	for _, probe := range probes {
-		_, err := mediaGetLimitedWithRetry(
-			ctx,
-			client,
-			probe.url,
-			4*1024,
-			3*time.Second,
-			mediaCheckAttempts,
-		)
-		if err == nil {
-			return probe.evidence, nil
-		}
-		lastErr = err
-	}
-	if lastErr == nil {
-		lastErr = fmt.Errorf("youtube reachability unavailable")
-	}
-	return "", lastErr
-}
-
-func checkYouTubeReachableParallel(ctx context.Context, client *http.Client) (string, error) {
-	probes := []struct {
-		evidence string
-		url      string
-	}{
-		{"generate_204", "https://www.youtube.com/generate_204"},
-		{"favicon", "https://www.youtube.com/favicon.ico"},
-	}
-	type probeRes struct {
-		evidence string
-		ok       bool
-	}
-	results := make([]probeRes, len(probes))
-	var wg sync.WaitGroup
-	wg.Add(len(probes))
-	for i, probe := range probes {
-		go func(idx int, p struct {
-			evidence string
-			url      string
-		}) {
-			defer wg.Done()
-			_, err := mediaGetLimitedWithRetry(
-				ctx,
-				client,
-				p.url,
-				4*1024,
-				3*time.Second,
-				mediaCheckAttempts,
-			)
-			if err == nil {
-				results[idx] = probeRes{evidence: p.evidence, ok: true}
-			}
-		}(i, probe)
-	}
-	wg.Wait()
-	for _, r := range results {
-		if r.ok {
-			return r.evidence, nil
+	// 4. No region parsed — check premium markers as weak evidence
+	if isYouTubePremiumAvailable(lower) {
+		available := true
+		return MediaCheckItem{
+			Status:           "available",
+			Evidence:         "page-marker",
+			PremiumAvailable: &available,
 		}
 	}
-	return "", fmt.Errorf("youtube reachability unavailable")
+
+	// 5. Nothing matched → unknown
+	return MediaCheckItem{Status: "unknown"}
 }
 
 func parseYouTubeRegion(body string) (string, string) {
@@ -466,6 +415,11 @@ func parseYouTubeRegion(body string) (string, string) {
 		if len(matches) > 1 {
 			return strings.ToUpper(strings.TrimSpace(matches[1])), item.evidence
 		}
+	}
+
+	// Strongest CN signal — www.google.cn redirect means China
+	if strings.Contains(body, "www.google.cn") {
+		return "CN", "google-cn"
 	}
 
 	return "", ""

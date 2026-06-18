@@ -23,19 +23,13 @@ func mediaCheckTextResponse(body string) *http.Response {
 	}
 }
 
-func TestCheckChatGPTAllowsAlternateReachableProbe(t *testing.T) {
+func TestCheckChatGPTTraceOnly(t *testing.T) {
 	client := &http.Client{
 		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
-			switch req.URL.Host + req.URL.Path {
-			case "chatgpt.com/cdn-cgi/trace":
+			if req.URL.Host+req.URL.Path == "chatgpt.com/cdn-cgi/trace" {
 				return mediaCheckTextResponse("loc=JP\n"), nil
-			case "ios.chat.openai.com/":
-				return nil, context.DeadlineExceeded
-			case "api.openai.com/compliance/cookie_requirements":
-				return mediaCheckTextResponse("{}"), nil
-			default:
-				return nil, errors.New("unexpected request: " + req.URL.String())
 			}
+			return nil, errors.New("unexpected request: " + req.URL.String())
 		}),
 	}
 
@@ -48,34 +42,96 @@ func TestCheckChatGPTAllowsAlternateReachableProbe(t *testing.T) {
 	}
 }
 
-func TestCheckYouTubeFallsBackToReachabilityProbe(t *testing.T) {
+func TestCheckChatGPTUnsupportedRegion(t *testing.T) {
 	client := &http.Client{
 		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
-			switch req.URL.Host + req.URL.Path {
-			case "www.youtube.com/premium":
-				return nil, context.DeadlineExceeded
-			case "www.youtube.com/generate_204":
-				return &http.Response{
-					StatusCode: http.StatusNoContent,
-					Header:     make(http.Header),
-					Body:       io.NopCloser(strings.NewReader("")),
-				}, nil
-			default:
-				return nil, errors.New("unexpected request: " + req.URL.String())
+			if req.URL.Host+req.URL.Path == "chatgpt.com/cdn-cgi/trace" {
+				return mediaCheckTextResponse("loc=CN\n"), nil
 			}
+			return nil, errors.New("unexpected request: " + req.URL.String())
+		}),
+	}
+
+	result := checkChatGPT(context.Background(), client)
+	if result.Status != "unsupported" {
+		t.Fatalf("expected unsupported, got %+v", result)
+	}
+	if result.Region != "CN" {
+		t.Fatalf("expected CN region, got %q", result.Region)
+	}
+}
+
+func TestCheckChatGPTTraceTimeout(t *testing.T) {
+	client := &http.Client{
+		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return nil, context.DeadlineExceeded
+		}),
+	}
+
+	result := checkChatGPT(context.Background(), client)
+	if result.Status != "timeout" {
+		t.Fatalf("expected timeout, got %+v", result)
+	}
+}
+
+func TestCheckYouTubeGoogleCNReturnsCNConfirmed(t *testing.T) {
+	client := &http.Client{
+		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.Host+req.URL.Path == "www.youtube.com/premium" {
+				return mediaCheckTextResponse(`<html>redirected to https://www.youtube.com/premium?hl=zh-CN</html><a href="https://www.google.cn">`), nil
+			}
+			return nil, errors.New("unexpected request: " + req.URL.String())
 		}),
 	}
 
 	result := checkYouTube(context.Background(), client)
-	if result.Status != "unknown" {
-		t.Fatalf("expected unknown reachability fallback, got %+v", result)
+	if result.Status != "cn_confirmed" {
+		t.Fatalf("expected cn_confirmed, got %+v", result)
 	}
-	if result.Evidence != "generate_204" {
-		t.Fatalf("expected generate_204 evidence, got %q", result.Evidence)
+	if result.Region != "CN" {
+		t.Fatalf("expected CN region, got %q", result.Region)
 	}
 }
 
-func TestCheckYouTubeUsesRegionAsAvailableSignal(t *testing.T) {
+func TestCheckYouTubeCountryCodeCNReturnsCNConfirmed(t *testing.T) {
+	client := &http.Client{
+		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.Host+req.URL.Path == "www.youtube.com/premium" {
+				return mediaCheckTextResponse(`{"countryCode":"CN"}`), nil
+			}
+			return nil, errors.New("unexpected request: " + req.URL.String())
+		}),
+	}
+
+	result := checkYouTube(context.Background(), client)
+	if result.Status != "cn_confirmed" {
+		t.Fatalf("expected cn_confirmed, got %+v", result)
+	}
+	if result.Region != "CN" {
+		t.Fatalf("expected CN region, got %q", result.Region)
+	}
+}
+
+func TestCheckYouTubeNotAvailableWithRegionReturnsUnavailable(t *testing.T) {
+	client := &http.Client{
+		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.Host+req.URL.Path == "www.youtube.com/premium" {
+				return mediaCheckTextResponse(`{"countryCode":"JP"}Premium is not available in your country`), nil
+			}
+			return nil, errors.New("unexpected request: " + req.URL.String())
+		}),
+	}
+
+	result := checkYouTube(context.Background(), client)
+	if result.Status != "unavailable" {
+		t.Fatalf("expected unavailable, got %+v", result)
+	}
+	if result.Region != "JP" {
+		t.Fatalf("expected JP region, got %q", result.Region)
+	}
+}
+
+func TestCheckYouTubeRegionJPReturnsAvailable(t *testing.T) {
 	client := &http.Client{
 		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
 			if req.URL.Host+req.URL.Path == "www.youtube.com/premium" {
@@ -91,5 +147,34 @@ func TestCheckYouTubeUsesRegionAsAvailableSignal(t *testing.T) {
 	}
 	if result.Region != "JP" {
 		t.Fatalf("expected JP region, got %q", result.Region)
+	}
+}
+
+func TestCheckYouTubeNoRegionReturnsUnknown(t *testing.T) {
+	client := &http.Client{
+		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.Host+req.URL.Path == "www.youtube.com/premium" {
+				return mediaCheckTextResponse(`<html>generic youtube page</html>`), nil
+			}
+			return nil, errors.New("unexpected request: " + req.URL.String())
+		}),
+	}
+
+	result := checkYouTube(context.Background(), client)
+	if result.Status != "unknown" {
+		t.Fatalf("expected unknown, got %+v", result)
+	}
+}
+
+func TestCheckYouTubePremiumPageTimeoutReturnsTimeout(t *testing.T) {
+	client := &http.Client{
+		Transport: mediaCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return nil, context.DeadlineExceeded
+		}),
+	}
+
+	result := checkYouTube(context.Background(), client)
+	if result.Status != "timeout" {
+		t.Fatalf("expected timeout, got %+v", result)
 	}
 }

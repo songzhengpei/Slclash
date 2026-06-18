@@ -1747,13 +1747,15 @@ class _MediaCheckRow {
         r.chatGPT.isChatGPTAvailable
             ? 200000 - d.clamp(0, 199999)
             : -d,
-      // YouTube: CN first → available → others; each group sorted by delay asc
+      // YouTube: 送中 → available → unknown → failed/timeout; each group sorted by delay asc
       _MediaCheckFilter.youTubeCN =>
         r.youTube.isYouTubeCN
-            ? 300000 - d.clamp(0, 299999)
+            ? 400000 - d.clamp(0, 399999)
             : r.youTube.status == 'available'
-                ? 200000 - d.clamp(0, 199999)
-                : -d,
+                ? 300000 - d.clamp(0, 299999)
+                : r.youTube.status == 'unknown'
+                    ? 200000 - d.clamp(0, 199999)
+                    : -d,
       // Green: stable-low-latency first → others; each sorted by median delay asc
       _MediaCheckFilter.green =>
         health.isStableLowLatency
@@ -2509,7 +2511,9 @@ class MediaCheckItem {
   bool get isYouTubeCN =>
       status == 'cn_confirmed' ||
       status == 'cn_inferred' ||
-      status == 'unavailable';
+      status == 'unavailable' ||
+      region.toUpperCase() == 'CN' ||
+      evidence == 'google-cn';
 
   String get chatGPTCompactLabel {
     if (status == 'clean') {
