@@ -142,13 +142,19 @@ class _ProfilesViewState extends State<ProfilesView> {
                           const SizedBox(height: 8),
                           _CurrentProfileSummary(
                             profile: currentProfile,
-                            profiles: state.profiles,
                             expanded: _isCurrentExpanded,
                             onExpandChanged: () {
                               setState(() {
                                 _isCurrentExpanded = !_isCurrentExpanded;
                               });
                             },
+                          ),
+                          const SizedBox(height: 12),
+                          const _ProfileSectionHeader(title: '快捷操作'),
+                          const SizedBox(height: 8),
+                          _MediaCheckEntryCard(
+                            profile: currentProfile,
+                            profiles: state.profiles,
                           ),
                           const SizedBox(height: 20),
                         ],
@@ -161,9 +167,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                           profiles: state.profiles,
                           currentProfileId: state.currentProfileId,
                           onSelect: (profileId) {
-                            ref
-                                    .read(currentProfileIdProvider.notifier)
-                                    .value =
+                            ref.read(currentProfileIdProvider.notifier).value =
                                 profileId;
                           },
                         ),
@@ -190,35 +194,31 @@ class _MediaCheckEntryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.18), width: 0.5),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
-              ),
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -622,13 +622,11 @@ class _ProfileSortOption extends StatelessWidget {
 class _CurrentProfileSummary extends StatefulWidget {
   const _CurrentProfileSummary({
     required this.profile,
-    required this.profiles,
     required this.expanded,
     required this.onExpandChanged,
   });
 
   final Profile profile;
-  final List<Profile> profiles;
   final bool expanded;
   final VoidCallback onExpandChanged;
 
@@ -668,7 +666,7 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
         final isLoading = snapshot.connectionState != ConnectionState.done;
         return SurgeCard(
           shadow: true,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -696,6 +694,9 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                 ],
               ),
               const SizedBox(height: 12),
+              _CurrentProfileDetails(profile: widget.profile),
+              const SizedBox(height: 10),
+              Divider(height: 1, color: surge.separator),
               _CurrentProfileExpandButton(
                 expanded: widget.expanded,
                 enabled: !isLoading,
@@ -712,11 +713,6 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                       )
                     : const SizedBox(width: double.infinity),
               ),
-              const SizedBox(height: 12),
-              _MediaCheckInlineAction(
-                profile: widget.profile,
-                profiles: widget.profiles,
-              ),
             ],
           ),
         );
@@ -725,11 +721,77 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   }
 }
 
-class _MediaCheckInlineAction extends StatelessWidget {
-  const _MediaCheckInlineAction({
-    required this.profile,
-    required this.profiles,
-  });
+class _CurrentProfileDetails extends StatelessWidget {
+  const _CurrentProfileDetails({required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final subscriptionInfo = profile.subscriptionInfo;
+    final infoStyle = context.textTheme.labelSmall?.copyWith(
+      color: surge.textSecondary,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0,
+    );
+
+    if (subscriptionInfo == null || subscriptionInfo.total == 0) {
+      return LastUpdateTimeText(
+        lastUpdateDate: profile.lastUpdateDate,
+        style: infoStyle,
+      );
+    }
+
+    final used = subscriptionInfo.upload + subscriptionInfo.download;
+    final total = subscriptionInfo.total;
+    final progress = total == 0 ? 0.0 : (used / total).clamp(0.0, 1.0);
+    final usedText = used.traffic.show;
+    final totalText = total.traffic.show;
+    final expireText = subscriptionInfo.expire != 0
+        ? DateTime.fromMillisecondsSinceEpoch(
+            subscriptionInfo.expire * 1000,
+          ).show
+        : context.appLocalizations.infiniteTime;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            minHeight: 6,
+            value: progress,
+            backgroundColor: surge.fill,
+            color: surge.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '$usedText / $totalText · $expireText',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: infoStyle,
+              ),
+            ),
+            const SizedBox(width: 12),
+            LastUpdateTimeText(
+              lastUpdateDate: profile.lastUpdateDate,
+              style: infoStyle,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MediaCheckEntryCard extends StatelessWidget {
+  const _MediaCheckEntryCard({required this.profile, required this.profiles});
 
   final Profile profile;
   final List<Profile> profiles;
@@ -738,107 +800,103 @@ class _MediaCheckInlineAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final profileCount = profiles.length;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          BaseNavigator.push(
-            context,
-            ProfileMediaCheckView(profiles: profiles, initialProfile: profile),
-          );
-        },
-        child: Ink(
-          padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-          decoration: BoxDecoration(
-            color: surge.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: surge.primary.withValues(alpha: 0.18),
-              width: 0.7,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return SurgeCard(
+      shadow: true,
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+      onTap: () {
+        BaseNavigator.push(
+          context,
+          ProfileMediaCheckView(profiles: profiles, initialProfile: profile),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: surge.primary.withValues(alpha: 0.13),
-                      borderRadius: BorderRadius.circular(17),
-                    ),
-                    child: Icon(
-                      Icons.fact_check_rounded,
-                      color: surge.primary,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '节点批量检测',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.textTheme.titleSmall?.copyWith(
-                            color: surge.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          profileCount > 1 ? '按订阅手动检测 · 结果缓存' : '手动检测 · 结果缓存',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.textTheme.labelSmall?.copyWith(
-                            color: surge.textSecondary,
-                            fontSize: 11,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: surge.textSecondary,
-                    size: 22,
-                  ),
-                ],
+              SizedBox(
+                width: 30,
+                height: 40,
+                child: Icon(
+                  Icons.fact_check_rounded,
+                  color: surge.primary,
+                  size: 30,
+                ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _MediaCheckEntryPill(
-                    label: 'GPT',
-                    color: surge.purple,
-                    icon: Icons.psychology_alt_rounded,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Transform.translate(
+                  offset: const Offset(0, -1),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '流媒体检测',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.titleSmall?.copyWith(
+                          color: surge.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          height: 1.05,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        profileCount > 1 ? '按订阅手动检测 · 结果缓存' : '手动检测 · 结果缓存',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.labelSmall?.copyWith(
+                          color: surge.textSecondary,
+                          fontSize: 11,
+                          height: 1.05,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  _MediaCheckEntryPill(
-                    label: 'YouTube',
-                    color: surge.orange,
-                    icon: Icons.smart_display_rounded,
-                  ),
-                  const SizedBox(width: 8),
-                  _MediaCheckEntryPill(
-                    label: '健康',
-                    color: surge.green,
-                    icon: Icons.eco_outlined,
-                  ),
-                ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: surge.textSecondary,
+                size: 22,
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _MediaCheckEntryPill(
+                  label: 'GPT',
+                  color: surge.purple,
+                  icon: Icons.psychology_alt_rounded,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _MediaCheckEntryPill(
+                  label: 'YouTube',
+                  color: surge.orange,
+                  icon: Icons.smart_display_rounded,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _MediaCheckEntryPill(
+                  label: '健康',
+                  color: surge.green,
+                  icon: Icons.eco_outlined,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -861,18 +919,13 @@ class _CurrentProfileExpandButton extends StatelessWidget {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: surge.textSecondary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: surge.separator.withValues(alpha: 0.55)),
-        ),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Row(
           children: [
             Icon(
               Icons.hub_outlined,
-              size: 16,
+              size: 17,
               color: enabled ? surge.textPrimary : surge.textSecondary,
             ),
             const SizedBox(width: 8),
@@ -881,7 +934,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
                 enabled ? '展开当前订阅节点' : '正在读取当前订阅节点',
                 style: context.textTheme.labelMedium?.copyWith(
                   color: enabled ? surge.textPrimary : surge.textSecondary,
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0,
                 ),
@@ -893,7 +946,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
               child: Icon(
                 Icons.keyboard_arrow_down_rounded,
                 color: surge.textSecondary,
-                size: 20,
+                size: 21,
               ),
             ),
           ],
@@ -956,30 +1009,24 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            height: math.min(300, proxies.length * 53).toDouble() + 10,
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: surge.textSecondary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(surge.radii.list),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(surge.radii.list),
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  scrollbarTheme: const ScrollbarThemeData(
-                    mainAxisMargin: 8,
-                  ),
+          SizedBox(
+            height: math.min(300, proxies.length * 53).toDouble(),
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                scrollbarTheme: const ScrollbarThemeData(
+                  mainAxisMargin: 8,
+                  crossAxisMargin: -3,
                 ),
-                child: Scrollbar(
-                  thumbVisibility: true,
-                  child: ListView.separated(
-                    padding: EdgeInsets.zero,
-                    itemCount: proxies.length,
-                    itemBuilder: (_, index) =>
-                        _ProfileProxyPreviewCard(proxy: proxies[index]),
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  ),
+              ),
+              child: Scrollbar(
+                thumbVisibility: false,
+                child: ListView.separated(
+                  padding: const EdgeInsets.only(right: 3),
+                  itemCount: proxies.length,
+                  itemBuilder: (_, index) =>
+                      _ProfileProxyPreviewCard(proxy: proxies[index]),
+                  separatorBuilder: (_, _) =>
+                      Divider(height: 1, color: surge.separator),
                 ),
               ),
             ),
@@ -1067,50 +1114,43 @@ class _ProfileProxyPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return SurgeCard(
-      padding: EdgeInsets.zero,
-      shadow: false,
-      borderRadius: surge.radii.list,
-      backgroundColor: surge.card,
-      border: Border.all(color: surge.separator, width: 0.5),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  EmojiText(
-                    proxy.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodyMedium?.copyWith(
-                      color: surge.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                EmojiText(
+                  proxy.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: surge.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    proxy.type,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodySmall?.copyWith(
-                      color: surge.textSecondary,
-                      fontSize: 11,
-                      letterSpacing: 0,
-                    ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  proxy.type,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: surge.textSecondary,
+                    fontSize: 11,
+                    letterSpacing: 0,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            _ProfileDelayBadge(proxy: proxy),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          _ProfileDelayBadge(proxy: proxy),
+        ],
       ),
     );
   }
@@ -1267,31 +1307,53 @@ class _ProfileListContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: profiles.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (_, i) => _ProfileListItem(
+        profile: profiles[i],
+        isSelected: profiles[i].id == currentProfileId,
+        onTap: () => onSelect(profiles[i].id),
+      ),
+    );
+  }
+}
+
+class _SelectedProfileDot extends StatelessWidget {
+  const _SelectedProfileDot({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return SurgeCard(
-      shadow: true,
-      padding: const EdgeInsets.all(7),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(surge.radii.list),
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            scrollbarTheme: const ScrollbarThemeData(
-              mainAxisMargin: 8,
-            ),
-          ),
-          child: Scrollbar(
-            thumbVisibility: true,
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: profiles.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 6),
-              itemBuilder: (_, i) => _ProfileListItem(
-                profile: profiles[i],
-                isSelected: profiles[i].id == currentProfileId,
-                onTap: () => onSelect(profiles[i].id),
-              ),
+    return Positioned(
+      right: 10,
+      top: -6,
+      child: AnimatedScale(
+        scale: selected ? 1 : 0.65,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        child: AnimatedOpacity(
+          opacity: selected ? 1 : 0,
+          duration: const Duration(milliseconds: 160),
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: surge.primary,
+              shape: BoxShape.circle,
+              border: Border.all(color: surge.card, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: surge.shadow,
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
           ),
         ),
@@ -1310,39 +1372,6 @@ class _ProfileListItem extends StatelessWidget {
   final Profile profile;
   final bool isSelected;
   final VoidCallback onTap;
-
-  List<Widget> _buildUrlProfileInfo(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    final subscriptionInfo = profile.subscriptionInfo;
-    return [
-      const SizedBox(height: 6),
-      if (subscriptionInfo != null)
-        SubscriptionInfoView(subscriptionInfo: subscriptionInfo),
-      LastUpdateTimeText(
-        lastUpdateDate: profile.lastUpdateDate,
-        style: context.textTheme.labelSmall?.copyWith(
-          color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
-        ),
-      ),
-    ];
-  }
-
-  List<Widget> _buildFileProfileInfo(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    return [
-      const SizedBox(height: 6),
-      LastUpdateTimeText(
-        lastUpdateDate: profile.lastUpdateDate,
-        style: context.textTheme.labelSmall?.copyWith(
-          color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
-        ),
-      ),
-    ];
-  }
 
   Future<void> _handleDeleteProfile(BuildContext context) async {
     final appLocalizations = context.appLocalizations;
@@ -1413,13 +1442,15 @@ class _ProfileListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final hasTraffic =
+        profile.subscriptionInfo != null && profile.subscriptionInfo!.total > 0;
     return Consumer(
       builder: (_, ref, _) {
         final dynamicColor = ref.watch(
           themeSettingProvider.select((state) => state.dynamicColor),
         );
         final selectedBorderColor = !dynamicColor
-            ? const Color(0xFFD8DAE0)
+            ? surge.textPrimary
             : surge.primary;
         return Stack(
           clipBehavior: Clip.none,
@@ -1427,119 +1458,97 @@ class _ProfileListItem extends StatelessWidget {
             SurgeCard(
               backgroundColor: isSelected ? surge.selectedFill : surge.card,
               border: Border.all(
-                color: isSelected ? selectedBorderColor : surge.separator,
-                width: 0.5,
+                color: isSelected
+                    ? selectedBorderColor
+                    : surge.separator.withValues(alpha: 0.95),
+                width: isSelected ? 1.05 : 0.75,
               ),
               shadow: false,
               borderRadius: surge.radii.list,
               padding: EdgeInsets.zero,
+              height: hasTraffic ? 92 : 78,
               onTap: onTap,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                padding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: _ProfileTextBlock(
                         profile: profile,
-                        info: switch (profile.type) {
-                          ProfileType.file =>
-                            _buildFileProfileInfo(context),
-                          ProfileType.url =>
-                            _buildUrlProfileInfo(context),
-                        },
+                        info: [_ProfileListSummary(profile: profile)],
                       ),
                     ),
                     const SizedBox(width: 10),
-                    _ProfilePill(
-                      label: profile.type.name,
-                      color: surge.textSecondary,
-                    ),
-                    const SizedBox(width: 4),
                     SizedBox(
-                      height: 40,
-                      width: 40,
-                      child: Consumer(
-                        builder: (_, ref, _) {
-                          final isUpdating = ref.watch(
-                            isUpdatingProvider(profile.updatingKey),
-                          );
-                          return FadeThroughBox(
-                            child: isUpdating
-                                ? const Padding(
-                                    key: ValueKey('loading'),
-                                    padding: EdgeInsets.all(9),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : _ProfileActionButton(
-                                    onEdit: () {
-                                      _handleShowEditExtendPage(context);
-                                    },
-                                    onPreview: () {
-                                      _handlePreview(context);
-                                    },
-                                    onSync:
-                                        profile.type == ProfileType.url
-                                            ? _updateProfile
-                                            : null,
-                                    onOverride: () {
-                                      _handlePushGenProfilePage(
-                                        context,
-                                        profile.id,
-                                      );
-                                    },
-                                    onCopyLink:
-                                        profile.type == ProfileType.url
-                                            ? () {
-                                                _handleCopyLink(context);
-                                              }
-                                            : null,
-                                    onExport: () {
-                                      _handleExportFile(context);
-                                    },
-                                    onDelete: () {
-                                      _handleDeleteProfile(context);
-                                    },
-                                  ),
-                          );
-                        },
+                      width: 88,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          _ProfilePill(
+                            label: profile.type.name,
+                            color: surge.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          SizedBox(
+                            height: 40,
+                            width: 40,
+                            child: Consumer(
+                              builder: (_, ref, _) {
+                                final isUpdating = ref.watch(
+                                  isUpdatingProvider(profile.updatingKey),
+                                );
+                                return FadeThroughBox(
+                                  child: isUpdating
+                                      ? const Padding(
+                                          key: ValueKey('loading'),
+                                          padding: EdgeInsets.all(9),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : _ProfileActionButton(
+                                          onEdit: () {
+                                            _handleShowEditExtendPage(context);
+                                          },
+                                          onPreview: () {
+                                            _handlePreview(context);
+                                          },
+                                          onSync:
+                                              profile.type == ProfileType.url
+                                              ? _updateProfile
+                                              : null,
+                                          onOverride: () {
+                                            _handlePushGenProfilePage(
+                                              context,
+                                              profile.id,
+                                            );
+                                          },
+                                          onCopyLink:
+                                              profile.type == ProfileType.url
+                                              ? () {
+                                                  _handleCopyLink(context);
+                                                }
+                                              : null,
+                                          onExport: () {
+                                            _handleExportFile(context);
+                                          },
+                                          onDelete: () {
+                                            _handleDeleteProfile(context);
+                                          },
+                                        ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            Positioned(
-              right: 10,
-              top: -6,
-              child: AnimatedScale(
-                scale: isSelected ? 1 : 0.65,
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOutCubic,
-                child: AnimatedOpacity(
-                  opacity: isSelected ? 1 : 0,
-                  duration: const Duration(milliseconds: 160),
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: surge.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: surge.card, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: surge.shadow,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            _SelectedProfileDot(selected: isSelected),
           ],
         );
       },
@@ -1959,7 +1968,7 @@ class _ProfileActionMenuItem extends StatelessWidget {
 }
 
 class _ProfileTextBlock extends StatelessWidget {
-  const _ProfileTextBlock({required this.profile, required this.info});
+  const _ProfileTextBlock({required this.profile, this.info = const []});
 
   final Profile profile;
   final List<Widget> info;
@@ -1982,13 +1991,128 @@ class _ProfileTextBlock extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: info,
-        ),
+        if (info.isNotEmpty)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: info,
+          ),
       ],
+    );
+  }
+}
+
+class _ProfileListSummary extends StatelessWidget {
+  const _ProfileListSummary({required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final subscriptionInfo = profile.subscriptionInfo;
+    final hasTraffic = subscriptionInfo != null && subscriptionInfo.total > 0;
+    final used = hasTraffic
+        ? subscriptionInfo.upload + subscriptionInfo.download
+        : 0;
+    final total = hasTraffic ? subscriptionInfo.total : 0;
+    final progress = hasTraffic ? (used / total).clamp(0.0, 1.0) : 0.0;
+    final expireText = hasTraffic && subscriptionInfo.expire != 0
+        ? DateTime.fromMillisecondsSinceEpoch(
+            subscriptionInfo.expire * 1000,
+          ).show
+        : context.appLocalizations.infiniteTime;
+    final trafficText = '${used.traffic.show} / ${total.traffic.show}';
+    final detailStyle = context.textTheme.labelSmall?.copyWith(
+      color: surge.textSecondary,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0,
+    );
+
+    if (!hasTraffic) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 5),
+        child: LastUpdateTimeText(
+          lastUpdateDate: profile.lastUpdateDate,
+          style: detailStyle,
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2.5),
+            child: LinearProgressIndicator(
+              minHeight: 5,
+              value: progress,
+              color: hasTraffic ? surge.primary : Colors.transparent,
+              backgroundColor: surge.fill,
+            ),
+          ),
+          const SizedBox(height: 7),
+          _ProfileSummaryLine(
+            lastUpdateDate: profile.lastUpdateDate,
+            trafficText: trafficText,
+            expireText: expireText,
+            style: detailStyle,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSummaryLine extends StatelessWidget {
+  const _ProfileSummaryLine({
+    required this.lastUpdateDate,
+    required this.trafficText,
+    required this.expireText,
+    required this.style,
+  });
+
+  final DateTime? lastUpdateDate;
+  final String trafficText;
+  final String expireText;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    if (lastUpdateDate == null) {
+      return _SummaryText(text: '$trafficText · $expireText', style: style);
+    }
+    return TickBuilder(
+      duration: const Duration(minutes: 1),
+      builder: (context, _) {
+        return _SummaryText(
+          text:
+              '${lastUpdateDate!.getLastUpdateTimeDesc(context)} · $trafficText · $expireText',
+          style: style,
+        );
+      },
+    );
+  }
+}
+
+class _SummaryText extends StatelessWidget {
+  const _SummaryText({required this.text, required this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+      style: style,
     );
   }
 }

@@ -172,31 +172,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _maybeRunObservation();
   }
 
-  Future<void> _saveResult(
-    _MediaCheckTarget target,
-    MediaCheckResult result,
-    _MediaCheckFilter mode,
-  ) async {
-    final nextCache = mode == _MediaCheckFilter.green
-        ? _cache.addHealthResult(
-            key: target.key,
-            profileId: target.profile.id,
-            profileLabel: target.profile.realLabel,
-            proxyName: target.proxy.name,
-            result: result,
-          )
-        : _cache.addResult(
-            key: target.key,
-            profileId: target.profile.id,
-            profileLabel: target.profile.realLabel,
-            proxyName: target.proxy.name,
-            result: result,
-            mode: mode.cacheKey,
-          );
-    _cache = nextCache;
-    await _cacheStore.save(nextCache);
-  }
-
   /// Update in-memory cache only — no disk I/O, instant.
   void _updateCacheInMemory(
     _MediaCheckTarget target,
@@ -523,7 +498,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     final summary = _summary;
 
     return CommonScaffold(
-      title: '节点批量检测',
+      title: '流媒体检测',
       backgroundColor: surge.background,
       body: Listener(
         behavior: HitTestBehavior.translucent,
@@ -552,6 +527,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
                   cachedCount: _cachedCountForMode,
                   runningCount: _running.length,
                   concurrency: _concurrency,
+                  summary: summary,
                   observing: _observeSettings.enabled,
                   observeIntervalLabel: _observeSettings.intervalLabel,
                   healthSampling: _healthSampling,
@@ -576,12 +552,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
                   onObserveIntervalTap: _checking
                       ? null
                       : _cycleObservationInterval,
-                ),
-                const SizedBox(height: 12),
-                _MediaCheckFilterGrid(
-                  filter: _filter,
-                  summary: summary,
-                  onChanged: _changeFilter,
+                  onSummaryFilterChanged: _checking ? null : _changeFilter,
                 ),
                 const SizedBox(height: 12),
                 if (_loading)
@@ -630,6 +601,7 @@ class _MediaCheckControlCard extends StatelessWidget {
     required this.cachedCount,
     required this.runningCount,
     required this.concurrency,
+    required this.summary,
     required this.observing,
     required this.observeIntervalLabel,
     required this.healthSampling,
@@ -641,6 +613,7 @@ class _MediaCheckControlCard extends StatelessWidget {
     required this.onCancel,
     required this.onObservingChanged,
     required this.onObserveIntervalTap,
+    required this.onSummaryFilterChanged,
   });
 
   final List<Profile> profiles;
@@ -653,6 +626,7 @@ class _MediaCheckControlCard extends StatelessWidget {
   final int cachedCount;
   final int runningCount;
   final int concurrency;
+  final _MediaCheckSummary summary;
   final bool observing;
   final String observeIntervalLabel;
   final bool healthSampling;
@@ -664,6 +638,7 @@ class _MediaCheckControlCard extends StatelessWidget {
   final VoidCallback onCancel;
   final ValueChanged<bool> onObservingChanged;
   final VoidCallback? onObserveIntervalTap;
+  final ValueChanged<_MediaCheckFilter>? onSummaryFilterChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -720,14 +695,11 @@ class _MediaCheckControlCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              _ControlMetric(label: '节点', value: '$targetCount'),
-              const SizedBox(width: 8),
-              _ControlMetric(label: '缓存', value: '$cachedCount'),
-              const SizedBox(width: 8),
-              _ControlMetric(label: '并发', value: '$concurrency'),
-            ],
+          _ControlMetricsLine(
+            targetCount: targetCount,
+            cachedCount: cachedCount,
+            concurrency: concurrency,
+            runningCount: runningCount,
           ),
           const SizedBox(height: 12),
           Row(
@@ -780,6 +752,14 @@ class _MediaCheckControlCard extends StatelessWidget {
             enabled: !checking,
             onChanged: onObservingChanged,
             onIntervalTap: onObserveIntervalTap,
+          ),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: surge.separator),
+          const SizedBox(height: 12),
+          _MediaCheckInlineStats(
+            filter: filter,
+            summary: summary,
+            onChanged: onSummaryFilterChanged,
           ),
         ],
       ),
@@ -985,8 +965,52 @@ class _ModeDropdown extends StatelessWidget {
   }
 }
 
-class _ControlMetric extends StatelessWidget {
-  const _ControlMetric({required this.label, required this.value});
+class _ControlMetricsLine extends StatelessWidget {
+  const _ControlMetricsLine({
+    required this.targetCount,
+    required this.cachedCount,
+    required this.concurrency,
+    required this.runningCount,
+  });
+
+  final int targetCount;
+  final int cachedCount;
+  final int concurrency;
+  final int runningCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final items = [
+      ('节点', '$targetCount'),
+      ('缓存', '$cachedCount'),
+      ('并发', '$concurrency'),
+      if (runningCount > 0) ('运行', '$runningCount'),
+    ];
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          _ControlMetricText(label: items[i].$1, value: items[i].$2),
+          if (i != items.length - 1)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              child: SizedBox(
+                height: 14,
+                child: VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: surge.separator,
+                ),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ControlMetricText extends StatelessWidget {
+  const _ControlMetricText({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -995,42 +1019,34 @@ class _ControlMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return Expanded(
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: surge.fill,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
+      child: Text.rich(
+        TextSpan(
+          text: '$label ',
           children: [
-            Text(
-              label,
-              style: context.textTheme.labelSmall?.copyWith(
-                color: surge.textSecondary,
-                fontSize: 10,
-                letterSpacing: 0,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              value,
-              style: context.textTheme.titleSmall?.copyWith(
+            TextSpan(
+              text: value,
+              style: TextStyle(
                 color: surge.textPrimary,
-                fontSize: 15,
                 fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: context.textTheme.labelMedium?.copyWith(
+          color: surge.textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
         ),
       ),
     );
   }
 }
 
-class _MediaCheckFilterGrid extends StatelessWidget {
-  const _MediaCheckFilterGrid({
+class _MediaCheckInlineStats extends StatelessWidget {
+  const _MediaCheckInlineStats({
     required this.filter,
     required this.summary,
     required this.onChanged,
@@ -1038,37 +1054,42 @@ class _MediaCheckFilterGrid extends StatelessWidget {
 
   final _MediaCheckFilter filter;
   final _MediaCheckSummary summary;
-  final ValueChanged<_MediaCheckFilter> onChanged;
+  final ValueChanged<_MediaCheckFilter>? onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = (constraints.maxWidth - 16) / 3;
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final item in _MediaCheckFilter.values)
-              SizedBox(
-                width: width,
-                child: _FilterTile(
-                  filter: item,
-                  selected: filter == item,
-                  value: summary.valueFor(item),
-                  subtitle: summary.subtitleFor(item),
-                  onTap: () => onChanged(item),
-                ),
+    final surge = SurgeTheme.of(context);
+    return Row(
+      children: [
+        for (var i = 0; i < _MediaCheckFilter.values.length; i++) ...[
+          Expanded(
+            child: _InlineFilterMetric(
+              filter: _MediaCheckFilter.values[i],
+              selected: filter == _MediaCheckFilter.values[i],
+              value: summary.valueFor(_MediaCheckFilter.values[i]),
+              subtitle: summary.subtitleFor(_MediaCheckFilter.values[i]),
+              onTap: onChanged == null
+                  ? null
+                  : () => onChanged!(_MediaCheckFilter.values[i]),
+            ),
+          ),
+          if (i != _MediaCheckFilter.values.length - 1)
+            SizedBox(
+              height: 46,
+              child: VerticalDivider(
+                width: 18,
+                thickness: 1,
+                color: surge.separator,
               ),
-          ],
-        );
-      },
+            ),
+        ],
+      ],
     );
   }
 }
 
-class _FilterTile extends StatelessWidget {
-  const _FilterTile({
+class _InlineFilterMetric extends StatelessWidget {
+  const _InlineFilterMetric({
     required this.filter,
     required this.selected,
     required this.value,
@@ -1080,81 +1101,78 @@ class _FilterTile extends StatelessWidget {
   final bool selected;
   final String value;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final color = filter.color(surge);
     final textColor = selected ? color : surge.textPrimary;
-    return SurgeCard(
-      shadow: false,
-      borderRadius: 14,
-      backgroundColor: selected
-          ? surge.fill.withValues(alpha: 0.72)
-          : surge.card,
-      border: Border.all(
-        color: selected
-            ? color.withValues(alpha: 0.34)
-            : surge.separator.withValues(alpha: 0.85),
-        width: 0.5,
-      ),
-      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(filter.icon, size: 14, color: color),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  filter.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.labelMedium?.copyWith(
-                    color: textColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
+              Row(
+                children: [
+                  Icon(filter.icon, size: 14, color: color),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      filter.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.labelMedium?.copyWith(
+                        color: textColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
                   ),
-                ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.labelSmall?.copyWith(
+                        color: selected
+                            ? color.withValues(alpha: 0.82)
+                            : surge.textSecondary,
+                        fontSize: 10,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    value,
+                    style: context.textTheme.titleSmall?.copyWith(
+                      color: color,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                      height: 1,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.labelSmall?.copyWith(
-                    color: selected
-                        ? color.withValues(alpha: 0.82)
-                        : surge.textSecondary,
-                    fontSize: 9,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-              Text(
-                value,
-                style: context.textTheme.titleSmall?.copyWith(
-                  color: color,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                  height: 1,
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1181,102 +1199,72 @@ class _MediaCheckResultList extends StatelessWidget {
     final cacheText = lastCachedAt == null
         ? '无缓存'
         : '上次 ${_formatCacheTime(lastCachedAt!)}';
-    return SurgeCard(
-      shadow: false,
-      backgroundColor: surge.elevatedCard,
-      padding: const EdgeInsets.all(10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    filter.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelMedium?.copyWith(
-                      color: surge.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: '清除缓存',
-                  onPressed: cached ? onClear : null,
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  style: IconButton.styleFrom(
-                    fixedSize: const Size(32, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: surge.textSecondary,
-                    disabledForegroundColor: surge.textSecondary.withValues(
-                      alpha: 0.35,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  cacheText,
-                  style: context.textTheme.labelSmall?.copyWith(
-                    color: surge.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxHeight: _resultPanelMaxHeight,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: surge.fill,
-                  borderRadius: BorderRadius.circular(surge.radii.list),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(surge.radii.list),
-                  child: Theme(
-                    data: Theme.of(context).copyWith(
-                      scrollbarTheme: const ScrollbarThemeData(
-                        mainAxisMargin: 8,
-                      ),
-                    ),
-                    child: Scrollbar(
-                      thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            for (final row in rows)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: _MediaCheckResultCard(
-                                  row: row,
-                                  filter: filter,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                filter.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.labelMedium?.copyWith(
+                  color: surge.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
                 ),
               ),
             ),
+            IconButton(
+              tooltip: '清除缓存',
+              onPressed: cached ? onClear : null,
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              style: IconButton.styleFrom(
+                fixedSize: const Size(32, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: surge.textSecondary,
+                disabledForegroundColor: surge.textSecondary.withValues(
+                  alpha: 0.35,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              cacheText,
+              style: context.textTheme.labelSmall?.copyWith(
+                color: surge.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: _resultPanelMaxHeight),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              scrollbarTheme: const ScrollbarThemeData(mainAxisMargin: 8),
+            ),
+            child: Scrollbar(
+              thumbVisibility: false,
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(right: 20),
+                itemCount: rows.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, color: surge.separator),
+                itemBuilder: (_, index) =>
+                    _MediaCheckResultCard(row: rows[index], filter: filter),
+              ),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1298,11 +1286,8 @@ class _MediaCheckResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final result = row.result;
-    return SurgeCard(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      shadow: false,
-      borderRadius: surge.radii.list,
-      border: Border.all(color: surge.separator, width: 0.5),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1322,15 +1307,19 @@ class _MediaCheckResultCard extends StatelessWidget {
                 ),
               ),
               if (row.target.profile.realLabel.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Text(
-                  row.target.profile.realLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.labelSmall?.copyWith(
-                    color: surge.textSecondary,
-                    fontSize: 10,
-                    letterSpacing: 0,
+                const SizedBox(width: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 136),
+                  child: Text(
+                    row.target.profile.realLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: surge.textSecondary,
+                      fontSize: 10,
+                      letterSpacing: 0,
+                    ),
                   ),
                 ),
               ],
@@ -1431,6 +1420,7 @@ class _SingleResultLine extends StatelessWidget {
               meta,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
               style: context.textTheme.labelSmall?.copyWith(
                 color: surge.textSecondary,
                 fontSize: 10,
@@ -1466,11 +1456,8 @@ class _HealthResultLine extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
               children: [
-                Flexible(
-                  flex: 3,
+                Expanded(
                   child: Text(
                     result.https.compactLabel,
                     maxLines: 1,
@@ -1484,17 +1471,16 @@ class _HealthResultLine extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Flexible(
-                  flex: 4,
-                  child: Text(
-                    health.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelSmall?.copyWith(
-                      color: surge.textSecondary,
-                      fontSize: 10,
-                      letterSpacing: 0,
-                    ),
+                Text(
+                  health.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: context.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -1543,11 +1529,8 @@ class _MediaCheckPendingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return SurgeCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      shadow: false,
-      borderRadius: surge.radii.list,
-      border: Border.all(color: surge.separator, width: 0.5),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
         children: [
           Expanded(
@@ -1667,7 +1650,12 @@ enum _MediaCheckFilter {
   final String subtitle;
   final IconData icon;
 
-  const _MediaCheckFilter(this.label, this.resultTitle, this.subtitle, this.icon);
+  const _MediaCheckFilter(
+    this.label,
+    this.resultTitle,
+    this.subtitle,
+    this.icon,
+  );
 
   String? get badgeLabel {
     return switch (this) {
@@ -1744,24 +1732,24 @@ class _MediaCheckRow {
     return switch (filter) {
       // ChatGPT: available first (sorted by delay asc), then others (sorted by delay asc)
       _MediaCheckFilter.chatGPT =>
-        r.chatGPT.isChatGPTAvailable
-            ? 200000 - d.clamp(0, 199999)
-            : -d,
+        r.chatGPT.isChatGPTAvailable ? 200000 - d.clamp(0, 199999) : -d,
       // YouTube: 送中 → available → unknown → failed/timeout; each group sorted by delay asc
       _MediaCheckFilter.youTubeCN =>
         r.youTube.isYouTubeCN
             ? 400000 - d.clamp(0, 399999)
             : r.youTube.status == 'available'
-                ? 300000 - d.clamp(0, 299999)
-                : r.youTube.status == 'unknown'
-                    ? 200000 - d.clamp(0, 199999)
-                    : -d,
+            ? 300000 - d.clamp(0, 299999)
+            : r.youTube.status == 'unknown'
+            ? 200000 - d.clamp(0, 199999)
+            : -d,
       // Green: stable-low-latency first → others; each sorted by median delay asc
       _MediaCheckFilter.green =>
         health.isStableLowLatency
             ? 200000 -
-                (health.medianDelay > 0 ? health.medianDelay : 999999)
-                    .clamp(0, 199999)
+                  (health.medianDelay > 0 ? health.medianDelay : 999999).clamp(
+                    0,
+                    199999,
+                  )
             : -(health.medianDelay > 0 ? health.medianDelay : 999999),
     };
   }
@@ -2003,7 +1991,9 @@ class MediaCheckCache {
     final keysToRemove = <String>[];
     for (final entry in nextEntries.entries) {
       final e = entry.value;
-      final allExpired = e.modeTimes.keys.every((mode) => e.isModeExpired(mode));
+      final allExpired = e.modeTimes.keys.every(
+        (mode) => e.isModeExpired(mode),
+      );
       if (allExpired && e.samples.isEmpty) {
         keysToRemove.add(entry.key);
       }
