@@ -4,6 +4,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart' hide FileInfo;
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -159,6 +160,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     final vm2 = ref.watch(
       proxyGroupProvider.select(
         (state) => VM2(state.includeAllProviders ?? false, state.use ?? []),
@@ -185,9 +187,9 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverToBoxAdapter(
-                child: CommonCard(
-                  radius: 20,
-                  type: CommonCardType.filled,
+                child: SurgeActionCard(
+                  variant: SurgeActionCardVariant.filled,
+                  borderRadius: surge.radii.list,
                   child: ListItem.switchItem(
                     minTileHeight: 54,
                     title: Row(

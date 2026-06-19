@@ -1,8 +1,8 @@
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 
 import 'builder.dart';
-import 'card.dart';
 
 class CommonFloatingActionButton extends StatelessWidget {
   final VoidCallback? onPressed;
@@ -70,21 +70,33 @@ class MoreActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: CommonCard(
-        radius: 18,
-        onPressed: onPressed,
-        child: ListTile(
-          minTileHeight: 0,
-          minVerticalPadding: 0,
-          titleTextStyle: context.textTheme.bodyMedium?.toJetBrainsMono,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
-          title: Text(label, style: context.textTheme.bodyLarge),
-          trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 18),
+      child: SurgeActionCard(
+        variant: SurgeActionCardVariant.filled,
+        borderRadius: 18,
+        onTap: onPressed,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.bodyLarge?.copyWith(
+                  color: surge.textPrimary,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            IconTheme.merge(
+              data: IconThemeData(color: surge.textSecondary, size: 18),
+              child: trailing ?? const Icon(Icons.arrow_forward_ios),
+            ),
+          ],
         ),
       ),
     );

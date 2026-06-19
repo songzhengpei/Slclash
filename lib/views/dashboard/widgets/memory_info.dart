@@ -3,8 +3,7 @@ import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
-import 'package:fl_clash/state.dart';
-import 'package:fl_clash/widgets/widgets.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 
 final _memoryStateNotifier = ValueNotifier<num>(0);
@@ -51,51 +50,80 @@ class _MemoryInfoState extends State<MemoryInfo> {
     return SizedBox(
       height: getWidgetHeight(1),
       child: RepaintBoundary(
-        child: CommonCard(
-          info: Info(
-            iconData: Icons.memory,
-            label: appLocalizations.memoryInfo,
-          ),
-          onPressed: () {
+        child: SurgeActionCard(
+          variant: SurgeActionCardVariant.filled,
+          borderRadius: SurgeTheme.of(context).radii.card,
+          padding: EdgeInsets.all(SurgeTheme.of(context).spacing.cardPadding),
+          onTap: () {
             coreController.requestGc();
           },
-          child: Container(
-            padding: baseInfoEdgeInsets.copyWith(top: 0),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: _MemoryCardContent(title: appLocalizations.memoryInfo),
+        ),
+      ),
+    );
+  }
+}
+
+class _MemoryCardContent extends StatelessWidget {
+  const _MemoryCardContent({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.memory, color: surge.primary, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.labelLarge?.copyWith(
+                  color: surge.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ],
+        ),
+        ValueListenableBuilder(
+          valueListenable: _memoryStateNotifier,
+          builder: (_, memory, _) {
+            final traffic = memory.traffic;
+            return Row(
               children: [
-                SizedBox(
-                  height: globalState.measure.bodyMediumHeight + 2,
-                  child: ValueListenableBuilder(
-                    valueListenable: _memoryStateNotifier,
-                    builder: (_, memory, _) {
-                      final traffic = memory.traffic;
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            traffic.value,
-                            style: context.textTheme.bodyMedium?.toLight
-                                .adjustSize(1),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            traffic.unit,
-                            style: context.textTheme.bodyMedium?.toLight
-                                .adjustSize(1),
-                          ),
-                        ],
-                      );
-                    },
+                Text(
+                  traffic.value,
+                  style: context.textTheme.titleMedium?.copyWith(
+                    color: surge.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  traffic.unit,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: surge.textSecondary,
+                    fontSize: 13,
+                    letterSpacing: 0,
                   ),
                 ),
               ],
-            ),
-          ),
+            );
+          },
         ),
-      ),
+      ],
     );
   }
 }

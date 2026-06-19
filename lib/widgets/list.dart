@@ -273,11 +273,11 @@ class ListItem<T> extends StatelessWidget {
     Widget? trailing,
     Widget? leading,
   }) {
-    return ListTile(
+    return _SurgeListItemRow(
       key: key,
       dense: dense,
       visualDensity: visualDensity,
-      tileColor: color,
+      backgroundColor: color,
       titleTextStyle: titleTextStyle,
       subtitleTextStyle: subtitleTextStyle,
       leading: leading ?? this.leading,
@@ -433,6 +433,156 @@ class ListItem<T> extends StatelessWidget {
   }
 }
 
+class _SurgeListItemRow extends StatelessWidget {
+  const _SurgeListItemRow({
+    super.key,
+    required this.title,
+    required this.contentPadding,
+    required this.minVerticalPadding,
+    required this.titleAlignment,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.dense,
+    this.visualDensity,
+    this.backgroundColor,
+    this.titleTextStyle,
+    this.subtitleTextStyle,
+    this.horizontalTitleGap,
+    this.minTileHeight,
+    this.onTap,
+  });
+
+  final Widget title;
+  final Widget? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final bool? dense;
+  final VisualDensity? visualDensity;
+  final Color? backgroundColor;
+  final TextStyle? titleTextStyle;
+  final TextStyle? subtitleTextStyle;
+  final double? horizontalTitleGap;
+  final double? minTileHeight;
+  final double minVerticalPadding;
+  final EdgeInsets contentPadding;
+  final ListTileTitleAlignment titleAlignment;
+  final VoidCallback? onTap;
+
+  double get _baseMinHeight {
+    if (minTileHeight != null) {
+      return minTileHeight!;
+    }
+    if (dense == true) {
+      return subtitle == null ? 48 : 60;
+    }
+    return subtitle == null ? 56 : 68;
+  }
+
+  CrossAxisAlignment get _rowAlignment {
+    return switch (titleAlignment) {
+      ListTileTitleAlignment.top => CrossAxisAlignment.start,
+      ListTileTitleAlignment.bottom => CrossAxisAlignment.end,
+      _ => CrossAxisAlignment.center,
+    };
+  }
+
+  EdgeInsets get _effectivePadding {
+    final adjustment = visualDensity?.baseSizeAdjustment ?? Offset.zero;
+    final verticalAdjustment = adjustment.dy / 2;
+    return contentPadding.copyWith(
+      top: contentPadding.top + minVerticalPadding + verticalAdjustment,
+      bottom: contentPadding.bottom + minVerticalPadding + verticalAdjustment,
+    );
+  }
+
+  TextStyle _titleStyle(BuildContext context, SurgeTheme surge) {
+    return titleTextStyle ??
+        Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: surge.textPrimary,
+          fontSize: dense == true ? 15 : 16,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0,
+        ) ??
+        TextStyle(
+          color: surge.textPrimary,
+          fontSize: dense == true ? 15 : 16,
+          fontWeight: FontWeight.w500,
+        );
+  }
+
+  TextStyle _subtitleStyle(BuildContext context, SurgeTheme surge) {
+    return subtitleTextStyle ??
+        Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: surge.textSecondary,
+          fontSize: 13,
+          letterSpacing: 0,
+        ) ??
+        TextStyle(color: surge.textSecondary, fontSize: 13);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final effectiveMinHeight =
+        (_baseMinHeight + (visualDensity?.baseSizeAdjustment.dy ?? 0))
+            .clamp(0.0, double.infinity)
+            .toDouble();
+    final gap = horizontalTitleGap ?? 12;
+
+    return Material(
+      color: backgroundColor ?? Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: effectiveMinHeight),
+          child: Padding(
+            padding: _effectivePadding,
+            child: Row(
+              crossAxisAlignment: _rowAlignment,
+              children: [
+                if (leading != null) ...[
+                  IconTheme.merge(
+                    data: IconThemeData(color: surge.primary, size: 21),
+                    child: leading!,
+                  ),
+                  SizedBox(width: gap),
+                ],
+                Expanded(
+                  child: DefaultTextStyle.merge(
+                    style: _titleStyle(context, surge),
+                    child: subtitle == null
+                        ? title
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              title,
+                              const SizedBox(height: 3),
+                              DefaultTextStyle.merge(
+                                style: _subtitleStyle(context, surge),
+                                child: subtitle!,
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 12),
+                  IconTheme.merge(
+                    data: IconThemeData(color: surge.textSecondary, size: 21),
+                    child: trailing!,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class SurgeSwitch extends StatelessWidget {
   const SurgeSwitch({super.key, required this.value, this.onChanged});
 
@@ -519,13 +669,14 @@ class ListHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.centerLeft,
-      padding: padding ?? listHeaderPadding,
+    final surge = SurgeTheme.of(context);
+    final effectivePadding =
+        padding ?? EdgeInsets.fromLTRB(20, 14.ap, 16, 8.ap);
+    return Padding(
+      padding: effectivePadding,
       child: Row(
         mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        spacing: 36,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
@@ -533,26 +684,39 @@ class ListHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: context.textTheme.labelLarge?.copyWith(
-                    color: context.colorScheme.onSurfaceVariant.opacity80,
-                    fontWeight: FontWeight.w600,
+                    color: surge.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
                   ),
                 ),
-                if (subTitle != null)
+                if (subTitle != null) ...[
+                  const SizedBox(height: 2),
                   Text(
                     subTitle!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: context.textTheme.bodySmall?.copyWith(
-                      color: context.colorScheme.outline,
+                      color: surge.textSecondary.withValues(alpha: 0.78),
+                      fontSize: 12,
+                      letterSpacing: 0,
                     ),
                   ),
+                ],
               ],
             ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [...genActions(actions, space: space)],
-          ),
+          if (actions.isNotEmpty) ...[
+            const SizedBox(width: 12),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [...genActions(actions, space: space)],
+            ),
+          ],
         ],
       ),
     );
@@ -588,27 +752,12 @@ Widget generateSectionV2({
   List<Widget>? actions,
   bool separated = true,
 }) {
-  final genItems = items
-      .map<Widget>((item) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: CommonCard(
-            type: CommonCardType.filled,
-            radius: 0,
-            child: item,
-          ),
-        );
-      })
-      .separated(const Divider(height: 2, color: Colors.transparent));
-  return Column(
-    children: [
-      if (items.isNotEmpty && title != null)
-        ListHeader(title: title, actions: actions),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Column(children: [...genItems]),
-      ),
-    ],
+  final children = items.toList();
+  return SurgeSection(
+    title: children.isNotEmpty ? title : null,
+    actions: actions ?? const [],
+    showDividers: separated,
+    children: children,
   );
 }
 
@@ -684,38 +833,31 @@ class CommonSelectedListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-        color: Colors.transparent,
-        child: CommonCard(
-          radius: 18,
-          type: CommonCardType.filled,
-          isSelected: isSelected,
-          onPressed: () {
-            if (isEditing) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+      child: _SurgeSelectableListTile(
+        title: title,
+        isSelected: isSelected,
+        borderRadius: BorderRadius.circular(18),
+        minTileHeight: 32 + globalState.measure.bodyMediumHeight,
+        minVerticalPadding: 12,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        onPressed: () {
+          if (isEditing) {
+            onSelected();
+            return;
+          }
+          onPressed();
+        },
+        trailing: SizedBox(
+          width: 24,
+          height: 24,
+          child: CommonCheckBox(
+            value: isSelected,
+            isCircle: true,
+            onChanged: (_) {
               onSelected();
-              return;
-            }
-            onPressed();
-          },
-          child: ListTile(
-            minTileHeight: 32 + globalState.measure.bodyMediumHeight,
-            minVerticalPadding: 12,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            trailing: SizedBox(
-              width: 24,
-              height: 24,
-              child: CommonCheckBox(
-                value: isSelected,
-                isCircle: true,
-                onChanged: (_) {
-                  onSelected();
-                },
-              ),
-            ),
-            title: title,
+            },
           ),
         ),
       ),
@@ -766,42 +908,123 @@ class DecorationListItem extends StatelessWidget {
       top: isStart ? const Radius.circular(24) : Radius.zero,
       bottom: isEnd ? const Radius.circular(24) : Radius.zero,
     );
-    return CommonCard(
-      shape: proxyDecorator == true
-          ? LinearBorder.none
-          : RoundedSuperellipseBorder(borderRadius: borderRadius),
-      isError: invalid,
+    return _SurgeSelectableListTile(
+      title: title,
+      subtitle: subtitle,
+      leading: leading,
+      trailing: trailing,
       isSelected: isSelected,
-      padding: EdgeInsets.zero,
-      type: CommonCardType.filled,
+      invalid: invalid,
+      horizontalTitleGap: horizontalTitleGap,
+      contentPadding:
+          contentPadding ?? const EdgeInsets.only(right: 16, left: 16),
+      minVerticalPadding: minVerticalPadding ?? 6,
+      minTileHeight: 54,
+      borderRadius: borderRadius,
+      showDivider: !invalid && proxyDecorator != true && !isEnd,
       onPressed: proxyDecorator ? null : onPressed,
-      child: LayoutBuilder(
-        builder: (_, constraints) {
-          final isInfinite = constraints.maxHeight >= double.infinity;
-          final tile = ListTile(
-            leading: leading,
-            contentPadding:
-                contentPadding ?? const EdgeInsets.only(right: 16, left: 16),
-            title: title,
-            subtitle: subtitle,
-            minVerticalPadding: minVerticalPadding ?? 6,
-            minTileHeight: 54,
-            horizontalTitleGap: horizontalTitleGap,
-            trailing: trailing,
-          );
-          return Column(
+    );
+  }
+}
+
+class _SurgeSelectableListTile extends StatelessWidget {
+  const _SurgeSelectableListTile({
+    required this.title,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.isSelected,
+    this.invalid = false,
+    this.horizontalTitleGap,
+    this.contentPadding = const EdgeInsets.symmetric(horizontal: 16),
+    this.minVerticalPadding = 6,
+    this.minTileHeight = 54,
+    this.borderRadius = BorderRadius.zero,
+    this.showDivider = false,
+    this.onPressed,
+  });
+
+  final Widget title;
+  final Widget? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final bool? isSelected;
+  final bool invalid;
+  final double? horizontalTitleGap;
+  final EdgeInsetsGeometry contentPadding;
+  final double minVerticalPadding;
+  final double minTileHeight;
+  final BorderRadius borderRadius;
+  final bool showDivider;
+  final VoidCallback? onPressed;
+
+  Color _backgroundColor(SurgeTheme surge) {
+    if (invalid) {
+      return surge.red.withValues(alpha: 0.12);
+    }
+    if (isSelected == true) {
+      return surge.selectedFill;
+    }
+    return surge.card;
+  }
+
+  BorderSide _borderSide(SurgeTheme surge) {
+    if (invalid) {
+      return BorderSide(color: surge.red.withValues(alpha: 0.65), width: 0.7);
+    }
+    if (isSelected == true) {
+      return BorderSide(
+        color: surge.primary.withValues(alpha: 0.42),
+        width: 0.7,
+      );
+    }
+    return BorderSide.none;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Material(
+      color: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      borderRadius: borderRadius,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: _backgroundColor(surge),
+          borderRadius: borderRadius,
+          border: _borderSide(surge) == BorderSide.none
+              ? null
+              : Border.fromBorderSide(_borderSide(surge)),
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: borderRadius,
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Flexible(
-                fit: isInfinite ? FlexFit.loose : FlexFit.tight,
-                child: tile,
+              _SurgeListItemRow(
+                title: title,
+                subtitle: subtitle,
+                leading: leading,
+                trailing: trailing,
+                horizontalTitleGap: horizontalTitleGap,
+                contentPadding: contentPadding.resolve(
+                  Directionality.of(context),
+                ),
+                minVerticalPadding: minVerticalPadding,
+                minTileHeight: minTileHeight,
+                titleAlignment: ListTileTitleAlignment.center,
               ),
-              if (!invalid && proxyDecorator != true && !isEnd)
-                const Divider(height: 0, indent: 14, endIndent: 14),
+              if (showDivider)
+                Divider(
+                  height: 0,
+                  indent: 14,
+                  endIndent: 14,
+                  color: surge.separator,
+                ),
             ],
-          );
-        },
+          ),
+        ),
       ),
     );
   }

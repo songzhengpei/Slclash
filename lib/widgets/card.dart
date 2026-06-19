@@ -1,6 +1,6 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
-import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 
 import 'fade_box.dart';
@@ -27,37 +27,33 @@ class InfoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    EdgeInsetsGeometry nextPadding = (padding ?? baseInfoEdgeInsets);
-    if (actions.isNotEmpty) {
-      nextPadding = nextPadding.subtract(EdgeInsets.symmetric(vertical: 8.mAp));
-    }
+    final surge = SurgeTheme.of(context);
+    final nextPadding = padding ?? baseInfoEdgeInsets;
     return Padding(
       padding: nextPadding,
       child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Flexible(
-            flex: 1,
+          Expanded(
             child: Row(
-              mainAxisSize: MainAxisSize.max,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 if (info.iconData != null) ...[
-                  Icon(
-                    info.iconData,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                  Icon(info.iconData, color: surge.textSecondary, size: 18),
                   const SizedBox(width: 8),
                 ],
-                Flexible(
-                  flex: 1,
+                Expanded(
                   child: TooltipText(
                     text: Text(
                       info.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: context.colorScheme.onSurfaceVariant,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: surge.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -65,16 +61,17 @@ class InfoHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          if (actions.isNotEmpty)
-            SizedBox(
-              height: globalState.measure.titleSmallHeight + 16.ap,
+          if (actions.isNotEmpty) ...[
+            const SizedBox(width: 12),
+            IconTheme.merge(
+              data: IconThemeData(color: surge.primary, size: 20),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [...actions],
               ),
             ),
+          ],
         ],
       ),
     );

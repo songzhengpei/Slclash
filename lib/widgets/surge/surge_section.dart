@@ -9,6 +9,7 @@ class SurgeSection extends StatelessWidget {
     required this.children,
     this.title,
     this.footer,
+    this.actions = const [],
     this.padding,
     this.margin,
     this.showDividers = false,
@@ -16,6 +17,7 @@ class SurgeSection extends StatelessWidget {
 
   final String? title;
   final String? footer;
+  final List<Widget> actions;
   final List<Widget> children;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
@@ -47,17 +49,33 @@ class SurgeSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (title != null) ...[
+          if (title != null || actions.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Text(
-                title!,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: surge.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
-                ),
+              child: Row(
+                children: [
+                  if (title != null)
+                    Expanded(
+                      child: Text(
+                        title!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: surge.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0,
+                            ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  if (actions.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    Row(mainAxisSize: MainAxisSize.min, children: actions),
+                  ],
+                ],
               ),
             ),
           ],

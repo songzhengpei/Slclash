@@ -5,6 +5,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/profiles/preview.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -100,6 +101,7 @@ class _Title extends ConsumerWidget {
   @override
   Widget build(context, ref) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     final profileId = ProfileIdProvider.of(context)!.profileId;
     final overwriteType = ref.watch(overwriteTypeProvider(profileId));
     return SliverToBoxAdapter(
@@ -111,41 +113,118 @@ class _Title extends ConsumerWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Wrap(
-              spacing: 16,
+              spacing: 10,
               children: [
                 for (final type in OverwriteType.values)
-                  CommonCard(
-                    isSelected: overwriteType == type,
+                  _OverwriteModeCard(
+                    title: _getTitle(context, type),
+                    icon: _getIcon(type),
+                    selected: overwriteType == type,
                     onPressed: () {
                       _handleChangeType(ref, profileId, type);
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Icon(_getIcon(type)),
-                          const SizedBox(width: 8),
-                          Flexible(child: Text(_getTitle(context, type))),
-                        ],
-                      ),
-                    ),
                   ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              _getDesc(context, overwriteType),
-              style: context.textTheme.bodySmall?.copyWith(
-                color: context.colorScheme.onSurfaceVariant.opacity80,
+            child: SurgeActionCard(
+              variant: SurgeActionCardVariant.tonal,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              borderRadius: surge.radii.list,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: surge.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _getDesc(context, overwriteType),
+                      style: context.textTheme.bodySmall?.copyWith(
+                        color: surge.textSecondary,
+                        height: 1.35,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OverwriteModeCard extends StatelessWidget {
+  const _OverwriteModeCard({
+    required this.title,
+    required this.icon,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String title;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return SizedBox(
+      width: 118,
+      child: SurgeActionCard(
+        selected: selected,
+        variant: SurgeActionCardVariant.filled,
+        onTap: onPressed,
+        padding: const EdgeInsets.all(12),
+        borderRadius: surge.radii.list,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? surge.primary
+                        : surge.fill.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: selected ? surge.onPrimary : surge.textSecondary,
+                  ),
+                ),
+                const Spacer(),
+                AnimatedOpacity(
+                  opacity: selected ? 1 : 0,
+                  duration: const Duration(milliseconds: 160),
+                  child: Icon(Icons.check_circle, size: 18, color: surge.green),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.labelLarge?.copyWith(
+                color: selected ? surge.primary : surge.textPrimary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
