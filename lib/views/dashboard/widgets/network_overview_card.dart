@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:dio/dio.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -75,30 +76,99 @@ class _SurgeNetworkOverviewCardState
         .toList();
   }
 
-  Map<String, String> _getLatencyRouteNames(List<TrackerInfo> requests) {
-    final Map<String, String> routeNames = {};
-    for (final target in _latencyTargets) {
-      final targetHost = target.host;
-      final targetBareHost = target.bareHost;
-      final request = requests.reversed.firstWhereOrNull((request) {
-        final metadata = request.metadata;
-        final host = metadata.host.toLowerCase();
-        final remoteDestination = metadata.remoteDestination.toLowerCase();
-        final destination = metadata.destinationIP.toLowerCase();
-        return host == targetHost ||
-            host == targetBareHost ||
-            host.endsWith('.$targetBareHost') ||
-            remoteDestination.contains(targetBareHost) ||
-            destination.contains(targetBareHost);
-      });
-      final routeName = request?.chains.lastWhereOrNull(
-        (chain) => chain.trim().isNotEmpty,
-      );
-      if (routeName != null) {
-        routeNames[target.name] = routeName;
+  static const Map<String, String> _countryKeywords = {
+    'hk': 'HK',
+    'hong kong': 'HK',
+    '香港': 'HK',
+    'tw': 'TW',
+    'taiwan': 'TW',
+    '台湾': 'TW',
+    '臺灣': 'TW',
+    'jp': 'JP',
+    'japan': 'JP',
+    '日本': 'JP',
+    'sg': 'SG',
+    'singapore': 'SG',
+    '新加坡': 'SG',
+    'us': 'US',
+    'usa': 'US',
+    'united states': 'US',
+    'america': 'US',
+    '美国': 'US',
+    '美國': 'US',
+    'kr': 'KR',
+    'korea': 'KR',
+    '韩国': 'KR',
+    '韓國': 'KR',
+    'uk': 'GB',
+    'gb': 'GB',
+    'united kingdom': 'GB',
+    'britain': 'GB',
+    '英国': 'GB',
+    '英國': 'GB',
+    'de': 'DE',
+    'germany': 'DE',
+    '德国': 'DE',
+    '德國': 'DE',
+    'fr': 'FR',
+    'france': 'FR',
+    '法国': 'FR',
+    '法國': 'FR',
+    'ca': 'CA',
+    'canada': 'CA',
+    '加拿大': 'CA',
+    'au': 'AU',
+    'australia': 'AU',
+    '澳大利亚': 'AU',
+    'nl': 'NL',
+    'netherlands': 'NL',
+    '荷兰': 'NL',
+  };
+
+  String? _findRouteForTarget(
+    _LatencyTarget target,
+    List<TrackerInfo> requests,
+  ) {
+    final targetHost = target.host.toLowerCase();
+    final targetBareHost = target.bareHost.toLowerCase();
+    for (final request in requests.reversed) {
+      final metadata = request.metadata;
+      final host = metadata.host.toLowerCase();
+      final remoteDestination = metadata.remoteDestination.toLowerCase();
+      final destination = metadata.destinationIP.toLowerCase();
+      if (host == targetHost ||
+          host == targetBareHost ||
+          host.endsWith('.$targetBareHost') ||
+          remoteDestination.contains(targetBareHost) ||
+          destination.contains(targetBareHost)) {
+        return request.chains.lastWhereOrNull(
+          (chain) => chain.trim().isNotEmpty,
+        );
       }
     }
-    return routeNames;
+    return null;
+  }
+
+  String? _inferCountryCodeFromRoute(String? routeName) {
+    if (routeName == null || routeName.isEmpty) return null;
+    final name = routeName.trim();
+    // Extract embedded emoji flag
+    final embeddedFlag = RegExp(
+      r'[\u{1F1E6}-\u{1F1FF}]{2}',
+      unicode: true,
+    ).firstMatch(name)?.group(0);
+    if (embeddedFlag != null) return embeddedFlag;
+    // Match country keywords
+    final lowerName = name.toLowerCase();
+    for (final entry in _countryKeywords.entries) {
+      final isShort = RegExp(r'^[a-z]{2,3}$').hasMatch(entry.key);
+      final matched = isShort
+          ? RegExp('(^|[^a-z])${RegExp.escape(entry.key)}([^a-z]|\$)')
+              .hasMatch(lowerName)
+          : lowerName.contains(entry.key);
+      if (matched) return entry.value;
+    }
+    return null;
   }
 
   @override
@@ -125,8 +195,8 @@ class _SurgeNetworkOverviewCardState
     });
   }
 
-  Future<int?> _measureLatency(_LatencyTarget target) async {
-    Future<HttpClientResponse> request(
+  Future<(int?, HttpClient)> _measureLatency(_LatencyTarget target) async {
+    Future<HttpClientResponse> doRequest(
       HttpClient client,
       Uri uri,
       String method,
@@ -149,34 +219,73 @@ class _SurgeNetworkOverviewCardState
     try {
       HttpClientResponse response;
       try {
-        response = await request(client, uri, 'HEAD');
+        response = await doRequest(client, uri, 'HEAD');
       } catch (_) {
-        response = await request(client, uri, 'GET');
+        response = await doRequest(client, uri, 'GET');
       }
       stopwatch.stop();
       unawaited(response.drain<void>());
-      return stopwatch.elapsedMilliseconds;
+      return (stopwatch.elapsedMilliseconds, client);
     } catch (_) {
       stopwatch.stop();
+      return (null, client);
+    }
+  }
+
+  Future<String?> _getExitCountryCode() async {
+    final cancelToken = CancelToken();
+    try {
+      final result = await request
+          .checkIp(cancelToken: cancelToken)
+          .timeout(const Duration(seconds: 5));
+      return result.data?.countryCode;
+    } catch (_) {
+      cancelToken.cancel();
       return null;
-    } finally {
-      client.close(force: true);
     }
   }
 
   Future<void> _testLatencies({bool force = false}) async {
     if (_isTestingLatencies) return;
     if (!force && _latencyResults.isNotEmpty) return;
+    final isStart = ref.read(isStartProvider);
     setState(() {
       _isTestingLatencies = true;
       for (final target in _latencyTargets) {
         _latencyResults[target.name] = const _LatencyResult.pending();
       }
     });
+
+    // Detect exit country via IP API (shared across platforms when proxy is off)
+    String? fallbackCountryCode;
+    if (!isStart) {
+      fallbackCountryCode = await _getExitCountryCode();
+    }
+
     final entries = await Future.wait(
       _latencyTargets.map((target) async {
-        final latency = await _measureLatency(target);
-        return MapEntry(target.name, _LatencyResult(latency));
+        final (latency, client) = await _measureLatency(target);
+        try {
+          String? countryCode;
+          if (isStart) {
+            // Proxy running: try tracker first
+            await Future.delayed(const Duration(milliseconds: 400));
+            if (!mounted) {
+              return MapEntry(target.name, _LatencyResult(latency));
+            }
+            final requests = ref.read(requestsProvider).list;
+            final routeName = _findRouteForTarget(target, requests);
+            countryCode = _inferCountryCodeFromRoute(routeName);
+          }
+          // Fallback to IP-based detection
+          countryCode ??= fallbackCountryCode;
+          return MapEntry(
+            target.name,
+            _LatencyResult(latency, countryCode: countryCode),
+          );
+        } finally {
+          client.close(force: true);
+        }
       }),
     );
     if (!mounted) return;
@@ -194,7 +303,6 @@ class _SurgeNetworkOverviewCardState
     final appLocalizations = context.appLocalizations;
     final traffics = ref.watch(trafficsProvider).list;
     final totalTraffic = ref.watch(totalTrafficProvider);
-    final requests = ref.watch(requestsProvider);
     final networkDetection = ref.watch(networkDetectionProvider);
     final isStart = ref.watch(isStartProvider);
     final checkIpNum = ref.watch(checkIpNumProvider);
@@ -235,7 +343,6 @@ class _SurgeNetworkOverviewCardState
     final downloadColor = isStart
         ? dashboardActiveGreenFill
         : dashboardInactiveVariantFill;
-    final latencyRouteNames = _getLatencyRouteNames(requests.list);
     final lineFillStartAlpha = isStart ? 0.16 : 1.0;
     final lineFillEndAlpha = isStart ? 0.03 : 0.08;
 
@@ -434,8 +541,6 @@ class _SurgeNetworkOverviewCardState
                     _PlatformLatencyPanel(
                       targets: _latencyTargets,
                       results: _latencyResults,
-                      routeNames: latencyRouteNames,
-                      fallbackCountryCode: networkDetection.ipInfo?.countryCode,
                       activeColor: dashboardDynamicActiveFill,
                       fillColor: surge.fill,
                       textColor: surge.textPrimary,
@@ -701,10 +806,15 @@ class _LatencyTarget {
 }
 
 class _LatencyResult {
-  const _LatencyResult(this.latency) : pending = false;
-  const _LatencyResult.pending() : latency = null, pending = true;
+  const _LatencyResult(this.latency, {this.countryCode})
+      : pending = false;
+  const _LatencyResult.pending()
+      : latency = null,
+        countryCode = null,
+        pending = true;
 
   final int? latency;
+  final String? countryCode;
   final bool pending;
 
   bool get timeout => !pending && latency == null;
@@ -782,8 +892,6 @@ class _PlatformLatencyPanel extends StatelessWidget {
   const _PlatformLatencyPanel({
     required this.targets,
     required this.results,
-    required this.routeNames,
-    required this.fallbackCountryCode,
     required this.activeColor,
     required this.fillColor,
     required this.textColor,
@@ -794,8 +902,6 @@ class _PlatformLatencyPanel extends StatelessWidget {
 
   final List<_LatencyTarget> targets;
   final Map<String, _LatencyResult> results;
-  final Map<String, String> routeNames;
-  final String? fallbackCountryCode;
   final Color activeColor;
   final Color fillColor;
   final Color textColor;
@@ -877,8 +983,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
         for (final target in targets) ...[
           _PlatformLatencyRow(
             target: target,
-            routeName: routeNames[target.name],
-            fallbackCountryCode: fallbackCountryCode,
+            countryCode: results[target.name]?.countryCode,
             trackColor: _trackColor(results[target.name]),
             flowColor: _flowColor(results[target.name]),
             barWidthFactor: _barWidth(results[target.name]),
@@ -897,8 +1002,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
 class _PlatformLatencyRow extends StatelessWidget {
   const _PlatformLatencyRow({
     required this.target,
-    required this.routeName,
-    required this.fallbackCountryCode,
+    required this.countryCode,
     required this.trackColor,
     required this.flowColor,
     required this.barWidthFactor,
@@ -909,8 +1013,7 @@ class _PlatformLatencyRow extends StatelessWidget {
   });
 
   final _LatencyTarget target;
-  final String? routeName;
-  final String? fallbackCountryCode;
+  final String? countryCode;
   final Color trackColor;
   final Color flowColor;
   final double barWidthFactor;
@@ -926,10 +1029,7 @@ class _PlatformLatencyRow extends StatelessWidget {
       children: [
         _PlatformBrandIcon(target: target),
         const SizedBox(width: 6),
-        _RouteFlagBadge(
-          routeName: routeName,
-          fallbackCountryCode: fallbackCountryCode,
-        ),
+        _RouteFlagBadge(countryCode: countryCode),
         const SizedBox(width: 8),
         Expanded(
           child: GestureDetector(
@@ -1019,119 +1119,23 @@ class _BrandImageIcon extends StatelessWidget {
 }
 
 class _RouteFlagBadge extends StatelessWidget {
-  const _RouteFlagBadge({
-    required this.routeName,
-    required this.fallbackCountryCode,
-  });
+  const _RouteFlagBadge({required this.countryCode});
 
-  final String? routeName;
-  final String? fallbackCountryCode;
+  final String? countryCode;
 
-  static const Map<String, String> _countryKeywords = {
-    'hk': 'HK',
-    'hong kong': 'HK',
-    '香港': 'HK',
-    'tw': 'TW',
-    'taiwan': 'TW',
-    '台湾': 'TW',
-    '臺灣': 'TW',
-    'jp': 'JP',
-    'japan': 'JP',
-    '日本': 'JP',
-    'sg': 'SG',
-    'singapore': 'SG',
-    '新加坡': 'SG',
-    'us': 'US',
-    'usa': 'US',
-    'united states': 'US',
-    'america': 'US',
-    '美国': 'US',
-    '美國': 'US',
-    'kr': 'KR',
-    'korea': 'KR',
-    '韩国': 'KR',
-    '韓國': 'KR',
-    'uk': 'GB',
-    'gb': 'GB',
-    'united kingdom': 'GB',
-    'britain': 'GB',
-    '英国': 'GB',
-    '英國': 'GB',
-    'de': 'DE',
-    'germany': 'DE',
-    '德国': 'DE',
-    '德國': 'DE',
-    'fr': 'FR',
-    'france': 'FR',
-    '法国': 'FR',
-    '法國': 'FR',
-    'ca': 'CA',
-    'canada': 'CA',
-    '加拿大': 'CA',
-    'au': 'AU',
-    'australia': 'AU',
-    '澳大利亚': 'AU',
-    'nl': 'NL',
-    'netherlands': 'NL',
-    '荷兰': 'NL',
-  };
-
-  String _countryCodeToEmoji(String countryCode) {
-    final code = countryCode.toUpperCase();
-    if (code.length != 2) return '';
-    final firstLetter = code.codeUnitAt(0) - 0x41 + 0x1F1E6;
-    final secondLetter = code.codeUnitAt(1) - 0x41 + 0x1F1E6;
+  String _countryCodeToEmoji(String code) {
+    final upper = code.toUpperCase();
+    if (upper.length != 2) return '';
+    final firstLetter = upper.codeUnitAt(0) - 0x41 + 0x1F1E6;
+    final secondLetter = upper.codeUnitAt(1) - 0x41 + 0x1F1E6;
     return String.fromCharCode(firstLetter) + String.fromCharCode(secondLetter);
-  }
-
-  String? _extractFlag(String text) {
-    return RegExp(
-      r'[\u{1F1E6}-\u{1F1FF}]{2}',
-      unicode: true,
-    ).firstMatch(text)?.group(0);
-  }
-
-  String? _inferCountryCode(String text) {
-    final lowerText = text.toLowerCase();
-    for (final entry in _countryKeywords.entries) {
-      if (_matchesCountryKeyword(lowerText, entry.key)) {
-        return entry.value;
-      }
-    }
-    return null;
-  }
-
-  bool _matchesCountryKeyword(String text, String keyword) {
-    final isShortLatinKeyword = RegExp(r'^[a-z]{2,3}$').hasMatch(keyword);
-    if (!isShortLatinKeyword) {
-      return text.contains(keyword);
-    }
-    return RegExp(
-      '(^|[^a-z])${RegExp.escape(keyword)}([^a-z]|\$)',
-    ).hasMatch(text);
-  }
-
-  String? _flagText() {
-    final name = routeName?.trim();
-    if (name != null && name.isNotEmpty) {
-      final embeddedFlag = _extractFlag(name);
-      if (embeddedFlag != null) return embeddedFlag;
-      final countryCode = _inferCountryCode(name);
-      if (countryCode != null) return _countryCodeToEmoji(countryCode);
-      if (name.toUpperCase() == 'DIRECT' && fallbackCountryCode != null) {
-        return _countryCodeToEmoji(fallbackCountryCode!);
-      }
-    }
-    if (fallbackCountryCode != null) {
-      return _countryCodeToEmoji(fallbackCountryCode!);
-    }
-    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final flag = _flagText();
+    final flag =
+        countryCode != null ? _countryCodeToEmoji(countryCode!) : null;
     return SizedBox(
       width: 20,
       height: 20,

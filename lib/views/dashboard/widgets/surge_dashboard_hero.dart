@@ -4,8 +4,12 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/core/core.dart';
+import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/dashboard/widgets/dashboard_palette.dart';
+import 'package:fl_clash/views/proxies/common.dart' as proxy_common;
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -225,15 +229,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
             onChanged: (value) => _handleChangeMode(value, ref),
           ),
           const SizedBox(height: 10),
-          _HeroInfoBar(
-            items: [
-              _HeroInfoItem(label: 'Runtime', value: runtimeText),
-              _HeroInfoItem(
-                label: 'Core 状态',
-                value: _coreStatusLabel(context, coreStatus),
-              ),
-            ],
-          ),
+          _HeroProxySelectorBar(),
         ],
       ),
     );
@@ -332,9 +328,7 @@ class _HeroModeCardSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final activeFill = dynamicColor
-        ? dashboardDynamicActiveFill
-        : surge.primary;
+    final activeFill = dashboardDynamicActiveFill;
     const activeTextColor = Colors.white;
     const inactiveTextColor = Colors.white;
     final foreground = onBlue ? activeTextColor : inactiveTextColor;
@@ -864,21 +858,25 @@ class _ModeSwitchItem extends StatelessWidget {
   }
 }
 
-class _HeroInfoItem {
-  const _HeroInfoItem({required this.label, required this.value});
-
-  final String label;
-  final String value;
-}
-
-class _HeroInfoBar extends StatelessWidget {
-  const _HeroInfoBar({required this.items});
-
-  final List<_HeroInfoItem> items;
+class _HeroProxySelectorBar extends ConsumerWidget {
+  const _HeroProxySelectorBar();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final surge = SurgeTheme.of(context);
+    final groups = ref.watch(currentGroupsStateProvider).value;
+    final currentGroupName = ref.watch(
+      currentProfileProvider.select((state) => state?.currentGroupName ?? ''),
+    );
+    final selectedGroupName =
+        currentGroupName.isNotEmpty && groups.any((g) => g.name == currentGroupName)
+            ? currentGroupName
+            : (groups.isNotEmpty ? groups.first.name : '');
+
+    final selectedProxyName = selectedGroupName.isNotEmpty
+        ? ref.watch(selectedProxyNameProvider(selectedGroupName))
+        : null;
+
     return Container(
       width: double.infinity,
       height: 34,
@@ -889,75 +887,527 @@ class _HeroInfoBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Group selector (left)
           Expanded(
-            child: Row(
-              children: [
-                Text(
-                  items[0].label,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            child: GestureDetector(
+              onTap: () => _showGroupSelectorSheet(context, ref, groups, selectedGroupName),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      selectedGroupName.isEmpty ? '-' : selectedGroupName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: surge.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        height: 1.0,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 16,
                     color: surge.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    height: 1.0,
-                    letterSpacing: 0,
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  items[0].value,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: surge.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 1.0,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
+          // Divider
           Container(
             width: 1,
             height: 16,
             margin: const EdgeInsets.symmetric(horizontal: 10),
             color: surge.separator,
           ),
+          // Node selector (right)
           Expanded(
-            child: Row(
-              children: [
-                Text(
-                  items[1].label,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            child: GestureDetector(
+              onTap: selectedGroupName.isNotEmpty
+                  ? () => _showNodeSelectorSheet(
+                        context,
+                        ref,
+                        selectedGroupName,
+                        selectedProxyName ?? '',
+                      )
+                  : null,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      selectedProxyName == null || selectedProxyName.isEmpty
+                          ? '-'
+                          : selectedProxyName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: surge.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        height: 1.0,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 16,
                     color: surge.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    height: 1.0,
-                    letterSpacing: 0,
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  items[1].value,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: surge.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 1.0,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showGroupSelectorSheet(
+    BuildContext context,
+    WidgetRef ref,
+    List<Group> groups,
+    String selectedGroupName,
+  ) {
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: false),
+      builder: (sheetContext) {
+        final surge = SurgeTheme.of(sheetContext);
+        return AdaptiveSheetScaffold(
+          title: sheetContext.appLocalizations.proxyGroup,
+          body: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            itemCount: groups.length,
+            itemBuilder: (context, index) {
+              final group = groups[index];
+              final isSelected = group.name == selectedGroupName;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      proxy_common.updateCurrentGroupName(group.name);
+                      Navigator.of(context).pop();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? surge.selectedFill : surge.fill,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? surge.primary.withValues(alpha: 0.48)
+                              : surge.separator,
+                          width: isSelected ? 1 : 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          if (isSelected) ...[
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF2FAA67),
+                                shape: BoxShape.circle,
+                              ),
+                              margin: const EdgeInsets.only(right: 8),
+                            ),
+                          ],
+                          Expanded(
+                            child: Text(
+                              group.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.textTheme.bodyMedium?.copyWith(
+                                color: surge.textPrimary,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            group.type.name,
+                            style: context.textTheme.labelSmall?.copyWith(
+                              color: surge.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (isSelected) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.check_circle, size: 18, color: surge.primary),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showNodeSelectorSheet(
+    BuildContext context,
+    WidgetRef ref,
+    String groupName,
+    String currentProxyName,
+  ) {
+    final groups = ref.read(groupsProvider);
+    final matchingGroups = groups.where((g) => g.name == groupName);
+    final group = matchingGroups.isNotEmpty ? matchingGroups.first : groups.first;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.65,
+        child: _NodeSelectionSheet(
+          group: group,
+          currentProxyName: currentProxyName,
+        ),
+      ),
+    );
+  }
+}
+
+class _NodeSelectionSheet extends ConsumerStatefulWidget {
+  const _NodeSelectionSheet({
+    required this.group,
+    required this.currentProxyName,
+  });
+
+  final Group group;
+  final String currentProxyName;
+
+  @override
+  ConsumerState<_NodeSelectionSheet> createState() =>
+      _NodeSelectionSheetState();
+}
+
+class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+  String _searchQuery = '';
+  bool _isDelayTesting = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delayTest() async {
+    if (_isDelayTesting) return;
+    setState(() => _isDelayTesting = true);
+    await proxy_common.delayTest(widget.group.all, widget.group.testUrl);
+    if (mounted) setState(() => _isDelayTesting = false);
+  }
+
+  void _scrollToSelected() {
+    final proxies = widget.group.all;
+    final selectedIndex = proxies.indexWhere(
+      (p) => p.name == widget.currentProxyName,
+    );
+    if (selectedIndex == -1) return;
+    // Each node card: padding vertical 10*2 + text ~18 + bottom margin 6 = ~44
+    // Use a safe offset that ensures the item is visible near the top
+    final targetOffset = (selectedIndex * 44.0) - 80;
+    _scrollController.animateTo(
+      targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final filteredProxies = widget.group.all
+        .where(
+          (p) => _searchQuery.isEmpty || p.name.toLowerCase().contains(_searchQuery.toLowerCase()),
+        )
+        .toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        children: [
+          // Drag handle
+          Container(
+            width: 28,
+            height: 4,
+            margin: const EdgeInsets.only(top: 6),
+            decoration: ShapeDecoration(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Title bar: same structure as AdaptiveSheetScaffold bottomSheet
+          SizedBox(
+            height: 48,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Row(
+                children: [
+                  const SizedBox(width: 48),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        '节点',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: (Theme.of(context).textTheme.titleLarge?.fontSize ?? 22) - 4,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: IconButton.styleFrom(
+                      visualDensity: VisualDensity.standard,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Search field with embedded action buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              style: TextStyle(color: surge.textPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: context.appLocalizations.search,
+                hintStyle: TextStyle(color: surge.textSecondary, fontSize: 14),
+                prefixIcon: Icon(Icons.search, color: surge.textSecondary, size: 20),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(4),
+                      onPressed: _scrollToSelected,
+                      iconSize: 20,
+                      icon: Icon(Icons.adjust, color: surge.textSecondary),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(4),
+                      onPressed: _isDelayTesting ? null : _delayTest,
+                      iconSize: 20,
+                      icon: _isDelayTesting
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: surge.textSecondary,
+                              ),
+                            )
+                          : Icon(Icons.network_ping_rounded, color: surge.textSecondary),
+                    ),
+                  ],
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: surge.fill,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: surge.separator),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: surge.separator),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: surge.primary, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          // Node list
+          Expanded(
+            child: filteredProxies.isEmpty
+                ? Center(
+                    child: Text(
+                      context.appLocalizations.noData,
+                      style: TextStyle(color: surge.textSecondary),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    itemCount: filteredProxies.length,
+                    itemBuilder: (context, index) {
+                      final proxy = filteredProxies[index];
+                      return _NodeCard(
+                        proxy: proxy,
+                        group: widget.group,
+                        isSelected: proxy.name == widget.currentProxyName,
+                        onTap: () {
+                          _changeProxy(ref, proxy.name);
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _changeProxy(WidgetRef ref, String proxyName) {
+    final groupName = widget.group.name;
+    final isComputedSelected = widget.group.type.isComputedSelected;
+    final isSelector = widget.group.type == GroupType.Selector;
+    final container = globalState.container;
+    if (isComputedSelected || isSelector) {
+      final nextName = isComputedSelected
+          ? (ref.read(proxyNameProvider(groupName)) == proxyName ? '' : proxyName)
+          : proxyName;
+      ref
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap(groupName, nextName);
+      ref
+          .read(proxiesActionProvider.notifier)
+          .changeProxyDebounce(groupName, nextName);
+    }
+  }
+}
+
+class _NodeCard extends ConsumerWidget {
+  const _NodeCard({
+    required this.proxy,
+    required this.group,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Proxy proxy;
+  final Group group;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final surge = SurgeTheme.of(context);
+    final delay = ref.watch(
+      delayProvider(
+        proxyName: proxy.name,
+        testUrl: group.testUrl,
+      ),
+    );
+    final delayColor = delay == null
+        ? surge.textSecondary
+        : delay == 0
+            ? surge.textSecondary
+            : delay < 0
+                ? surge.red
+                : utils.getDelayColor(delay) ?? surge.textSecondary;
+    final delayLabel = delay == null
+        ? ''
+        : delay == 0
+            ? '...'
+            : delay > 0
+                ? '${delay}ms'
+                : 'Timeout';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? surge.selectedFill : surge.fill,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? surge.primary.withValues(alpha: 0.48) : surge.separator,
+                width: isSelected ? 1 : 0.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                if (isSelected) ...[
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF2FAA67),
+                      shape: BoxShape.circle,
+                    ),
+                    margin: const EdgeInsets.only(right: 8),
+                  ),
+                ],
+                Expanded(
+                  child: Text(
+                    proxy.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: surge.textPrimary,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (delayLabel.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: delayColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      delayLabel,
+                      style: context.textTheme.labelSmall?.copyWith(
+                        color: delayColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+                if (isSelected) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.check_circle, size: 18, color: surge.primary),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -134,8 +134,11 @@ class _ProxiesListViewState extends State<ProxiesListView> {
       ]);
       if (isExpand) {
         final proxies = group.all;
-        final proxyItems = proxies.expand<Widget>((proxy) {
+        final proxyItems = proxies.asMap().entries.expand<Widget>((entry) {
+          final index = entry.key;
+          final proxy = entry.value;
           return [
+            if (index == 0) const SizedBox(height: 5),
             SizedBox(
               height: getProxyTileHeight(),
               child: ProxyCard(

@@ -100,5 +100,5 @@ double getScrollToSelectedOffset({
     (proxy) => proxy.name == selectedProxyName,
   );
   final selectedIndex = findSelectedIndex != -1 ? findSelectedIndex : 0;
-  return selectedIndex * (getProxyTileHeight() + 6);
+  return (selectedIndex * (getProxyTileHeight() + 6)) - 40;
 }
