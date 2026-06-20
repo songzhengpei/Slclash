@@ -4,8 +4,6 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
-import 'package:fl_clash/core/core.dart';
-import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/dashboard/widgets/dashboard_palette.dart';
 import 'package:fl_clash/views/proxies/common.dart' as proxy_common;
 import 'package:fl_clash/widgets/surge/surge.dart';
@@ -64,14 +62,6 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     };
   }
 
-  String _coreStatusLabel(BuildContext context, CoreStatus status) {
-    return switch (status) {
-      CoreStatus.connecting => context.appLocalizations.connecting,
-      CoreStatus.connected => context.appLocalizations.connected,
-      CoreStatus.disconnected => context.appLocalizations.disconnected,
-    };
-  }
-
   void _handleSwitchStart(WidgetRef ref) {
     final nextIsStart = !ref.read(isStartProvider);
     if (nextIsStart) {
@@ -109,7 +99,6 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         Theme.of(context).extension<SurgeTheme>() ?? SurgeTheme.light();
     final appLocalizations = context.appLocalizations;
     final isStart = ref.watch(isStartProvider);
-    final runTime = ref.watch(runTimeProvider);
     final mode = ref.watch(
       patchClashConfigProvider.select((state) => state.mode),
     );
@@ -123,8 +112,6 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     final statusLabel = isStart
         ? appLocalizations.connected
         : appLocalizations.disconnected;
-    final runtimeText = utils.getTimeText(runTime);
-
     ref.listen(isStartProvider, (previous, next) {
       if (next) {
         _fillController.forward();
@@ -229,7 +216,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
             onChanged: (value) => _handleChangeMode(value, ref),
           ),
           const SizedBox(height: 10),
-          _HeroProxySelectorBar(),
+          const _HeroProxySelectorBar(),
         ],
       ),
     );
@@ -327,8 +314,7 @@ class _HeroModeCardSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    final activeFill = dashboardDynamicActiveFill;
+    const activeFill = dashboardDynamicActiveFill;
     const activeTextColor = Colors.white;
     const inactiveTextColor = Colors.white;
     final foreground = onBlue ? activeTextColor : inactiveTextColor;
@@ -1289,7 +1275,6 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
     final groupName = widget.group.name;
     final isComputedSelected = widget.group.type.isComputedSelected;
     final isSelector = widget.group.type == GroupType.Selector;
-    final container = globalState.container;
     if (isComputedSelected || isSelector) {
       final nextName = isComputedSelected
           ? (ref.read(proxyNameProvider(groupName)) == proxyName ? '' : proxyName)

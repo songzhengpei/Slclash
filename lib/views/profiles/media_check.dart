@@ -71,7 +71,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   var _checking = false;
   var _healthSampling = false;
   var _cancelRequested = false;
-  var _paused = false;
+  final _paused = false;
   var _generation = 0;
   var _concurrency = _defaultConcurrency;
   var _filter = _MediaCheckFilter.chatGPT;
