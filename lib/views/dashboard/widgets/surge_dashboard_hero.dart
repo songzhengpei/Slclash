@@ -472,7 +472,7 @@ class _HeroActionButton extends StatelessWidget {
                       child: Text(
                         isStart ? '停止' : '启动',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: surge.onPrimary,
+                          color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0,
