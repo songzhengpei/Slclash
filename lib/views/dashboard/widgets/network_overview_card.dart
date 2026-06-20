@@ -347,17 +347,29 @@ class _SurgeNetworkOverviewCardState
       'beforeRequestCount=${beforeRequestIds.length}',
     );
 
-    final (latency, client) = await _measureLatency(target);
+    // Start probe and tracker polling concurrently
+    final probeFuture = _measureLatency(target);
+    final trackerFuture = isStart
+        ? _waitTrackerForTarget(
+            target,
+            beforeRequestIds: beforeRequestIds,
+          )
+        : Future<TrackerInfo?>.value(null);
+
+    final (latency, client) = await probeFuture;
     debugPrint('[LatencyProbe] target=${target.name} latency=$latency');
 
     try {
       String? countryCode;
       if (isStart) {
-        // Proxy running: wait for tracker to appear via polling
-        final tracker = await _waitTrackerForTarget(
+        // Try immediate match first (probe just finished, tracker likely still in list)
+        var tracker = _findTrackerForTarget(
           target,
+          ref.read(requestsProvider).list,
           beforeRequestIds: beforeRequestIds,
         );
+        // If no immediate match, wait for the polling future
+        tracker ??= await trackerFuture;
         if (!mounted) {
           return MapEntry(target.name, _LatencyResult(latency));
         }

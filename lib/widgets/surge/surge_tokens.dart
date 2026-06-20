@@ -85,7 +85,7 @@ class SurgeColors {
       green: dark ? const Color(0xFF30D158) : const Color(0xFF34C759),
       purple: dark ? const Color(0xFFBF5AF2) : const Color(0xFFAF52DE),
       orange: dark ? const Color(0xFFFF9F0A) : const Color(0xFFFF9500),
-      red: scheme.error,
+      red: dark ? const Color(0xFFFF453A) : scheme.error,
       textPrimary: scheme.onSurface,
       textSecondary: scheme.onSurfaceVariant,
       separator: scheme.outlineVariant,
