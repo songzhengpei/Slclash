@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
-import 'package:fl_clash/providers/app.dart';
-import 'package:fl_clash/providers/state.dart';
+import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/views/dashboard/widgets/dashboard_palette.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -125,26 +123,70 @@ class _SurgeNetworkOverviewCardState
     '荷兰': 'NL',
   };
 
-  String? _findRouteForTarget(
+  /// Convert emoji flag (e.g. 🇭🇰) to ISO 3166-1 alpha-2 code (e.g. HK).
+  static String? _emojiFlagToCountryCode(String flag) {
+    final runes = flag.runes.toList();
+    if (runes.length != 2) return null;
+    final first = runes[0] - 0x1F1E6 + 0x41;
+    final second = runes[1] - 0x1F1E6 + 0x41;
+    if (first < 0x41 || first > 0x5A) return null;
+    if (second < 0x41 || second > 0x5A) return null;
+    return String.fromCharCodes([first, second]);
+  }
+
+  /// Extract the last non-empty chain entry as route name.
+  static String? _extractRouteNameFromTracker(TrackerInfo tracker) {
+    final chains = tracker.chains
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (chains.isEmpty) return null;
+    return chains.last;
+  }
+
+  static bool _isDirectRoute(String? routeName) {
+    if (routeName == null) return false;
+    final upper = routeName.trim().toUpperCase();
+    return upper == 'DIRECT' || upper.contains('DIRECT');
+  }
+
+  TrackerInfo? _findTrackerForTarget(
     _LatencyTarget target,
-    List<TrackerInfo> requests,
-  ) {
+    List<TrackerInfo> requests, {
+    required Set<String> beforeRequestIds,
+  }) {
     final targetHost = target.host.toLowerCase();
     final targetBareHost = target.bareHost.toLowerCase();
     for (final request in requests.reversed) {
+      // Skip connections that existed before the probe
+      if (beforeRequestIds.contains(request.id)) continue;
       final metadata = request.metadata;
       final host = metadata.host.toLowerCase();
       final remoteDestination = metadata.remoteDestination.toLowerCase();
-      final destination = metadata.destinationIP.toLowerCase();
-      if (host == targetHost ||
-          host == targetBareHost ||
-          host.endsWith('.$targetBareHost') ||
-          remoteDestination.contains(targetBareHost) ||
-          destination.contains(targetBareHost)) {
-        return request.chains.lastWhereOrNull(
-          (chain) => chain.trim().isNotEmpty,
-        );
-      }
+      // Priority 1: exact host match
+      if (host == targetHost || host == targetBareHost) return request;
+      // Priority 2: subdomain match (e.g. raw.github.com)
+      if (host.endsWith('.$targetBareHost')) return request;
+      // Priority 3: remoteDestination contains bare host
+      if (remoteDestination.contains(targetBareHost)) return request;
+    }
+    return null;
+  }
+
+  /// Wait up to 3s for a tracker to appear for the given target.
+  Future<TrackerInfo?> _waitTrackerForTarget(
+    _LatencyTarget target, {
+    required Set<String> beforeRequestIds,
+  }) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 3));
+    while (DateTime.now().isBefore(deadline)) {
+      final tracker = _findTrackerForTarget(
+        target,
+        ref.read(requestsProvider).list,
+        beforeRequestIds: beforeRequestIds,
+      );
+      if (tracker != null) return tracker;
+      await Future.delayed(const Duration(milliseconds: 120));
     }
     return null;
   }
@@ -152,13 +194,15 @@ class _SurgeNetworkOverviewCardState
   String? _inferCountryCodeFromRoute(String? routeName) {
     if (routeName == null || routeName.isEmpty) return null;
     final name = routeName.trim();
-    // Extract embedded emoji flag
+    // 1. Extract embedded emoji flag and convert to ISO code
     final embeddedFlag = RegExp(
       r'[\u{1F1E6}-\u{1F1FF}]{2}',
       unicode: true,
     ).firstMatch(name)?.group(0);
-    if (embeddedFlag != null) return embeddedFlag;
-    // Match country keywords
+    if (embeddedFlag != null) {
+      return _emojiFlagToCountryCode(embeddedFlag);
+    }
+    // 2. Match country keywords
     final lowerName = name.toLowerCase();
     for (final entry in _countryKeywords.entries) {
       final isShort = RegExp(r'^[a-z]{2,3}$').hasMatch(entry.key);
@@ -195,7 +239,10 @@ class _SurgeNetworkOverviewCardState
     });
   }
 
-  Future<(int?, HttpClient)> _measureLatency(_LatencyTarget target) async {
+  Future<(int?, HttpClient)> _measureLatency(
+    _LatencyTarget target, {
+    int? mixedPort,
+  }) async {
     Future<HttpClientResponse> doRequest(
       HttpClient client,
       Uri uri,
@@ -214,6 +261,12 @@ class _SurgeNetworkOverviewCardState
     }
 
     final client = HttpClient()..connectionTimeout = _latencyTimeout;
+    if (mixedPort != null) {
+      client.findProxy = (_) => 'PROXY 127.0.0.1:$mixedPort; DIRECT';
+      debugPrint('[LatencyProbe] explicitProxy=true port=$mixedPort');
+    } else {
+      debugPrint('[LatencyProbe] explicitProxy=false');
+    }
     final uri = Uri.parse(target.probeUrl);
     final stopwatch = Stopwatch()..start();
     try {
@@ -256,38 +309,29 @@ class _SurgeNetworkOverviewCardState
       }
     });
 
-    // Detect exit country via IP API (shared across platforms when proxy is off)
+    // Detect exit country via IP API (shared fallback when proxy is off)
     String? fallbackCountryCode;
     if (!isStart) {
       fallbackCountryCode = await _getExitCountryCode();
     }
 
-    final entries = await Future.wait(
-      _latencyTargets.map((target) async {
-        final (latency, client) = await _measureLatency(target);
-        try {
-          String? countryCode;
-          if (isStart) {
-            // Proxy running: try tracker first
-            await Future.delayed(const Duration(milliseconds: 400));
-            if (!mounted) {
-              return MapEntry(target.name, _LatencyResult(latency));
-            }
-            final requests = ref.read(requestsProvider).list;
-            final routeName = _findRouteForTarget(target, requests);
-            countryCode = _inferCountryCodeFromRoute(routeName);
-          }
-          // Fallback to IP-based detection
-          countryCode ??= fallbackCountryCode;
-          return MapEntry(
-            target.name,
-            _LatencyResult(latency, countryCode: countryCode),
-          );
-        } finally {
-          client.close(force: true);
-        }
-      }),
-    );
+    // Read mixed-port for explicit proxy routing
+    final mixedPort = isStart
+        ? ref.read(patchClashConfigProvider.select((s) => s.mixedPort))
+        : null;
+
+    // Serial probing: one platform at a time to avoid tracker confusion
+    final entries = <MapEntry<String, _LatencyResult>>[];
+    for (final target in _latencyTargets) {
+      if (!mounted) break;
+      final entry = await _testSingleLatencyTarget(
+        target,
+        isStart: isStart,
+        fallbackCountryCode: fallbackCountryCode,
+        mixedPort: mixedPort,
+      );
+      entries.add(entry);
+    }
     if (!mounted) return;
     setState(() {
       _latencyResults
@@ -295,6 +339,104 @@ class _SurgeNetworkOverviewCardState
         ..addEntries(entries);
       _isTestingLatencies = false;
     });
+  }
+
+  Future<MapEntry<String, _LatencyResult>> _testSingleLatencyTarget(
+    _LatencyTarget target, {
+    required bool isStart,
+    required String? fallbackCountryCode,
+    int? mixedPort,
+  }) async {
+    debugPrint('[LatencyProbe] target=${target.name} start');
+    debugPrint('[LatencyProbe] target=${target.name} probeUrl=${target.probeUrl}');
+
+    // Record existing request IDs before probe
+    final beforeRequestIds = ref
+        .read(requestsProvider)
+        .list
+        .map((item) => item.id)
+        .toSet();
+    debugPrint(
+      '[LatencyProbe] target=${target.name} '
+      'beforeRequestCount=${beforeRequestIds.length}',
+    );
+
+    final (latency, client) = await _measureLatency(
+      target,
+      mixedPort: mixedPort,
+    );
+    debugPrint('[LatencyProbe] target=${target.name} latency=$latency');
+
+    try {
+      String? countryCode;
+      if (isStart) {
+        // Proxy running: wait for tracker to appear via polling
+        final tracker = await _waitTrackerForTarget(
+          target,
+          beforeRequestIds: beforeRequestIds,
+        );
+        if (!mounted) {
+          return MapEntry(target.name, _LatencyResult(latency));
+        }
+
+        if (tracker != null) {
+          final routeName = _extractRouteNameFromTracker(tracker);
+          debugPrint('[LatencyProbe] target=${target.name} matched=true');
+          debugPrint('[LatencyProbe] target=${target.name} trackerId=${tracker.id}');
+          debugPrint(
+            '[LatencyProbe] target=${target.name} '
+            'metadata.host=${tracker.metadata.host}',
+          );
+          debugPrint(
+            '[LatencyProbe] target=${target.name} '
+            'metadata.remoteDestination=${tracker.metadata.remoteDestination}',
+          );
+          debugPrint(
+            '[LatencyProbe] target=${target.name} '
+            'metadata.destinationIP=${tracker.metadata.destinationIP}',
+          );
+          debugPrint(
+            '[LatencyProbe] target=${target.name} '
+            'chains=${tracker.chains}',
+          );
+          debugPrint(
+            '[LatencyProbe] target=${target.name} rule=${tracker.rule}',
+          );
+          debugPrint(
+            '[LatencyProbe] target=${target.name} '
+            'rulePayload=${tracker.rulePayload}',
+          );
+          debugPrint(
+            '[LatencyProbe] target=${target.name} routeName=$routeName',
+          );
+
+          if (_isDirectRoute(routeName)) {
+            // DIRECT route: use real exit IP country
+            countryCode = await _getExitCountryCode();
+            debugPrint(
+              '[LatencyProbe] target=${target.name} '
+              'countryCode=$countryCode (DIRECT)',
+            );
+          } else {
+            countryCode = _inferCountryCodeFromRoute(routeName);
+            debugPrint(
+              '[LatencyProbe] target=${target.name} '
+              'countryCode=$countryCode (route)',
+            );
+          }
+        } else {
+          debugPrint('[LatencyProbe] target=${target.name} matched=false');
+        }
+      }
+      // Fallback to IP-based detection
+      countryCode ??= fallbackCountryCode;
+      return MapEntry(
+        target.name,
+        _LatencyResult(latency, countryCode: countryCode),
+      );
+    } finally {
+      client.close(force: true);
+    }
   }
 
   @override
