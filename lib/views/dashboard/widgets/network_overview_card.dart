@@ -240,9 +240,8 @@ class _SurgeNetworkOverviewCardState
   }
 
   Future<(int?, HttpClient)> _measureLatency(
-    _LatencyTarget target, {
-    int? mixedPort,
-  }) async {
+    _LatencyTarget target,
+  ) async {
     Future<HttpClientResponse> doRequest(
       HttpClient client,
       Uri uri,
@@ -261,12 +260,6 @@ class _SurgeNetworkOverviewCardState
     }
 
     final client = HttpClient()..connectionTimeout = _latencyTimeout;
-    if (mixedPort != null) {
-      client.findProxy = (_) => 'PROXY 127.0.0.1:$mixedPort; DIRECT';
-      debugPrint('[LatencyProbe] explicitProxy=true port=$mixedPort');
-    } else {
-      debugPrint('[LatencyProbe] explicitProxy=false');
-    }
     final uri = Uri.parse(target.probeUrl);
     final stopwatch = Stopwatch()..start();
     try {
@@ -315,11 +308,6 @@ class _SurgeNetworkOverviewCardState
       fallbackCountryCode = await _getExitCountryCode();
     }
 
-    // Read mixed-port for explicit proxy routing
-    final mixedPort = isStart
-        ? ref.read(patchClashConfigProvider.select((s) => s.mixedPort))
-        : null;
-
     // Serial probing: one platform at a time to avoid tracker confusion
     final entries = <MapEntry<String, _LatencyResult>>[];
     for (final target in _latencyTargets) {
@@ -328,7 +316,6 @@ class _SurgeNetworkOverviewCardState
         target,
         isStart: isStart,
         fallbackCountryCode: fallbackCountryCode,
-        mixedPort: mixedPort,
       );
       entries.add(entry);
     }
@@ -345,7 +332,6 @@ class _SurgeNetworkOverviewCardState
     _LatencyTarget target, {
     required bool isStart,
     required String? fallbackCountryCode,
-    int? mixedPort,
   }) async {
     debugPrint('[LatencyProbe] target=${target.name} start');
     debugPrint('[LatencyProbe] target=${target.name} probeUrl=${target.probeUrl}');
@@ -361,10 +347,7 @@ class _SurgeNetworkOverviewCardState
       'beforeRequestCount=${beforeRequestIds.length}',
     );
 
-    final (latency, client) = await _measureLatency(
-      target,
-      mixedPort: mixedPort,
-    );
+    final (latency, client) = await _measureLatency(target);
     debugPrint('[LatencyProbe] target=${target.name} latency=$latency');
 
     try {
