@@ -46,15 +46,3 @@ class System {
 }
 
 final system = System();
-
-class Windows {
-  bool runas(String command, String arguments) => false;
-}
-
-const Windows? windows = null;
-
-class MacOS {
-  Future<void> updateDns(bool restore) async {}
-}
-
-const MacOS? macOS = null;

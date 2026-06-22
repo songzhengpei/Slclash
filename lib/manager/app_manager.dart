@@ -57,18 +57,6 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
         });
       }
     });
-    if (system.isMacOS) {
-      ref.listenManual(autoSetSystemDnsStateProvider, (prev, next) async {
-        if (prev == next) {
-          return;
-        }
-        if (next.a == true && next.b == true) {
-          macOS?.updateDns(false);
-        } else {
-          macOS?.updateDns(true);
-        }
-      });
-    }
   }
 
   @override

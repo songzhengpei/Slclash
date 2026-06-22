@@ -11,13 +11,10 @@ import 'package:flutter/material.dart';
 
 const appName = 'SlClash';
 const appHelperService = 'FlClashHelperService';
-const coreName = 'clash.meta';
 const browserUa =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const packageName = 'com.slclash.app';
 const methodChannelPrefix = 'com.follow.clash';
-final unixSocketPath = '/tmp/FlClashSocket_${Random().nextInt(10000)}.sock';
-final windowsPipeName = '\\\\.\\pipe\\FlClashCore_${Random().nextInt(10000)}';
 const helperPort = 47890;
 const maxTextScale = 1.4;
 const minTextScale = 0.8;
@@ -113,10 +110,6 @@ double getWidgetHeight(num lines) {
 }
 
 const maxLength = 1000;
-
-const mainIsolate = 'FlClashMainIsolate';
-
-const serviceIsolate = 'FlClashServiceIsolate';
 
 const defaultPrimaryColors = [
   0xFF795548,

@@ -128,7 +128,6 @@ class GlobalState {
       utils.getLocaleForString(config.appSettingProps.locale) ??
           WidgetsBinding.instance.platformDispatcher.locale,
     );
-    await window?.init(version, config.windowProps);
     return container;
   }
 
@@ -324,15 +323,9 @@ class GlobalState {
         logLevel: LogLevel.warning,
       );
     };
-    container.read(systemActionProvider.notifier).updateTray();
     container.read(profilesActionProvider.notifier).autoUpdateProfiles();
     container.read(commonActionProvider.notifier).autoCheckUpdate();
     autoLaunch?.updateStatus(container.read(appSettingProvider).autoLaunch);
-    if (!container.read(appSettingProvider).silentLaunch) {
-      window?.show();
-    } else {
-      window?.hide();
-    }
     await _handleFailedPreference();
     await _handlerDisclaimer();
     await container.read(coreActionProvider.notifier).connectCore();

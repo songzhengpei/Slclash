@@ -42,12 +42,12 @@ class BuildAndroidCommand extends BuildCommand {
   BuildAndroidCommand() {
     argParser.addOption(
       'arch',
-      valueHelp: 'arm,arm64,amd64',
+      valueHelp: 'arm64',
       help: 'Target architecture (omit to build all)',
     );
     argParser.addOption(
       'target-platform',
-      valueHelp: 'android-arm,android-arm64,android-x64',
+      valueHelp: 'android-arm64',
       help: 'Flutter target platform list (omit to build all)',
     );
   }
@@ -80,7 +80,7 @@ Future<void> runMain(List<String> args) async {
   try {
     initLogging();
 
-    final runner = CommandRunner('build_tool', 'FlClash build tool')
+    final runner = CommandRunner('build_tool', 'SlClash build tool')
       ..argParser.addOption(
         'root-dir',
         valueHelp: '<path>',

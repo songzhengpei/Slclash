@@ -7,13 +7,6 @@ extension DateTimeExtension on DateTime {
     return isBefore(DateTime.now());
   }
 
-  bool isBeforeSecure(DateTime? dateTime) {
-    if (dateTime == null) {
-      return false;
-    }
-    return true;
-  }
-
   String getLastUpdateTimeDesc(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final currentDateTime = DateTime.now();

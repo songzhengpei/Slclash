@@ -1,5 +1,4 @@
 export 'activate_box.dart';
-export 'animate_grid.dart';
 export 'builder.dart';
 export 'button.dart';
 export 'card.dart';
@@ -37,4 +36,3 @@ export 'super_grid.dart';
 export 'tab.dart';
 export 'text.dart';
 export 'theme.dart';
-export 'wave.dart';

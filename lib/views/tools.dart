@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
@@ -16,7 +14,6 @@ import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:path/path.dart' show dirname, join;
 
 import 'config/advanced.dart';
 import 'developer.dart';
@@ -57,7 +54,6 @@ class _ToolViewState extends ConsumerState<ToolsView> {
       const _ThemeItem(),
       const _BackupItem(),
       if (system.isDesktop) const _HotkeyItem(),
-      if (system.isWindows) const _LoopbackItem(),
       if (system.isAndroid) const _AccessItem(),
       const _ConfigItem(),
       const _AdvancedConfigItem(),
@@ -282,25 +278,6 @@ class _HotkeyItem extends StatelessWidget {
       title: context.appLocalizations.hotkeyManagement,
       subtitle: context.appLocalizations.hotkeyManagementDesc,
       child: const HotKeyView(),
-    );
-  }
-}
-
-class _LoopbackItem extends StatelessWidget {
-  const _LoopbackItem();
-
-  @override
-  Widget build(BuildContext context) {
-    return _SurgeActionTile(
-      leading: const Icon(Icons.lock),
-      title: context.appLocalizations.loopback,
-      subtitle: context.appLocalizations.loopbackDesc,
-      onTap: () {
-        windows?.runas(
-          '"${join(dirname(Platform.resolvedExecutable), "EnableLoopback.exe")}"',
-          '',
-        );
-      },
     );
   }
 }

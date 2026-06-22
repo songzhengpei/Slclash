@@ -63,29 +63,6 @@ void main() {
     });
   });
 
-  group('sortByChar', () {
-    test('equal strings return 0', () {
-      expect(utils.sortByChar('abc', 'abc'), 0);
-    });
-
-    test('empty first returns -1', () {
-      expect(utils.sortByChar('', 'a'), -1);
-    });
-
-    test('empty second returns 1', () {
-      expect(utils.sortByChar('a', ''), 1);
-    });
-
-    test('both empty returns 0', () {
-      expect(utils.sortByChar('', ''), 0);
-    });
-
-    test('case insensitive comparison', () {
-      expect(utils.sortByChar('a', 'B'), lessThan(0));
-      expect(utils.sortByChar('B', 'a'), greaterThan(0));
-    });
-  });
-
   group('getOverwriteLabel', () {
     test('appends (1) to label without number', () {
       expect(utils.getOverwriteLabel('foo'), 'foo(1)');
@@ -191,23 +168,6 @@ void main() {
       const body = 'Header\n- Item 1\nFooter\n- Item 2';
       final result = utils.parseReleaseBody(body);
       expect(result, ['Item 1', 'Item 2']);
-    });
-  });
-
-  group('fastHash', () {
-    test('produces consistent hash', () {
-      final hash1 = utils.fastHash('hello');
-      final hash2 = utils.fastHash('hello');
-      expect(hash1, hash2);
-    });
-
-    test('different input produces different hash', () {
-      expect(utils.fastHash('hello'), isNot(equals(utils.fastHash('world'))));
-    });
-
-    test('returns an integer', () {
-      final hash = utils.fastHash('test');
-      expect(hash, isA<int>());
     });
   });
 }

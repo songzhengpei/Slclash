@@ -465,10 +465,6 @@ class PopupMenuItemData {
   final List<PopupMenuItemData> subItems;
 }
 
-class CloseWindowIntent extends Intent {
-  const CloseWindowIntent();
-}
-
 @freezed
 abstract class Result<T> with _$Result<T> {
   const factory Result({

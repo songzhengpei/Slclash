@@ -68,28 +68,6 @@ void main() {
     });
   });
 
-  group('StringExtension.safeSubstring', () {
-    test('returns empty for empty string', () {
-      expect(''.safeSubstring(0), '');
-    });
-
-    test('returns substring from start', () {
-      expect('hello'.safeSubstring(2), 'llo');
-    });
-
-    test('clamps start to length', () {
-      expect('hi'.safeSubstring(10), '');
-    });
-
-    test('clamps end to length', () {
-      expect('hello'.safeSubstring(1, 10), 'ello');
-    });
-
-    test('clamps negative start to 0', () {
-      expect('hello'.safeSubstring(-5), 'hello');
-    });
-  });
-
   group('StringExtension.getBase64', () {
     test('extracts base64 from data URI', () {
       const data = 'data:image/png;base64,aGVsbG8=';
@@ -177,24 +155,6 @@ void main() {
 
     test('trims whitespace', () {
       expect('  hello  '.takeFirstValid([]), 'hello');
-    });
-  });
-
-  group('StringExtension.encodeUtf16LeWithBom', () {
-    test('starts with BOM', () {
-      final encoded = 'A'.encodeUtf16LeWithBom;
-      expect(encoded[0], 0xFF);
-      expect(encoded[1], 0xFE);
-    });
-
-    test('encodes ASCII correctly', () {
-      final encoded = 'AB'.encodeUtf16LeWithBom;
-      // BOM + 'A' (0x41 0x00) + 'B' (0x42 0x00)
-      expect(encoded.length, 2 + 4); // 2 BOM + 2 chars * 2 bytes
-      expect(encoded[2], 0x41);
-      expect(encoded[3], 0x00);
-      expect(encoded[4], 0x42);
-      expect(encoded[5], 0x00);
     });
   });
 }

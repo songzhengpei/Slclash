@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class Utils {
   static Utils? _instance;
@@ -119,26 +117,6 @@ class Utils {
     return null;
   }
 
-  int sortByChar(String a, String b) {
-    if (a.isEmpty && b.isEmpty) {
-      return 0;
-    }
-    if (a.isEmpty) {
-      return -1;
-    }
-    if (b.isEmpty) {
-      return 1;
-    }
-    final charA = a[0];
-    final charB = b[0];
-
-    if (charA == charB) {
-      return sortByChar(a.substring(1), b.substring(1));
-    } else {
-      return charA.compareToLower(charB);
-    }
-  }
-
   String getOverwriteLabel(String label) {
     final reg = RegExp(r'\((\d+)\)$');
     final matches = reg.allMatches(label);
@@ -149,11 +127,6 @@ class Utils {
     } else {
       return '$label(1)';
     }
-  }
-
-  String get traySuffix {
-    final suffix = system.isWindows ? 'ico' : 'png';
-    return 'assets/images/icon/status_2.$suffix';
   }
 
   int compareVersions(String version1, String version2) {
@@ -211,10 +184,6 @@ class Utils {
     return parameters[fileNameKey];
   }
 
-  FlutterView getScreen() {
-    return WidgetsBinding.instance.platformDispatcher.views.first;
-  }
-
   List<String> parseReleaseBody(String? body) {
     if (body == null) return [];
     const pattern = r'- \s*(.*)';
@@ -243,51 +212,6 @@ class Utils {
 
   int getProfilesColumns(double viewWidth) {
     return max((viewWidth / 280).floor(), 1);
-  }
-
-  final _indexPrimary = [50, 100, 200, 300, 400, 500, 600, 700, 800, 850, 900];
-
-  MaterialColor _createPrimarySwatch(Color color) {
-    final Map<int, Color> swatch = <int, Color>{};
-    final int a = color.alpha8bit;
-    final int r = color.red8bit;
-    final int g = color.green8bit;
-    final int b = color.blue8bit;
-    for (final int strength in _indexPrimary) {
-      final double ds = 0.5 - strength / 1000;
-      swatch[strength] = Color.fromARGB(
-        a,
-        r + ((ds < 0 ? r : (255 - r)) * ds).round(),
-        g + ((ds < 0 ? g : (255 - g)) * ds).round(),
-        b + ((ds < 0 ? b : (255 - b)) * ds).round(),
-      );
-    }
-    swatch[50] = swatch[50]!.lighten(18);
-    swatch[100] = swatch[100]!.lighten(16);
-    swatch[200] = swatch[200]!.lighten(14);
-    swatch[300] = swatch[300]!.lighten(10);
-    swatch[400] = swatch[400]!.lighten(6);
-    swatch[700] = swatch[700]!.darken(2);
-    swatch[800] = swatch[800]!.darken(3);
-    swatch[900] = swatch[900]!.darken(4);
-    return MaterialColor(color.value32bit, swatch);
-  }
-
-  List<Color> getMaterialColorShades(Color color) {
-    final swatch = _createPrimarySwatch(color);
-    return <Color>[
-      if (swatch[50] != null) swatch[50]!,
-      if (swatch[100] != null) swatch[100]!,
-      if (swatch[200] != null) swatch[200]!,
-      if (swatch[300] != null) swatch[300]!,
-      if (swatch[400] != null) swatch[400]!,
-      if (swatch[500] != null) swatch[500]!,
-      if (swatch[600] != null) swatch[600]!,
-      if (swatch[700] != null) swatch[700]!,
-      if (swatch[800] != null) swatch[800]!,
-      if (swatch[850] != null) swatch[850]!,
-      if (swatch[900] != null) swatch[900]!,
-    ];
   }
 
   String getBackupFileName() {
@@ -323,11 +247,6 @@ class Utils {
     return '';
   }
 
-  SingleActivator controlSingleActivator(LogicalKeyboardKey trigger) {
-    final control = system.isMacOS ? false : true;
-    return SingleActivator(trigger, control: control, meta: !control);
-  }
-
   FutureOr<T> handleWatch<T>({
     required Function function,
     required void Function() onStart,
@@ -342,21 +261,6 @@ class Utils {
       return res;
     }
     return await function();
-  }
-
-  int fastHash(String string) {
-    var hash = 0xcbf29ce484222325;
-
-    var i = 0;
-    while (i < string.length) {
-      final codeUnit = string.codeUnitAt(i++);
-      hash ^= codeUnit >> 8;
-      hash *= 0x100000001b3;
-      hash ^= codeUnit & 0xFF;
-      hash *= 0x100000001b3;
-    }
-
-    return hash;
   }
 }
 

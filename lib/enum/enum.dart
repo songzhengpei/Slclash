@@ -250,8 +250,6 @@ enum ActionMethod {
 
 enum AuthorizeCode { none, success, error }
 
-enum WindowsHelperServiceStatus { none, presence, running }
-
 enum FunctionTag {
   updateConfig,
   setupConfig,
@@ -432,8 +430,6 @@ extension RuleActionExt on RuleAction {
   }
 }
 
-enum OverrideRuleType { override, added }
-
 enum OverwriteType {
   // none,
   standard,
@@ -457,8 +453,6 @@ enum RuleTarget {
 }
 
 enum RestoreStrategy { compatible, override }
-
-enum CacheTag { logs, rules, requests, proxiesList }
 
 enum Language { yaml, javaScript, json }
 

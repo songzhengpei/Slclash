@@ -100,72 +100,6 @@ UpdateParams updateParams(Ref ref) {
 }
 
 @riverpod
-ProxyState proxyState(Ref ref) {
-  final suspend = ref.watch(suspendProvider);
-  final isStart = ref.watch(runTimeProvider.select((state) => state != null));
-  final vm2 = ref.watch(
-    networkSettingProvider.select(
-      (state) => VM2(state.systemProxy, state.bypassDomain),
-    ),
-  );
-  final mixedPort = ref.watch(
-    patchClashConfigProvider.select((state) => state.mixedPort),
-  );
-  return ProxyState(
-    isStart: suspend ? false : isStart,
-    systemProxy: vm2.a,
-    bassDomain: vm2.b,
-    port: mixedPort,
-  );
-}
-
-@riverpod
-TrayState trayState(Ref ref) {
-  final isStart = ref.watch(runTimeProvider.select((state) => state != null));
-  final systemProxy = ref.watch(
-    networkSettingProvider.select((state) => state.systemProxy),
-  );
-  final clashConfigVm3 = ref.watch(
-    patchClashConfigProvider.select(
-      (state) => VM3(state.mode, state.mixedPort, state.tun.enable),
-    ),
-  );
-  final appSettingVm3 = ref.watch(
-    appSettingProvider.select(
-      (state) => VM3(state.autoLaunch, state.locale, state.showTrayTitle),
-    ),
-  );
-  final groups = ref.watch(currentGroupsStateProvider).value;
-  final brightness = ref.watch(systemBrightnessProvider);
-  final selectedMap = ref.watch(selectedMapProvider);
-
-  return TrayState(
-    mode: clashConfigVm3.a,
-    port: clashConfigVm3.b,
-    autoLaunch: appSettingVm3.a,
-    systemProxy: systemProxy,
-    tunEnable: clashConfigVm3.c,
-    isStart: isStart,
-    locale: appSettingVm3.b,
-    brightness: brightness,
-    groups: groups,
-    selectedMap: selectedMap,
-    showTrayTitle: appSettingVm3.c,
-  );
-}
-
-@riverpod
-TrayTitleState trayTitleState(Ref ref) {
-  final showTrayTitle = ref.watch(
-    appSettingProvider.select((state) => state.showTrayTitle),
-  );
-  final traffic = ref.watch(
-    trafficsProvider.select((state) => state.list.safeLast(const Traffic())),
-  );
-  return TrayTitleState(showTrayTitle: showTrayTitle, traffic: traffic);
-}
-
-@riverpod
 VpnState vpnState(Ref ref) {
   final vpnProps = ref.watch(vpnSettingProvider);
   final stack = ref.watch(
@@ -386,23 +320,6 @@ MoreToolsSelectorState moreToolsSelectorState(Ref ref) {
 }
 
 @riverpod
-bool isCurrentPage(
-  Ref ref,
-  PageLabel pageLabel, {
-  bool Function(PageLabel pageLabel, ViewMode viewMode)? handler,
-}) {
-  final currentPageLabel = ref.watch(currentPageLabelProvider);
-  if (pageLabel == currentPageLabel) {
-    return true;
-  }
-  if (handler != null) {
-    final viewMode = ref.watch(viewModeProvider);
-    return handler(currentPageLabel, viewMode);
-  }
-  return false;
-}
-
-@riverpod
 String realTestUrl(Ref ref, [String? testUrl]) {
   final currentTestUrl = ref.watch(appSettingProvider).testUrl;
   return testUrl.takeFirstValid([currentTestUrl]);
@@ -584,16 +501,6 @@ Brightness currentBrightness(Ref ref) {
     ThemeMode.light => Brightness.light,
     ThemeMode.dark => Brightness.dark,
   };
-}
-
-@riverpod
-VM2<bool, bool> autoSetSystemDnsState(Ref ref) {
-  final isStart = ref.watch(runTimeProvider.select((state) => state != null));
-  final realTunEnable = ref.watch(realTunEnableProvider);
-  final autoSetSystemDns = ref.watch(
-    networkSettingProvider.select((state) => state.autoSetSystemDns),
-  );
-  return VM2(isStart ? realTunEnable : false, autoSetSystemDns);
 }
 
 @riverpod

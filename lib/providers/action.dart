@@ -731,11 +731,8 @@ class SystemAction extends _$SystemAction {
     try {
       await Future.wait([
         if (needSave) preferences.saveConfig(ref.read(configProvider)),
-        if (macOS != null) macOS!.updateDns(true),
         if (proxy != null) proxy!.stopProxy(),
-        if (tray != null) tray!.destroy(),
       ]);
-      await window?.close();
       await coreController.destroy();
       commonPrint.log('exit');
     } finally {
@@ -746,21 +743,9 @@ class SystemAction extends _$SystemAction {
   Future<void> handleBackOrExit() async {
     if (ref.read(backBlockProvider)) return;
     if (ref.read(appSettingProvider).minimizeOnExit) {
-      if (system.isDesktop) {
-        await preferences.saveConfig(ref.read(configProvider));
-      }
       await system.back();
     } else {
       await handleExit();
-    }
-  }
-
-  Future<void> updateVisible() async {
-    final visible = await window?.isVisible;
-    if (visible != null && !visible) {
-      window?.show();
-    } else {
-      window?.hide();
     }
   }
 
@@ -780,17 +765,6 @@ class SystemAction extends _$SystemAction {
     ref
         .read(appSettingProvider.notifier)
         .update((state) => state.copyWith(autoLaunch: !state.autoLaunch));
-  }
-
-  Future<void> updateTray() async {
-    tray?.update(
-      trayState: ref.read(trayStateProvider),
-      traffic: ref.read(
-        trafficsProvider.select(
-          (state) => state.list.safeLast(const Traffic()),
-        ),
-      ),
-    );
   }
 
   Future<void> updateLocalIp() async {

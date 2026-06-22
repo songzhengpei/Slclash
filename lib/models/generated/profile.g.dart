@@ -75,29 +75,3 @@ const _$OverwriteTypeEnumMap = {
   OverwriteType.script: 'script',
   OverwriteType.custom: 'custom',
 };
-
-_StandardOverwrite _$StandardOverwriteFromJson(Map<String, dynamic> json) =>
-    _StandardOverwrite(
-      addedRules:
-          (json['addedRules'] as List<dynamic>?)
-              ?.map((e) => Rule.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-      disabledRuleIds:
-          (json['disabledRuleIds'] as List<dynamic>?)
-              ?.map((e) => (e as num).toInt())
-              .toList() ??
-          const [],
-    );
-
-Map<String, dynamic> _$StandardOverwriteToJson(_StandardOverwrite instance) =>
-    <String, dynamic>{
-      'addedRules': instance.addedRules,
-      'disabledRuleIds': instance.disabledRuleIds,
-    };
-
-_ScriptOverwrite _$ScriptOverwriteFromJson(Map<String, dynamic> json) =>
-    _ScriptOverwrite(scriptId: (json['scriptId'] as num?)?.toInt());
-
-Map<String, dynamic> _$ScriptOverwriteToJson(_ScriptOverwrite instance) =>
-    <String, dynamic>{'scriptId': instance.scriptId};

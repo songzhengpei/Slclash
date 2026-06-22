@@ -1,5 +1,5 @@
 name: build_tool
-description: FlClash build tool — compiles Go core and Rust helper for all platforms.
+description: SlClash build tool — compiles Go core for Android arm64-v8a.
 publish_to: none
 version: 1.0.0
 

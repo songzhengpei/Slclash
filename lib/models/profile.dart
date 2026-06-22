@@ -6,8 +6,6 @@ import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'clash_config.dart';
-
 part 'generated/profile.freezed.dart';
 part 'generated/profile.g.dart';
 
@@ -95,35 +93,6 @@ extension ProfileRuleLinkExt on ProfileRuleLink {
 
 // @freezed
 // abstract class Overwrite with _$Overwrite {
-//   const factory Overwrite({
-//     @Default(OverwriteType.standard) OverwriteType type,
-//     @Default(StandardOverwrite()) StandardOverwrite standardOverwrite,
-//     @Default(ScriptOverwrite()) ScriptOverwrite scriptOverwrite,
-//   }) = _Overwrite;
-//
-//   factory Overwrite.fromJson(Map<String, Object?> json) =>
-//       _$OverwriteFromJson(json);
-// }
-
-@freezed
-abstract class StandardOverwrite with _$StandardOverwrite {
-  const factory StandardOverwrite({
-    @Default([]) List<Rule> addedRules,
-    @Default([]) List<int> disabledRuleIds,
-  }) = _StandardOverwrite;
-
-  factory StandardOverwrite.fromJson(Map<String, Object?> json) =>
-      _$StandardOverwriteFromJson(json);
-}
-
-@freezed
-abstract class ScriptOverwrite with _$ScriptOverwrite {
-  const factory ScriptOverwrite({int? scriptId}) = _ScriptOverwrite;
-
-  factory ScriptOverwrite.fromJson(Map<String, Object?> json) =>
-      _$ScriptOverwriteFromJson(json);
-}
-
 extension ProfilesExt on List<Profile> {
   Profile? getProfile(int? profileId) {
     final index = indexWhere((profile) => profile.id == profileId);

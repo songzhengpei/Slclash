@@ -39,19 +39,6 @@ abstract class VM5<A, B, C, D, E> with _$VM5<A, B, C, D, E> {
 }
 
 @freezed
-abstract class ActivateState with _$ActivateState {
-  const factory ActivateState({required bool active}) = _ActivateState;
-}
-
-@freezed
-abstract class InitState with _$InitState {
-  const factory InitState({
-    required Config config,
-    required List<Profile> profiles,
-  }) = _InitState;
-}
-
-@freezed
 abstract class CommonMessage with _$CommonMessage {
   const factory CommonMessage({
     required String id,

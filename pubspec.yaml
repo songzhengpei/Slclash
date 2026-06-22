@@ -1,5 +1,5 @@
 name: fl_clash
-description: A multi-platform proxy client based on ClashMeta, simple and easy to use, open-source and ad-free.
+description: A lightweight Android arm64-v8a proxy client based on ClashMeta.
 publish_to: 'none'
 version: 1.8.5+9
 environment:
@@ -36,7 +36,6 @@ dependencies:
   re_highlight: ^0.0.3
   archive: ^4.0.7
   emoji_regex: ^0.0.5
-  uni_platform: ^0.1.3
   device_info_plus: ^12.2.0
   connectivity_plus: ^7.0.0
   defer_pointer: ^0.0.2
@@ -58,8 +57,6 @@ dependencies:
   super_sliver_list: ^0.4.1
   drift: ^2.31.0
   drift_flutter: ^0.2.8
-  fractional_indexing: ^1.0.0
-  reorderable_grid: ^1.0.13
   smooth_sheets: ^1.0.2
   setup:
     path: plugins/setup
