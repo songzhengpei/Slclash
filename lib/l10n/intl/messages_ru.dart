@@ -92,6 +92,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "action_tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "action_view": MessageLookupByLibrary.simpleMessage("Показать/Скрыть"),
     "add": MessageLookupByLibrary.simpleMessage("Добавить"),
+    "addNetwork": MessageLookupByLibrary.simpleMessage("Добавить сеть"),
     "addProfile": MessageLookupByLibrary.simpleMessage("Добавить профиль"),
     "addProxies": MessageLookupByLibrary.simpleMessage("Добавить прокси"),
     "addProxyGroup": MessageLookupByLibrary.simpleMessage(
@@ -236,6 +237,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "confirmExitWindow": MessageLookupByLibrary.simpleMessage(
       "Вы уверены, что хотите выйти из текущего окна?",
     ),
+    "confirmFactoryReset": MessageLookupByLibrary.simpleMessage(
+      "Вы уверены, что хотите сбросить к заводским настройкам? Это действие нельзя отменить.",
+    ),
     "confirmForceCrashCore": MessageLookupByLibrary.simpleMessage(
       "Вы уверены, что хотите принудительно аварийно завершить работу ядра?",
     ),
@@ -333,6 +337,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "editGlobalRules": MessageLookupByLibrary.simpleMessage(
       "Редактировать глобальные правила",
     ),
+    "editNetwork": MessageLookupByLibrary.simpleMessage("Изменить сеть"),
     "editProxy": MessageLookupByLibrary.simpleMessage("Редактировать прокси"),
     "editProxyGroup": MessageLookupByLibrary.simpleMessage(
       "Редактировать группу прокси",
@@ -372,6 +377,12 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "externalFetch": MessageLookupByLibrary.simpleMessage("Внешнее получение"),
     "externalLink": MessageLookupByLibrary.simpleMessage("Внешняя ссылка"),
+    "factoryReset": MessageLookupByLibrary.simpleMessage(
+      "Сброс к заводским настройкам",
+    ),
+    "factoryResetDesc": MessageLookupByLibrary.simpleMessage(
+      "Очистить все данные и восстановить настройки по умолчанию",
+    ),
     "fakeipFilter": MessageLookupByLibrary.simpleMessage("Фильтр Fakeip"),
     "fakeipRange": MessageLookupByLibrary.simpleMessage("Диапазон Fakeip"),
     "fallback": MessageLookupByLibrary.simpleMessage("Резервный"),
@@ -566,6 +577,10 @@ class MessageLookup extends MessageLookupByLibrary {
       "Указать соответствующую политику сервера имен",
     ),
     "network": MessageLookupByLibrary.simpleMessage("Сеть"),
+    "networkAddress": MessageLookupByLibrary.simpleMessage("Сетевой адрес"),
+    "networkAddressHint": MessageLookupByLibrary.simpleMessage(
+      "например, 192.168.1.0/24 или 10.0.0.1",
+    ),
     "networkDesc": MessageLookupByLibrary.simpleMessage(
       "Изменение настроек, связанных с сетью",
     ),
@@ -577,6 +592,9 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "networkSpeed": MessageLookupByLibrary.simpleMessage("Скорость сети"),
     "networkType": MessageLookupByLibrary.simpleMessage("Тип сети"),
+    "networksEmpty": MessageLookupByLibrary.simpleMessage(
+      "Доверенные сети не настроены",
+    ),
     "neutralScheme": MessageLookupByLibrary.simpleMessage("Нейтральные"),
     "noData": MessageLookupByLibrary.simpleMessage("Нет данных"),
     "noHotKey": MessageLookupByLibrary.simpleMessage("Нет горячей клавиши"),
@@ -952,6 +970,11 @@ class MessageLookup extends MessageLookupByLibrary {
       "Запуск в фоновом режиме",
     ),
     "size": MessageLookupByLibrary.simpleMessage("Размер"),
+    "smartAutoStop": MessageLookupByLibrary.simpleMessage("Умная остановка"),
+    "smartAutoStopDesc": MessageLookupByLibrary.simpleMessage(
+      "Автоматическая пауза VPN при подключении к доверенной сети, возобновление при выходе",
+    ),
+    "smartStopped": MessageLookupByLibrary.simpleMessage("Умная остановка"),
     "socksPort": MessageLookupByLibrary.simpleMessage("Socks-порт"),
     "sort": MessageLookupByLibrary.simpleMessage("Сортировка"),
     "source": MessageLookupByLibrary.simpleMessage("Источник"),
@@ -1032,6 +1055,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxy-порт"),
     "trafficUsage": MessageLookupByLibrary.simpleMessage(
       "Использование трафика",
+    ),
+    "trustedNetworks": MessageLookupByLibrary.simpleMessage("Доверенные сети"),
+    "trustedNetworksDesc": MessageLookupByLibrary.simpleMessage(
+      "Добавить доверенные IP-адреса или CIDR-подсети",
     ),
     "tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "tunDesc": MessageLookupByLibrary.simpleMessage(

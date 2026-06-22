@@ -2979,36 +2979,6 @@ class AppLocalizations {
     );
   }
 
-  /// `Factory reset`
-  String get factoryReset {
-    return Intl.message(
-      'Factory reset',
-      name: 'factoryReset',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Clear all app data and restart from the default first-run state`
-  String get factoryResetDesc {
-    return Intl.message(
-      'Clear all app data and restart from the default first-run state',
-      name: 'factoryResetDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `This will clear settings, profiles, scripts, cache, and backup restore files. The app will exit afterwards.`
-  String get confirmFactoryReset {
-    return Intl.message(
-      'This will clear settings, profiles, scripts, cache, and backup restore files. The app will exit afterwards.',
-      name: 'confirmFactoryReset',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Loading...`
   String get loading {
     return Intl.message('Loading...', name: 'loading', desc: '', args: []);
@@ -4377,6 +4347,131 @@ class AppLocalizations {
   /// `Suspended...`
   String get suspended {
     return Intl.message('Suspended...', name: 'suspended', desc: '', args: []);
+  }
+
+  /// `Smart Auto Stop`
+  String get smartAutoStop {
+    return Intl.message(
+      'Smart Auto Stop',
+      name: 'smartAutoStop',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Automatically pause VPN when connected to a trusted network, resume when leaving`
+  String get smartAutoStopDesc {
+    return Intl.message(
+      'Automatically pause VPN when connected to a trusted network, resume when leaving',
+      name: 'smartAutoStopDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Trusted Networks`
+  String get trustedNetworks {
+    return Intl.message(
+      'Trusted Networks',
+      name: 'trustedNetworks',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Add trusted IP addresses or CIDR subnets`
+  String get trustedNetworksDesc {
+    return Intl.message(
+      'Add trusted IP addresses or CIDR subnets',
+      name: 'trustedNetworksDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Add Network`
+  String get addNetwork {
+    return Intl.message('Add Network', name: 'addNetwork', desc: '', args: []);
+  }
+
+  /// `Edit Network`
+  String get editNetwork {
+    return Intl.message(
+      'Edit Network',
+      name: 'editNetwork',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Network Address`
+  String get networkAddress {
+    return Intl.message(
+      'Network Address',
+      name: 'networkAddress',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `e.g. 192.168.1.0/24 or 10.0.0.1`
+  String get networkAddressHint {
+    return Intl.message(
+      'e.g. 192.168.1.0/24 or 10.0.0.1',
+      name: 'networkAddressHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No trusted networks configured`
+  String get networksEmpty {
+    return Intl.message(
+      'No trusted networks configured',
+      name: 'networksEmpty',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Smart Stopped`
+  String get smartStopped {
+    return Intl.message(
+      'Smart Stopped',
+      name: 'smartStopped',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Factory Reset`
+  String get factoryReset {
+    return Intl.message(
+      'Factory Reset',
+      name: 'factoryReset',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Are you sure you want to factory reset? This action cannot be undone.`
+  String get confirmFactoryReset {
+    return Intl.message(
+      'Are you sure you want to factory reset? This action cannot be undone.',
+      name: 'confirmFactoryReset',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Clear all data and restore default settings`
+  String get factoryResetDesc {
+    return Intl.message(
+      'Clear all data and restore default settings',
+      name: 'factoryResetDesc',
+      desc: '',
+      args: [],
+    );
   }
 }
 

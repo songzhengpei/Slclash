@@ -534,5 +534,18 @@
   "editSsid": "Edit SSID",
   "authorized": "Authorized",
   "tapToAuthorize": "Tap to authorize",
-  "suspended": "Suspended..."
+  "suspended": "Suspended...",
+  "smartAutoStop": "Smart Auto Stop",
+  "smartAutoStopDesc": "Automatically pause VPN when connected to a trusted network, resume when leaving",
+  "trustedNetworks": "Trusted Networks",
+  "trustedNetworksDesc": "Add trusted IP addresses or CIDR subnets",
+  "addNetwork": "Add Network",
+  "editNetwork": "Edit Network",
+  "networkAddress": "Network Address",
+  "networkAddressHint": "e.g. 192.168.1.0/24 or 10.0.0.1",
+  "networksEmpty": "No trusted networks configured",
+  "smartStopped": "Smart Stopped",
+  "factoryReset": "Factory Reset",
+  "confirmFactoryReset": "Are you sure you want to factory reset? This action cannot be undone.",
+  "factoryResetDesc": "Clear all data and restore default settings"
 }

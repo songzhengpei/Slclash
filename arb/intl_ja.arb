@@ -534,5 +534,18 @@
   "editSsid": "SSIDを編集",
   "authorized": "許可済み",
   "tapToAuthorize": "タップして許可",
-  "suspended": "一時停止中..."
+  "suspended": "一時停止中...",
+  "smartAutoStop": "スマート自動停止",
+  "smartAutoStopDesc": "信頼できるネットワークに接続時にVPNを自動一時停止、離脱後に自動復帰",
+  "trustedNetworks": "信頼できるネットワーク",
+  "trustedNetworksDesc": "信頼できるIPアドレスまたはCIDRサブネットを追加",
+  "addNetwork": "ネットワークを追加",
+  "editNetwork": "ネットワークを編集",
+  "networkAddress": "ネットワークアドレス",
+  "networkAddressHint": "例: 192.168.1.0/24 または 10.0.0.1",
+  "networksEmpty": "信頼できるネットワークが未設定",
+  "smartStopped": "スマート停止中",
+  "factoryReset": "工場出荷時設定に戻す",
+  "confirmFactoryReset": "工場出荷時設定に戻しますか？この操作は元に戻せません。",
+  "factoryResetDesc": "すべてのデータを消去し、デフォルト設定に戻す"
 }

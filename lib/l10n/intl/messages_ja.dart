@@ -83,6 +83,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "action_tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "action_view": MessageLookupByLibrary.simpleMessage("表示/非表示"),
     "add": MessageLookupByLibrary.simpleMessage("追加"),
+    "addNetwork": MessageLookupByLibrary.simpleMessage("ネットワークを追加"),
     "addProfile": MessageLookupByLibrary.simpleMessage("プロファイルを追加"),
     "addProxies": MessageLookupByLibrary.simpleMessage("プロキシを追加"),
     "addProxyGroup": MessageLookupByLibrary.simpleMessage("プロキシグループを追加"),
@@ -175,6 +176,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "confirmExitWindow": MessageLookupByLibrary.simpleMessage(
       "現在のウィンドウを閉じてもよろしいですか？",
     ),
+    "confirmFactoryReset": MessageLookupByLibrary.simpleMessage(
+      "工場出荷時設定に戻しますか？この操作は元に戻せません。",
+    ),
     "confirmForceCrashCore": MessageLookupByLibrary.simpleMessage(
       "コアを強制的にクラッシュさせてもよろしいですか？",
     ),
@@ -250,6 +254,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "download": MessageLookupByLibrary.simpleMessage("ダウンロード"),
     "edit": MessageLookupByLibrary.simpleMessage("編集"),
     "editGlobalRules": MessageLookupByLibrary.simpleMessage("グローバルルールを編集"),
+    "editNetwork": MessageLookupByLibrary.simpleMessage("ネットワークを編集"),
     "editProxy": MessageLookupByLibrary.simpleMessage("プロキシを編集"),
     "editProxyGroup": MessageLookupByLibrary.simpleMessage("プロキシグループを編集"),
     "editRule": MessageLookupByLibrary.simpleMessage("ルールを編集"),
@@ -281,6 +286,10 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "externalFetch": MessageLookupByLibrary.simpleMessage("外部取得"),
     "externalLink": MessageLookupByLibrary.simpleMessage("外部リンク"),
+    "factoryReset": MessageLookupByLibrary.simpleMessage("工場出荷時設定に戻す"),
+    "factoryResetDesc": MessageLookupByLibrary.simpleMessage(
+      "すべてのデータを消去し、デフォルト設定に戻す",
+    ),
     "fakeipFilter": MessageLookupByLibrary.simpleMessage("Fakeipフィルター"),
     "fakeipRange": MessageLookupByLibrary.simpleMessage("Fakeip範囲"),
     "fallback": MessageLookupByLibrary.simpleMessage("フォールバック"),
@@ -421,6 +430,10 @@ class MessageLookup extends MessageLookupByLibrary {
       "対応するネームサーバーポリシーを指定",
     ),
     "network": MessageLookupByLibrary.simpleMessage("ネットワーク"),
+    "networkAddress": MessageLookupByLibrary.simpleMessage("ネットワークアドレス"),
+    "networkAddressHint": MessageLookupByLibrary.simpleMessage(
+      "例: 192.168.1.0/24 または 10.0.0.1",
+    ),
     "networkDesc": MessageLookupByLibrary.simpleMessage("ネットワーク関連設定の変更"),
     "networkDetection": MessageLookupByLibrary.simpleMessage("ネットワーク検出"),
     "networkException": MessageLookupByLibrary.simpleMessage(
@@ -428,6 +441,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "networkSpeed": MessageLookupByLibrary.simpleMessage("ネットワーク速度"),
     "networkType": MessageLookupByLibrary.simpleMessage("ネットワーク種別"),
+    "networksEmpty": MessageLookupByLibrary.simpleMessage("信頼できるネットワークが未設定"),
     "neutralScheme": MessageLookupByLibrary.simpleMessage("ニュートラル"),
     "noData": MessageLookupByLibrary.simpleMessage("データなし"),
     "noHotKey": MessageLookupByLibrary.simpleMessage("ホットキーなし"),
@@ -729,6 +743,11 @@ class MessageLookup extends MessageLookupByLibrary {
     "silentLaunch": MessageLookupByLibrary.simpleMessage("バックグラウンド起動"),
     "silentLaunchDesc": MessageLookupByLibrary.simpleMessage("バックグラウンドで起動"),
     "size": MessageLookupByLibrary.simpleMessage("サイズ"),
+    "smartAutoStop": MessageLookupByLibrary.simpleMessage("スマート自動停止"),
+    "smartAutoStopDesc": MessageLookupByLibrary.simpleMessage(
+      "信頼できるネットワークに接続時にVPNを自動一時停止、離脱後に自動復帰",
+    ),
+    "smartStopped": MessageLookupByLibrary.simpleMessage("スマート停止中"),
     "socksPort": MessageLookupByLibrary.simpleMessage("Socksポート"),
     "sort": MessageLookupByLibrary.simpleMessage("並び替え"),
     "source": MessageLookupByLibrary.simpleMessage("ソース"),
@@ -788,6 +807,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "tools": MessageLookupByLibrary.simpleMessage("ツール"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxyポート"),
     "trafficUsage": MessageLookupByLibrary.simpleMessage("トラフィック使用量"),
+    "trustedNetworks": MessageLookupByLibrary.simpleMessage("信頼できるネットワーク"),
+    "trustedNetworksDesc": MessageLookupByLibrary.simpleMessage(
+      "信頼できるIPアドレスまたはCIDRサブネットを追加",
+    ),
     "tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "tunDesc": MessageLookupByLibrary.simpleMessage("管理者モードでのみ有効"),
     "turnOff": MessageLookupByLibrary.simpleMessage("オフ"),

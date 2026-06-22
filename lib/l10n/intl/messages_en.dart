@@ -93,6 +93,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "action_tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "action_view": MessageLookupByLibrary.simpleMessage("Show/Hide"),
     "add": MessageLookupByLibrary.simpleMessage("Add"),
+    "addNetwork": MessageLookupByLibrary.simpleMessage("Add Network"),
     "addProfile": MessageLookupByLibrary.simpleMessage("Add Profile"),
     "addProxies": MessageLookupByLibrary.simpleMessage("Add proxies"),
     "addProxyGroup": MessageLookupByLibrary.simpleMessage("Add proxy group"),
@@ -223,14 +224,14 @@ class MessageLookup extends MessageLookupByLibrary {
     "confirmClearAllData": MessageLookupByLibrary.simpleMessage(
       "Are you sure you want to clear all data?",
     ),
-    "confirmFactoryReset": MessageLookupByLibrary.simpleMessage(
-      "This will clear settings, profiles, scripts, cache, and backup restore files. The app will exit afterwards.",
-    ),
     "confirmDeleteProxyGroup": MessageLookupByLibrary.simpleMessage(
       "Are you sure you want to delete the current proxy group?",
     ),
     "confirmExitWindow": MessageLookupByLibrary.simpleMessage(
       "Are you sure you want to exit the current window?",
+    ),
+    "confirmFactoryReset": MessageLookupByLibrary.simpleMessage(
+      "Are you sure you want to factory reset? This action cannot be undone.",
     ),
     "confirmForceCrashCore": MessageLookupByLibrary.simpleMessage(
       "Are you sure you want to force crash the core?",
@@ -329,6 +330,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "editGlobalRules": MessageLookupByLibrary.simpleMessage(
       "Edit global rules",
     ),
+    "editNetwork": MessageLookupByLibrary.simpleMessage("Edit Network"),
     "editProxy": MessageLookupByLibrary.simpleMessage("Edit proxy"),
     "editProxyGroup": MessageLookupByLibrary.simpleMessage("Edit proxy group"),
     "editRule": MessageLookupByLibrary.simpleMessage("Edit rule"),
@@ -364,12 +366,12 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "externalFetch": MessageLookupByLibrary.simpleMessage("External fetch"),
     "externalLink": MessageLookupByLibrary.simpleMessage("External link"),
+    "factoryReset": MessageLookupByLibrary.simpleMessage("Factory Reset"),
+    "factoryResetDesc": MessageLookupByLibrary.simpleMessage(
+      "Clear all data and restore default settings",
+    ),
     "fakeipFilter": MessageLookupByLibrary.simpleMessage("Fakeip filter"),
     "fakeipRange": MessageLookupByLibrary.simpleMessage("Fakeip range"),
-    "factoryReset": MessageLookupByLibrary.simpleMessage("Factory reset"),
-    "factoryResetDesc": MessageLookupByLibrary.simpleMessage(
-      "Clear all app data and restart from the default first-run state",
-    ),
     "fallback": MessageLookupByLibrary.simpleMessage("Fallback"),
     "fallbackDesc": MessageLookupByLibrary.simpleMessage(
       "Generally use offshore DNS",
@@ -546,6 +548,10 @@ class MessageLookup extends MessageLookupByLibrary {
       "Specify the corresponding nameserver policy",
     ),
     "network": MessageLookupByLibrary.simpleMessage("Network"),
+    "networkAddress": MessageLookupByLibrary.simpleMessage("Network Address"),
+    "networkAddressHint": MessageLookupByLibrary.simpleMessage(
+      "e.g. 192.168.1.0/24 or 10.0.0.1",
+    ),
     "networkDesc": MessageLookupByLibrary.simpleMessage(
       "Modify network-related settings",
     ),
@@ -557,6 +563,9 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "networkSpeed": MessageLookupByLibrary.simpleMessage("Network speed"),
     "networkType": MessageLookupByLibrary.simpleMessage("Network type"),
+    "networksEmpty": MessageLookupByLibrary.simpleMessage(
+      "No trusted networks configured",
+    ),
     "neutralScheme": MessageLookupByLibrary.simpleMessage("Neutral"),
     "noData": MessageLookupByLibrary.simpleMessage("No data"),
     "noHotKey": MessageLookupByLibrary.simpleMessage("No HotKey"),
@@ -912,6 +921,11 @@ class MessageLookup extends MessageLookupByLibrary {
       "Start in the background",
     ),
     "size": MessageLookupByLibrary.simpleMessage("Size"),
+    "smartAutoStop": MessageLookupByLibrary.simpleMessage("Smart Auto Stop"),
+    "smartAutoStopDesc": MessageLookupByLibrary.simpleMessage(
+      "Automatically pause VPN when connected to a trusted network, resume when leaving",
+    ),
+    "smartStopped": MessageLookupByLibrary.simpleMessage("Smart Stopped"),
     "socksPort": MessageLookupByLibrary.simpleMessage("Socks Port"),
     "sort": MessageLookupByLibrary.simpleMessage("Sort"),
     "source": MessageLookupByLibrary.simpleMessage("Source"),
@@ -981,6 +995,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "tools": MessageLookupByLibrary.simpleMessage("Tools"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxy Port"),
     "trafficUsage": MessageLookupByLibrary.simpleMessage("Traffic usage"),
+    "trustedNetworks": MessageLookupByLibrary.simpleMessage("Trusted Networks"),
+    "trustedNetworksDesc": MessageLookupByLibrary.simpleMessage(
+      "Add trusted IP addresses or CIDR subnets",
+    ),
     "tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "tunDesc": MessageLookupByLibrary.simpleMessage(
       "only effective in administrator mode",

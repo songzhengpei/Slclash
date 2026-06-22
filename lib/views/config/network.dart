@@ -1,5 +1,6 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -328,6 +329,188 @@ class RouteAddressItem extends ConsumerWidget {
   }
 }
 
+class SmartAutoStopItem extends ConsumerWidget {
+  const SmartAutoStopItem({super.key});
+
+  @override
+  Widget build(BuildContext context, ref) {
+    final appLocalizations = context.appLocalizations;
+    final smartAutoStop = ref.watch(
+      vpnSettingProvider.select((state) => state.smartAutoStop),
+    );
+    return ListItem.switchItem(
+      title: Text(appLocalizations.smartAutoStop),
+      subtitle: Text(appLocalizations.smartAutoStopDesc),
+      delegate: SwitchDelegate(
+        value: smartAutoStop,
+        onChanged: (bool value) async {
+          ref
+              .read(vpnSettingProvider.notifier)
+              .update((state) => state.copyWith(smartAutoStop: value));
+        },
+      ),
+    );
+  }
+}
+
+class SmartAutoStopNetworksItem extends ConsumerWidget {
+  const SmartAutoStopNetworksItem({super.key});
+
+  @override
+  Widget build(BuildContext context, ref) {
+    final appLocalizations = context.appLocalizations;
+    final networks = ref.watch(
+      vpnSettingProvider.select((state) => state.smartAutoStopNetworks),
+    );
+    final smartAutoStop = ref.watch(
+      vpnSettingProvider.select((state) => state.smartAutoStop),
+    );
+    if (!smartAutoStop) return const SizedBox.shrink();
+    return ListItem.open(
+      title: Text(appLocalizations.trustedNetworks),
+      subtitle: Text(
+        networks.isEmpty
+            ? appLocalizations.networksEmpty
+            : networks.join(', '),
+      ),
+      delegate: OpenDelegate(
+        widget: _SmartAutoStopNetworksPage(networks: networks),
+      ),
+    );
+  }
+}
+
+class _SmartAutoStopNetworksPage extends ConsumerStatefulWidget {
+  final List<String> networks;
+  const _SmartAutoStopNetworksPage({required this.networks});
+
+  @override
+  ConsumerState<_SmartAutoStopNetworksPage> createState() =>
+      _SmartAutoStopNetworksPageState();
+}
+
+class _SmartAutoStopNetworksPageState
+    extends ConsumerState<_SmartAutoStopNetworksPage> {
+  void _addNetwork() {
+    _showEditSheet(
+      title: context.appLocalizations.addNetwork,
+      onSave: (value) {
+        ref.read(vpnSettingProvider.notifier).update(
+              (state) => state.copyWith(
+                smartAutoStopNetworks: [
+                  ...state.smartAutoStopNetworks,
+                  value,
+                ],
+              ),
+            );
+      },
+    );
+  }
+
+  void _editNetwork(int index) {
+    final networks = ref.read(
+      vpnSettingProvider.select((state) => state.smartAutoStopNetworks),
+    );
+    _showEditSheet(
+      title: context.appLocalizations.editNetwork,
+      initialValue: networks[index],
+      onSave: (value) {
+        final newList = List<String>.from(networks);
+        newList[index] = value;
+        ref.read(vpnSettingProvider.notifier).update(
+              (state) => state.copyWith(smartAutoStopNetworks: newList),
+            );
+      },
+    );
+  }
+
+  void _removeNetwork(int index) {
+    ref.read(vpnSettingProvider.notifier).update(
+          (state) => state.copyWith(
+            smartAutoStopNetworks: List<String>.from(
+              state.smartAutoStopNetworks,
+            )..removeAt(index),
+          ),
+        );
+  }
+
+  void _showEditSheet({
+    required String title,
+    String? initialValue,
+    required ValueChanged<String> onSave,
+  }) {
+    showSheet(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController(text: initialValue ?? '');
+        return AdaptiveSheetScaffold(
+          title: title,
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: context.appLocalizations.networkAddress,
+                    hintText: context.appLocalizations.networkAddressHint,
+                  ),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      final value = controller.text.trim();
+                      if (value.isNotEmpty) {
+                        onSave(value);
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text(context.appLocalizations.save),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
+    final networks = ref.watch(
+      vpnSettingProvider.select((state) => state.smartAutoStopNetworks),
+    );
+    return AdaptiveSheetScaffold(
+      title: appLocalizations.trustedNetworks,
+      actions: [
+        IconButtonData(icon: Icons.add, onPressed: _addNetwork),
+      ],
+      body: networks.isEmpty
+          ? Center(child: Text(appLocalizations.networksEmpty))
+          : ListView.builder(
+              shrinkWrap: true,
+              itemCount: networks.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(networks[index]),
+                  onTap: () => _editNetwork(index),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _removeNetwork(index),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
 class NetworkListView extends StatelessWidget {
   const NetworkListView({super.key});
 
@@ -344,6 +527,8 @@ class NetworkListView extends StatelessWidget {
             const AllowBypassItem(),
             const Ipv6Item(),
             const DNSHijackingItem(),
+            const SmartAutoStopItem(),
+            const SmartAutoStopNetworksItem(),
           ],
         ),
       if (system.isDesktop)
