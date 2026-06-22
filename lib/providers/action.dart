@@ -303,6 +303,33 @@ class SetupAction extends _$SetupAction {
     await coreController.stopListener();
   }
 
+  /// Local-only stop for smart auto stop: cancel timer, stop listener,
+  /// clear runTime in UI — but do NOT reset traffic or call native stopService.
+  Future handleSmartStopLocal() async {
+    startTime = null;
+    _updateTimer?.cancel();
+    _updateTimer = null;
+    await coreController.stopListener();
+    ref.read(runTimeProvider.notifier).value = null;
+  }
+
+  /// Local-only resume for smart auto stop: restore startTime, restart
+  /// runtime/traffic timer, resume core listener.
+  Future handleSmartResumeLocal(DateTime nativeStartTime) async {
+    startTime = nativeStartTime;
+    ref.read(runTimeProvider.notifier).value =
+        nativeStartTime.millisecondsSinceEpoch;
+    ref.read(commonActionProvider.notifier).updateRunTime();
+    ref.read(commonActionProvider.notifier).updateTraffic();
+    if (!ref.read(suspendProvider)) {
+      await coreController.startListener();
+    }
+    _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      ref.read(commonActionProvider.notifier).updateRunTime();
+      ref.read(commonActionProvider.notifier).updateTraffic();
+    });
+  }
+
   Future<void> initStatus() async {
     if (!globalState.needInitStatus) {
       commonPrint.log('init status cancel');

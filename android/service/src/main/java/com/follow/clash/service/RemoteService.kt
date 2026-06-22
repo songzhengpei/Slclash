@@ -183,12 +183,28 @@ class RemoteService : Service(),
         override fun smartStop(result: IResultInterface) {
             launch {
                 runLock.withLock {
-                    delegate?.useService { service ->
-                        service.smartStop()
+                    // Already stopped — return success (idempotent)
+                    if (State.isSmartStopped) {
+                        result.onResult(1)
+                        return@withLock
                     }
-                    State.runTime = 0
-                    State.isSmartStopped = true
-                    result.onResult(0)
+                    val d = delegate
+                    if (d == null) {
+                        result.onResult(0)
+                        return@withLock
+                    }
+                    var success = false
+                    d.useService { service ->
+                        service.smartStop()
+                        success = true
+                    }
+                    if (success) {
+                        State.runTime = 0
+                        State.isSmartStopped = true
+                        result.onResult(1)
+                    } else {
+                        result.onResult(0)
+                    }
                 }
             }
         }
@@ -196,12 +212,29 @@ class RemoteService : Service(),
         override fun smartResume(result: IResultInterface) {
             launch {
                 runLock.withLock {
-                    delegate?.useService { service ->
-                        service.smartResume()
+                    // Not stopped — return current runTime (idempotent)
+                    if (!State.isSmartStopped) {
+                        result.onResult(State.runTime)
+                        return@withLock
                     }
-                    State.runTime = System.currentTimeMillis()
-                    State.isSmartStopped = false
-                    result.onResult(State.runTime)
+                    val options = State.options
+                    val d = delegate
+                    if (options == null || d == null) {
+                        result.onResult(0)
+                        return@withLock
+                    }
+                    var success = false
+                    d.useService { service ->
+                        service.smartResume()
+                        success = true
+                    }
+                    if (success) {
+                        State.runTime = System.currentTimeMillis()
+                        State.isSmartStopped = false
+                        result.onResult(State.runTime)
+                    } else {
+                        result.onResult(0)
+                    }
                 }
             }
         }

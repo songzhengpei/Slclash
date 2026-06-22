@@ -7,7 +7,6 @@ import 'package:fl_clash/plugins/service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'action.dart';
-import 'app.dart';
 import 'config.dart';
 import 'state.dart';
 
@@ -140,21 +139,22 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
   /// Stop VPN via native smartStop (suspend TUN only, keep service alive),
   /// falling back to full stop/start if native call fails.
   Future<void> _smartStop() async {
+    final setupAction = ref.read(setupActionProvider.notifier);
     final s = service;
     if (s != null) {
       try {
-        await s.setSmartStopped(true);
-        await s.smartStop();
-        // Sync Dart-side state: VPN is no longer "running" from UI perspective
-        ref.read(isSmartStoppedProvider.notifier).set(true);
-        ref.read(runTimeProvider.notifier).value = null;
-        return;
-      } catch (_) {
-        // Native failed — fall through to phase 1 fallback
-      }
+        final success = await s.smartStop();
+        if (success) {
+          await s.setSmartStopped(true);
+          // Local: cancel timer, stop listener, clear runTime
+          await setupAction.handleSmartStopLocal();
+          ref.read(isSmartStoppedProvider.notifier).set(true);
+          return;
+        }
+      } catch (_) {}
+      // Native failed — fall through to phase 1 fallback
     }
     // Fallback: full stop via setupAction
-    final setupAction = ref.read(setupActionProvider.notifier);
     await setupAction.updateStatus(false);
     ref.read(isSmartStoppedProvider.notifier).set(true);
   }
@@ -162,24 +162,25 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
   /// Resume VPN via native smartResume (resume TUN only, no service restart),
   /// falling back to full stop/start if native call fails.
   Future<void> _smartResume() async {
+    final setupAction = ref.read(setupActionProvider.notifier);
     final s = service;
     if (s != null) {
       try {
-        await s.setSmartStopped(false);
-        await s.smartResume();
-        // Sync Dart-side state: VPN is "running" again
-        ref.read(isSmartStoppedProvider.notifier).set(false);
-        // Re-read runTime from native side
-        final runTime = await s.getRunTime();
-        ref.read(runTimeProvider.notifier).value =
-            runTime?.millisecondsSinceEpoch;
-        return;
-      } catch (_) {
-        // Native failed — fall through to phase 1 fallback
-      }
+        final success = await s.smartResume();
+        if (success) {
+          await s.setSmartStopped(false);
+          // Read native startTime and sync local timer/listener
+          final nativeStartTime = await s.getRunTime();
+          if (nativeStartTime != null) {
+            await setupAction.handleSmartResumeLocal(nativeStartTime);
+          }
+          ref.read(isSmartStoppedProvider.notifier).set(false);
+          return;
+        }
+      } catch (_) {}
+      // Native failed — fall through to phase 1 fallback
     }
     // Fallback: full start via setupAction
-    final setupAction = ref.read(setupActionProvider.notifier);
     await setupAction.updateStatus(true);
     ref.read(isSmartStoppedProvider.notifier).set(false);
   }

@@ -163,12 +163,15 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         launch {
             val addresses = mutableListOf<String>()
             try {
-                val interfaces = NetworkInterface.getNetworkInterfaces() ?: emptyList()
+                val interfaces = java.util.Collections.list(
+                    NetworkInterface.getNetworkInterfaces()
+                )
                 for (intf in interfaces) {
                     if (intf.isLoopback || !intf.isUp) continue
                     val name = intf.name.lowercase()
                     if (name.startsWith("tun") || name.startsWith("utun") ||
-                        name.startsWith("ppp") || name.startsWith("vpn")) continue
+                        name.startsWith("ppp") || name.startsWith("vpn") ||
+                        name.startsWith("lo")) continue
                     for (addr in intf.inetAddresses) {
                         if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
                             addresses.add(addr.hostAddress ?: "")
@@ -182,15 +185,15 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
     private fun handleSmartStop(result: MethodChannel.Result) {
         launch {
-            Service.smartStop()
-            result.success(true)
+            val res = Service.smartStop()
+            result.success(res != 0L)
         }
     }
 
     private fun handleSmartResume(result: MethodChannel.Result) {
         launch {
-            Service.smartResume()
-            result.success(true)
+            val res = Service.smartResume()
+            result.success(res > 0L)
         }
     }
 
