@@ -275,6 +275,7 @@ enum FunctionTag {
   saveSharedFile,
   removeProxy,
   suspend,
+  smartAutoStop,
 }
 
 enum DashboardWidget {

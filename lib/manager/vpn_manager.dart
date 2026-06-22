@@ -21,10 +21,20 @@ class _VpnContainerState extends ConsumerState<VpnManager> {
   void initState() {
     super.initState();
     ref.listenManual(vpnStateProvider, (prev, next) {
-      if (prev != next) {
+      if (_vpnPropsRequireRestart(prev?.vpnProps, next.vpnProps)) {
         showTip(next);
       }
     });
+  }
+
+  /// Compare VpnProps excluding smart auto stop fields, which don't require
+  /// a VPN restart to take effect.
+  bool _vpnPropsRequireRestart(VpnProps? prev, VpnProps next) {
+    if (prev == null) return false;
+    return prev.copyWith(
+      smartAutoStop: next.smartAutoStop,
+      smartAutoStopNetworks: next.smartAutoStopNetworks,
+    ) != next;
   }
 
   void showTip(VpnState state) {

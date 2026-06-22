@@ -148,6 +148,12 @@ _VpnProps _$VpnPropsFromJson(Map<String, dynamic> json) => _VpnProps(
       : AccessControlProps.fromJson(
           json['accessControlProps'] as Map<String, dynamic>,
         ),
+  smartAutoStop: json['smartAutoStop'] as bool? ?? false,
+  smartAutoStopNetworks:
+      (json['smartAutoStopNetworks'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
 );
 
 Map<String, dynamic> _$VpnPropsToJson(_VpnProps instance) => <String, dynamic>{
@@ -157,6 +163,8 @@ Map<String, dynamic> _$VpnPropsToJson(_VpnProps instance) => <String, dynamic>{
   'allowBypass': instance.allowBypass,
   'dnsHijacking': instance.dnsHijacking,
   'accessControlProps': instance.accessControlProps,
+  'smartAutoStop': instance.smartAutoStop,
+  'smartAutoStopNetworks': instance.smartAutoStopNetworks,
 };
 
 _NetworkProps _$NetworkPropsFromJson(Map<String, dynamic> json) =>

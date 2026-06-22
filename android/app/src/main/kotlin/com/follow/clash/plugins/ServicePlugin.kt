@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import java.net.NetworkInterface
 
 class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
@@ -60,6 +61,10 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
         "stop" -> {
             handleStop(result)
+        }
+
+        "getLocalIpAddresses" -> {
+            handleGetLocalIpAddresses(result)
         }
 
         else -> {
@@ -135,6 +140,27 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         launch {
             State.handleSyncState()
             result.success(State.runTime)
+        }
+    }
+
+    private fun handleGetLocalIpAddresses(result: MethodChannel.Result) {
+        launch {
+            val addresses = mutableListOf<String>()
+            try {
+                val interfaces = NetworkInterface.getNetworkInterfaces() ?: emptyList()
+                for (intf in interfaces) {
+                    if (intf.isLoopback || !intf.isUp) continue
+                    val name = intf.name.lowercase()
+                    if (name.startsWith("tun") || name.startsWith("utun") ||
+                        name.startsWith("ppp") || name.startsWith("vpn")) continue
+                    for (addr in intf.inetAddresses) {
+                        if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                            addresses.add(addr.hostAddress ?: "")
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+            result.success(addresses)
         }
     }
 }

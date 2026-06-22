@@ -44,6 +44,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
             .updateGroupsDebounce();
       }
     });
+    // Initialize smart auto stop manager (keepAlive, starts listening once)
+    ref.read(smartAutoStopManagerProvider);
     ref.listenManual(suspendProvider, (prev, next) {
       final isStart = ref.read(isStartProvider);
       if (prev != next && isStart) {

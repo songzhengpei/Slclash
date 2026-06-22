@@ -93,6 +93,11 @@ class Service {
     return DateTime.fromMillisecondsSinceEpoch(ms);
   }
 
+  Future<List<String>> getLocalIpAddresses() async {
+    final result = await methodChannel.invokeMethod<List>('getLocalIpAddresses');
+    return result?.cast<String>() ?? [];
+  }
+
   bool get hasListeners {
     return _listeners.isNotEmpty;
   }

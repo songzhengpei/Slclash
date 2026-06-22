@@ -178,6 +178,8 @@ abstract class VpnProps with _$VpnProps {
     @Default(true) bool allowBypass,
     @Default(false) bool dnsHijacking,
     @Default(defaultAccessControlProps) AccessControlProps accessControlProps,
+    @Default(false) bool smartAutoStop,
+    @Default([]) List<String> smartAutoStopNetworks,
   }) = _VpnProps;
 
   factory VpnProps.fromJson(Map<String, Object?>? json) =>
