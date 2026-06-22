@@ -15,6 +15,7 @@ object State {
 
     val runLock = Mutex()
     var runTime: Long = 0L
+    var isSmartStopped: Boolean = false
 
     var delegate: ServiceDelegate<IBaseService>? = null
 

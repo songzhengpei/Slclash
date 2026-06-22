@@ -179,6 +179,40 @@ class RemoteService : Service(),
         override fun getRunTime(): Long {
             return State.runTime
         }
+
+        override fun smartStop(result: IResultInterface) {
+            launch {
+                runLock.withLock {
+                    delegate?.useService { service ->
+                        service.smartStop()
+                    }
+                    State.runTime = 0
+                    State.isSmartStopped = true
+                    result.onResult(0)
+                }
+            }
+        }
+
+        override fun smartResume(result: IResultInterface) {
+            launch {
+                runLock.withLock {
+                    delegate?.useService { service ->
+                        service.smartResume()
+                    }
+                    State.runTime = System.currentTimeMillis()
+                    State.isSmartStopped = false
+                    result.onResult(State.runTime)
+                }
+            }
+        }
+
+        override fun setSmartStopped(value: Boolean) {
+            State.isSmartStopped = value
+        }
+
+        override fun isSmartStopped(): Boolean {
+            return State.isSmartStopped
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder {

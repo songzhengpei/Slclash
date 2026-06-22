@@ -176,4 +176,32 @@ object Service {
             it.runTime
         }.getOrNull() ?: 0L
     }
+
+    suspend fun smartStop(): Long {
+        return delegate.useService {
+            awaitIResultInterface { callback ->
+                it.smartStop(callback)
+            }
+        }.getOrNull() ?: 0L
+    }
+
+    suspend fun smartResume(): Long {
+        return delegate.useService {
+            awaitIResultInterface { callback ->
+                it.smartResume(callback)
+            }
+        }.getOrNull() ?: 0L
+    }
+
+    suspend fun setSmartStopped(value: Boolean) {
+        delegate.useService {
+            it.isSmartStopped = value
+        }
+    }
+
+    suspend fun isSmartStopped(): Boolean {
+        return delegate.useService {
+            it.isSmartStopped
+        }.getOrNull() ?: false
+    }
 }

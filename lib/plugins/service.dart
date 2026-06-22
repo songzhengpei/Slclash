@@ -98,6 +98,22 @@ class Service {
     return result?.cast<String>() ?? [];
   }
 
+  Future<bool> smartStop() async {
+    return await methodChannel.invokeMethod<bool>('smartStop') ?? false;
+  }
+
+  Future<bool> smartResume() async {
+    return await methodChannel.invokeMethod<bool>('smartResume') ?? false;
+  }
+
+  Future<void> setSmartStopped(bool value) async {
+    await methodChannel.invokeMethod<bool>('setSmartStopped', value);
+  }
+
+  Future<bool> isSmartStopped() async {
+    return await methodChannel.invokeMethod<bool>('isSmartStopped') ?? false;
+  }
+
   bool get hasListeners {
     return _listeners.isNotEmpty;
   }

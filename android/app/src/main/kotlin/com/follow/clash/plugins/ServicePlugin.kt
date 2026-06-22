@@ -67,6 +67,22 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             handleGetLocalIpAddresses(result)
         }
 
+        "smartStop" -> {
+            handleSmartStop(result)
+        }
+
+        "smartResume" -> {
+            handleSmartResume(result)
+        }
+
+        "setSmartStopped" -> {
+            handleSetSmartStopped(call, result)
+        }
+
+        "isSmartStopped" -> {
+            handleIsSmartStopped(result)
+        }
+
         else -> {
             result.notImplemented()
         }
@@ -161,6 +177,35 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 }
             } catch (_: Exception) {}
             result.success(addresses)
+        }
+    }
+
+    private fun handleSmartStop(result: MethodChannel.Result) {
+        launch {
+            Service.smartStop()
+            result.success(true)
+        }
+    }
+
+    private fun handleSmartResume(result: MethodChannel.Result) {
+        launch {
+            Service.smartResume()
+            result.success(true)
+        }
+    }
+
+    private fun handleSetSmartStopped(call: MethodCall, result: MethodChannel.Result) {
+        launch {
+            val value = call.arguments<Boolean>() ?: false
+            Service.setSmartStopped(value)
+            result.success(true)
+        }
+    }
+
+    private fun handleIsSmartStopped(result: MethodChannel.Result) {
+        launch {
+            val value = Service.isSmartStopped()
+            result.success(value)
         }
     }
 }

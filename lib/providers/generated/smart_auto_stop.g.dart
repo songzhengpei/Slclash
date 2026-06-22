@@ -75,6 +75,10 @@ abstract class _$IsSmartStopped extends $Notifier<bool> {
 /// When enabled, listens to connectivity changes and checks if the device's
 /// local IP matches any trusted network. If it does, the VPN is automatically
 /// stopped. When the device leaves the trusted network, the VPN is resumed.
+///
+/// On Android, uses native smartStop/smartResume to suspend/resume TUN
+/// without tearing down the service. Falls back to full stop/start on
+/// non-Android or when native calls fail.
 
 @ProviderFor(SmartAutoStopManager)
 final smartAutoStopManagerProvider = SmartAutoStopManagerProvider._();
@@ -84,6 +88,10 @@ final smartAutoStopManagerProvider = SmartAutoStopManagerProvider._();
 /// When enabled, listens to connectivity changes and checks if the device's
 /// local IP matches any trusted network. If it does, the VPN is automatically
 /// stopped. When the device leaves the trusted network, the VPN is resumed.
+///
+/// On Android, uses native smartStop/smartResume to suspend/resume TUN
+/// without tearing down the service. Falls back to full stop/start on
+/// non-Android or when native calls fail.
 final class SmartAutoStopManagerProvider
     extends $NotifierProvider<SmartAutoStopManager, bool> {
   /// Manages the smart auto stop lifecycle.
@@ -91,6 +99,10 @@ final class SmartAutoStopManagerProvider
   /// When enabled, listens to connectivity changes and checks if the device's
   /// local IP matches any trusted network. If it does, the VPN is automatically
   /// stopped. When the device leaves the trusted network, the VPN is resumed.
+  ///
+  /// On Android, uses native smartStop/smartResume to suspend/resume TUN
+  /// without tearing down the service. Falls back to full stop/start on
+  /// non-Android or when native calls fail.
   SmartAutoStopManagerProvider._()
     : super(
         from: null,
@@ -119,13 +131,17 @@ final class SmartAutoStopManagerProvider
 }
 
 String _$smartAutoStopManagerHash() =>
-    r'96fa99a5e953e077f3d1b8069f25eeabcd55d076';
+    r'56b8eedf025494998ecfda7de1b506d0abc22703';
 
 /// Manages the smart auto stop lifecycle.
 ///
 /// When enabled, listens to connectivity changes and checks if the device's
 /// local IP matches any trusted network. If it does, the VPN is automatically
 /// stopped. When the device leaves the trusted network, the VPN is resumed.
+///
+/// On Android, uses native smartStop/smartResume to suspend/resume TUN
+/// without tearing down the service. Falls back to full stop/start on
+/// non-Android or when native calls fail.
 
 abstract class _$SmartAutoStopManager extends $Notifier<bool> {
   bool build();

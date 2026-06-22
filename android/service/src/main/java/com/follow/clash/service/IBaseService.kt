@@ -18,4 +18,12 @@ interface IBaseService {
     fun start()
 
     fun stop()
+
+    fun smartStop() {
+        // Default no-op for services without TUN (e.g. CommonService)
+    }
+
+    fun smartResume() {
+        // Default no-op for services without TUN (e.g. CommonService)
+    }
 }

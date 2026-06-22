@@ -250,6 +250,16 @@ class VpnService : SystemVpnService(), IBaseService,
         stopSelf()
     }
 
+    override fun smartStop() {
+        Core.stopTun()
+    }
+
+    override fun smartResume() {
+        State.options?.let {
+            handleStart(it)
+        }
+    }
+
     companion object {
         private const val IPV4_ADDRESS = "172.19.0.1/30"
         private const val IPV6_ADDRESS = "fdfe:dcba:9876::1/126"

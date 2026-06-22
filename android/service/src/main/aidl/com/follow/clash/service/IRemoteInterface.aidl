@@ -16,4 +16,8 @@ interface IRemoteInterface {
     void stopService(in IResultInterface result);
     void setEventListener(in IEventInterface event);
     long getRunTime();
+    void smartStop(in IResultInterface result);
+    void smartResume(in IResultInterface result);
+    void setSmartStopped(boolean value);
+    boolean isSmartStopped();
 }
