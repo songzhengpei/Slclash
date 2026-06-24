@@ -1268,6 +1268,186 @@ abstract class _$CoreStatus extends $Notifier<CoreStatus> {
   }
 }
 
+/// Tracks whether the app is in the foreground (resumed).
+
+@ProviderFor(AppForeground)
+final appForegroundProvider = AppForegroundProvider._();
+
+/// Tracks whether the app is in the foreground (resumed).
+final class AppForegroundProvider
+    extends $NotifierProvider<AppForeground, bool> {
+  /// Tracks whether the app is in the foreground (resumed).
+  AppForegroundProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'appForegroundProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$appForegroundHash();
+
+  @$internal
+  @override
+  AppForeground create() => AppForeground();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$appForegroundHash() => r'b95c93abff5e9676df4a419e03a205da4ab337a5';
+
+/// Tracks whether the app is in the foreground (resumed).
+
+abstract class _$AppForeground extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+/// Tracks the last time the user interacted with the app (touch/mouse).
+
+@ProviderFor(LastUserInteractionAt)
+final lastUserInteractionAtProvider = LastUserInteractionAtProvider._();
+
+/// Tracks the last time the user interacted with the app (touch/mouse).
+final class LastUserInteractionAtProvider
+    extends $NotifierProvider<LastUserInteractionAt, DateTime?> {
+  /// Tracks the last time the user interacted with the app (touch/mouse).
+  LastUserInteractionAtProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'lastUserInteractionAtProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$lastUserInteractionAtHash();
+
+  @$internal
+  @override
+  LastUserInteractionAt create() => LastUserInteractionAt();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DateTime? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DateTime?>(value),
+    );
+  }
+}
+
+String _$lastUserInteractionAtHash() =>
+    r'c0486aaaae87e8b33721365a8c2a089766b05780';
+
+/// Tracks the last time the user interacted with the app (touch/mouse).
+
+abstract class _$LastUserInteractionAt extends $Notifier<DateTime?> {
+  DateTime? build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<DateTime?, DateTime?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<DateTime?, DateTime?>,
+              DateTime?,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+/// Whether UI auto-refresh tasks should be active.
+/// Derived: foreground is the primary gate.
+
+@ProviderFor(UiAutoRefreshEnabled)
+final uiAutoRefreshEnabledProvider = UiAutoRefreshEnabledProvider._();
+
+/// Whether UI auto-refresh tasks should be active.
+/// Derived: foreground is the primary gate.
+final class UiAutoRefreshEnabledProvider
+    extends $NotifierProvider<UiAutoRefreshEnabled, bool> {
+  /// Whether UI auto-refresh tasks should be active.
+  /// Derived: foreground is the primary gate.
+  UiAutoRefreshEnabledProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'uiAutoRefreshEnabledProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$uiAutoRefreshEnabledHash();
+
+  @$internal
+  @override
+  UiAutoRefreshEnabled create() => UiAutoRefreshEnabled();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$uiAutoRefreshEnabledHash() =>
+    r'e58ef321af8e1014d9d8a18e0018f8b2b9547cbb';
+
+/// Whether UI auto-refresh tasks should be active.
+/// Derived: foreground is the primary gate.
+
+abstract class _$UiAutoRefreshEnabled extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(Query)
 final queryProvider = QueryFamily._();
 

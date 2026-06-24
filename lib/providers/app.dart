@@ -278,6 +278,37 @@ class _CoreStatus extends _$CoreStatus with AutoDisposeNotifierMixin {
   }
 }
 
+/// Tracks whether the app is in the foreground (resumed).
+@Riverpod(keepAlive: true)
+class AppForeground extends _$AppForeground with AutoDisposeNotifierMixin {
+  @override
+  bool build() => true;
+
+  void set(bool value) => state = value;
+}
+
+/// Tracks the last time the user interacted with the app (touch/mouse).
+@Riverpod(keepAlive: true)
+class LastUserInteractionAt extends _$LastUserInteractionAt
+    with AutoDisposeNotifierMixin {
+  @override
+  DateTime? build() => null;
+
+  void touch() => state = DateTime.now();
+}
+
+/// Whether UI auto-refresh tasks should be active.
+/// Derived: foreground is the primary gate.
+@Riverpod(keepAlive: true)
+class UiAutoRefreshEnabled extends _$UiAutoRefreshEnabled
+    with AutoDisposeNotifierMixin {
+  @override
+  bool build() {
+    final isForeground = ref.watch(appForegroundProvider);
+    return isForeground;
+  }
+}
+
 @riverpod
 class Query extends _$Query with AutoDisposeNotifierMixin {
   @override

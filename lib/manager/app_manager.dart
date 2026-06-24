@@ -70,15 +70,19 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
   @override
   Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
     commonPrint.log('$state');
+    final ref = globalState.container;
     if (state == AppLifecycleState.resumed) {
-      render?.resume();
+      ref.read(appForegroundProvider.notifier).set(true);
+      // Refresh UI immediately when returning to foreground
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final ref = globalState.container;
         ref.read(setupActionProvider.notifier).tryCheckIp();
         if (system.isAndroid) {
           ref.read(coreActionProvider.notifier).tryStartCore();
         }
       });
+    } else {
+      // inactive / paused / detached
+      ref.read(appForegroundProvider.notifier).set(false);
     }
   }
 
@@ -92,6 +96,26 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     return Listener(
       onPointerHover: (_) {
         render?.resume();
+      },
+      onPointerDown: (_) {
+        globalState.container
+            .read(lastUserInteractionAtProvider.notifier)
+            .touch();
+      },
+      onPointerMove: (_) {
+        globalState.container
+            .read(lastUserInteractionAtProvider.notifier)
+            .touch();
+      },
+      onPointerUp: (_) {
+        globalState.container
+            .read(lastUserInteractionAtProvider.notifier)
+            .touch();
+      },
+      onPointerSignal: (_) {
+        globalState.container
+            .read(lastUserInteractionAtProvider.notifier)
+            .touch();
       },
       child: widget.child,
     );
