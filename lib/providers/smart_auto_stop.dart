@@ -128,6 +128,7 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
         // On trusted network and VPN is running — stop VPN
         await _smartStop();
       } else if (!isOnTrusted && isSmartStopped) {
+
         // Left trusted network — resume VPN
         await _smartResume();
       }
@@ -146,9 +147,11 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
         final success = await s.smartStop();
         if (success) {
           await s.setSmartStopped(true);
+          // Mark provider BEFORE clearing runTime so UI listeners see
+          // paused state before isStart flips to false.
+          ref.read(isSmartStoppedProvider.notifier).set(true);
           // Local: cancel timer, stop listener, clear runTime
           await setupAction.handleSmartStopLocal();
-          ref.read(isSmartStoppedProvider.notifier).set(true);
           return;
         }
       } catch (_) {}
@@ -194,6 +197,13 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
     } finally {
       _checking = false;
     }
+  }
+
+  /// Public entry point for the Dashboard "Resume" button.
+  /// Manually resumes VPN from smart stop state, reusing the same
+  /// checking lock and fallback logic as internal resume.
+  Future<void> resumeNow() async {
+    await _resumeFromSmartStop();
   }
 
   Future<List<String>> _getLocalIpAddresses() async {

@@ -4444,6 +4444,16 @@ class AppLocalizations {
     );
   }
 
+  /// `Resume`
+  String get resume {
+    return Intl.message(
+      'Resume',
+      name: 'resume',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Factory Reset`
   String get factoryReset {
     return Intl.message(

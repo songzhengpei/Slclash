@@ -34,10 +34,11 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
   void initState() {
     super.initState();
     final isStart = ref.read(isStartProvider);
+    final isSmartStopped = ref.read(isSmartStoppedProvider);
     _fillController = AnimationController(
       vsync: this,
       duration: _heroFillDuration,
-      value: isStart ? 1 : 0,
+      value: (isStart || isSmartStopped) ? 1 : 0,
     );
     _fillAnimation = CurvedAnimation(
       parent: _fillController,
@@ -99,6 +100,8 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         Theme.of(context).extension<SurgeTheme>() ?? SurgeTheme.light();
     final appLocalizations = context.appLocalizations;
     final isStart = ref.watch(isStartProvider);
+    final isSmartStopped = ref.watch(isSmartStoppedProvider);
+    final isSmartPaused = isSmartStopped && !isStart;
     final mode = ref.watch(
       patchClashConfigProvider.select((state) => state.mode),
     );
@@ -109,11 +112,22 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     final currentProfile = ref.watch(currentProfileProvider);
     final profileLabel =
         currentProfile?.realLabel.takeFirstValid(['SlClash']) ?? 'SlClash';
-    final statusLabel = isStart
-        ? appLocalizations.connected
-        : appLocalizations.disconnected;
+    final statusLabel = isSmartPaused
+        ? appLocalizations.smartStopped
+        : isStart
+            ? appLocalizations.connected
+            : appLocalizations.disconnected;
     ref.listen(isStartProvider, (previous, next) {
       if (next) {
+        _fillController.forward();
+      } else if (!ref.read(isSmartStoppedProvider)) {
+        // Only reverse fill on manual stop, not smart stop
+        _fillController.reverse();
+      }
+    });
+
+    ref.listen(isSmartStoppedProvider, (previous, next) {
+      if (next || ref.read(isStartProvider)) {
         _fillController.forward();
       } else {
         _fillController.reverse();
@@ -123,7 +137,8 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     ref.listen(coreStatusProvider, (previous, next) {
       final isFailedStart =
           previous == CoreStatus.connecting && next == CoreStatus.disconnected;
-      if (next == CoreStatus.disconnected) {
+      if (next == CoreStatus.disconnected &&
+          !ref.read(isSmartStoppedProvider)) {
         _fillController.reverse();
       }
       if (next != CoreStatus.disconnected || !isFailedStart) {
@@ -163,6 +178,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                     _ConnectionStatusLight(
                       coreStatus: coreStatus,
                       isStart: isStart,
+                      isSmartPaused: isSmartPaused,
                       showConnecting: _showConnecting,
                       showFailure: _showFailure,
                     ),
@@ -188,8 +204,15 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
               const SizedBox(width: 12),
               _HeroActionButton(
                 isStart: isStart,
+                isSmartPaused: isSmartPaused,
                 loading: coreStatus == CoreStatus.connecting,
-                onPressed: () => _handleSwitchStart(ref),
+                onPressed: () {
+                  if (isSmartPaused) {
+                    ref.read(smartAutoStopManagerProvider.notifier).resumeNow();
+                  } else {
+                    _handleSwitchStart(ref);
+                  }
+                },
               ),
             ],
           ),
@@ -202,6 +225,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                 modeLabel: '${_modeLabel(mode)} Mode',
                 title: '出站流量',
                 active: isStart,
+                isSmartPaused: isSmartPaused,
                 dynamicColor: dynamicColor,
                 connecting:
                     _showConnecting || coreStatus == CoreStatus.connecting,
@@ -229,6 +253,7 @@ class _HeroModeCard extends StatelessWidget {
     required this.title,
     required this.modeLabel,
     required this.active,
+    required this.isSmartPaused,
     required this.dynamicColor,
     required this.connecting,
     required this.failed,
@@ -239,6 +264,7 @@ class _HeroModeCard extends StatelessWidget {
   final String title;
   final String modeLabel;
   final bool active;
+  final bool isSmartPaused;
   final bool dynamicColor;
   final bool connecting;
   final bool failed;
@@ -257,6 +283,7 @@ class _HeroModeCard extends StatelessWidget {
                 title: title,
                 modeLabel: modeLabel,
                 active: active,
+                isSmartPaused: isSmartPaused,
                 dynamicColor: dynamicColor,
                 connecting: connecting,
                 failed: failed,
@@ -274,6 +301,7 @@ class _HeroModeCard extends StatelessWidget {
                         title: title,
                         modeLabel: modeLabel,
                         active: active,
+                        isSmartPaused: isSmartPaused,
                         dynamicColor: dynamicColor,
                         connecting: connecting,
                         failed: failed,
@@ -296,6 +324,7 @@ class _HeroModeCardSurface extends StatelessWidget {
     required this.title,
     required this.modeLabel,
     required this.active,
+    required this.isSmartPaused,
     required this.dynamicColor,
     required this.connecting,
     required this.failed,
@@ -306,6 +335,7 @@ class _HeroModeCardSurface extends StatelessWidget {
   final String title;
   final String modeLabel;
   final bool active;
+  final bool isSmartPaused;
   final bool dynamicColor;
   final bool connecting;
   final bool failed;
@@ -314,7 +344,9 @@ class _HeroModeCardSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeFill = dashboardDynamicActiveFill;
+    final surge = SurgeTheme.of(context);
+    final activeFill =
+        isSmartPaused ? surge.primary : dashboardDynamicActiveFill;
     const activeTextColor = Colors.white;
     const inactiveTextColor = Colors.white;
     final foreground = onBlue ? activeTextColor : inactiveTextColor;
@@ -393,6 +425,7 @@ class _HeroModeCardSurface extends StatelessWidget {
           const SizedBox(width: 10),
           _StatusPill(
             active: active,
+            isSmartPaused: isSmartPaused,
             connecting: connecting,
             failed: failed,
             label: statusLabel,
@@ -408,18 +441,32 @@ class _HeroModeCardSurface extends StatelessWidget {
 class _HeroActionButton extends StatelessWidget {
   const _HeroActionButton({
     required this.isStart,
+    required this.isSmartPaused,
     required this.loading,
     required this.onPressed,
   });
 
   final bool isStart;
+  final bool isSmartPaused;
   final bool loading;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final baseColor = isStart ? surge.red : surge.green;
+    final appLocalizations = context.appLocalizations;
+    final Color baseColor;
+    final String label;
+    if (isSmartPaused) {
+      baseColor = surge.primary;
+      label = appLocalizations.resume;
+    } else if (isStart) {
+      baseColor = surge.red;
+      label = '停止';
+    } else {
+      baseColor = surge.green;
+      label = '启动';
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -456,7 +503,7 @@ class _HeroActionButton extends StatelessWidget {
                     )
                   : Center(
                       child: Text(
-                        isStart ? '停止' : '启动',
+                        label,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: Colors.white,
                           fontSize: 14,
@@ -477,12 +524,14 @@ class _ConnectionStatusLight extends StatefulWidget {
   const _ConnectionStatusLight({
     required this.coreStatus,
     required this.isStart,
+    required this.isSmartPaused,
     required this.showConnecting,
     required this.showFailure,
   });
 
   final CoreStatus coreStatus;
   final bool isStart;
+  final bool isSmartPaused;
   final bool showConnecting;
   final bool showFailure;
 
@@ -533,6 +582,7 @@ class _ConnectionStatusLightState extends State<_ConnectionStatusLight>
 
   Color _color(SurgeTheme surge) {
     if (widget.showFailure) return surge.red;
+    if (widget.isSmartPaused) return surge.primary;
     if (widget.coreStatus == CoreStatus.connecting ||
         widget.showConnecting ||
         widget.isStart) {
@@ -561,7 +611,8 @@ class _ConnectionStatusLightState extends State<_ConnectionStatusLight>
                 alpha:
                     widget.coreStatus == CoreStatus.disconnected &&
                         !widget.isStart &&
-                        !widget.showFailure
+                        !widget.showFailure &&
+                        !widget.isSmartPaused
                     ? 0
                     : 0.32,
               ),
@@ -578,6 +629,7 @@ class _ConnectionStatusLightState extends State<_ConnectionStatusLight>
 class _StatusPill extends StatelessWidget {
   const _StatusPill({
     required this.active,
+    required this.isSmartPaused,
     required this.connecting,
     required this.failed,
     required this.label,
@@ -586,6 +638,7 @@ class _StatusPill extends StatelessWidget {
   });
 
   final bool active;
+  final bool isSmartPaused;
   final bool connecting;
   final bool failed;
   final String label;
@@ -612,6 +665,7 @@ class _StatusPill extends StatelessWidget {
         children: [
           _PillStatusLight(
             active: active,
+            isSmartPaused: isSmartPaused,
             connecting: connecting,
             failed: failed,
             onBlue: onBlue,
@@ -638,12 +692,14 @@ class _StatusPill extends StatelessWidget {
 class _PillStatusLight extends StatefulWidget {
   const _PillStatusLight({
     required this.active,
+    required this.isSmartPaused,
     required this.connecting,
     required this.failed,
     required this.onBlue,
   });
 
   final bool active;
+  final bool isSmartPaused;
   final bool connecting;
   final bool failed;
   final bool onBlue;
@@ -693,8 +749,9 @@ class _PillStatusLightState extends State<_PillStatusLight>
     }
   }
 
-  Color _color() {
+  Color _color(SurgeTheme surge) {
     if (widget.failed) return const Color(0xFFFF8A80);
+    if (widget.isSmartPaused) return surge.primary;
     if (widget.connecting || widget.active) return const Color(0xFF7BFFB2);
     return widget.onBlue
         ? Colors.white.withValues(alpha: 0.75)
@@ -703,7 +760,8 @@ class _PillStatusLightState extends State<_PillStatusLight>
 
   @override
   Widget build(BuildContext context) {
-    final color = _color();
+    final surge = SurgeTheme.of(context);
+    final color = _color(surge);
 
     return FadeTransition(
       opacity: _opacity,
@@ -717,9 +775,13 @@ class _PillStatusLightState extends State<_PillStatusLight>
           boxShadow: [
             BoxShadow(
               color: color.withValues(
-                alpha: !widget.active && !widget.connecting && !widget.failed
-                    ? 0
-                    : 0.32,
+                alpha:
+                    !widget.active &&
+                            !widget.connecting &&
+                            !widget.failed &&
+                            !widget.isSmartPaused
+                        ? 0
+                        : 0.32,
               ),
               blurRadius: 8,
               spreadRadius: 1,

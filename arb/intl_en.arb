@@ -545,6 +545,7 @@
   "networkAddressHint": "e.g. 192.168.1.0/24 or 10.0.0.1",
   "networksEmpty": "No trusted networks configured",
   "smartStopped": "Smart Stopped",
+  "resume": "Resume",
   "factoryReset": "Factory Reset",
   "confirmFactoryReset": "Are you sure you want to factory reset? This action cannot be undone.",
   "factoryResetDesc": "Clear all data and restore default settings"

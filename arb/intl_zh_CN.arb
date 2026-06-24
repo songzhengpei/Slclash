@@ -545,6 +545,7 @@
   "networkAddressHint": "例如 192.168.1.0/24 或 10.0.0.1",
   "networksEmpty": "未配置可信网络",
   "smartStopped": "已智能暂停",
+  "resume": "恢复",
   "factoryReset": "恢复出厂设置",
   "confirmFactoryReset": "确定要恢复出厂设置吗？此操作不可撤销。",
   "factoryResetDesc": "清除所有数据并恢复默认设置"
