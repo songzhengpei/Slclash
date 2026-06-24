@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
-import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -113,7 +113,6 @@ class HealthObservationSchedulerState {
 class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _tickInterval = Duration(seconds: 15);
   static const _idleDelay = Duration(seconds: 30);
-  static const _maxProxiesPerObservation = 5;
   static const _mediaCheckTimeout = Duration(seconds: 15);
   static const _observeSettingsKey = 'media-check-observe-settings-v1';
 
@@ -226,52 +225,73 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     _performObservation();
   }
 
-  /// Execute the actual health observation by calling through to
-  /// coreController.mediaCheck() with healthOnly=true.
+  /// Execute the actual health observation against the profile selected
+  /// in the media check page (persisted), or the current active profile
+  /// as fallback.
   ///
-  /// Environment unavailability (core not connected, VPN not running) is
-  /// recorded as skippedEnvironment — it does NOT count as a node failure.
+  /// Loads the profile's full clash config, enumerates all leaf proxy
+  /// nodes, and tests every one via coreController.mediaCheck().
+  ///
+  /// Environment unavailability (core not reachable, profile config
+  /// unloadable) is recorded as skippedEnvironment — it does NOT count
+  /// as a node health failure.
+  ///
+  /// Individual proxy timeouts/errors are caught silently per-node and
+  /// do NOT abort the batch.
   Future<void> _performObservation() async {
     try {
-      // --- Environment check ---
-      final coreStatus = ref.read(coreStatusProvider);
-      final isRunning = ref.read(isStartProvider);
+      // --- Determine the target profile ---
+      // Prefer the profile selected in the media check page (persisted).
+      // Fallback to the current active profile.
+      final selectedProfileId = ref.read(mediaCheckSelectedProfileIdProvider);
+      Profile? profile;
 
-      if (coreStatus != CoreStatus.connected || !isRunning) {
-        _completeObservation(skipReason: 'coreUnavailable');
-        return;
+      if (selectedProfileId != null) {
+        profile = _findProfileById(selectedProfileId);
       }
+      profile ??= ref.read(currentProfileProvider);
 
-      // --- Profile check ---
-      final profile = ref.read(currentProfileProvider);
       if (profile == null) {
-        _completeObservation(skipReason: 'noProfile');
+        _completeObservation(skipReason: 'noSelectedProfile');
         return;
       }
 
-      // --- Collect real proxy names from the group list ---
-      final groups = ref.read(groupsProvider);
-      if (groups.isEmpty) {
-        _completeObservation(skipReason: 'noGroups');
+      // --- Load the profile's clash config ---
+      // This may fail if the core is not available — that's OK,
+      // we'll record skippedEnvironment.
+      final configMap = await coreController.getConfig(profile.id);
+      final config = ClashConfig.fromJson(configMap);
+      final allProxies = config.proxies;
+
+      if (allProxies.isEmpty) {
+        _completeObservation(skipReason: 'noProxies');
         return;
       }
 
+      // --- Enumerate all leaf proxy nodes ---
+      // config.proxies contains all proxy entries from the YAML proxies:
+      // section (leaf nodes only; groups are in proxy-groups:).
+      // Filter out well-known reserved names defensively.
+      const reserved = {
+        'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL',
+      };
       final proxyNames = <String>{};
-      for (final group in groups) {
-        for (final proxy in group.all) {
+      for (final proxy in allProxies) {
+        if (!reserved.contains(proxy.name.toUpperCase())) {
           proxyNames.add(proxy.name);
         }
       }
+
       if (proxyNames.isEmpty) {
         _completeObservation(skipReason: 'noProxies');
         return;
       }
 
-      // --- Run health checks on a batch of proxies ---
-      final toTest = proxyNames.take(_maxProxiesPerObservation).toList();
+      // --- Test ALL proxies in the selected profile ---
+      // Every proxy is tested individually. A single timeout/failure
+      // does NOT abort the batch.
       int successes = 0;
-
-      for (final proxyName in toTest) {
+      for (final proxyName in proxyNames) {
         try {
           final result = await coreController
               .mediaCheck(
@@ -283,14 +303,23 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
               .timeout(_mediaCheckTimeout);
           if (result.isNotEmpty) successes++;
         } catch (_) {
-          // Individual proxy failure does NOT fail the whole observation.
+          // Individual proxy failure — continue with the next one.
         }
       }
 
       _completeObservation(success: successes > 0);
     } catch (e) {
-      _completeObservation(skipReason: 'error: $e');
+      _completeObservation(skipReason: 'coreUnavailable');
     }
+  }
+
+  /// Find a [Profile] by [id] from the profiles provider.
+  Profile? _findProfileById(int id) {
+    final profiles = ref.read(profilesProvider);
+    for (final p in profiles) {
+      if (p.id == id) return p;
+    }
+    return null;
   }
 
   void _completeObservation({bool success = false, String? skipReason}) {

@@ -309,6 +309,31 @@ class UiAutoRefreshEnabled extends _$UiAutoRefreshEnabled
   }
 }
 
+/// Tracks the profile ID selected in the media check page for
+/// background health observation. Persisted to preferences so the
+/// scheduler can continue observing even after the page is closed.
+@Riverpod(keepAlive: true)
+class MediaCheckSelectedProfileId extends _$MediaCheckSelectedProfileId
+    with AutoDisposeNotifierMixin {
+  static const _key = 'media-check-selected-profile-id';
+
+  @override
+  int? build() {
+    _load();
+    return null;
+  }
+
+  Future<void> _load() async {
+    final id = await preferences.getInt(_key);
+    if (id != null) state = id;
+  }
+
+  Future<void> select(int profileId) async {
+    state = profileId;
+    await preferences.setInt(_key, profileId);
+  }
+}
+
 @riverpod
 class Query extends _$Query with AutoDisposeNotifierMixin {
   @override

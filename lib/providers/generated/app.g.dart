@@ -1448,6 +1448,74 @@ abstract class _$UiAutoRefreshEnabled extends $Notifier<bool> {
   }
 }
 
+/// Tracks the profile ID selected in the media check page for
+/// background health observation. Persisted to preferences so the
+/// scheduler can continue observing even after the page is closed.
+
+@ProviderFor(MediaCheckSelectedProfileId)
+final mediaCheckSelectedProfileIdProvider =
+    MediaCheckSelectedProfileIdProvider._();
+
+/// Tracks the profile ID selected in the media check page for
+/// background health observation. Persisted to preferences so the
+/// scheduler can continue observing even after the page is closed.
+final class MediaCheckSelectedProfileIdProvider
+    extends $NotifierProvider<MediaCheckSelectedProfileId, int?> {
+  /// Tracks the profile ID selected in the media check page for
+  /// background health observation. Persisted to preferences so the
+  /// scheduler can continue observing even after the page is closed.
+  MediaCheckSelectedProfileIdProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'mediaCheckSelectedProfileIdProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$mediaCheckSelectedProfileIdHash();
+
+  @$internal
+  @override
+  MediaCheckSelectedProfileId create() => MediaCheckSelectedProfileId();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(int? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int?>(value),
+    );
+  }
+}
+
+String _$mediaCheckSelectedProfileIdHash() =>
+    r'a3d2738b0b080170a7e76fab72fd4e97b16c8a9d';
+
+/// Tracks the profile ID selected in the media check page for
+/// background health observation. Persisted to preferences so the
+/// scheduler can continue observing even after the page is closed.
+
+abstract class _$MediaCheckSelectedProfileId extends $Notifier<int?> {
+  int? build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int?, int?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int?, int?>,
+              int?,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(Query)
 final queryProvider = QueryFamily._();
 

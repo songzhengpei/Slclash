@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -86,6 +88,10 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _restoreConcurrency();
     _restoreObserveSettings();
     _loadTargets();
+    // Persist the initial profile selection for background health observation
+    globalState.container
+        .read(mediaCheckSelectedProfileIdProvider.notifier)
+        .select(_profile.id);
   }
 
   Future<void> _restoreConcurrency() async {
@@ -382,6 +388,10 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
       _profile = profile;
     });
     _loadTargets();
+    // Persist the selected profile for background health observation
+    globalState.container
+        .read(mediaCheckSelectedProfileIdProvider.notifier)
+        .select(profile.id);
   }
 
   void _changeFilter(_MediaCheckFilter filter) {
