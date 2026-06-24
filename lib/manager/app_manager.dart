@@ -73,7 +73,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     final ref = globalState.container;
     if (state == AppLifecycleState.resumed) {
       ref.read(appForegroundProvider.notifier).set(true);
-      // Refresh UI immediately when returning to foreground
+      // Resume UI stats timer if VPN is running and not smart-paused
+      ref.read(setupActionProvider.notifier).resumeUiStatsTimerIfNeeded();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(setupActionProvider.notifier).tryCheckIp();
         if (system.isAndroid) {
@@ -83,6 +84,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     } else {
       // inactive / paused / detached
       ref.read(appForegroundProvider.notifier).set(false);
+      // Cancel UI stats timer to save power (preserves startTime/traffic)
+      ref.read(setupActionProvider.notifier).cancelUiStatsTimer();
     }
   }
 

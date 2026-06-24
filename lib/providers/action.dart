@@ -286,10 +286,37 @@ class SetupAction extends _$SetupAction {
     if (!ref.read(suspendProvider)) {
       await coreController.startListener();
     }
+    _startUiStatsTimer();
+  }
+
+  void _startUiStatsTimer() {
+    _updateTimer?.cancel();
     _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       ref.read(commonActionProvider.notifier).updateRunTime();
       ref.read(commonActionProvider.notifier).updateTraffic();
     });
+  }
+
+  /// Cancel the UI stats timer when app goes to background.
+  /// Does NOT reset startTime, traffic, or core listener.
+  void cancelUiStatsTimer() {
+    _updateTimer?.cancel();
+    _updateTimer = null;
+  }
+
+  /// Resume the UI stats timer when app returns to foreground.
+  /// Only resumes if VPN is running and not smart-paused.
+  void resumeUiStatsTimerIfNeeded() {
+    final isRunning = ref.read(isStartProvider);
+    final isSmartStopped = ref.read(isSmartStoppedProvider);
+    if (!isRunning || isSmartStopped) return;
+    // Refresh immediately
+    ref.read(commonActionProvider.notifier).updateRunTime();
+    ref.read(commonActionProvider.notifier).updateTraffic();
+    // Restore periodic timer (no-op if already running)
+    if (_updateTimer == null) {
+      _startUiStatsTimer();
+    }
   }
 
   Future _updateStartTime() async {
@@ -324,10 +351,7 @@ class SetupAction extends _$SetupAction {
     if (!ref.read(suspendProvider)) {
       await coreController.startListener();
     }
-    _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      ref.read(commonActionProvider.notifier).updateRunTime();
-      ref.read(commonActionProvider.notifier).updateTraffic();
-    });
+    _startUiStatsTimer();
   }
 
   Future<void> initStatus() async {
