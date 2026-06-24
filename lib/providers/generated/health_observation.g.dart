@@ -88,7 +88,7 @@ final class HealthObservationSchedulerProvider
 }
 
 String _$healthObservationSchedulerHash() =>
-    r'cf33779b5565a045f8cad0d2766663167d323e92';
+    r'039af54eb82a90ee75c0bc841ddf6caa43d2cc03';
 
 /// App-level health observation scheduler.
 ///

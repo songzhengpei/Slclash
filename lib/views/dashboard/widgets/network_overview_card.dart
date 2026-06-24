@@ -5,9 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
-import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/providers.dart';
-import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/views/dashboard/widgets/dashboard_palette.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -50,8 +48,6 @@ class _SurgeNetworkOverviewCardState
   final Map<String, _LatencyResult> _latencyResults = {};
   Timer? _latencyRefreshTimer;
   bool _isTestingLatencies = false;
-  bool _lastIsStart = false;
-  int _lastCheckIpNum = 0;
   bool _isChinese(BuildContext context) {
     return Localizations.localeOf(context).languageCode.toLowerCase() == 'zh';
   }
@@ -106,9 +102,24 @@ class _SurgeNetworkOverviewCardState
   @override
   void initState() {
     super.initState();
+
+    // Listen to foreground changes — sync timer, refresh on return-to-foreground
+    ref.listenManual(appForegroundProvider, (prev, next) {
+      _syncLatencyRefreshTimer();
+      if (next) {
+        unawaited(_testLatencies(force: true));
+      }
+    });
+    // Listen to page changes — sync timer, refresh when dashboard becomes visible
+    ref.listenManual(currentPageLabelProvider, (prev, next) {
+      _syncLatencyRefreshTimer();
+      if (next == _pageLabel) {
+        unawaited(_testLatencies(force: true));
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _lastIsStart = ref.read(isStartProvider);
       if (_shouldRunUiRefresh(ref)) {
         unawaited(_testLatencies());
       }
@@ -123,10 +134,12 @@ class _SurgeNetworkOverviewCardState
   }
 
   bool _shouldRunUiRefresh(WidgetRef ref) {
-    final isForeground = ref.read(appForegroundProvider);
+    final uiAutoRefresh = ref.read(uiAutoRefreshEnabledProvider);
     final isDashboardPage =
         ref.read(currentPageLabelProvider) == _pageLabel;
-    return isForeground && isDashboardPage;
+    final isRunning = ref.read(isStartProvider);
+    final isSmartStopped = ref.read(isSmartStoppedProvider);
+    return uiAutoRefresh && isDashboardPage && isRunning && !isSmartStopped;
   }
 
   void _syncLatencyRefreshTimer() {
@@ -217,33 +230,6 @@ class _SurgeNetworkOverviewCardState
     final requests = ref.watch(requestsProvider);
     final networkDetection = ref.watch(networkDetectionProvider);
     final isStart = ref.watch(isStartProvider);
-    final checkIpNum = ref.watch(checkIpNumProvider);
-    // Sync latency timer on foreground / page changes
-    ref.listen(appForegroundProvider, (prev, next) {
-      _syncLatencyRefreshTimer();
-      if (next && mounted) {
-        // Force a single refresh when returning to foreground
-        unawaited(_testLatencies(force: true));
-      }
-    });
-    ref.listen(currentPageLabelProvider, (prev, next) {
-      _syncLatencyRefreshTimer();
-      if (next == _pageLabel && mounted) {
-        unawaited(_testLatencies(force: true));
-      }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _syncLatencyRefreshTimer();
-      if (isStart && !_lastIsStart) {
-        unawaited(_testLatencies(force: true));
-      }
-      if (checkIpNum != _lastCheckIpNum && _lastCheckIpNum != 0) {
-        unawaited(_testLatencies(force: true));
-      }
-      _lastIsStart = isStart;
-      _lastCheckIpNum = checkIpNum;
-    });
     final lastTraffic = traffics.isEmpty ? const Traffic() : traffics.last;
     final hasLiveTraffic = traffics.any(
       (traffic) => traffic.up > 0 || traffic.down > 0,

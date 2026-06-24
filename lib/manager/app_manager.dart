@@ -48,6 +48,13 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     ref.read(smartAutoStopManagerProvider);
     // Initialize health observation scheduler (keepAlive, starts tick timer)
     ref.read(healthObservationSchedulerProvider);
+    // Mark scheduler engine ready once app initialization completes
+    // (profile loaded, groups available, core connected).
+    ref.listenManual(initProvider, (prev, next) {
+      if (next == true) {
+        ref.read(healthObservationSchedulerProvider.notifier).markEngineReady();
+      }
+    });
     ref.listenManual(suspendProvider, (prev, next) {
       final isStart = ref.read(isStartProvider);
       if (prev != next && isStart) {

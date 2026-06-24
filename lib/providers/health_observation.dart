@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/core/core.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -109,6 +113,9 @@ class HealthObservationSchedulerState {
 class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _tickInterval = Duration(seconds: 15);
   static const _idleDelay = Duration(seconds: 30);
+  static const _maxProxiesPerObservation = 5;
+  static const _mediaCheckTimeout = Duration(seconds: 15);
+  static const _observeSettingsKey = 'media-check-observe-settings-v1';
 
   Timer? _tickTimer;
   DateTime? _appStartedAt;
@@ -125,6 +132,9 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       _tickTimer = null;
     });
 
+    // Load saved settings (enabled, interval) from preferences.
+    _loadSettings();
+
     // Start the condition-check tick timer immediately on provider init.
     // This runs regardless of foreground/background.
     _startTickTimer();
@@ -137,9 +147,27 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     _tickTimer = Timer.periodic(_tickInterval, (_) => _onTick());
   }
 
+  /// Reload scheduler settings from preferences (enabled, intervalMinutes).
+  Future<void> _loadSettings() async {
+    try {
+      final raw = await preferences.getString(_observeSettingsKey);
+      if (raw == null || raw.isEmpty) return;
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final enabled = json['enabled'] as bool? ?? false;
+      final interval = json['interval-minutes'] as int? ?? 60;
+      if (state.enabled != enabled || state.intervalMinutes != interval) {
+        state = state.copyWith(enabled: enabled, intervalMinutes: interval);
+      }
+    } catch (_) {
+      // Ignore parse errors — keep current settings
+    }
+  }
+
   /// Called every 15 seconds to check if observation should run.
   void _onTick() {
     if (!_engineReady) return;
+    // Reload settings on each tick so UI changes take effect promptly.
+    _loadSettings();
     final s = state;
     if (!s.enabled) return;
     if (s.isObserving) return;
@@ -180,7 +208,8 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     return false;
   }
 
-  /// Initiate an observation run.
+  /// Initiate an observation run. Sets observing state immediately,
+  /// then kicks off the async health check.
   void _triggerObservation() {
     final nextEligible =
         DateTime.now().add(Duration(minutes: state.intervalMinutes));
@@ -193,15 +222,83 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       clearSkipReason: true,
     );
 
-    // Execute the actual observation (simplified: marks completed).
-    _completeObservation(success: true);
+    // Async health check — fire and forget.
+    _performObservation();
   }
 
-  void _completeObservation({required bool success, String? skipReason}) {
+  /// Execute the actual health observation by calling through to
+  /// coreController.mediaCheck() with healthOnly=true.
+  ///
+  /// Environment unavailability (core not connected, VPN not running) is
+  /// recorded as skippedEnvironment — it does NOT count as a node failure.
+  Future<void> _performObservation() async {
+    try {
+      // --- Environment check ---
+      final coreStatus = ref.read(coreStatusProvider);
+      final isRunning = ref.read(isStartProvider);
+
+      if (coreStatus != CoreStatus.connected || !isRunning) {
+        _completeObservation(skipReason: 'coreUnavailable');
+        return;
+      }
+
+      // --- Profile check ---
+      final profile = ref.read(currentProfileProvider);
+      if (profile == null) {
+        _completeObservation(skipReason: 'noProfile');
+        return;
+      }
+
+      // --- Collect real proxy names from the group list ---
+      final groups = ref.read(groupsProvider);
+      if (groups.isEmpty) {
+        _completeObservation(skipReason: 'noGroups');
+        return;
+      }
+
+      final proxyNames = <String>{};
+      for (final group in groups) {
+        for (final proxy in group.all) {
+          proxyNames.add(proxy.name);
+        }
+      }
+      if (proxyNames.isEmpty) {
+        _completeObservation(skipReason: 'noProxies');
+        return;
+      }
+
+      // --- Run health checks on a batch of proxies ---
+      final toTest = proxyNames.take(_maxProxiesPerObservation).toList();
+      int successes = 0;
+
+      for (final proxyName in toTest) {
+        try {
+          final result = await coreController
+              .mediaCheck(
+                proxyName,
+                profileId: profile.id,
+                healthOnly: true,
+                mode: 'health',
+              )
+              .timeout(_mediaCheckTimeout);
+          if (result.isNotEmpty) successes++;
+        } catch (_) {
+          // Individual proxy failure does NOT fail the whole observation.
+        }
+      }
+
+      _completeObservation(success: successes > 0);
+    } catch (e) {
+      _completeObservation(skipReason: 'error: $e');
+    }
+  }
+
+  void _completeObservation({bool success = false, String? skipReason}) {
     if (skipReason != null) {
+      // Skipped — environment issue, not proxy health failure.
+      // Does NOT pollute node health scores.
       state = state.copyWith(
         isObserving: false,
-        lastCompletedAt: success ? DateTime.now() : null,
         lastSkippedReason: skipReason,
         skippedObservations: state.skippedObservations + 1,
       );
@@ -212,6 +309,10 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
         successfulObservations: state.successfulObservations + 1,
         clearSkipReason: true,
       );
+    } else {
+      // Observation ran but all proxy checks failed — mark done
+      // without incrementing success or skip counters.
+      state = state.copyWith(isObserving: false);
     }
   }
 
