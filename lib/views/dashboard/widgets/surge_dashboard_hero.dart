@@ -272,49 +272,19 @@ class _HeroModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final progress = fillProgress.clamp(0.0, 1.0);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            children: [
-              _HeroModeCardSurface(
-                title: title,
-                modeLabel: modeLabel,
-                active: active,
-                isSmartPaused: isSmartPaused,
-                dynamicColor: dynamicColor,
-                connecting: connecting,
-                failed: failed,
-                statusLabel: statusLabel,
-                onBlue: false,
-              ),
-              if (progress > 0)
-                ClipRect(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: progress,
-                    child: SizedBox(
-                      width: constraints.maxWidth,
-                      child: _HeroModeCardSurface(
-                        title: title,
-                        modeLabel: modeLabel,
-                        active: active,
-                        isSmartPaused: isSmartPaused,
-                        dynamicColor: dynamicColor,
-                        connecting: connecting,
-                        failed: failed,
-                        statusLabel: statusLabel,
-                        onBlue: true,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: _HeroModeCardSurface(
+        title: title,
+        modeLabel: modeLabel,
+        active: active,
+        isSmartPaused: isSmartPaused,
+        dynamicColor: dynamicColor,
+        connecting: connecting,
+        failed: failed,
+        statusLabel: statusLabel,
+        fillProgress: fillProgress.clamp(0.0, 1.0),
+      ),
     );
   }
 }
@@ -329,7 +299,7 @@ class _HeroModeCardSurface extends StatelessWidget {
     required this.connecting,
     required this.failed,
     required this.statusLabel,
-    required this.onBlue,
+    required this.fillProgress,
   });
 
   final String title;
@@ -340,34 +310,34 @@ class _HeroModeCardSurface extends StatelessWidget {
   final bool connecting;
   final bool failed;
   final String statusLabel;
-  final bool onBlue;
+  final double fillProgress;
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
+    final progress = fillProgress.clamp(0.0, 1.0);
     final activeFill =
-        isSmartPaused ? surge.primary : dashboardDynamicActiveFill;
-    const activeTextColor = Colors.white;
-    const inactiveTextColor = Colors.white;
-    final foreground = onBlue ? activeTextColor : inactiveTextColor;
-    final secondary = foreground.withValues(
-      alpha: onBlue && dynamicColor ? 0.92 : 0.82,
-    );
+        isSmartPaused ? dashboardSmartPausedFill : dashboardDynamicActiveFill;
+    const foregroundColor = Colors.white;
+    final secondaryAlpha =
+        lerpDouble(0.82, dynamicColor ? 0.92 : 0.82, progress)!;
+    final secondaryColor = foregroundColor.withValues(alpha: secondaryAlpha);
+    final onBlue = progress > 0.5;
+
     return Container(
       width: double.infinity,
       height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       decoration: BoxDecoration(
-        color: onBlue && dynamicColor
-            ? activeFill
-            : onBlue
-            ? null
-            : dashboardInactiveFill,
-        gradient: onBlue && !dynamicColor
+        color: Color.lerp(dashboardInactiveFill, activeFill, progress)!,
+        gradient: !dynamicColor && progress > 0.001
             ? LinearGradient(
                 colors: [
-                  activeFill,
-                  Color.lerp(activeFill, Colors.black, 0.16)!,
+                  Color.lerp(dashboardInactiveFill, activeFill, progress)!,
+                  Color.lerp(
+                    Color.lerp(dashboardInactiveFill, activeFill, progress)!,
+                    Colors.black,
+                    0.16,
+                  )!,
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -381,12 +351,10 @@ class _HeroModeCardSurface extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: onBlue
-                  ? Colors.white.withValues(alpha: 0.14)
-                  : Colors.white.withValues(alpha: 0.14),
+              color: Colors.white.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(Icons.call_split_rounded, color: foreground, size: 21),
+            child: const Icon(Icons.call_split_rounded, color: Colors.white, size: 21),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -399,7 +367,7 @@ class _HeroModeCardSurface extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   style: context.textTheme.titleLarge?.copyWith(
-                    color: foreground,
+                    color: foregroundColor,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     height: 1.05,
@@ -412,7 +380,7 @@ class _HeroModeCardSurface extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   style: context.textTheme.bodyMedium?.copyWith(
-                    color: secondary,
+                    color: secondaryColor,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     height: 1.08,
@@ -458,8 +426,8 @@ class _HeroActionButton extends StatelessWidget {
     final Color baseColor;
     final String label;
     if (isSmartPaused) {
-      baseColor = surge.primary;
-      label = appLocalizations.resume;
+      baseColor = dashboardSmartPausedFill;
+      label = appLocalizations.smartStopped;
     } else if (isStart) {
       baseColor = surge.red;
       label = '停止';

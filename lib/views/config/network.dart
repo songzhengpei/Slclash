@@ -438,46 +438,19 @@ class _SmartAutoStopNetworksPageState
     required String title,
     String? initialValue,
     required ValueChanged<String> onSave,
-  }) {
-    showSheet(
+  }) async {
+    final result = await showDialog<String>(
       context: context,
-      builder: (context) {
-        final controller = TextEditingController(text: initialValue ?? '');
-        return AdaptiveSheetScaffold(
-          title: title,
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    labelText: context.appLocalizations.networkAddress,
-                    hintText: context.appLocalizations.networkAddressHint,
-                  ),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      final value = controller.text.trim();
-                      if (value.isNotEmpty) {
-                        onSave(value);
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    child: Text(context.appLocalizations.save),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (context) => InputDialog(
+        title: title,
+        value: initialValue ?? '',
+        labelText: context.appLocalizations.networkAddress,
+        hintText: context.appLocalizations.networkAddressHint,
+      ),
     );
+    if (result != null && result.trim().isNotEmpty) {
+      onSave(result.trim());
+    }
   }
 
   @override
@@ -524,11 +497,11 @@ class NetworkListView extends StatelessWidget {
           items: [
             const VpnSystemProxyItem(),
             const BypassDomainItem(),
+            const SmartAutoStopItem(),
+            const SmartAutoStopNetworksItem(),
             const AllowBypassItem(),
             const Ipv6Item(),
             const DNSHijackingItem(),
-            const SmartAutoStopItem(),
-            const SmartAutoStopNetworksItem(),
           ],
         ),
       if (system.isDesktop)

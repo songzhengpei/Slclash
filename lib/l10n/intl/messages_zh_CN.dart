@@ -639,7 +639,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "smartAutoStopDesc": MessageLookupByLibrary.simpleMessage(
       "连接到可信网络时自动暂停 VPN，离开后自动恢复",
     ),
-    "smartStopped": MessageLookupByLibrary.simpleMessage("已智能暂停"),
+    "smartStopped": MessageLookupByLibrary.simpleMessage("已暂停"),
     "socksPort": MessageLookupByLibrary.simpleMessage("Socks端口"),
     "sort": MessageLookupByLibrary.simpleMessage("排序"),
     "source": MessageLookupByLibrary.simpleMessage("来源"),
