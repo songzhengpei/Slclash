@@ -46,6 +46,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     });
     // Initialize smart auto stop manager (keepAlive, starts listening once)
     ref.read(smartAutoStopManagerProvider);
+    // Initialize health observation scheduler (keepAlive, starts tick timer)
+    ref.read(healthObservationSchedulerProvider);
     ref.listenManual(suspendProvider, (prev, next) {
       final isStart = ref.read(isStartProvider);
       if (prev != next && isStart) {
@@ -73,6 +75,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     final ref = globalState.container;
     if (state == AppLifecycleState.resumed) {
       ref.read(appForegroundProvider.notifier).set(true);
+      ref.read(healthObservationSchedulerProvider.notifier)
+          .onLifecycleChanged(DateTime.now());
       // Resume UI stats timer if VPN is running and not smart-paused
       ref.read(setupActionProvider.notifier).resumeUiStatsTimerIfNeeded();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -84,6 +88,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     } else {
       // inactive / paused / detached
       ref.read(appForegroundProvider.notifier).set(false);
+      ref.read(healthObservationSchedulerProvider.notifier)
+          .onLifecycleChanged(DateTime.now());
       // Cancel UI stats timer to save power (preserves startTime/traffic)
       ref.read(setupActionProvider.notifier).cancelUiStatsTimer();
     }
