@@ -129,7 +129,10 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     final connecting = coreStatus == CoreStatus.connecting || _showConnecting;
     final transitionStart = _transitionKind == 'start';
     final transitionStop = _transitionKind == 'stop';
-    final buttonLabel = isSmartResuming
+    final transitionPausing = _transitionKind == 'pausing';
+    final buttonLabel = transitionPausing
+        ? '暂停中'
+        : isSmartResuming
         ? '恢复中'
         : transitionStop
         ? '停止中'
@@ -141,7 +144,11 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         ? '停止'
         : '启动';
     final buttonLoading =
-        isSmartResuming || transitionStart || transitionStop || connecting;
+        transitionPausing ||
+        isSmartResuming ||
+        transitionStart ||
+        transitionStop ||
+        connecting;
     final dynamicColor = ref.watch(
       themeSettingProvider.select((state) => state.dynamicColor),
     );
@@ -162,15 +169,30 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     });
 
     ref.listen(isSmartStoppedProvider, (previous, next) {
-      // Color transition is handled by TweenAnimationBuilder in
-      // _HeroModeCardSurface; no fill animation needed here.
+      // Auto smart-stop triggered during start transition → "暂停中"
+      if (next && previous == false && _transitionKind == 'start') {
+        _sheenController.repeat();
+        if (mounted) setState(() => _transitionKind = 'pausing');
+        return;
+      }
+      // "暂停中" resolved → stop sheen
+      if (_transitionKind == 'pausing' && isSmartPaused) {
+        _sheenController.stop();
+        if (mounted) setState(() => _transitionKind = null);
+      }
     });
 
     // Auto-clear transition when proxy state catches up.
     ref.listen(isStartProvider, (previous, next) {
       if (_transitionKind == 'start' && next) {
         _sheenController.stop();
-        if (mounted) setState(() => _transitionKind = null);
+        _connectingTimer?.cancel();
+        if (mounted) {
+          setState(() {
+            _showConnecting = false;
+            _transitionKind = null;
+          });
+        }
       } else if (_transitionKind == 'stop' && !next && !isSmartStopped) {
         _sheenController.stop();
         if (mounted) setState(() => _transitionKind = null);
@@ -477,7 +499,7 @@ class _HeroActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final Color baseColor;
-    if (isSmartPaused || isSmartResuming) {
+    if (isSmartPaused || isSmartResuming || label == '暂停中') {
       baseColor = surge.orange;
     } else if (isStart || label == '停止中') {
       baseColor = surge.red;
@@ -679,17 +701,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Dropdown arrow icon, color reflects connection status
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              child: Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 18,
-                color: statusColor,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
+            Flexible(
               child: Text(
                 profileLabel,
                 maxLines: 1,
@@ -701,6 +713,16 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
                   height: 1.0,
                   letterSpacing: 0,
                 ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Dropdown arrow icon, color reflects connection status
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: statusColor,
               ),
             ),
           ],
