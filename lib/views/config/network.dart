@@ -365,61 +365,79 @@ class SmartAutoStopNetworksItem extends ConsumerWidget {
       vpnSettingProvider.select((state) => state.smartAutoStop),
     );
     if (!smartAutoStop) return const SizedBox.shrink();
+    return ListItem.open(
+      title: Text(appLocalizations.trustedNetworks),
+      subtitle: Text(
+        networks.isEmpty
+            ? appLocalizations.networksEmpty
+            : '${networks.length} ${appLocalizations.networksEmpty}',
+      ),
+      leading: const Icon(Icons.wifi_lock),
+      delegate: const OpenDelegate(blur: false, widget: _TrustedNetworksPage()),
+    );
+  }
+}
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Add trusted network — tap opens InputDialog, same pattern as
-        // the original _showEditSheet.
-        ListTile(
-          leading: const Icon(Icons.add),
-          title: Text(appLocalizations.addNetwork),
-          subtitle: networks.isEmpty
-              ? Text(appLocalizations.networksEmpty)
-              : null,
-          onTap: () async {
-            final result = await showDialog<String>(
-              context: context,
-              builder: (context) => InputDialog(
-                title: appLocalizations.addNetwork,
-                value: '',
-                labelText: appLocalizations.networkAddress,
-                hintText: appLocalizations.networkAddressHint,
-              ),
-            );
-            if (result != null && result.trim().isNotEmpty) {
-              ref
-                  .read(vpnSettingProvider.notifier)
-                  .update(
-                    (state) => state.copyWith(
-                      smartAutoStopNetworks: [
-                        ...state.smartAutoStopNetworks,
-                        result.trim(),
-                      ],
-                    ),
-                  );
-            }
-          },
-        ),
-        // Existing trusted networks with delete buttons
-        if (networks.isNotEmpty)
-          ...networks.asMap().entries.map(
-            (entry) => ListTile(
-              title: Text(entry.value),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () {
-                  ref.read(vpnSettingProvider.notifier).update((state) {
-                    final newList = List<String>.from(
-                      state.smartAutoStopNetworks,
-                    )..removeAt(entry.key);
-                    return state.copyWith(smartAutoStopNetworks: newList);
-                  });
-                },
-              ),
+class _TrustedNetworksPage extends ConsumerWidget {
+  const _TrustedNetworksPage();
+
+  @override
+  Widget build(BuildContext context, ref) {
+    final appLocalizations = context.appLocalizations;
+    final networks = ref.watch(
+      vpnSettingProvider.select((state) => state.smartAutoStopNetworks),
+    );
+    final items = <Widget>[
+      // Add network action row
+      ListTile(
+        leading: const Icon(Icons.add),
+        title: Text(appLocalizations.addNetwork),
+        subtitle: networks.isEmpty
+            ? Text(appLocalizations.networksEmpty)
+            : null,
+        onTap: () async {
+          final result = await showDialog<String>(
+            context: context,
+            builder: (context) => InputDialog(
+              title: appLocalizations.addNetwork,
+              value: '',
+              labelText: appLocalizations.networkAddress,
+              hintText: appLocalizations.networkAddressHint,
             ),
+          );
+          if (result != null && result.trim().isNotEmpty) {
+            ref
+                .read(vpnSettingProvider.notifier)
+                .update(
+                  (state) => state.copyWith(
+                    smartAutoStopNetworks: [
+                      ...state.smartAutoStopNetworks,
+                      result.trim(),
+                    ],
+                  ),
+                );
+          }
+        },
+      ),
+      // Existing networks with delete buttons
+      for (var i = 0; i < networks.length; i++)
+        ListTile(
+          title: Text(networks[i]),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () {
+              ref.read(vpnSettingProvider.notifier).update((state) {
+                final newList = List<String>.from(state.smartAutoStopNetworks)
+                  ..removeAt(i);
+                return state.copyWith(smartAutoStopNetworks: newList);
+              });
+            },
           ),
-      ],
+        ),
+    ];
+    return BaseScaffold(
+      title: appLocalizations.trustedNetworks,
+      body: generateListView(items),
     );
   }
 }

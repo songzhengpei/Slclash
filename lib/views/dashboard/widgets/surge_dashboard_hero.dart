@@ -27,7 +27,9 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
   Timer? _connectingTimer;
   bool _showFailure = false;
   bool _showConnecting = false;
+  String? _transitionKind;
   late final AnimationController _fillController;
+  late final AnimationController _sheenController;
   late final Animation<double> _fillAnimation;
 
   @override
@@ -45,6 +47,10 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       curve: Curves.easeInOutCubic,
       reverseCurve: Curves.easeInOutCubic,
     );
+    _sheenController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
   }
 
   @override
@@ -52,6 +58,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     _failureTimer?.cancel();
     _connectingTimer?.cancel();
     _fillController.dispose();
+    _sheenController.dispose();
     super.dispose();
   }
 
@@ -65,16 +72,28 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
 
   void _handleSwitchStart(WidgetRef ref) {
     final nextIsStart = !ref.read(isStartProvider);
+    final kind = nextIsStart ? 'start' : 'stop';
+    if (mounted) {
+      setState(() => _transitionKind = kind);
+      _sheenController.repeat();
+    }
     if (nextIsStart) {
       _startConnectingAnimation();
       _fillController.forward();
     } else {
       _fillController.reverse();
     }
-    debouncer.call(FunctionTag.updateStatus, () {
-      ref
-          .read(setupActionProvider.notifier)
-          .updateStatus(nextIsStart, isInit: !ref.read(initProvider));
+    debouncer.call(FunctionTag.updateStatus, () async {
+      try {
+        await ref
+            .read(setupActionProvider.notifier)
+            .updateStatus(nextIsStart, isInit: !ref.read(initProvider));
+      } finally {
+        if (mounted) {
+          setState(() => _transitionKind = null);
+          _sheenController.stop();
+        }
+      }
     }, duration: commonDuration);
   }
 
@@ -107,6 +126,22 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       patchClashConfigProvider.select((state) => state.mode),
     );
     final coreStatus = ref.watch(coreStatusProvider);
+    final connecting = coreStatus == CoreStatus.connecting || _showConnecting;
+    final transitionStart = _transitionKind == 'start';
+    final transitionStop = _transitionKind == 'stop';
+    final buttonLabel = isSmartResuming
+        ? '恢复中'
+        : transitionStop
+        ? '停止中'
+        : (transitionStart || connecting)
+        ? '启动中'
+        : isSmartPaused
+        ? '恢复'
+        : isStart
+        ? '停止'
+        : '启动';
+    final buttonLoading =
+        isSmartResuming || transitionStart || transitionStop || connecting;
     final dynamicColor = ref.watch(
       themeSettingProvider.select((state) => state.dynamicColor),
     );
@@ -116,8 +151,8 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     final statusLabel = isSmartPaused
         ? appLocalizations.smartStopped
         : isStart
-            ? appLocalizations.connected
-            : appLocalizations.disconnected;
+        ? appLocalizations.connected
+        : appLocalizations.disconnected;
     ref.listen(isStartProvider, (previous, next) {
       if (next) {
         _fillController.forward();
@@ -129,6 +164,17 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     ref.listen(isSmartStoppedProvider, (previous, next) {
       // Color transition is handled by TweenAnimationBuilder in
       // _HeroModeCardSurface; no fill animation needed here.
+    });
+
+    // Auto-clear transition when proxy state catches up.
+    ref.listen(isStartProvider, (previous, next) {
+      if (_transitionKind == 'start' && next) {
+        _sheenController.stop();
+        if (mounted) setState(() => _transitionKind = null);
+      } else if (_transitionKind == 'stop' && !next && !isSmartStopped) {
+        _sheenController.stop();
+        if (mounted) setState(() => _transitionKind = null);
+      }
     });
 
     ref.listen(coreStatusProvider, (previous, next) {
@@ -169,48 +215,34 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         children: [
           Row(
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    _ConnectionStatusLight(
-                      coreStatus: coreStatus,
-                      isStart: isStart,
-                      isSmartPaused: isSmartPaused,
-                      showConnecting: _showConnecting,
-                      showFailure: _showFailure,
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        profileLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              color: surge.textPrimary,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w500,
-                              height: 1.0,
-                              letterSpacing: 0,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
+              _SubscriptionSelectorBar(
+                profileLabel: profileLabel,
+                currentProfileId: currentProfile?.id,
+                coreStatus: coreStatus,
+                isStart: isStart,
+                isSmartPaused: isSmartPaused,
+                showConnecting: _showConnecting,
+                showFailure: _showFailure,
               ),
               const SizedBox(width: 12),
               _HeroActionButton(
                 isStart: isStart,
                 isSmartPaused: isSmartPaused,
                 isSmartResuming: isSmartResuming,
-                loading: coreStatus == CoreStatus.connecting || isSmartResuming,
-                onPressed: () {
-                  if (isSmartPaused) {
-                    ref.read(smartAutoStopManagerProvider.notifier).resumeNow();
-                  } else {
-                    _handleSwitchStart(ref);
-                  }
-                },
+                loading: buttonLoading,
+                label: buttonLabel,
+                sheenController: _sheenController,
+                onPressed: buttonLoading
+                    ? null
+                    : () {
+                        if (isSmartPaused) {
+                          ref
+                              .read(smartAutoStopManagerProvider.notifier)
+                              .resumeNow();
+                        } else {
+                          _handleSwitchStart(ref);
+                        }
+                      },
               ),
             ],
           ),
@@ -313,11 +345,15 @@ class _HeroModeCardSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = fillProgress.clamp(0.0, 1.0);
-    final activeFill =
-        isSmartPaused ? dashboardSmartPausedFill : dashboardDynamicActiveFill;
+    final activeFill = isSmartPaused
+        ? dashboardSmartPausedFill
+        : dashboardDynamicActiveFill;
     const foregroundColor = Colors.white;
-    final secondaryAlpha =
-        lerpDouble(0.82, dynamicColor ? 0.92 : 0.82, progress)!;
+    final secondaryAlpha = lerpDouble(
+      0.82,
+      dynamicColor ? 0.92 : 0.82,
+      progress,
+    )!;
     final secondaryColor = foregroundColor.withValues(alpha: secondaryAlpha);
     final onBlue = progress > 0.5;
 
@@ -327,8 +363,11 @@ class _HeroModeCardSurface extends StatelessWidget {
       curve: Curves.easeInOutCubic,
       builder: (context, animatedActiveFill, child) {
         final smoothFill = animatedActiveFill ?? activeFill;
-        final fillColor =
-            Color.lerp(dashboardInactiveFill, smoothFill, progress)!;
+        final fillColor = Color.lerp(
+          dashboardInactiveFill,
+          smoothFill,
+          progress,
+        )!;
         return Container(
           width: double.infinity,
           height: 80,
@@ -359,7 +398,11 @@ class _HeroModeCardSurface extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.call_split_rounded, color: Colors.white, size: 21),
+            child: const Icon(
+              Icons.call_split_rounded,
+              color: Colors.white,
+              size: 21,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -417,6 +460,8 @@ class _HeroActionButton extends StatelessWidget {
     required this.isSmartPaused,
     required this.isSmartResuming,
     required this.loading,
+    required this.label,
+    required this.sheenController,
     required this.onPressed,
   });
 
@@ -424,22 +469,20 @@ class _HeroActionButton extends StatelessWidget {
   final bool isSmartPaused;
   final bool isSmartResuming;
   final bool loading;
-  final VoidCallback onPressed;
+  final String label;
+  final AnimationController sheenController;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final Color baseColor;
-    final String label;
-    if (isSmartPaused) {
+    if (isSmartPaused || isSmartResuming) {
       baseColor = surge.orange;
-      label = isSmartResuming ? '恢复中' : '恢复';
-    } else if (isStart) {
+    } else if (isStart || label == '停止中') {
       baseColor = surge.red;
-      label = '停止';
     } else {
       baseColor = surge.green;
-      label = '启动';
     }
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -460,23 +503,25 @@ class _HeroActionButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: loading ? null : onPressed,
+          onTap: onPressed,
           borderRadius: BorderRadius.circular(18),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 74, minHeight: 28),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: loading
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: surge.onPrimary,
-                      ),
-                    )
-                  : Center(
-                      child: Text(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Shimmer layer — only visible when loading
+                  if (loading)
+                    Positioned.fill(
+                      child: _ActionButtonSheen(controller: sheenController),
+                    ),
+                  // Text label
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
                         label,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: Colors.white,
@@ -485,7 +530,15 @@ class _HeroActionButton extends StatelessWidget {
                           letterSpacing: 0,
                         ),
                       ),
-                    ),
+                      // Animated dots during loading
+                      if (loading) ...[
+                        const SizedBox(width: 2),
+                        _LoadingDots(controller: sheenController),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -494,8 +547,96 @@ class _HeroActionButton extends StatelessWidget {
   }
 }
 
-class _ConnectionStatusLight extends StatefulWidget {
-  const _ConnectionStatusLight({
+/// Sliding sheen gradient that sweeps across the button during loading.
+class _ActionButtonSheen extends StatelessWidget {
+  const _ActionButtonSheen({required this.controller});
+
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) {
+          return FractionalTranslation(
+            translation: Offset(-1.4 + controller.value * 2.8, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                width: 52,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0),
+                      Colors.white.withValues(alpha: 0.18),
+                      Colors.white.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Three subtle dots that pulse during loading.
+class _LoadingDots extends StatelessWidget {
+  const _LoadingDots({required this.controller});
+
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        final t = controller.value;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Dot(opacity: _dotOpacity(t, 0)),
+            _Dot(opacity: _dotOpacity(t, 1)),
+            _Dot(opacity: _dotOpacity(t, 2)),
+          ],
+        );
+      },
+    );
+  }
+
+  double _dotOpacity(double t, int index) {
+    final phase = (t + index / 3) % 1;
+    return phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+  }
+}
+
+class _Dot extends StatelessWidget {
+  const _Dot({required this.opacity});
+
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 3,
+      height: 3,
+      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: opacity.clamp(0.0, 1.0)),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+class _SubscriptionSelectorBar extends ConsumerWidget {
+  const _SubscriptionSelectorBar({
+    required this.profileLabel,
+    required this.currentProfileId,
     required this.coreStatus,
     required this.isStart,
     required this.isSmartPaused,
@@ -503,99 +644,167 @@ class _ConnectionStatusLight extends StatefulWidget {
     required this.showFailure,
   });
 
+  final String profileLabel;
+  final int? currentProfileId;
   final CoreStatus coreStatus;
   final bool isStart;
   final bool isSmartPaused;
   final bool showConnecting;
   final bool showFailure;
 
-  @override
-  State<_ConnectionStatusLight> createState() => _ConnectionStatusLightState();
-}
-
-class _ConnectionStatusLightState extends State<_ConnectionStatusLight>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: _statusLightPulseDuration,
-      lowerBound: 0.35,
-      upperBound: 1,
-    );
-    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-    _syncAnimation();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ConnectionStatusLight oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _syncAnimation();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _syncAnimation() {
-    if (widget.coreStatus == CoreStatus.connecting || widget.showConnecting) {
-      if (!_controller.isAnimating) {
-        _controller.repeat(reverse: true);
-      }
-    } else {
-      _controller.stop();
-      _controller.value = 1;
-    }
-  }
-
-  Color _color(SurgeTheme surge) {
-    if (widget.showFailure) return surge.red;
-    if (widget.isSmartPaused) return surge.orange;
-    if (widget.coreStatus == CoreStatus.connecting ||
-        widget.showConnecting ||
-        widget.isStart) {
+  Color _statusColor(SurgeTheme surge) {
+    if (showFailure) return surge.red;
+    if (isSmartPaused) return surge.orange;
+    if (coreStatus == CoreStatus.connecting || showConnecting || isStart) {
       return const Color(0xFF2FAA67);
     }
     return surge.textSecondary.withValues(alpha: 0.48);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final surge = SurgeTheme.of(context);
-    final color = _color(surge);
+    final profiles = ref.watch(profilesProvider);
+    final statusColor = _statusColor(surge);
 
-    return FadeTransition(
-      opacity: _opacity,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(
-                alpha:
-                    widget.coreStatus == CoreStatus.disconnected &&
-                        !widget.isStart &&
-                        !widget.showFailure &&
-                        !widget.isSmartPaused
-                    ? 0
-                    : 0.32,
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _showSubscriptionSelectorSheet(
+          context,
+          ref,
+          profiles,
+          currentProfileId,
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Dropdown arrow icon, color reflects connection status
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: statusColor,
               ),
-              blurRadius: 8,
-              spreadRadius: 1,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                profileLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: surge.textPrimary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w500,
+                  height: 1.0,
+                  letterSpacing: 0,
+                ),
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showSubscriptionSelectorSheet(
+    BuildContext context,
+    WidgetRef ref,
+    List<Profile> profiles,
+    int? currentProfileId,
+  ) {
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: false),
+      builder: (sheetContext) {
+        final surge = SurgeTheme.of(sheetContext);
+        return AdaptiveSheetScaffold(
+          title: '选择订阅',
+          body: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            itemCount: profiles.length,
+            itemBuilder: (context, index) {
+              final profile = profiles[index];
+              final isSelected = profile.id == currentProfileId;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      ref.read(currentProfileIdProvider.notifier).value =
+                          profile.id;
+                      Navigator.of(context).pop();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected ? surge.selectedFill : surge.fill,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? surge.primary.withValues(alpha: 0.48)
+                              : surge.separator,
+                          width: isSelected ? 1 : 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          if (isSelected) ...[
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF2FAA67),
+                                shape: BoxShape.circle,
+                              ),
+                              margin: const EdgeInsets.only(right: 8),
+                            ),
+                          ],
+                          Expanded(
+                            child: Text(
+                              profile.realLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.textTheme.bodyMedium?.copyWith(
+                                color: surge.textPrimary,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            profile.type == ProfileType.url ? 'URL' : '本地',
+                            style: context.textTheme.labelSmall?.copyWith(
+                              color: surge.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (isSelected) ...[
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.check_circle,
+                              size: 18,
+                              color: surge.primary,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -751,11 +960,11 @@ class _PillStatusLightState extends State<_PillStatusLight>
               color: color.withValues(
                 alpha:
                     !widget.active &&
-                            !widget.connecting &&
-                            !widget.failed &&
-                            !widget.isSmartPaused
-                        ? 0
-                        : 0.32,
+                        !widget.connecting &&
+                        !widget.failed &&
+                        !widget.isSmartPaused
+                    ? 0
+                    : 0.32,
               ),
               blurRadius: 8,
               spreadRadius: 1,
@@ -891,9 +1100,10 @@ class _HeroProxySelectorBar extends ConsumerWidget {
       currentProfileProvider.select((state) => state?.currentGroupName ?? ''),
     );
     final selectedGroupName =
-        currentGroupName.isNotEmpty && groups.any((g) => g.name == currentGroupName)
-            ? currentGroupName
-            : (groups.isNotEmpty ? groups.first.name : '');
+        currentGroupName.isNotEmpty &&
+            groups.any((g) => g.name == currentGroupName)
+        ? currentGroupName
+        : (groups.isNotEmpty ? groups.first.name : '');
 
     final selectedProxyName = selectedGroupName.isNotEmpty
         ? ref.watch(selectedProxyNameProvider(selectedGroupName))
@@ -912,7 +1122,12 @@ class _HeroProxySelectorBar extends ConsumerWidget {
           // Group selector (left)
           Expanded(
             child: GestureDetector(
-              onTap: () => _showGroupSelectorSheet(context, ref, groups, selectedGroupName),
+              onTap: () => _showGroupSelectorSheet(
+                context,
+                ref,
+                groups,
+                selectedGroupName,
+              ),
               behavior: HitTestBehavior.opaque,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -953,11 +1168,11 @@ class _HeroProxySelectorBar extends ConsumerWidget {
             child: GestureDetector(
               onTap: selectedGroupName.isNotEmpty
                   ? () => _showNodeSelectorSheet(
-                        context,
-                        ref,
-                        selectedGroupName,
-                        selectedProxyName ?? '',
-                      )
+                      context,
+                      ref,
+                      selectedGroupName,
+                      selectedProxyName ?? '',
+                    )
                   : null,
               behavior: HitTestBehavior.opaque,
               child: Row(
@@ -1024,7 +1239,10 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                     },
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected ? surge.selectedFill : surge.fill,
                         borderRadius: BorderRadius.circular(12),
@@ -1055,7 +1273,9 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                               overflow: TextOverflow.ellipsis,
                               style: context.textTheme.bodyMedium?.copyWith(
                                 color: surge.textPrimary,
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                               ),
                             ),
                           ),
@@ -1068,7 +1288,11 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                           ),
                           if (isSelected) ...[
                             const SizedBox(width: 8),
-                            Icon(Icons.check_circle, size: 18, color: surge.primary),
+                            Icon(
+                              Icons.check_circle,
+                              size: 18,
+                              color: surge.primary,
+                            ),
                           ],
                         ],
                       ),
@@ -1091,7 +1315,9 @@ class _HeroProxySelectorBar extends ConsumerWidget {
   ) {
     final groups = ref.read(groupsProvider);
     final matchingGroups = groups.where((g) => g.name == groupName);
-    final group = matchingGroups.isNotEmpty ? matchingGroups.first : groups.first;
+    final group = matchingGroups.isNotEmpty
+        ? matchingGroups.first
+        : groups.first;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1163,7 +1389,9 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
     final surge = SurgeTheme.of(context);
     final filteredProxies = widget.group.all
         .where(
-          (p) => _searchQuery.isEmpty || p.name.toLowerCase().contains(_searchQuery.toLowerCase()),
+          (p) =>
+              _searchQuery.isEmpty ||
+              p.name.toLowerCase().contains(_searchQuery.toLowerCase()),
         )
         .toList();
 
@@ -1199,7 +1427,12 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                       child: Text(
                         '节点',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: (Theme.of(context).textTheme.titleLarge?.fontSize ?? 22) - 4,
+                          fontSize:
+                              (Theme.of(
+                                    context,
+                                  ).textTheme.titleLarge?.fontSize ??
+                                  22) -
+                              4,
                         ),
                       ),
                     ),
@@ -1227,7 +1460,11 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
               decoration: InputDecoration(
                 hintText: context.appLocalizations.search,
                 hintStyle: TextStyle(color: surge.textSecondary, fontSize: 14),
-                prefixIcon: Icon(Icons.search, color: surge.textSecondary, size: 20),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: surge.textSecondary,
+                  size: 20,
+                ),
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1252,14 +1489,20 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                                 color: surge.textSecondary,
                               ),
                             )
-                          : Icon(Icons.network_ping_rounded, color: surge.textSecondary),
+                          : Icon(
+                              Icons.network_ping_rounded,
+                              color: surge.textSecondary,
+                            ),
                     ),
                   ],
                 ),
                 isDense: true,
                 filled: true,
                 fillColor: surge.fill,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(color: surge.separator),
@@ -1286,7 +1529,10 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                   )
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     itemCount: filteredProxies.length,
                     itemBuilder: (context, index) {
                       final proxy = filteredProxies[index];
@@ -1313,7 +1559,9 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
     final isSelector = widget.group.type == GroupType.Selector;
     if (isComputedSelected || isSelector) {
       final nextName = isComputedSelected
-          ? (ref.read(proxyNameProvider(groupName)) == proxyName ? '' : proxyName)
+          ? (ref.read(proxyNameProvider(groupName)) == proxyName
+                ? ''
+                : proxyName)
           : proxyName;
       ref
           .read(profilesActionProvider.notifier)
@@ -1342,25 +1590,22 @@ class _NodeCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final surge = SurgeTheme.of(context);
     final delay = ref.watch(
-      delayProvider(
-        proxyName: proxy.name,
-        testUrl: group.testUrl,
-      ),
+      delayProvider(proxyName: proxy.name, testUrl: group.testUrl),
     );
     final delayColor = delay == null
         ? surge.textSecondary
         : delay == 0
-            ? surge.textSecondary
-            : delay < 0
-                ? surge.red
-                : utils.getDelayColor(delay) ?? surge.textSecondary;
+        ? surge.textSecondary
+        : delay < 0
+        ? surge.red
+        : utils.getDelayColor(delay) ?? surge.textSecondary;
     final delayLabel = delay == null
         ? ''
         : delay == 0
-            ? '...'
-            : delay > 0
-                ? '${delay}ms'
-                : 'Timeout';
+        ? '...'
+        : delay > 0
+        ? '${delay}ms'
+        : 'Timeout';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -1375,7 +1620,9 @@ class _NodeCard extends ConsumerWidget {
               color: isSelected ? surge.selectedFill : surge.fill,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? surge.primary.withValues(alpha: 0.48) : surge.separator,
+                color: isSelected
+                    ? surge.primary.withValues(alpha: 0.48)
+                    : surge.separator,
                 width: isSelected ? 1 : 0.5,
               ),
             ),
@@ -1399,14 +1646,19 @@ class _NodeCard extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: context.textTheme.bodyMedium?.copyWith(
                       color: surge.textPrimary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
                     ),
                   ),
                 ),
                 if (delayLabel.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: delayColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
