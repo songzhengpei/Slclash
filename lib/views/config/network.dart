@@ -370,9 +370,8 @@ class SmartAutoStopNetworksItem extends ConsumerWidget {
       subtitle: Text(
         networks.isEmpty
             ? appLocalizations.networksEmpty
-            : '${networks.length} ${appLocalizations.networksEmpty}',
+            : networks.join(', '),
       ),
-      leading: const Icon(Icons.wifi_lock),
       delegate: const OpenDelegate(blur: false, widget: _TrustedNetworksPage()),
     );
   }
@@ -381,6 +380,34 @@ class SmartAutoStopNetworksItem extends ConsumerWidget {
 class _TrustedNetworksPage extends ConsumerWidget {
   const _TrustedNetworksPage();
 
+  Future<void> _handleAddNetwork(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final appLocalizations = context.appLocalizations;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => InputDialog(
+        title: appLocalizations.addNetwork,
+        value: '',
+        labelText: appLocalizations.networkAddress,
+        hintText: appLocalizations.networkAddressHint,
+      ),
+    );
+    if (result != null && result.trim().isNotEmpty) {
+      ref
+          .read(vpnSettingProvider.notifier)
+          .update(
+            (state) => state.copyWith(
+              smartAutoStopNetworks: [
+                ...state.smartAutoStopNetworks,
+                result.trim(),
+              ],
+            ),
+          );
+    }
+  }
+
   @override
   Widget build(BuildContext context, ref) {
     final appLocalizations = context.appLocalizations;
@@ -388,37 +415,6 @@ class _TrustedNetworksPage extends ConsumerWidget {
       vpnSettingProvider.select((state) => state.smartAutoStopNetworks),
     );
     final items = <Widget>[
-      // Add network action row
-      ListTile(
-        leading: const Icon(Icons.add),
-        title: Text(appLocalizations.addNetwork),
-        subtitle: networks.isEmpty
-            ? Text(appLocalizations.networksEmpty)
-            : null,
-        onTap: () async {
-          final result = await showDialog<String>(
-            context: context,
-            builder: (context) => InputDialog(
-              title: appLocalizations.addNetwork,
-              value: '',
-              labelText: appLocalizations.networkAddress,
-              hintText: appLocalizations.networkAddressHint,
-            ),
-          );
-          if (result != null && result.trim().isNotEmpty) {
-            ref
-                .read(vpnSettingProvider.notifier)
-                .update(
-                  (state) => state.copyWith(
-                    smartAutoStopNetworks: [
-                      ...state.smartAutoStopNetworks,
-                      result.trim(),
-                    ],
-                  ),
-                );
-          }
-        },
-      ),
       // Existing networks with delete buttons
       for (var i = 0; i < networks.length; i++)
         ListTile(
@@ -437,6 +433,14 @@ class _TrustedNetworksPage extends ConsumerWidget {
     ];
     return BaseScaffold(
       title: appLocalizations.trustedNetworks,
+      actions: [
+        CommonMinFilledButtonTheme(
+          child: SurgeAddButton(
+            onPressed: () => _handleAddNetwork(context, ref),
+            label: appLocalizations.add,
+          ),
+        ),
+      ],
       body: generateListView(items),
     );
   }

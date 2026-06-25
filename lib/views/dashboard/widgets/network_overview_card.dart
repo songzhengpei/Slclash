@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:collection/collection.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -168,15 +167,15 @@ class _SurgeNetworkOverviewCardState
   /// mistaken for this probe.
   Future<TrackerInfo?> _pollForNewTracker(
     _LatencyTarget target,
-    int startIndex,
+    Set<String> beforeIds,
   ) async {
     final host = target.host;
     final bareHost = target.bareHost;
     for (var i = 0; i < 30; i++) {
       await Future.delayed(const Duration(milliseconds: 100));
-      final requests = ref.read(requestsProvider);
-      for (var j = startIndex; j < requests.length; j++) {
-        final req = requests[j];
+      final requests = ref.read(requestsProvider).list;
+      for (final req in requests) {
+        if (beforeIds.contains(req.id)) continue;
         final meta = req.metadata;
         final reqHost = meta.host.toLowerCase();
         final remoteDest = meta.remoteDestination.toLowerCase();
@@ -200,24 +199,36 @@ class _SurgeNetworkOverviewCardState
     required int? mixedPort,
     required String? fallbackCountryCode,
   }) async {
-    // Snapshot tracker count before this probe so we only match NEW
+    // Snapshot tracker IDs before this probe so we only match NEW
     // connections that result from this specific HTTP request.
-    final preLen = ref.read(requestsProvider).length;
+    final beforeIds =
+        ref.read(requestsProvider).list.map((e) => e.id).toSet();
     final latency = await _measureLatency(target, mixedPort: mixedPort);
 
     String? countryCode;
     String? routeName;
 
     if (mixedPort != null && latency != null) {
-      final info = await _pollForNewTracker(target, preLen);
+      final info = await _pollForNewTracker(target, beforeIds);
       if (info != null) {
-        routeName = info.chains.lastWhereOrNull((c) => c.trim().isNotEmpty);
-        if (routeName != null && routeName.isNotEmpty) {
-          if (routeName.toUpperCase() == 'DIRECT') {
-            countryCode = fallbackCountryCode;
-          } else {
-            countryCode = _extractCountryFromProxyName(routeName);
+        // Walk chains in reverse; use the first entry that resolves to a
+        // country code. If DIRECT is encountered, fall back immediately.
+        for (final chain in info.chains.reversed) {
+          final trimmed = chain.trim();
+          if (trimmed.isEmpty) continue;
+          if (trimmed.toUpperCase() == 'DIRECT') {
+            routeName ??= trimmed;
+            countryCode ??= fallbackCountryCode;
+            break;
           }
+          final cc = _extractCountryFromProxyName(trimmed);
+          if (cc != null) {
+            routeName = trimmed;
+            countryCode = cc;
+            break;
+          }
+          // Keep first non-empty as fallback routeName if no country resolves.
+          routeName ??= trimmed;
         }
       }
     }
@@ -251,7 +262,7 @@ class _SurgeNetworkOverviewCardState
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_shouldRunUiRefresh(ref)) {
+      if (_shouldRunLatencyRefresh(ref)) {
         unawaited(_testLatencies());
       }
       _syncLatencyRefreshTimer();
@@ -264,17 +275,21 @@ class _SurgeNetworkOverviewCardState
     super.dispose();
   }
 
-  bool _shouldRunUiRefresh(WidgetRef ref) {
+  bool _shouldRunLatencyRefresh(WidgetRef ref) {
     final uiAutoRefresh = ref.read(uiAutoRefreshEnabledProvider);
     final isDashboardPage =
         ref.read(currentPageLabelProvider) == _pageLabel;
+    return uiAutoRefresh && isDashboardPage;
+  }
+
+  bool _shouldUseClashRoute(WidgetRef ref) {
     final isRunning = ref.read(isStartProvider);
     final isSmartStopped = ref.read(isSmartStoppedProvider);
-    return uiAutoRefresh && isDashboardPage && isRunning && !isSmartStopped;
+    return isRunning && !isSmartStopped;
   }
 
   void _syncLatencyRefreshTimer() {
-    if (!_shouldRunUiRefresh(ref)) {
+    if (!_shouldRunLatencyRefresh(ref)) {
       if (_latencyRefreshTimer != null) {
         _latencyRefreshTimer?.cancel();
         _latencyRefreshTimer = null;
@@ -336,9 +351,7 @@ class _SurgeNetworkOverviewCardState
     if (_isTestingLatencies) return;
     if (!force && _latencyResults.isNotEmpty) return;
 
-    final isRunning = ref.read(isStartProvider);
-    final isSmartStopped = ref.read(isSmartStoppedProvider);
-    final hasProxy = isRunning && !isSmartStopped;
+    final hasProxy = _shouldUseClashRoute(ref);
     final mixedPort = hasProxy
         ? ref.read(patchClashConfigProvider).mixedPort
         : null;
