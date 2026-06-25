@@ -319,13 +319,14 @@ class _HeroModeCardSurface extends StatelessWidget {
     final secondaryColor = foregroundColor.withValues(alpha: secondaryAlpha);
     final onBlue = progress > 0.5;
 
-    return TweenAnimationBuilder<Color>(
-      tween: Tween<Color>(begin: activeFill, end: activeFill),
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(begin: activeFill, end: activeFill),
       duration: _heroFillDuration,
       curve: Curves.easeInOutCubic,
       builder: (context, animatedActiveFill, child) {
+        final smoothFill = animatedActiveFill ?? activeFill;
         final fillColor =
-            Color.lerp(dashboardInactiveFill, animatedActiveFill, progress)!;
+            Color.lerp(dashboardInactiveFill, smoothFill, progress)!;
         return Container(
           width: double.infinity,
           height: 80,
