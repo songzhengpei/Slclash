@@ -320,7 +320,7 @@ class _HeroModeCardSurface extends StatelessWidget {
     final onBlue = progress > 0.5;
 
     return TweenAnimationBuilder<Color>(
-      tween: ColorTween(begin: activeFill, end: activeFill) as Tween<Color>,
+      tween: Tween<Color>(begin: activeFill, end: activeFill),
       duration: _heroFillDuration,
       curve: Curves.easeInOutCubic,
       builder: (context, animatedActiveFill, child) {
