@@ -22,7 +22,7 @@ class SurgeDashboardHero extends ConsumerStatefulWidget {
 }
 
 class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   Timer? _failureTimer;
   Timer? _connectingTimer;
   bool _showFailure = false;
