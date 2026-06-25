@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -161,6 +162,57 @@ class _SurgeNetworkOverviewCardState
     return String.fromCharCodes([0x41 + a, 0x41 + b]);
   }
 
+  /// Check whether a core connection record matches the probe target.
+  bool _matchesHost(TrackerInfo conn, _LatencyTarget target) {
+    final host = target.host;
+    final bareHost = target.bareHost;
+    final meta = conn.metadata;
+
+    for (final raw in [
+      meta.host,
+      meta.destinationIP,
+      meta.remoteDestination,
+    ]) {
+      final field = raw.toLowerCase();
+      if (field.isEmpty) continue;
+      if (field == host || field == bareHost) return true;
+      if (field.endsWith('.$bareHost')) return true;
+      // Strip port suffix (e.g. "host:443")
+      final colon = field.indexOf(':');
+      final fieldNoPort = colon > 0 ? field.substring(0, colon) : field;
+      if (fieldNoPort == bareHost ||
+          fieldNoPort.endsWith('.$bareHost') ||
+          (bareHost.isNotEmpty && fieldNoPort == 'www.$bareHost')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Poll the core /connections endpoint (via FFI) for up to 3 seconds,
+  /// matching only connections whose id is not in [beforeIds].
+  /// Returns the first matching [TrackerInfo], or null.
+  Future<TrackerInfo?> _pollCoreConnections(
+    _LatencyTarget target,
+    Set<String> beforeIds,
+  ) async {
+    for (var i = 0; i < 18; i++) {
+      if (i != 0) {
+        await Future.delayed(const Duration(milliseconds: 160));
+      }
+      try {
+        final conns = await CoreController().getConnections();
+        for (final conn in conns) {
+          if (beforeIds.contains(conn.id)) continue;
+          if (_matchesHost(conn, target)) return conn;
+        }
+      } catch (_) {
+        // Core may not be ready; silently retry.
+      }
+    }
+    return null;
+  }
+
   /// Poll [requestsProvider] for up to 3 seconds after a probe, looking for
   /// a new [TrackerInfo] whose host matches [target]. Only entries added
   /// after [startIndex] are considered, so historical connections are never
@@ -171,8 +223,12 @@ class _SurgeNetworkOverviewCardState
   ) async {
     final host = target.host;
     final bareHost = target.bareHost;
-    for (var i = 0; i < 30; i++) {
-      await Future.delayed(const Duration(milliseconds: 100));
+    // Poll for up to 3s, checking immediately on the first iteration to avoid
+    // missing short-lived connections (e.g. favicon or generate_204).
+    for (var i = 0; i < 36; i++) {
+      if (i != 0) {
+        await Future.delayed(const Duration(milliseconds: 80));
+      }
       final requests = ref.read(requestsProvider).list;
       for (final req in requests) {
         if (beforeIds.contains(req.id)) continue;
@@ -194,26 +250,63 @@ class _SurgeNetworkOverviewCardState
 
   /// Probe one target and capture both latency and the country code inferred
   /// from the Clash route chain. Returns a fully-populated [_LatencyResult].
+  /// Uses core /connections (FFI) as primary source; falls back to
+  /// requestsProvider polling for the rare case the core path misses.
   Future<_LatencyResult> _probeSingleTarget(
     _LatencyTarget target, {
     required int? mixedPort,
     required String? fallbackCountryCode,
   }) async {
-    // Snapshot tracker IDs before this probe so we only match NEW
-    // connections that result from this specific HTTP request.
-    final beforeIds =
+    // --- snapshot IDs before the probe so we only match NEW connections ---
+    final beforeProviderIds =
         ref.read(requestsProvider).list.map((e) => e.id).toSet();
+    Set<String> beforeCoreIds;
+    if (mixedPort != null) {
+      try {
+        final conns = await CoreController().getConnections();
+        beforeCoreIds = conns.map((e) => e.id).toSet();
+      } catch (_) {
+        beforeCoreIds = {};
+      }
+    } else {
+      beforeCoreIds = {};
+    }
+
+    // Start core polling and provider polling BEFORE the probe request.
+    // Both run in parallel with the HTTP measurement.
+    final coreFuture = mixedPort != null
+        ? _pollCoreConnections(target, beforeCoreIds)
+        : Future<TrackerInfo?>.value(null);
+    final providerFuture = mixedPort != null
+        ? _pollForNewTracker(target, beforeProviderIds)
+        : Future<TrackerInfo?>.value(null);
+
     final latency = await _measureLatency(target, mixedPort: mixedPort);
 
     String? countryCode;
     String? routeName;
+    TrackerInfo? trackerInfo;
+    bool coreHit = false;
+    bool providerHit = false;
 
     if (mixedPort != null && latency != null) {
-      final info = await _pollForNewTracker(target, beforeIds);
-      if (info != null) {
+      // Prefer core /connections — it captures live connections regardless
+      // of how briefly they exist.
+      trackerInfo = await coreFuture;
+      if (trackerInfo != null) {
+        coreHit = true;
+      } else {
+        // Fallback: poll provider for connections that arrived via events.
+        trackerInfo = await providerFuture;
+        if (trackerInfo != null) {
+          providerHit = true;
+        }
+      }
+
+      if (trackerInfo != null) {
         // Walk chains in reverse; use the first entry that resolves to a
         // country code. If DIRECT is encountered, fall back immediately.
-        for (final chain in info.chains.reversed) {
+        for (final chain in trackerInfo.chains.reversed) {
           final trimmed = chain.trim();
           if (trimmed.isEmpty) continue;
           if (trimmed.toUpperCase() == 'DIRECT') {
@@ -233,9 +326,27 @@ class _SurgeNetworkOverviewCardState
       }
     }
 
+    // Fallback logic: only apply fallbackCountryCode when proxy is not
+    // running. When proxy IS running but tracker capture failed, return
+    // countryCode: null so the UI shows a globe instead of the wrong flag.
+    final effectiveCountryCode = mixedPort == null
+        ? (countryCode ?? fallbackCountryCode)
+        : countryCode;
+
+    assert(() {
+      debugPrint(
+        '[LatencyRoute] target=${target.name} mixedPort=$mixedPort '
+        'latency=$latency coreHit=$coreHit providerHit=$providerHit '
+        'host=${trackerInfo?.metadata.host} '
+        'chains=${trackerInfo?.chains} '
+        'country=$effectiveCountryCode',
+      );
+      return true;
+    }());
+
     return _LatencyResult(
       latency: latency,
-      countryCode: countryCode ?? fallbackCountryCode,
+      countryCode: effectiveCountryCode,
       routeName: routeName,
       proxyName: routeName,
     );
@@ -1068,10 +1179,14 @@ class _PlatformLatencyPanel extends StatelessWidget {
     return Column(
       children: [
         for (final target in targets) ...[
+          // Do not show fallback country code in pending state;
+          // only use the resolved countryCode from a completed probe.
           _PlatformLatencyRow(
             target: target,
-            countryCode:
-                results[target.name]?.countryCode ?? fallbackCountryCode,
+            countryCode: () {
+              final r = results[target.name];
+              return (r == null || r.pending) ? null : r.countryCode;
+            }(),
             trackColor: _trackColor(results[target.name]),
             flowColor: _flowColor(results[target.name]),
             barWidthFactor: _barWidth(results[target.name]),
