@@ -84,6 +84,19 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
 
       if (!configChanged) return;
 
+      // Clear manual resume override when Smart Auto Stop is disabled,
+      // trusted networks are emptied, or the network list is modified.
+      // This prevents stale override from persisting across config cycles.
+      final smartAutoStopDisabled = prevEnabled && !nextEnabled;
+      final trustedNetworksCleared = nextNetworks.isEmpty;
+      final trustedNetworksChanged =
+          prevNetworks.isNotEmpty && !_listEquals(prevNetworks, nextNetworks);
+      if (smartAutoStopDisabled ||
+          trustedNetworksCleared ||
+          trustedNetworksChanged) {
+        ref.read(smartAutoStopManualOverrideProvider.notifier).clear();
+      }
+
       // If smartAutoStop was just disabled or networks emptied while
       // VPN was auto-stopped, resume immediately without waiting for
       // connectivity change.

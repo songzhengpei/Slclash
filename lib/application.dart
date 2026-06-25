@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/manager/manager.dart';
 import 'package:fl_clash/models/models.dart';
@@ -368,7 +369,14 @@ class ApplicationState extends ConsumerState<Application> {
               final last = _lastCloseConnectionsTime;
               if (last == null || now.difference(last).inMilliseconds > 1000) {
                 _lastCloseConnectionsTime = now;
-                coreController.closeConnections();
+                try {
+                  await coreController.closeConnections();
+                } catch (e) {
+                  commonPrint.log(
+                    'closeConnections on connectivity changed failed: $e',
+                    logLevel: LogLevel.warning,
+                  );
+                }
               }
             }
 
