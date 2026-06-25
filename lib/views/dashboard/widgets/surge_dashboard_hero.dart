@@ -29,15 +29,12 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
   bool _showConnecting = false;
   late final AnimationController _fillController;
   late final Animation<double> _fillAnimation;
-  bool _usePausedFillColor = false;
-  bool _smartPauseTransition = false;
 
   @override
   void initState() {
     super.initState();
     final isStart = ref.read(isStartProvider);
     final isSmartStopped = ref.read(isSmartStoppedProvider);
-    _usePausedFillColor = isSmartStopped;
     _fillController = AnimationController(
       vsync: this,
       duration: _heroFillDuration,
@@ -105,7 +102,6 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     final isStart = ref.watch(isStartProvider);
     final isSmartStopped = ref.watch(isSmartStoppedProvider);
     final isSmartPaused = isSmartStopped && !isStart;
-    final visualIsSmartPaused = _usePausedFillColor;
     final mode = ref.watch(
       patchClashConfigProvider.select((state) => state.mode),
     );
@@ -122,7 +118,6 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
             ? appLocalizations.connected
             : appLocalizations.disconnected;
     ref.listen(isStartProvider, (previous, next) {
-      if (_smartPauseTransition) return;
       if (next) {
         _fillController.forward();
       } else if (!ref.read(isSmartStoppedProvider)) {
@@ -131,14 +126,8 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     });
 
     ref.listen(isSmartStoppedProvider, (previous, next) {
-      if (next == previous) return;
-      _smartPauseTransition = true;
-      _fillController.reverse().then((_) {
-        if (!mounted) return;
-        setState(() => _usePausedFillColor = next);
-        _smartPauseTransition = false;
-        _fillController.forward();
-      });
+      // Color transition is handled by TweenAnimationBuilder in
+      // _HeroModeCardSurface; no fill animation needed here.
     });
 
     ref.listen(coreStatusProvider, (previous, next) {
@@ -232,7 +221,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                 modeLabel: '${_modeLabel(mode)} Mode',
                 title: '出站流量',
                 active: isStart,
-                isSmartPaused: visualIsSmartPaused,
+                isSmartPaused: isSmartPaused,
                 dynamicColor: dynamicColor,
                 connecting:
                     _showConnecting || coreStatus == CoreStatus.connecting,
@@ -321,37 +310,42 @@ class _HeroModeCardSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
     final progress = fillProgress.clamp(0.0, 1.0);
     final activeFill =
-        isSmartPaused ? surge.orange : dashboardDynamicActiveFill;
+        isSmartPaused ? dashboardSmartPausedFill : dashboardDynamicActiveFill;
     const foregroundColor = Colors.white;
     final secondaryAlpha =
         lerpDouble(0.82, dynamicColor ? 0.92 : 0.82, progress)!;
     final secondaryColor = foregroundColor.withValues(alpha: secondaryAlpha);
     final onBlue = progress > 0.5;
 
-    return Container(
-      width: double.infinity,
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-      decoration: BoxDecoration(
-        color: Color.lerp(dashboardInactiveFill, activeFill, progress)!,
-        gradient: !dynamicColor && progress > 0.001
-            ? LinearGradient(
-                colors: [
-                  Color.lerp(dashboardInactiveFill, activeFill, progress)!,
-                  Color.lerp(
-                    Color.lerp(dashboardInactiveFill, activeFill, progress)!,
-                    Colors.black,
-                    0.16,
-                  )!,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-      ),
+    return TweenAnimationBuilder<Color>(
+      tween: ColorTween(begin: activeFill, end: activeFill),
+      duration: _heroFillDuration,
+      curve: Curves.easeInOutCubic,
+      builder: (context, animatedActiveFill, child) {
+        final fillColor =
+            Color.lerp(dashboardInactiveFill, animatedActiveFill, progress)!;
+        return Container(
+          width: double.infinity,
+          height: 80,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          decoration: BoxDecoration(
+            color: fillColor,
+            gradient: !dynamicColor && progress > 0.001
+                ? LinearGradient(
+                    colors: [
+                      fillColor,
+                      Color.lerp(fillColor, Colors.black, 0.16)!,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+          ),
+          child: child,
+        );
+      },
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

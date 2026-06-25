@@ -249,11 +249,23 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
   /// Sets [smartAutoStopManualOverrideProvider] to true after a successful
   /// resume so the next connectivity check won't immediately auto-stop
   /// again while the user is still on the trusted network.
+  ///
+  /// Uses its own [resuming] lock instead of the shared [_checking] flag
+  /// so that rapid user clicks are not silently dropped when a connectivity
+  /// check is in progress.
+  bool _resuming = false;
+
   Future<void> resumeNow() async {
-    await _resumeFromSmartStop();
-    // Only set override if proxy actually started — skip if resume failed.
-    if (ref.read(isStartProvider)) {
-      ref.read(smartAutoStopManualOverrideProvider.notifier).set(true);
+    if (_resuming) return;
+    _resuming = true;
+    try {
+      await _smartResume();
+      // Only set override if proxy actually started — skip if resume failed.
+      if (ref.read(isStartProvider)) {
+        ref.read(smartAutoStopManualOverrideProvider.notifier).set(true);
+      }
+    } finally {
+      _resuming = false;
     }
   }
 
