@@ -48,6 +48,18 @@ class SmartAutoStopManualOverride extends _$SmartAutoStopManualOverride {
   void clear() => state = false;
 }
 
+/// Tracks whether a user-initiated smart resume is currently in progress.
+///
+/// UI can watch this to show a loading/disabled state on the "恢复" button,
+/// preventing duplicate clicks while a resume is already under way.
+@Riverpod(keepAlive: true)
+class IsSmartResuming extends _$IsSmartResuming {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
 /// Manages the smart auto stop lifecycle.
 ///
 /// When enabled, listens to connectivity changes and checks if the device's
@@ -62,6 +74,8 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   Timer? _debounceTimer;
   bool _checking = false;
+  bool _manualResumeInProgress = false;
+  bool _pendingManualResume = false;
 
   @override
   bool build() {
@@ -177,6 +191,11 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
       }
     } finally {
       _checking = false;
+
+      if (_pendingManualResume) {
+        _pendingManualResume = false;
+        unawaited(_runManualResume());
+      }
     }
   }
 
@@ -239,33 +258,56 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
       await _smartResume();
     } finally {
       _checking = false;
+
+      if (_pendingManualResume) {
+        _pendingManualResume = false;
+        unawaited(_runManualResume());
+      }
     }
   }
 
   /// Public entry point for the Dashboard "Resume" button.
-  /// Manually resumes VPN from smart stop state, reusing the same
-  /// checking lock and fallback logic as internal resume.
   ///
-  /// Sets [smartAutoStopManualOverrideProvider] to true after a successful
-  /// resume so the next connectivity check won't immediately auto-stop
-  /// again while the user is still on the trusted network.
-  ///
-  /// Uses its own [resuming] lock instead of the shared [_checking] flag
-  /// so that rapid user clicks are not silently dropped when a connectivity
-  /// check is in progress.
-  bool _resuming = false;
-
+  /// If a connectivity check ([_checkAndToggle]) is in progress, the request
+  /// is recorded as pending and automatically executed once the check finishes.
+  /// This guarantees the user only needs to click once, even during rapid
+  /// network-state transitions.
   Future<void> resumeNow() async {
-    if (_resuming) return;
-    _resuming = true;
+    if (_manualResumeInProgress) return;
+
+    if (_checking) {
+      _pendingManualResume = true;
+      ref.read(isSmartResumingProvider.notifier).set(true);
+      return;
+    }
+
+    await _runManualResume();
+  }
+
+  /// Execute a manual resume with full safety guards:
+  ///   - disallows re-entry
+  ///   - cancels any pending debounced check to avoid interference
+  ///   - sets [isSmartResumingProvider] so UI shows a loading state
+  ///   - only sets [smartAutoStopManualOverrideProvider] after confirmed start
+  ///   - always clears loading state in finally
+  Future<void> _runManualResume() async {
+    if (_manualResumeInProgress) return;
+
+    _manualResumeInProgress = true;
+    _pendingManualResume = false;
+    ref.read(isSmartResumingProvider.notifier).set(true);
+    _debounceTimer?.cancel();
+
     try {
       await _smartResume();
-      // Only set override if proxy actually started — skip if resume failed.
+
+      // Only set override if proxy actually started.
       if (ref.read(isStartProvider)) {
         ref.read(smartAutoStopManualOverrideProvider.notifier).set(true);
       }
     } finally {
-      _resuming = false;
+      _manualResumeInProgress = false;
+      ref.read(isSmartResumingProvider.notifier).set(false);
     }
   }
 

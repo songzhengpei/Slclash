@@ -154,6 +154,76 @@ abstract class _$SmartAutoStopManualOverride extends $Notifier<bool> {
   }
 }
 
+/// Tracks whether a user-initiated smart resume is currently in progress.
+///
+/// UI can watch this to show a loading/disabled state on the "恢复" button,
+/// preventing duplicate clicks while a resume is already under way.
+
+@ProviderFor(IsSmartResuming)
+final isSmartResumingProvider = IsSmartResumingProvider._();
+
+/// Tracks whether a user-initiated smart resume is currently in progress.
+///
+/// UI can watch this to show a loading/disabled state on the "恢复" button,
+/// preventing duplicate clicks while a resume is already under way.
+final class IsSmartResumingProvider
+    extends $NotifierProvider<IsSmartResuming, bool> {
+  /// Tracks whether a user-initiated smart resume is currently in progress.
+  ///
+  /// UI can watch this to show a loading/disabled state on the "恢复" button,
+  /// preventing duplicate clicks while a resume is already under way.
+  IsSmartResumingProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'isSmartResumingProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$isSmartResumingHash();
+
+  @$internal
+  @override
+  IsSmartResuming create() => IsSmartResuming();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$isSmartResumingHash() => r'f5d7b061fe7762f8e230c92d1807b9058ba5b950';
+
+/// Tracks whether a user-initiated smart resume is currently in progress.
+///
+/// UI can watch this to show a loading/disabled state on the "恢复" button,
+/// preventing duplicate clicks while a resume is already under way.
+
+abstract class _$IsSmartResuming extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
 /// Manages the smart auto stop lifecycle.
 ///
 /// When enabled, listens to connectivity changes and checks if the device's
@@ -215,7 +285,7 @@ final class SmartAutoStopManagerProvider
 }
 
 String _$smartAutoStopManagerHash() =>
-    r'123214657a8626004c8e748a6c18c0e21d828ca4';
+    r'bbfe469a93785443bd216d09a84c570b05e6996f';
 
 /// Manages the smart auto stop lifecycle.
 ///

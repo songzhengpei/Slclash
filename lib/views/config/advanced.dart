@@ -1,14 +1,9 @@
 import 'package:fl_clash/common/common.dart';
-import 'package:fl_clash/models/clash_config.dart';
-import 'package:fl_clash/providers/config.dart';
-import 'package:fl_clash/state.dart';
-import 'package:fl_clash/views/config/dns.dart';
-import 'package:fl_clash/views/config/network.dart';
 import 'package:fl_clash/views/config/scripts.dart';
+import 'package:fl_clash/views/access.dart';
 import 'package:fl_clash/widgets/list.dart';
 import 'package:fl_clash/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'rules.dart';
 
@@ -19,52 +14,13 @@ class AdvancedConfigView extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final List<Widget> items = [
-      ListItem.open(
-        title: Text(appLocalizations.network),
-        subtitle: Text(appLocalizations.networkDesc),
-        leading: const Icon(Icons.vpn_key),
-        delegate: OpenDelegate(
-          blur: false,
-          widget: BaseScaffold(
-            title: appLocalizations.network,
-            body: const NetworkListView(),
-          ),
+      if (system.isAndroid)
+        ListItem.open(
+          title: Text(appLocalizations.accessControl),
+          subtitle: Text(appLocalizations.accessControlDesc),
+          leading: const Icon(Icons.view_list),
+          delegate: const OpenDelegate(blur: false, widget: AccessView()),
         ),
-      ),
-      ListItem.open(
-        title: const Text('DNS'),
-        subtitle: Text(appLocalizations.dnsDesc),
-        leading: const Icon(Icons.dns),
-        delegate: OpenDelegate(
-          widget: BaseScaffold(
-            title: 'DNS',
-            actions: [
-              Consumer(
-                builder: (_, ref, _) {
-                  return IconButton(
-                    onPressed: () async {
-                      final res = await globalState.showMessage(
-                        title: appLocalizations.reset,
-                        message: TextSpan(text: appLocalizations.resetTip),
-                      );
-                      if (res != true) {
-                        return;
-                      }
-                      ref
-                          .read(patchClashConfigProvider.notifier)
-                          .update((state) => state.copyWith(dns: defaultDns));
-                    },
-                    tooltip: appLocalizations.reset,
-                    icon: const Icon(Icons.replay),
-                  );
-                },
-              ),
-            ],
-            body: const DnsListView(),
-          ),
-          blur: false,
-        ),
-      ),
       ListItem.open(
         title: Text(appLocalizations.addedRules),
         subtitle: Text(appLocalizations.controlGlobalAddedRules),

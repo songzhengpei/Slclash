@@ -100,6 +100,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         Theme.of(context).extension<SurgeTheme>() ?? SurgeTheme.light();
     final appLocalizations = context.appLocalizations;
     final isStart = ref.watch(isStartProvider);
+    final isSmartResuming = ref.watch(isSmartResumingProvider);
     final isSmartStopped = ref.watch(isSmartStoppedProvider);
     final isSmartPaused = isSmartStopped && !isStart;
     final mode = ref.watch(
@@ -201,7 +202,8 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
               _HeroActionButton(
                 isStart: isStart,
                 isSmartPaused: isSmartPaused,
-                loading: coreStatus == CoreStatus.connecting,
+                isSmartResuming: isSmartResuming,
+                loading: coreStatus == CoreStatus.connecting || isSmartResuming,
                 onPressed: () {
                   if (isSmartPaused) {
                     ref.read(smartAutoStopManagerProvider.notifier).resumeNow();
@@ -413,12 +415,14 @@ class _HeroActionButton extends StatelessWidget {
   const _HeroActionButton({
     required this.isStart,
     required this.isSmartPaused,
+    required this.isSmartResuming,
     required this.loading,
     required this.onPressed,
   });
 
   final bool isStart;
   final bool isSmartPaused;
+  final bool isSmartResuming;
   final bool loading;
   final VoidCallback onPressed;
 
@@ -429,7 +433,7 @@ class _HeroActionButton extends StatelessWidget {
     final String label;
     if (isSmartPaused) {
       baseColor = surge.orange;
-      label = '恢复';
+      label = isSmartResuming ? '恢复中' : '恢复';
     } else if (isStart) {
       baseColor = surge.red;
       label = '停止';

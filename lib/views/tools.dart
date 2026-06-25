@@ -4,10 +4,11 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/about.dart';
-import 'package:fl_clash/views/access.dart';
 import 'package:fl_clash/views/application_setting.dart';
 import 'package:fl_clash/views/backup_and_restore.dart';
 import 'package:fl_clash/views/config/config.dart';
+import 'package:fl_clash/views/config/dns.dart';
+import 'package:fl_clash/views/config/network.dart';
 import 'package:fl_clash/views/hotkey.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -52,13 +53,13 @@ class _ToolViewState extends ConsumerState<ToolsView> {
     final items = [
       const _LocaleItem(),
       const _ThemeItem(),
+      const _NetworkItem(),
+      const _DnsItem(),
       const _BackupItem(),
       if (system.isDesktop) const _HotkeyItem(),
-      if (system.isAndroid) const _AccessItem(),
       const _ConfigItem(),
       const _AdvancedConfigItem(),
       const _SettingItem(),
-      const _DisclaimerItem(),
       if (enableDeveloperMode) const _DeveloperItem(),
       const _InfoItem(),
     ];
@@ -282,16 +283,58 @@ class _HotkeyItem extends StatelessWidget {
   }
 }
 
-class _AccessItem extends StatelessWidget {
-  const _AccessItem();
+class _NetworkItem extends StatelessWidget {
+  const _NetworkItem();
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
     return _SurgeOpenTile(
-      leading: const Icon(Icons.view_list),
-      title: context.appLocalizations.accessControl,
-      subtitle: context.appLocalizations.accessControlDesc,
-      child: const AccessView(),
+      leading: const Icon(Icons.vpn_key),
+      title: appLocalizations.network,
+      subtitle: appLocalizations.networkDesc,
+      child: BaseScaffold(
+        title: appLocalizations.network,
+        body: const NetworkListView(),
+      ),
+    );
+  }
+}
+
+class _DnsItem extends StatelessWidget {
+  const _DnsItem();
+
+  @override
+  Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
+    return _SurgeOpenTile(
+      leading: const Icon(Icons.dns),
+      title: 'DNS',
+      subtitle: appLocalizations.dnsDesc,
+      child: BaseScaffold(
+        title: 'DNS',
+        actions: [
+          Consumer(
+            builder: (_, ref, _) {
+              return IconButton(
+                onPressed: () async {
+                  final res = await globalState.showMessage(
+                    title: appLocalizations.reset,
+                    message: TextSpan(text: appLocalizations.resetTip),
+                  );
+                  if (res != true) return;
+                  ref
+                      .read(patchClashConfigProvider.notifier)
+                      .update((state) => state.copyWith(dns: defaultDns));
+                },
+                tooltip: appLocalizations.reset,
+                icon: const Icon(Icons.replay),
+              );
+            },
+          ),
+        ],
+        body: const DnsListView(),
+      ),
     );
   }
 }
@@ -334,25 +377,6 @@ class _SettingItem extends StatelessWidget {
       title: context.appLocalizations.application,
       subtitle: context.appLocalizations.applicationDesc,
       child: const ApplicationSettingView(),
-    );
-  }
-}
-
-class _DisclaimerItem extends ConsumerWidget {
-  const _DisclaimerItem();
-
-  @override
-  Widget build(BuildContext context, ref) {
-    return _SurgeActionTile(
-      leading: const Icon(Icons.gavel),
-      title: context.appLocalizations.disclaimer,
-      subtitle: '查看使用前须知',
-      onTap: () async {
-        final isDisclaimerAccepted = await globalState.showDisclaimer();
-        if (!isDisclaimerAccepted) {
-          await ref.read(systemActionProvider.notifier).handleExit();
-        }
-      },
     );
   }
 }
