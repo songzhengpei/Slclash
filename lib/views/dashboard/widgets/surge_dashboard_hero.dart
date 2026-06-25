@@ -375,7 +375,7 @@ class _HeroModeCardSurface extends StatelessWidget {
       0.82,
       dynamicColor ? 0.92 : 0.82,
       progress,
-    )!;
+    );
     final secondaryColor = foregroundColor.withValues(alpha: secondaryAlpha);
     final onBlue = progress > 0.5;
 
