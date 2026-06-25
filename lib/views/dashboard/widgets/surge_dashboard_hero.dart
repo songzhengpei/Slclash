@@ -29,12 +29,15 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
   bool _showConnecting = false;
   late final AnimationController _fillController;
   late final Animation<double> _fillAnimation;
+  bool _usePausedFillColor = false;
+  bool _smartPauseTransition = false;
 
   @override
   void initState() {
     super.initState();
     final isStart = ref.read(isStartProvider);
     final isSmartStopped = ref.read(isSmartStoppedProvider);
+    _usePausedFillColor = isSmartStopped;
     _fillController = AnimationController(
       vsync: this,
       duration: _heroFillDuration,
@@ -102,6 +105,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     final isStart = ref.watch(isStartProvider);
     final isSmartStopped = ref.watch(isSmartStoppedProvider);
     final isSmartPaused = isSmartStopped && !isStart;
+    final visualIsSmartPaused = _usePausedFillColor;
     final mode = ref.watch(
       patchClashConfigProvider.select((state) => state.mode),
     );
@@ -118,20 +122,23 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
             ? appLocalizations.connected
             : appLocalizations.disconnected;
     ref.listen(isStartProvider, (previous, next) {
+      if (_smartPauseTransition) return;
       if (next) {
         _fillController.forward();
       } else if (!ref.read(isSmartStoppedProvider)) {
-        // Only reverse fill on manual stop, not smart stop
         _fillController.reverse();
       }
     });
 
     ref.listen(isSmartStoppedProvider, (previous, next) {
-      if (next || ref.read(isStartProvider)) {
+      if (next == previous) return;
+      _smartPauseTransition = true;
+      _fillController.reverse().then((_) {
+        if (!mounted) return;
+        setState(() => _usePausedFillColor = next);
+        _smartPauseTransition = false;
         _fillController.forward();
-      } else {
-        _fillController.reverse();
-      }
+      });
     });
 
     ref.listen(coreStatusProvider, (previous, next) {
@@ -225,7 +232,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                 modeLabel: '${_modeLabel(mode)} Mode',
                 title: '出站流量',
                 active: isStart,
-                isSmartPaused: isSmartPaused,
+                isSmartPaused: visualIsSmartPaused,
                 dynamicColor: dynamicColor,
                 connecting:
                     _showConnecting || coreStatus == CoreStatus.connecting,
@@ -314,9 +321,10 @@ class _HeroModeCardSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final progress = fillProgress.clamp(0.0, 1.0);
     final activeFill =
-        isSmartPaused ? dashboardSmartPausedFill : dashboardDynamicActiveFill;
+        isSmartPaused ? surge.orange : dashboardDynamicActiveFill;
     const foregroundColor = Colors.white;
     final secondaryAlpha =
         lerpDouble(0.82, dynamicColor ? 0.92 : 0.82, progress)!;
@@ -422,12 +430,11 @@ class _HeroActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final appLocalizations = context.appLocalizations;
     final Color baseColor;
     final String label;
     if (isSmartPaused) {
-      baseColor = dashboardSmartPausedFill;
-      label = appLocalizations.smartStopped;
+      baseColor = surge.orange;
+      label = '恢复';
     } else if (isStart) {
       baseColor = surge.red;
       label = '停止';
@@ -550,7 +557,7 @@ class _ConnectionStatusLightState extends State<_ConnectionStatusLight>
 
   Color _color(SurgeTheme surge) {
     if (widget.showFailure) return surge.red;
-    if (widget.isSmartPaused) return surge.primary;
+    if (widget.isSmartPaused) return surge.orange;
     if (widget.coreStatus == CoreStatus.connecting ||
         widget.showConnecting ||
         widget.isStart) {
@@ -719,7 +726,7 @@ class _PillStatusLightState extends State<_PillStatusLight>
 
   Color _color(SurgeTheme surge) {
     if (widget.failed) return const Color(0xFFFF8A80);
-    if (widget.isSmartPaused) return surge.primary;
+    if (widget.isSmartPaused) return surge.orange;
     if (widget.connecting || widget.active) return const Color(0xFF7BFFB2);
     return widget.onBlue
         ? Colors.white.withValues(alpha: 0.75)
