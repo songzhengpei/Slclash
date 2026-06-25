@@ -31,6 +31,23 @@ class IsSmartStopped extends _$IsSmartStopped {
   void set(bool value) => state = value;
 }
 
+/// Tracks whether the user has manually resumed from a smart auto-stop
+/// during the current trusted-network session.
+///
+/// When true, [SmartAutoStopManager._checkAndToggle] will NOT auto-stop
+/// again until the user leaves the trusted network or manually stops the
+/// proxy. This is a temporary per-session override, not a permanent
+/// setting change.
+@Riverpod(keepAlive: true)
+class SmartAutoStopManualOverride extends _$SmartAutoStopManualOverride {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+
+  void clear() => state = false;
+}
+
 /// Manages the smart auto stop lifecycle.
 ///
 /// When enabled, listens to connectivity changes and checks if the device's
@@ -112,6 +129,7 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
 
       final isRunning = ref.read(isStartProvider);
       final isSmartStopped = ref.read(isSmartStoppedProvider);
+      final manualOverride = ref.read(smartAutoStopManualOverrideProvider);
 
       // Get non-VPN IPv4 addresses
       final localIps = await _getLocalIpAddresses();
@@ -124,13 +142,25 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
         (ip) => NetworkMatcher.matches(ip, vpnProps.smartAutoStopNetworks),
       );
 
-      if (isOnTrusted && isRunning && !isSmartStopped) {
-        // On trusted network and VPN is running — stop VPN
-        await _smartStop();
-      } else if (!isOnTrusted && isSmartStopped) {
-
-        // Left trusted network — resume VPN
+      // Left trusted network while smart-stopped → resume VPN and clear
+      // any lingering manual override.
+      if (!isOnTrusted && isSmartStopped) {
         await _smartResume();
+        ref.read(smartAutoStopManualOverrideProvider.notifier).clear();
+        return;
+      }
+
+      // Left trusted network while running with manual override → clear
+      // the override so future trusted-network visits auto-stop normally.
+      if (!isOnTrusted && manualOverride) {
+        ref.read(smartAutoStopManualOverrideProvider.notifier).clear();
+        return;
+      }
+
+      // On trusted network, VPN running, not yet smart-stopped, and user
+      // hasn't manually resumed this session → auto smart-stop.
+      if (isOnTrusted && isRunning && !isSmartStopped && !manualOverride) {
+        await _smartStop();
       }
     } finally {
       _checking = false;
@@ -202,8 +232,16 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
   /// Public entry point for the Dashboard "Resume" button.
   /// Manually resumes VPN from smart stop state, reusing the same
   /// checking lock and fallback logic as internal resume.
+  ///
+  /// Sets [smartAutoStopManualOverrideProvider] to true after a successful
+  /// resume so the next connectivity check won't immediately auto-stop
+  /// again while the user is still on the trusted network.
   Future<void> resumeNow() async {
     await _resumeFromSmartStop();
+    // Only set override if proxy actually started — skip if resume failed.
+    if (ref.read(isStartProvider)) {
+      ref.read(smartAutoStopManualOverrideProvider.notifier).set(true);
+    }
   }
 
   Future<List<String>> _getLocalIpAddresses() async {

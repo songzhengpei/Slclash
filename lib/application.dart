@@ -27,7 +27,7 @@ class Application extends ConsumerStatefulWidget {
 
 class ApplicationState extends ConsumerState<Application> {
   Timer? _autoUpdateProfilesTaskTimer;
-  bool _preHasVpn = false;
+  DateTime? _lastCloseConnectionsTime;
 
   final _pageTransitionsTheme = const PageTransitionsTheme(
     builders: <TargetPlatform, PageTransitionsBuilder>{
@@ -349,12 +349,31 @@ class ApplicationState extends ConsumerState<Application> {
         child: ConnectivityManager(
           onConnectivityChanged: (results) async {
             commonPrint.log('connectivityChanged ${results.toString()}');
+            // Always update local IP — network has changed.
             ref.read(systemActionProvider.notifier).updateLocalIp();
             final hasVpn = results.contains(ConnectivityResult.vpn);
-            if (_preHasVpn == hasVpn) {
-              ref.read(checkIpNumProvider.notifier).add();
+
+            // Close stale connections on network change (Wi-Fi ↔ 5G).
+            // Reuses the existing appSetting.closeConnections toggle —
+            // no separate setting is introduced.
+            final isStart = ref.read(isStartProvider);
+            final isSmartStopped = ref.read(isSmartStoppedProvider);
+            final autoCloseConnections = ref.read(
+              appSettingProvider.select((state) => state.closeConnections),
+            );
+            if (!hasVpn &&
+                (isStart || isSmartStopped) &&
+                autoCloseConnections) {
+              final now = DateTime.now();
+              final last = _lastCloseConnectionsTime;
+              if (last == null || now.difference(last).inMilliseconds > 1000) {
+                _lastCloseConnectionsTime = now;
+                coreController.closeConnections();
+              }
             }
-            _preHasVpn = hasVpn;
+
+            // Always trigger IP check so the UI reflects the new network.
+            ref.read(checkIpNumProvider.notifier).add();
           },
           child: child,
         ),

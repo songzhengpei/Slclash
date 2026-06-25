@@ -398,6 +398,9 @@ class SetupAction extends _$SetupAction {
         }
       }
     } else {
+      // Clear smart auto stop manual override when user stops proxy.
+      // This ensures the next start on a trusted network auto-stops again.
+      ref.read(smartAutoStopManualOverrideProvider.notifier).clear();
       await handleStop();
       coreController.resetTraffic();
       ref.read(trafficsProvider.notifier).clear();
@@ -618,8 +621,7 @@ class BackupAction extends _$BackupAction {
   void build() {}
 
   Future<String> backup() async {
-    final profileFileNames =
-        await database.profilesDao.fileNames().get();
+    final profileFileNames = await database.profilesDao.fileNames().get();
     final profiles = ref.read(profilesProvider);
     final currentProfileId = ref.read(currentProfileIdProvider);
     final appVersion = ref.read(versionProvider).toString();

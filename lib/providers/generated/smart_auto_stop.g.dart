@@ -70,6 +70,90 @@ abstract class _$IsSmartStopped extends $Notifier<bool> {
   }
 }
 
+/// Tracks whether the user has manually resumed from a smart auto-stop
+/// during the current trusted-network session.
+///
+/// When true, [SmartAutoStopManager._checkAndToggle] will NOT auto-stop
+/// again until the user leaves the trusted network or manually stops the
+/// proxy. This is a temporary per-session override, not a permanent
+/// setting change.
+
+@ProviderFor(SmartAutoStopManualOverride)
+final smartAutoStopManualOverrideProvider =
+    SmartAutoStopManualOverrideProvider._();
+
+/// Tracks whether the user has manually resumed from a smart auto-stop
+/// during the current trusted-network session.
+///
+/// When true, [SmartAutoStopManager._checkAndToggle] will NOT auto-stop
+/// again until the user leaves the trusted network or manually stops the
+/// proxy. This is a temporary per-session override, not a permanent
+/// setting change.
+final class SmartAutoStopManualOverrideProvider
+    extends $NotifierProvider<SmartAutoStopManualOverride, bool> {
+  /// Tracks whether the user has manually resumed from a smart auto-stop
+  /// during the current trusted-network session.
+  ///
+  /// When true, [SmartAutoStopManager._checkAndToggle] will NOT auto-stop
+  /// again until the user leaves the trusted network or manually stops the
+  /// proxy. This is a temporary per-session override, not a permanent
+  /// setting change.
+  SmartAutoStopManualOverrideProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'smartAutoStopManualOverrideProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$smartAutoStopManualOverrideHash();
+
+  @$internal
+  @override
+  SmartAutoStopManualOverride create() => SmartAutoStopManualOverride();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$smartAutoStopManualOverrideHash() =>
+    r'b0818767a11cde61c487e50cc9936c5adda686b0';
+
+/// Tracks whether the user has manually resumed from a smart auto-stop
+/// during the current trusted-network session.
+///
+/// When true, [SmartAutoStopManager._checkAndToggle] will NOT auto-stop
+/// again until the user leaves the trusted network or manually stops the
+/// proxy. This is a temporary per-session override, not a permanent
+/// setting change.
+
+abstract class _$SmartAutoStopManualOverride extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
 /// Manages the smart auto stop lifecycle.
 ///
 /// When enabled, listens to connectivity changes and checks if the device's
@@ -131,7 +215,7 @@ final class SmartAutoStopManagerProvider
 }
 
 String _$smartAutoStopManagerHash() =>
-    r'706dab159fdb9e4bcd94e7367c94fceef82f0035';
+    r'123214657a8626004c8e748a6c18c0e21d828ca4';
 
 /// Manages the smart auto stop lifecycle.
 ///
