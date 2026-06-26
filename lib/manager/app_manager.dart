@@ -79,26 +79,26 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
   @override
   Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
     commonPrint.log('$state');
-    final ref = globalState.container;
+    final container = globalState.container;
+    final setupAction = container.read(setupActionProvider.notifier);
     if (state == AppLifecycleState.resumed) {
-      ref.read(appForegroundProvider.notifier).set(true);
-      ref.read(healthObservationSchedulerProvider.notifier)
+      container.read(appForegroundProvider.notifier).set(true);
+      render?.resume();
+      container.read(healthObservationSchedulerProvider.notifier)
           .onLifecycleChanged(DateTime.now());
-      // Resume UI stats timer if VPN is running and not smart-paused
-      ref.read(setupActionProvider.notifier).resumeUiStatsTimerIfNeeded();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(setupActionProvider.notifier).tryCheckIp();
+        setupAction.resumeUiStatsTimerIfNeeded();
+        setupAction.tryCheckIp();
         if (system.isAndroid) {
-          ref.read(coreActionProvider.notifier).tryStartCore();
+          container.read(coreActionProvider.notifier).tryStartCore();
         }
       });
-    } else {
-      // inactive / paused / detached
-      ref.read(appForegroundProvider.notifier).set(false);
-      ref.read(healthObservationSchedulerProvider.notifier)
-          .onLifecycleChanged(DateTime.now());
-      // Cancel UI stats timer to save power (preserves startTime/traffic)
-      ref.read(setupActionProvider.notifier).cancelUiStatsTimer();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      container.read(appForegroundProvider.notifier).set(false);
+      setupAction.cancelUiStatsTimer();
     }
   }
 

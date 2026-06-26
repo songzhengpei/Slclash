@@ -17,6 +17,7 @@ export 'javascript.dart';
 export 'launch.dart';
 export 'link.dart';
 export 'measure.dart';
+export 'media_check_data.dart';
 export 'migration.dart';
 export 'mixin.dart';
 export 'navigation.dart';

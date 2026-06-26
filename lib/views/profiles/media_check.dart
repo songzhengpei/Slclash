@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
@@ -11,20 +10,11 @@ import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
-const _mediaCheckCacheKey = 'media-check-cache-v2';
-const _mediaCheckObserveSettingsKey = 'media-check-observe-settings-v1';
+// ── Page-local constants ──────────────────────────────────────────────────
+
 const _mediaCheckConcurrencyKey = 'media-check-concurrency-v1';
-const _healthyMinSamples = 3;
-const _healthyMinGreenStreak = 3;
-const _healthyMinGreenRate = 0.85;
-const _healthyMaxMedianDelay = 800;
 const _observeIdleDelay = Duration(seconds: 30);
 const _resultPanelMaxHeight = 460.0;
-const _cacheTTLSuccess = Duration(hours: 48);
-const _cacheTTLUnknown = Duration(hours: 24);
-const _cacheTTLError = Duration(hours: 6);
-const _cacheTTLHealth = Duration(days: 7);
-const _maxCacheEntries = 500;
 
 typedef MediaCheckConfigLoader =
     Future<Map<String, dynamic>> Function(int profileId);
@@ -33,8 +23,34 @@ Future<Map<String, dynamic>> _defaultMediaCheckConfigLoader(int profileId) {
   return coreController.getConfig(profileId);
 }
 
-String _firstNonEmpty(String first, String second) {
-  return first.isNotEmpty ? first : second;
+// ── UI color extensions (SurgeTheme-dependent, kept in view layer) ────────
+
+extension MediaCheckItemColors on MediaCheckItem {
+  Color statusColor(SurgeTheme surge) {
+    return switch (status) {
+      'clean' => surge.green,
+      'unsupported' || 'blocked' || 'disallowed_isp' => surge.red,
+      'failed' || 'timeout' || 'unknown' => surge.orange,
+      _ => surge.inactive,
+    };
+  }
+
+  Color youtubeColor(SurgeTheme surge) {
+    return switch (status) {
+      'cn_confirmed' || 'cn_inferred' || 'unavailable' => surge.orange,
+      'available' => surge.green,
+      'failed' || 'timeout' || 'unknown' => surge.orange,
+      _ => surge.inactive,
+    };
+  }
+}
+
+extension MediaHTTPSResultColors on MediaHTTPSResult {
+  Color statusColor(SurgeTheme surge) {
+    if (isGreen) return surge.green;
+    if (success > 0) return surge.orange;
+    return surge.red;
+  }
 }
 
 class ProfileMediaCheckView extends StatefulWidget {
@@ -208,13 +224,79 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _cacheStore.save(_cache);
   }
 
+  /// Select targets for automatic health observation.
+  ///
+  /// Strategy (ordered by priority):
+  /// 1. Stable-low-latency candidates (keep their history fresh).
+  /// 2. Nodes with existing health samples (maintain history).
+  /// 3. Nodes with recent successful GPT/YouTube results (potential new
+  ///    candidates — previously excluded because lastResult != null was
+  ///    the only gate, but these now get sampled).
+  /// 4. A small proportion (15–20%) of untested or expired nodes so new
+  ///    proxies can naturally enter the health observation pool.
+  ///
+  /// Capped at a reasonable batch size to avoid battery/network drain.
+  List<_MediaCheckTarget> _selectAutoHealthTargets() {
+    const maxBatch = 40; // limit per round
+    const exploreRatio = 0.15; // ~15% untested/expired nodes
+
+    final candidates = <_MediaCheckTarget>[];
+    final explored = <_MediaCheckTarget>[];
+    final remaining = <_MediaCheckTarget>[];
+
+    for (final target in _targets) {
+      final entry = _cache.entries[target.key];
+      if (entry == null) {
+        remaining.add(target);
+        continue;
+      }
+
+      final health = entry.health;
+      final hasRecentResult = entry.lastResult != null;
+
+      if (health.isStableLowLatency) {
+        // Top priority: refresh stable nodes to keep their status current.
+        candidates.add(target);
+      } else if (health.sampleCount > 0) {
+        // Has some health history — keep building it.
+        candidates.add(target);
+      } else if (hasRecentResult) {
+        // Has GPT/YouTube results but no health history yet.
+        // Previously excluded by the old filter; now included as second tier.
+        candidates.add(target);
+      } else if (entry.samples.isNotEmpty) {
+        // Has old/expired health samples — worth retrying.
+        candidates.add(target);
+      } else {
+        // No data at all — reserve for exploration sampling.
+        remaining.add(target);
+      }
+    }
+
+    // Add exploration sample from untested/expired nodes.
+    if (remaining.isNotEmpty) {
+      remaining.shuffle();
+      final exploreCount =
+          (candidates.length * exploreRatio).round().clamp(1, remaining.length);
+      explored.addAll(remaining.take(exploreCount));
+    }
+
+    final selected = [...candidates, ...explored];
+    if (selected.length <= maxBatch) return selected;
+
+    // If over the batch cap, prioritize candidates over explored.
+    if (candidates.length >= maxBatch) {
+      return candidates.sublist(0, maxBatch);
+    }
+    final slotsForExplored = maxBatch - candidates.length;
+    return [...candidates, ...explored.take(slotsForExplored)];
+  }
+
   Future<void> _start({_MediaCheckFilter? mode, bool automatic = false}) async {
     final runMode = mode ?? _filter;
     final healthOnly = runMode == _MediaCheckFilter.green;
     final runTargets = healthOnly && automatic
-        ? _targets
-              .where((target) => _cache.entries[target.key]?.lastResult != null)
-              .toList()
+        ? _selectAutoHealthTargets()
         : _targets;
     if (_checking || runTargets.isEmpty) return;
     final generation = ++_generation;
@@ -1282,7 +1364,9 @@ class _MediaCheckResultList extends StatelessWidget {
               thumbVisibility: false,
               child: ListView.separated(
                 shrinkWrap: true,
-                padding: EdgeInsets.zero,
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.paddingOf(context).bottom + 24,
+                ),
                 itemCount: rows.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (_, index) =>
@@ -1892,807 +1976,4 @@ class _MediaCheckSummary {
   }
 
   String subtitleFor(_MediaCheckFilter filter) => filter.subtitle;
-}
-
-class MediaCheckCacheStore {
-  Future<MediaCheckCache> load() async {
-    final raw = await preferences.getString(_mediaCheckCacheKey);
-    if (raw == null || raw.isEmpty) return const MediaCheckCache(entries: {});
-    try {
-      return MediaCheckCache.fromJson(
-        json.decode(raw) as Map<String, dynamic>,
-      ).purgeExpired();
-    } catch (_) {
-      return const MediaCheckCache(entries: {});
-    }
-  }
-
-  Future<void> save(MediaCheckCache cache) async {
-    await preferences.setString(_mediaCheckCacheKey, json.encode(cache));
-  }
-
-  Future<MediaCheckObserveSettings> loadObserveSettings() async {
-    final raw = await preferences.getString(_mediaCheckObserveSettingsKey);
-    if (raw == null || raw.isEmpty) {
-      return const MediaCheckObserveSettings();
-    }
-    try {
-      return MediaCheckObserveSettings.fromJson(
-        json.decode(raw) as Map<String, dynamic>,
-      );
-    } catch (_) {
-      return const MediaCheckObserveSettings();
-    }
-  }
-
-  Future<void> saveObserveSettings(MediaCheckObserveSettings settings) async {
-    await preferences.setString(
-      _mediaCheckObserveSettingsKey,
-      json.encode(settings),
-    );
-  }
-}
-
-class MediaCheckObserveSettings {
-  const MediaCheckObserveSettings({
-    this.enabled = false,
-    this.intervalMinutes = 60,
-    this.lastRunAt = 0,
-  });
-
-  factory MediaCheckObserveSettings.fromJson(Map<String, dynamic> json) {
-    final interval = json['interval-minutes'] as int? ?? 60;
-    return MediaCheckObserveSettings(
-      enabled: json['enabled'] as bool? ?? false,
-      intervalMinutes: intervalOptions.contains(interval) ? interval : 60,
-      lastRunAt: json['last-run-at'] as int? ?? 0,
-    );
-  }
-
-  static const intervalOptions = [20, 40, 60, 120];
-
-  final bool enabled;
-  final int intervalMinutes;
-  final int lastRunAt;
-
-  bool get isDue {
-    if (lastRunAt <= 0) return true;
-    final elapsed = DateTime.now().millisecondsSinceEpoch - lastRunAt;
-    return elapsed >= Duration(minutes: intervalMinutes).inMilliseconds;
-  }
-
-  String get intervalLabel {
-    if (intervalMinutes < 60) return '${intervalMinutes}m';
-    final hours = intervalMinutes ~/ 60;
-    return '${hours}h';
-  }
-
-  MediaCheckObserveSettings copyWith({
-    bool? enabled,
-    int? intervalMinutes,
-    int? lastRunAt,
-  }) {
-    return MediaCheckObserveSettings(
-      enabled: enabled ?? this.enabled,
-      intervalMinutes: intervalMinutes ?? this.intervalMinutes,
-      lastRunAt: lastRunAt ?? this.lastRunAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'enabled': enabled,
-      'interval-minutes': intervalMinutes,
-      'last-run-at': lastRunAt,
-    };
-  }
-}
-
-class MediaCheckCache {
-  const MediaCheckCache({required this.entries});
-
-  factory MediaCheckCache.fromJson(Map<String, dynamic> json) {
-    final entries = <String, MediaCheckCacheEntry>{};
-    final rawEntries = Map<String, dynamic>.from(
-      json['entries'] as Map? ?? const {},
-    );
-    for (final entry in rawEntries.entries) {
-      entries[entry.key] = MediaCheckCacheEntry.fromJson(
-        Map<String, dynamic>.from(entry.value as Map? ?? const {}),
-      );
-    }
-    return MediaCheckCache(entries: entries);
-  }
-
-  final Map<String, MediaCheckCacheEntry> entries;
-
-  MediaCheckCache addResult({
-    required String key,
-    required int profileId,
-    required String profileLabel,
-    required String proxyName,
-    required MediaCheckResult result,
-    required String mode,
-  }) {
-    final nextEntries = Map<String, MediaCheckCacheEntry>.from(entries);
-    final previous = nextEntries[key];
-    nextEntries[key] =
-        (previous ??
-                MediaCheckCacheEntry(
-                  key: key,
-                  profileId: profileId,
-                  profileLabel: profileLabel,
-                  proxyName: proxyName,
-                  samples: const [],
-                ))
-            .addModeResult(result, mode);
-    return MediaCheckCache(entries: nextEntries)._enforceCapacity();
-  }
-
-  MediaCheckCache addHealthResult({
-    required String key,
-    required int profileId,
-    required String profileLabel,
-    required String proxyName,
-    required MediaCheckResult result,
-  }) {
-    final nextEntries = Map<String, MediaCheckCacheEntry>.from(entries);
-    final previous = nextEntries[key];
-    nextEntries[key] =
-        (previous ??
-                MediaCheckCacheEntry(
-                  key: key,
-                  profileId: profileId,
-                  profileLabel: profileLabel,
-                  proxyName: proxyName,
-                  samples: const [],
-                ))
-            .addHealthResult(result);
-    return MediaCheckCache(entries: nextEntries)._enforceCapacity();
-  }
-
-  MediaCheckCache clearModeForKeys({
-    required Set<String> keys,
-    required String mode,
-  }) {
-    final nextEntries = Map<String, MediaCheckCacheEntry>.from(entries);
-    for (final key in keys) {
-      final entry = nextEntries[key];
-      if (entry == null) continue;
-      final nextEntry = entry.clearMode(mode);
-      if (nextEntry == null) {
-        nextEntries.remove(key);
-      } else {
-        nextEntries[key] = nextEntry;
-      }
-    }
-    return MediaCheckCache(entries: nextEntries);
-  }
-
-  /// Remove entries where every mode is expired and no health samples remain.
-  MediaCheckCache purgeExpired() {
-    final nextEntries = Map<String, MediaCheckCacheEntry>.from(entries);
-    final keysToRemove = <String>[];
-    for (final entry in nextEntries.entries) {
-      final e = entry.value;
-      final allExpired = e.modeTimes.keys.every(
-        (mode) => e.isModeExpired(mode),
-      );
-      if (allExpired && e.samples.isEmpty) {
-        keysToRemove.add(entry.key);
-      }
-    }
-    for (final key in keysToRemove) {
-      nextEntries.remove(key);
-    }
-    return MediaCheckCache(entries: nextEntries);
-  }
-
-  /// Evict oldest entries when exceeding [_maxCacheEntries].
-  MediaCheckCache _enforceCapacity() {
-    if (entries.length <= _maxCacheEntries) return this;
-    final sorted = entries.entries.toList()
-      ..sort((a, b) {
-        int maxTime(Map<String, int> m) =>
-            m.values.fold(0, (prev, v) => v > prev ? v : prev);
-        return maxTime(a.value.modeTimes).compareTo(maxTime(b.value.modeTimes));
-      });
-    final nextEntries = Map<String, MediaCheckCacheEntry>.from(entries);
-    while (sorted.length > _maxCacheEntries) {
-      nextEntries.remove(sorted.removeAt(0).key);
-    }
-    return MediaCheckCache(entries: nextEntries);
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'version': 2,
-      'entries': entries.map((key, value) => MapEntry(key, value.toJson())),
-    };
-  }
-}
-
-class MediaCheckCacheEntry {
-  const MediaCheckCacheEntry({
-    required this.key,
-    required this.profileId,
-    required this.profileLabel,
-    required this.proxyName,
-    required this.samples,
-    this.modeTimes = const {},
-    this.lastResult,
-  });
-
-  factory MediaCheckCacheEntry.fromJson(Map<String, dynamic> json) {
-    return MediaCheckCacheEntry(
-      key: json['key'] as String? ?? '',
-      profileId: json['profile-id'] as int? ?? 0,
-      profileLabel: json['profile-label'] as String? ?? '',
-      proxyName: json['proxy-name'] as String? ?? '',
-      lastResult: json['last-result'] == null
-          ? null
-          : MediaCheckResult.fromJson(
-              Map<String, dynamic>.from(json['last-result'] as Map),
-            ),
-      samples: (json['samples'] as List? ?? const [])
-          .map(
-            (item) => MediaHealthSample.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
-          )
-          .toList(),
-      modeTimes: Map<String, int>.from(
-        (json['mode-times'] as Map? ?? const {}).map(
-          (key, value) => MapEntry('$key', (value as num?)?.toInt() ?? 0),
-        ),
-      ),
-    );
-  }
-
-  final String key;
-  final int profileId;
-  final String profileLabel;
-  final String proxyName;
-  final MediaCheckResult? lastResult;
-  final List<MediaHealthSample> samples;
-  final Map<String, int> modeTimes;
-
-  MediaCheckCacheEntry addModeResult(MediaCheckResult result, String mode) {
-    final merged = switch (mode) {
-      'gpt' => (lastResult ?? result).copyWith(
-        chatGPT: result.chatGPT,
-        region: _firstNonEmpty(result.chatGPT.region, lastResult?.region ?? ''),
-        checkedAt: result.checkedAt,
-      ),
-      'youtube' => (lastResult ?? result).copyWith(
-        youTube: result.youTube,
-        region: _firstNonEmpty(result.youTube.region, lastResult?.region ?? ''),
-        checkedAt: result.checkedAt,
-      ),
-      _ => result,
-    };
-    return copyWith(
-      lastResult: merged,
-      modeTimes: {...modeTimes, mode: result.checkedAt},
-    );
-  }
-
-  MediaCheckCacheEntry addHealthResult(MediaCheckResult result) {
-    final sample = MediaHealthSample(
-      checkedAt: result.checkedAt,
-      delay: result.https.delay,
-      green: result.https.isGreen,
-      chatGPT: lastResult?.chatGPT.isChatGPTAvailable ?? false,
-    );
-    final nextLastResult = lastResult == null
-        ? result
-        : lastResult!.copyWith(
-            https: result.https,
-            checkedAt: result.checkedAt,
-          );
-    return _addSample(
-      sample: sample,
-      lastResult: nextLastResult,
-      mode: 'health',
-    );
-  }
-
-  MediaCheckCacheEntry _addSample({
-    required MediaHealthSample sample,
-    required MediaCheckResult lastResult,
-    required String mode,
-  }) {
-    final cutoff = DateTime.now()
-        .subtract(const Duration(days: 7))
-        .millisecondsSinceEpoch;
-    final nextSamples = [
-      ...samples.where((sample) => sample.checkedAt >= cutoff),
-      sample,
-    ];
-    final trimmed = nextSamples.length > 168
-        ? nextSamples.sublist(nextSamples.length - 168)
-        : nextSamples;
-    return MediaCheckCacheEntry(
-      key: key,
-      profileId: profileId,
-      profileLabel: profileLabel,
-      proxyName: proxyName,
-      lastResult: lastResult,
-      samples: trimmed,
-      modeTimes: {...modeTimes, mode: sample.checkedAt},
-    );
-  }
-
-  bool hasMode(String mode) => modeTime(mode) != null && !isModeExpired(mode);
-
-  /// Has cached data for mode, regardless of expiry.
-  bool hasModeAny(String mode) => modeTime(mode) != null;
-
-  /// Whether the cached result for [mode] has exceeded its TTL.
-  bool isModeExpired(String mode) {
-    final t = modeTime(mode);
-    if (t == null || t <= 0) return true;
-    final elapsed = DateTime.now().millisecondsSinceEpoch - t;
-    return elapsed > _ttlForMode(mode).inMilliseconds;
-  }
-
-  Duration _ttlForMode(String mode) {
-    if (mode == 'health') return _cacheTTLHealth;
-    final r = lastResult;
-    if (r == null) return _cacheTTLError;
-    if (mode == 'gpt') {
-      return r.chatGPT.isChatGPTAvailable ? _cacheTTLSuccess : _cacheTTLError;
-    }
-    if (mode == 'youtube') {
-      if (r.youTube.isYouTubeCN) return _cacheTTLSuccess;
-      if (r.youTube.status == 'available') return _cacheTTLSuccess;
-      if (r.youTube.status == 'unknown') return _cacheTTLUnknown;
-      return _cacheTTLError;
-    }
-    return _cacheTTLError;
-  }
-
-  int? modeTime(String mode) {
-    if (mode == 'health') {
-      if (samples.isEmpty) return null;
-      return samples.map((sample) => sample.checkedAt).reduce(math.max);
-    }
-    final value = modeTimes[mode];
-    return value == null || value <= 0 ? null : value;
-  }
-
-  MediaCheckCacheEntry? clearMode(String mode) {
-    final nextModeTimes = Map<String, int>.from(modeTimes)..remove(mode);
-    final nextSamples = mode == 'health' ? <MediaHealthSample>[] : samples;
-    MediaCheckResult? nextResult = lastResult;
-    if (nextResult != null) {
-      nextResult = switch (mode) {
-        'gpt' => nextResult.copyWith(
-          chatGPT: const MediaCheckItem(status: 'skipped'),
-        ),
-        'youtube' => nextResult.copyWith(
-          youTube: const MediaCheckItem(status: 'skipped'),
-        ),
-        'health' => nextResult.copyWith(
-          https: const MediaHTTPSResult(delay: -1, success: 0, total: 0),
-        ),
-        _ => nextResult,
-      };
-    }
-    final hasRemainingModes =
-        nextModeTimes.isNotEmpty || nextSamples.isNotEmpty;
-    if (!hasRemainingModes) return null;
-    return copyWith(
-      lastResult: nextResult,
-      samples: nextSamples,
-      modeTimes: nextModeTimes,
-    );
-  }
-
-  MediaCheckCacheEntry copyWith({
-    MediaCheckResult? lastResult,
-    List<MediaHealthSample>? samples,
-    Map<String, int>? modeTimes,
-  }) {
-    return MediaCheckCacheEntry(
-      key: key,
-      profileId: profileId,
-      profileLabel: profileLabel,
-      proxyName: proxyName,
-      lastResult: lastResult ?? this.lastResult,
-      samples: samples ?? this.samples,
-      modeTimes: modeTimes ?? this.modeTimes,
-    );
-  }
-
-  MediaHealthStats get health => MediaHealthStats.fromSamples(samples);
-
-  Map<String, dynamic> toJson() {
-    return {
-      'key': key,
-      'profile-id': profileId,
-      'profile-label': profileLabel,
-      'proxy-name': proxyName,
-      'last-result': lastResult?.toJson(),
-      'samples': samples.map((sample) => sample.toJson()).toList(),
-      'mode-times': modeTimes,
-    };
-  }
-}
-
-class MediaHealthSample {
-  const MediaHealthSample({
-    required this.checkedAt,
-    required this.delay,
-    required this.green,
-    required this.chatGPT,
-  });
-
-  factory MediaHealthSample.fromJson(Map<String, dynamic> json) {
-    return MediaHealthSample(
-      checkedAt: json['checked-at'] as int? ?? 0,
-      delay: json['delay'] as int? ?? -1,
-      green: json['green'] as bool? ?? false,
-      chatGPT: json['chatgpt'] as bool? ?? false,
-    );
-  }
-
-  factory MediaHealthSample.fromResult(MediaCheckResult result) {
-    return MediaHealthSample(
-      checkedAt: result.checkedAt,
-      delay: result.https.delay,
-      green: result.https.isGreen,
-      chatGPT: result.chatGPT.isChatGPTAvailable,
-    );
-  }
-
-  final int checkedAt;
-  final int delay;
-  final bool green;
-  final bool chatGPT;
-
-  Map<String, dynamic> toJson() {
-    return {
-      'checked-at': checkedAt,
-      'delay': delay,
-      'green': green,
-      'chatgpt': chatGPT,
-    };
-  }
-}
-
-class MediaHealthStats {
-  const MediaHealthStats({
-    required this.sampleCount,
-    required this.greenRate,
-    required this.greenStreak,
-    required this.chatGPTRate,
-    required this.medianDelay,
-    required this.score,
-    this.recentFiveClean = true,
-  });
-
-  const MediaHealthStats.empty()
-    : sampleCount = 0,
-      greenRate = 0,
-      greenStreak = 0,
-      chatGPTRate = 0,
-      medianDelay = -1,
-      score = 0,
-      recentFiveClean = true;
-
-  factory MediaHealthStats.fromSamples(List<MediaHealthSample> samples) {
-    if (samples.isEmpty) return const MediaHealthStats.empty();
-    final sorted = [...samples]
-      ..sort((a, b) => a.checkedAt.compareTo(b.checkedAt));
-    final delays =
-        sorted
-            .where((sample) => sample.delay > 0)
-            .map((sample) => sample.delay)
-            .toList()
-          ..sort();
-    final greenCount = sorted.where((sample) => sample.green).length;
-    final chatGPTCount = sorted.where((sample) => sample.chatGPT).length;
-    var streak = 0;
-    for (final sample in sorted.reversed) {
-      if (!sample.green) break;
-      streak++;
-    }
-    // Exit mechanism: check if any of the last 5 samples is non-green
-    final recentFive = sorted.length >= 5
-        ? sorted.sublist(sorted.length - 5)
-        : sorted;
-    final recentFiveClean = !recentFive.any((s) => !s.green);
-
-    final medianDelay = delays.isEmpty ? -1 : delays[delays.length ~/ 2];
-    final greenRate = greenCount / sorted.length;
-    final chatGPTRate = chatGPTCount / sorted.length;
-    final score =
-        (greenRate * 5000).round() +
-        math.min(streak, 24) * 120 +
-        (chatGPTRate * 1400).round() +
-        (medianDelay > 0 ? math.max(0, 1200 - medianDelay).toInt() : 0);
-    return MediaHealthStats(
-      sampleCount: sorted.length,
-      greenRate: greenRate,
-      greenStreak: streak,
-      chatGPTRate: chatGPTRate,
-      medianDelay: medianDelay,
-      score: score,
-      recentFiveClean: recentFiveClean,
-    );
-  }
-
-  final int sampleCount;
-  final double greenRate;
-  final int greenStreak;
-  final double chatGPTRate;
-  final int medianDelay;
-  final int score;
-  final bool recentFiveClean;
-
-  bool get hasEnoughHistory => sampleCount >= _healthyMinSamples;
-
-  bool get isLowLatency =>
-      medianDelay > 0 && medianDelay <= _healthyMaxMedianDelay;
-
-  bool get isStableLowLatency =>
-      hasEnoughHistory &&
-      greenStreak >= _healthyMinGreenStreak &&
-      greenRate >= _healthyMinGreenRate &&
-      isLowLatency &&
-      recentFiveClean;
-
-  String get label {
-    if (sampleCount == 0) return '暂无历史';
-    final rate = (greenRate * 100).round();
-    final delay = medianDelay > 0 ? ' · ${medianDelay}ms' : '';
-    final streak = greenStreak > 0 ? ' · 连绿$greenStreak' : '';
-    return '$sampleCount次 · $rate%$delay$streak';
-  }
-}
-
-class MediaCheckResult {
-  const MediaCheckResult({
-    required this.name,
-    required this.chatGPT,
-    required this.youTube,
-    required this.https,
-    required this.region,
-    required this.score,
-    required this.checkedAt,
-    this.profileId,
-    this.profileLabel = '',
-  });
-
-  factory MediaCheckResult.fromJson(Map<String, dynamic> json) {
-    return MediaCheckResult(
-      name: json['name'] as String? ?? '',
-      chatGPT: MediaCheckItem.fromJson(
-        Map<String, dynamic>.from(json['chatgpt'] as Map? ?? const {}),
-      ),
-      youTube: MediaCheckItem.fromJson(
-        Map<String, dynamic>.from(json['youtube'] as Map? ?? const {}),
-      ),
-      https: MediaHTTPSResult.fromJson(
-        Map<String, dynamic>.from(json['https'] as Map? ?? const {}),
-      ),
-      region: json['region'] as String? ?? '',
-      score: json['score'] as int? ?? 0,
-      checkedAt:
-          json['checked-at'] as int? ?? DateTime.now().millisecondsSinceEpoch,
-      profileId: json['profile-id'] as int?,
-      profileLabel: json['profile-label'] as String? ?? '',
-    );
-  }
-
-  factory MediaCheckResult.failed(
-    String name,
-    String error, {
-    int? profileId,
-    String profileLabel = '',
-  }) {
-    return MediaCheckResult(
-      name: name,
-      profileId: profileId,
-      profileLabel: profileLabel,
-      chatGPT: MediaCheckItem(status: 'failed', error: error),
-      youTube: MediaCheckItem(status: 'failed', error: error),
-      https: const MediaHTTPSResult(delay: -1, success: 0, total: 3),
-      region: '',
-      score: 0,
-      checkedAt: DateTime.now().millisecondsSinceEpoch,
-    );
-  }
-
-  final String name;
-  final int? profileId;
-  final String profileLabel;
-  final MediaCheckItem chatGPT;
-  final MediaCheckItem youTube;
-  final MediaHTTPSResult https;
-  final String region;
-  final int score;
-  final int checkedAt;
-
-  String get regionText => region.isEmpty ? chatGPT.region : region;
-
-  MediaCheckResult copyWith({
-    int? profileId,
-    String? profileLabel,
-    MediaCheckItem? chatGPT,
-    MediaCheckItem? youTube,
-    MediaHTTPSResult? https,
-    String? region,
-    int? checkedAt,
-    int? score,
-  }) {
-    return MediaCheckResult(
-      name: name,
-      profileId: profileId ?? this.profileId,
-      profileLabel: profileLabel ?? this.profileLabel,
-      chatGPT: chatGPT ?? this.chatGPT,
-      youTube: youTube ?? this.youTube,
-      https: https ?? this.https,
-      region: region ?? this.region,
-      score: score ?? this.score,
-      checkedAt: checkedAt ?? this.checkedAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'profile-id': profileId,
-      'profile-label': profileLabel,
-      'chatgpt': chatGPT.toJson(),
-      'youtube': youTube.toJson(),
-      'https': https.toJson(),
-      'region': region,
-      'score': score,
-      'checked-at': checkedAt,
-    };
-  }
-}
-
-class MediaCheckItem {
-  const MediaCheckItem({
-    required this.status,
-    this.region = '',
-    this.evidence = '',
-    this.premiumAvailable,
-    this.error = '',
-  });
-
-  factory MediaCheckItem.fromJson(Map<String, dynamic> json) {
-    return MediaCheckItem(
-      status: json['status'] as String? ?? 'failed',
-      region: json['region'] as String? ?? '',
-      evidence: json['evidence'] as String? ?? '',
-      premiumAvailable: json['premium-available'] as bool?,
-      error: json['error'] as String? ?? '',
-    );
-  }
-
-  final String status;
-  final String region;
-  final String evidence;
-  final bool? premiumAvailable;
-  final String error;
-
-  bool get isChatGPTAvailable => status == 'clean';
-
-  bool get isYouTubeCN =>
-      status == 'cn_confirmed' ||
-      status == 'cn_inferred' ||
-      status == 'unavailable' ||
-      region.toUpperCase() == 'CN' ||
-      evidence == 'google-cn';
-
-  String get chatGPTCompactLabel {
-    if (status == 'clean') {
-      return region.isEmpty ? '解锁' : '解锁($region)';
-    }
-    return switch (status) {
-      'blocked' => '阻断',
-      'disallowed_isp' || 'unsupported' => '阻断',
-      'failed' || 'timeout' || 'unknown' => '超时',
-      'skipped' => 'N/A',
-      _ => '超时',
-    };
-  }
-
-  String get youtubeCompactLabel {
-    return switch (status) {
-      'cn_confirmed' => '送中',
-      'cn_inferred' => '疑似送中',
-      'unavailable' => '送中',
-      'available' => region.isEmpty ? '解锁' : '解锁($region)',
-      'unknown' || 'failed' || 'timeout' => '超时',
-      'skipped' => 'N/A',
-      _ => '超时',
-    };
-  }
-
-  Color statusColor(SurgeTheme surge) {
-    return switch (status) {
-      'clean' => surge.green,
-      'unsupported' || 'blocked' || 'disallowed_isp' => surge.red,
-      'failed' || 'timeout' || 'unknown' => surge.orange,
-      _ => surge.inactive,
-    };
-  }
-
-  Color youtubeColor(SurgeTheme surge) {
-    return switch (status) {
-      'cn_confirmed' || 'cn_inferred' || 'unavailable' => surge.orange,
-      'available' => surge.green,
-      'failed' || 'timeout' || 'unknown' => surge.orange,
-      _ => surge.inactive,
-    };
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'status': status,
-      'region': region,
-      'evidence': evidence,
-      'premium-available': premiumAvailable,
-      'error': error,
-    };
-  }
-}
-
-class MediaHTTPSResult {
-  const MediaHTTPSResult({
-    required this.delay,
-    required this.success,
-    required this.total,
-    this.values = const [],
-    this.error = '',
-  });
-
-  factory MediaHTTPSResult.fromJson(Map<String, dynamic> json) {
-    return MediaHTTPSResult(
-      delay: json['delay'] as int? ?? -1,
-      success: json['success'] as int? ?? 0,
-      total: json['total'] as int? ?? 3,
-      values: (json['values'] as List? ?? const [])
-          .whereType<num>()
-          .map((value) => value.toInt())
-          .toList(),
-      error: json['error'] as String? ?? '',
-    );
-  }
-
-  final int delay;
-  final int success;
-  final int total;
-  final List<int> values;
-  final String error;
-
-  bool get isGreen => total > 0 && success == total && delay > 0;
-
-  int get normalizedDelay => delay > 0 ? delay : 999999;
-
-  String get compactLabel {
-    if (delay <= 0) return '$success/$total';
-    return '${delay}ms';
-  }
-
-  Color statusColor(SurgeTheme surge) {
-    if (isGreen) return surge.green;
-    if (success > 0) return surge.orange;
-    return surge.red;
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'delay': delay,
-      'success': success,
-      'total': total,
-      'values': values,
-      'error': error,
-    };
-  }
 }

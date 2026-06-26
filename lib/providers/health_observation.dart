@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -47,7 +48,6 @@ class HealthObservationSchedulerState {
   final DateTime? nextEligibleAt;
 
   /// Incremented each time a new observation is triggered.
-  /// Widgets can watch this to react.
   final int triggerGeneration;
 
   /// Total observation attempts made.
@@ -102,13 +102,16 @@ class HealthObservationSchedulerState {
 /// Uses a lightweight 15-second tick timer only for condition checking.
 /// Actual observation interval is user-configured (default 10 min).
 ///
-/// Idle conditions (any is sufficient):
-/// 1. App in background for >=30s
-/// 2. App in foreground with no user interaction for >=30s
-/// 3. App just started >=30s ago with no interaction yet
+/// **nextEligibleAt policy (fix: not advanced before execution)**
+/// - Successful observation: advance by full [intervalMinutes].
+/// - Core / profile / group temporarily unavailable: short retry (1–5 min).
+/// - Smart-auto-stopped: short retry (2 min), or immediate when resumed.
+/// - Already running: short retry (1 min).
 ///
-/// When the environment is not available (core not running, no network),
-/// records `skippedEnvironment` -- does NOT count as node failure.
+/// **Health result persistence**
+/// Results from app-level observations are written to [MediaCheckCache]
+/// via [MediaCheckCacheStore], the same store used by the page-level UI.
+/// This ensures historical-stable-node calculations reflect both sources.
 @Riverpod(keepAlive: true)
 class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _tickInterval = Duration(seconds: 15);
@@ -116,10 +119,18 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _mediaCheckTimeout = Duration(seconds: 15);
   static const _observeSettingsKey = 'media-check-observe-settings-v1';
 
+  // ── Retry intervals for different skip reasons ─────────────────────────
+  static const _retryCoreUnavailable = Duration(minutes: 2);
+  static const _retryNoProfile = Duration(minutes: 3);
+  static const _retryNoProxies = Duration(minutes: 5);
+  static const _retryNoNetwork = Duration(minutes: 2);
+  static const _retrySmartStopped = Duration(minutes: 2);
+
   Timer? _tickTimer;
   DateTime? _appStartedAt;
   DateTime? _lastLifecycleChangeAt;
   bool _engineReady = false;
+  final _cacheStore = MediaCheckCacheStore();
 
   @override
   HealthObservationSchedulerState build() {
@@ -131,12 +142,34 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       _tickTimer = null;
     });
 
-    // Load saved settings (enabled, interval) from preferences.
     _loadSettings();
-
-    // Start the condition-check tick timer immediately on provider init.
-    // This runs regardless of foreground/background.
     _startTickTimer();
+
+    // ── Reactive triggers ──────────────────────────────────────────────
+
+    // 1. Smart-auto-stop resume → request observation soon.
+    ref.listen(isSmartStoppedProvider, (prev, next) {
+      if (prev == true && next == false) {
+        // VPN just resumed from smart-stop — schedule a health check soon.
+        requestSoon();
+      }
+    });
+
+    // 2. App returns to foreground + observation is overdue → request soon.
+    ref.listen(appForegroundProvider, (prev, next) {
+      if (prev == false && next == true && isOverdue) {
+        requestSoon();
+      }
+    });
+
+    // 3. Core reconnects (network recovery / VPN restored) + overdue → request soon.
+    ref.listen(coreStatusProvider, (prev, next) {
+      if (prev != CoreStatus.connected &&
+          next == CoreStatus.connected &&
+          isOverdue) {
+        requestSoon();
+      }
+    });
 
     return const HealthObservationSchedulerState();
   }
@@ -165,7 +198,6 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// Called every 15 seconds to check if observation should run.
   void _onTick() {
     if (!_engineReady) return;
-    // Reload settings on each tick so UI changes take effect promptly.
     _loadSettings();
     final s = state;
     if (!s.enabled) return;
@@ -176,7 +208,10 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     _triggerObservation();
   }
 
-  /// Checks idle conditions.
+  /// Checks idle conditions (any is sufficient):
+  /// 1. App in background for >=30s
+  /// 2. App in foreground with no user interaction for >=30s
+  /// 3. App started >=30s ago with no interaction yet
   bool _isIdle() {
     final now = DateTime.now();
     final isForeground = ref.read(appForegroundProvider);
@@ -207,110 +242,155 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     return false;
   }
 
-  /// Initiate an observation run. Sets observing state immediately,
-  /// then kicks off the async health check.
+  /// Initiate an observation run.
+  ///
+  /// Sets isObserving immediately to prevent concurrent runs, but does NOT
+  /// advance nextEligibleAt here — that decision is deferred to
+  /// [_completeObservation] so that skips receive a short retry instead of
+  /// the full interval.
   void _triggerObservation() {
-    final nextEligible =
-        DateTime.now().add(Duration(minutes: state.intervalMinutes));
     state = state.copyWith(
       lastAttemptAt: DateTime.now(),
       isObserving: true,
-      nextEligibleAt: nextEligible,
       triggerGeneration: state.triggerGeneration + 1,
       totalObservations: state.totalObservations + 1,
       clearSkipReason: true,
     );
 
-    // Async health check — fire and forget.
     _performObservation();
   }
 
-  /// Execute the actual health observation against the profile selected
-  /// in the media check page (persisted), or the current active profile
-  /// as fallback.
+  /// Execute the health observation batch.
   ///
-  /// Loads the profile's full clash config, enumerates all leaf proxy
-  /// nodes, and tests every one via coreController.mediaCheck().
+  /// 1. Resolves target profile (from persisted selection or current active).
+  /// 2. Loads the profile's clash config and enumerates all leaf proxies.
+  /// 3. Tests every proxy via coreController.mediaCheck() in healthOnly mode.
+  /// 4. Parses each result and writes to [MediaCheckCache] via
+  ///    [MediaCheckCacheStore] so historical-stable-node data stays current.
   ///
-  /// Environment unavailability (core not reachable, profile config
-  /// unloadable) is recorded as skippedEnvironment — it does NOT count
-  /// as a node health failure.
-  ///
-  /// Individual proxy timeouts/errors are caught silently per-node and
-  /// do NOT abort the batch.
+  /// Environment unavailability is recorded as a skip with a short retry —
+  /// it does NOT pollute node health scores and does NOT push the next
+  /// observation far into the future.
   Future<void> _performObservation() async {
-    try {
-      // --- Determine the target profile ---
-      // Prefer the profile selected in the media check page (persisted).
-      // Fallback to the current active profile.
-      final selectedProfileId = ref.read(mediaCheckSelectedProfileIdProvider);
-      Profile? profile;
-
-      if (selectedProfileId != null) {
-        profile = _findProfileById(selectedProfileId);
-      }
-      profile ??= ref.read(currentProfileProvider);
-
-      if (profile == null) {
-        _completeObservation(skipReason: 'noSelectedProfile');
-        return;
-      }
-
-      // --- Load the profile's clash config ---
-      // This may fail if the core is not available — that's OK,
-      // we'll record skippedEnvironment.
-      final configMap = await coreController.getConfig(profile.id);
-      final config = ClashConfig.fromJson(configMap);
-      final allProxies = config.proxies;
-
-      if (allProxies.isEmpty) {
-        _completeObservation(skipReason: 'noProxies');
-        return;
-      }
-
-      // --- Enumerate all leaf proxy nodes ---
-      // config.proxies contains all proxy entries from the YAML proxies:
-      // section (leaf nodes only; groups are in proxy-groups:).
-      // Filter out well-known reserved names defensively.
-      const reserved = {
-        'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL',
-      };
-      final proxyNames = <String>{};
-      for (final proxy in allProxies) {
-        if (!reserved.contains(proxy.name.toUpperCase())) {
-          proxyNames.add(proxy.name);
-        }
-      }
-
-      if (proxyNames.isEmpty) {
-        _completeObservation(skipReason: 'noProxies');
-        return;
-      }
-
-      // --- Test ALL proxies in the selected profile ---
-      // Every proxy is tested individually. A single timeout/failure
-      // does NOT abort the batch.
-      int successes = 0;
-      for (final proxyName in proxyNames) {
-        try {
-          final result = await coreController
-              .mediaCheck(
-                proxyName,
-                profileId: profile.id,
-                healthOnly: true,
-                mode: 'health',
-              )
-              .timeout(_mediaCheckTimeout);
-          if (result.isNotEmpty) successes++;
-        } catch (_) {
-          // Individual proxy failure — continue with the next one.
-        }
-      }
-
-      _completeObservation(success: successes > 0);
-    } catch (e) {
+    // ── Pre-checks ──────────────────────────────────────────────────────
+    final coreStatus = ref.read(coreStatusProvider);
+    if (coreStatus != CoreStatus.connected) {
       _completeObservation(skipReason: 'coreUnavailable');
+      return;
     }
+
+    final isSmartStopped = ref.read(isSmartStoppedProvider);
+    if (isSmartStopped) {
+      // Smart-stopped: short retry, don't waste the observation attempt
+      // because coreController.mediaCheck will likely fail.
+      _completeObservation(skipReason: 'smartStopped');
+      return;
+    }
+
+    // ── Resolve target profile ──────────────────────────────────────────
+    final selectedProfileId = ref.read(mediaCheckSelectedProfileIdProvider);
+    Profile? profile;
+
+    if (selectedProfileId != null) {
+      profile = _findProfileById(selectedProfileId);
+    }
+    profile ??= ref.read(currentProfileProvider);
+
+    if (profile == null) {
+      _completeObservation(skipReason: 'noSelectedProfile');
+      return;
+    }
+
+    // ── Load clash config ───────────────────────────────────────────────
+    Map<String, dynamic> configMap;
+    try {
+      configMap = await coreController.getConfig(profile.id);
+    } catch (_) {
+      _completeObservation(skipReason: 'coreUnavailable');
+      return;
+    }
+
+    final config = ClashConfig.fromJson(configMap);
+    final allProxies = config.proxies;
+
+    if (allProxies.isEmpty) {
+      _completeObservation(skipReason: 'noProxies');
+      return;
+    }
+
+    // ── Enumerate leaf proxy nodes ─────────────────────────────────────
+    const reserved = {
+      'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL',
+    };
+    final proxyNames = <String>{};
+    for (final proxy in allProxies) {
+      if (!reserved.contains(proxy.name.toUpperCase())) {
+        proxyNames.add(proxy.name);
+      }
+    }
+
+    if (proxyNames.isEmpty) {
+      _completeObservation(skipReason: 'noProxies');
+      return;
+    }
+
+    // ── Load current cache for merging health results ───────────────────
+    MediaCheckCache cache;
+    try {
+      cache = await _cacheStore.load();
+    } catch (_) {
+      cache = const MediaCheckCache(entries: {});
+    }
+
+    // ── Test all proxies ────────────────────────────────────────────────
+    int successes = 0;
+    for (final proxyName in proxyNames) {
+      try {
+        final rawResult = await coreController
+            .mediaCheck(
+              proxyName,
+              profileId: profile.id,
+              healthOnly: true,
+              mode: 'health',
+            )
+            .timeout(_mediaCheckTimeout);
+        if (rawResult.isEmpty) continue;
+
+        // Parse result and write to cache so health history is updated.
+        try {
+          final result = MediaCheckResult.fromJson(
+            json.decode(rawResult) as Map<String, dynamic>,
+          ).copyWith(
+            profileId: profile.id,
+            profileLabel: profile.realLabel,
+          );
+          cache = cache.addHealthResult(
+            key: '${profile.id}::$proxyName',
+            profileId: profile.id,
+            profileLabel: profile.realLabel,
+            proxyName: proxyName,
+            result: result,
+          );
+          successes++;
+        } catch (_) {
+          // Malformed response — skip this proxy, continue with next.
+        }
+      } catch (_) {
+        // Individual proxy failure — continue with the next one.
+      }
+    }
+
+    // ── Persist updated cache ───────────────────────────────────────────
+    if (successes > 0) {
+      try {
+        await _cacheStore.save(cache);
+      } catch (_) {
+        // Persistence failure is non-fatal; health data is already
+        // collected and will be written on the next successful run.
+      }
+    }
+
+    _completeObservation(success: successes > 0);
   }
 
   /// Find a [Profile] by [id] from the profiles provider.
@@ -322,33 +402,55 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     return null;
   }
 
+  /// Finalize the observation attempt.
+  ///
+  /// **nextEligibleAt policy (the key fix):**
+  /// - Success: advance by full [intervalMinutes].
+  /// - Skip with known reason: short retry based on reason type.
+  /// - Ran but all proxies failed: short retry (network may be down).
   void _completeObservation({bool success = false, String? skipReason}) {
+    final now = DateTime.now();
+
     if (skipReason != null) {
-      // Skipped — environment issue, not proxy health failure.
-      // Does NOT pollute node health scores.
+      final retryAfter = _retryForSkipReason(skipReason);
       state = state.copyWith(
         isObserving: false,
         lastSkippedReason: skipReason,
         skippedObservations: state.skippedObservations + 1,
+        nextEligibleAt: now.add(retryAfter),
       );
     } else if (success) {
       state = state.copyWith(
         isObserving: false,
-        lastCompletedAt: DateTime.now(),
+        lastCompletedAt: now,
         successfulObservations: state.successfulObservations + 1,
+        nextEligibleAt: now.add(Duration(minutes: state.intervalMinutes)),
         clearSkipReason: true,
       );
     } else {
-      // Observation ran but all proxy checks failed — mark done
-      // without incrementing success or skip counters.
-      state = state.copyWith(isObserving: false);
+      // Observation ran but all proxy checks failed.
+      // Retry sooner — the network or core may be temporarily degraded.
+      state = state.copyWith(
+        isObserving: false,
+        nextEligibleAt: now.add(_retryNoNetwork),
+      );
     }
   }
 
-  /// Public methods
+  /// Map a skip reason to its retry duration.
+  Duration _retryForSkipReason(String reason) {
+    return switch (reason) {
+      'coreUnavailable' => _retryCoreUnavailable,
+      'noSelectedProfile' => _retryNoProfile,
+      'noProxies' => _retryNoProxies,
+      'smartStopped' => _retrySmartStopped,
+      _ => _retryNoNetwork, // fallback
+    };
+  }
 
-  /// Must be called once the app has fully initialized and the
-  /// observation engine is ready (profile loaded, groups available).
+  // ── Public API ────────────────────────────────────────────────────────
+
+  /// Must be called once the app has fully initialized.
   void markEngineReady() {
     _engineReady = true;
   }
@@ -366,6 +468,31 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// Called by AppStateManager on lifecycle change to track background time.
   void onLifecycleChanged(DateTime timestamp) {
     _lastLifecycleChangeAt = timestamp;
+  }
+
+  /// Make the next observation eligible immediately.
+  ///
+  /// Use this when:
+  /// - Smart auto stop resumes (VPN restored).
+  /// - App returns to foreground and observation is overdue.
+  /// - Network changes and observation is overdue.
+  void requestSoon() {
+    state = state.copyWith(nextEligibleAt: DateTime.now());
+  }
+
+  /// Make the next observation eligible immediately (stronger signal).
+  /// Sets nextEligibleAt to null so isDue returns true unconditionally.
+  void markDue() {
+    state = state.copyWith(nextEligibleAt: null);
+  }
+
+  /// Whether the scheduler's last successful observation is overdue
+  /// (elapsed > intervalMinutes since lastCompletedAt).
+  bool get isOverdue {
+    final last = state.lastCompletedAt;
+    if (last == null) return true;
+    final elapsed = DateTime.now().difference(last);
+    return elapsed.inMinutes >= state.intervalMinutes;
   }
 
   /// Get current state snapshot for display.
