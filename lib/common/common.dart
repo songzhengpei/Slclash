@@ -29,6 +29,7 @@ export 'path.dart';
 export 'picker.dart';
 export 'preferences.dart';
 export 'print.dart';
+export 'profile_proxy_resolver.dart';
 export 'proxy.dart';
 export 'render.dart';
 export 'request.dart';

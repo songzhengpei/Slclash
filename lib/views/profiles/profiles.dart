@@ -652,8 +652,7 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   }
 
   Future<List<Proxy>> _loadProfileProxies() async {
-    final configMap = await coreController.getConfig(widget.profile.id);
-    return ClashConfig.fromJson(configMap).proxies;
+    return resolveProfileProxies(widget.profile.id);
   }
 
   @override

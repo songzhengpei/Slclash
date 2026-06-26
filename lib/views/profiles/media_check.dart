@@ -162,8 +162,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     final targets = <_MediaCheckTarget>[];
     for (final profile in profiles) {
       try {
-        final configMap = await widget.configLoader(profile.id);
-        final proxies = ClashConfig.fromJson(configMap).proxies;
+        final proxies = await resolveProfileProxies(profile.id);
         targets.addAll(
           proxies.map(
             (proxy) => _MediaCheckTarget(profile: profile, proxy: proxy),
