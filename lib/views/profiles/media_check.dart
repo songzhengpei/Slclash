@@ -74,6 +74,8 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   static const _defaultConcurrency = 5;
   static const _maxConcurrency = 10;
 
+  void Function()? _removeGroupsListener;
+
   late Profile _profile;
   final _cacheStore = MediaCheckCacheStore();
   MediaCheckCache _cache = const MediaCheckCache(entries: {});
@@ -108,6 +110,12 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     globalState.container
         .read(mediaCheckSelectedProfileIdProvider.notifier)
         .select(_profile.id);
+    // Refresh targets when groups data updates (e.g. after profile switch)
+    final sub = globalState.container.listen(
+      groupsProvider,
+      (_, _) => _loadTargets(),
+    );
+    _removeGroupsListener = sub.close;
   }
 
   Future<void> _restoreConcurrency() async {
@@ -125,6 +133,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _cancelRequested = true;
     _generation++;
     _observeTimer?.cancel();
+    _removeGroupsListener?.call();
     super.dispose();
   }
 
@@ -158,20 +167,14 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     });
 
     final cache = await _cacheStore.load();
-    final profiles = [_profile];
     final targets = <_MediaCheckTarget>[];
-    for (final profile in profiles) {
-      try {
-        final proxies = await resolveProfileProxies(profile.id);
-        targets.addAll(
-          proxies.map(
-            (proxy) => _MediaCheckTarget(profile: profile, proxy: proxy),
-          ),
-        );
-      } catch (_) {
-        continue;
-      }
-    }
+    final groups = globalState.container.read(groupsProvider);
+    final proxies = getLeafProxiesFromGroups(groups);
+    targets.addAll(
+      proxies.map(
+        (proxy) => _MediaCheckTarget(profile: _profile, proxy: proxy),
+      ),
+    );
 
     if (!mounted || generation != _generation) return;
     final cachedResults = <String, MediaCheckResult>{};

@@ -957,7 +957,7 @@ class ProxiesAction extends _$ProxiesAction {
             defaultTestUrl: testUrl,
           );
         },
-        retryIf: (res) => res.isEmpty,
+        retryIf: (res) => res.isEmpty || res.any((g) => g.all.isEmpty),
       );
     } catch (e) {
       commonPrint.log('updateGroups error: $e');

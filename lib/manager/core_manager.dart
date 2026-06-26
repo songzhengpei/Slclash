@@ -93,7 +93,7 @@ class _CoreContainerState extends ConsumerState<CoreManager>
         .setProvider(await coreController.getExternalProvider(providerName));
     debouncer.call(FunctionTag.loadedProvider, () async {
       ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
-    }, duration: const Duration(milliseconds: 5000));
+    }, duration: const Duration(milliseconds: 1000));
     super.onLoaded(providerName);
   }
 

@@ -73,9 +73,16 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
   ref
       .read(proxiesActionProvider.notifier)
       .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: 0));
-  ref
-      .read(proxiesActionProvider.notifier)
-      .setDelay(await coreController.getDelay(currentTestUrl, state.proxyName));
+  try {
+    ref.read(proxiesActionProvider.notifier).setDelay(
+          await coreController.getDelay(currentTestUrl, state.proxyName),
+        );
+  } catch (e) {
+    commonPrint.log('proxyDelayTest failed for ${state.proxyName}: $e');
+    ref.read(proxiesActionProvider.notifier).setDelay(
+          Delay(url: currentTestUrl, name: state.proxyName, value: -1),
+        );
+  }
 }
 
 Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {

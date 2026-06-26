@@ -100,7 +100,17 @@ func handleGetProxies() ProxiesData {
 
 	nameList := getProxyNameList()
 
-	proxies := tunnel.Proxies()
+	// Merge direct proxies and provider proxies into a single flat map.
+	rawProxies := tunnel.Proxies()
+	proxies := make(map[string]constant.Proxy, len(rawProxies))
+	for name, proxy := range rawProxies {
+		proxies[name] = proxy
+	}
+	for _, p := range tunnel.Providers() {
+		for _, proxy := range p.Proxies() {
+			proxies[proxy.Name()] = proxy
+		}
+	}
 
 	hasGlobal := false
 
@@ -225,8 +235,20 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(params.Timeout))
 		defer cancel()
 
-		proxies := tunnel.Proxies()
-		proxy := proxies[params.ProxyName]
+		proxy := tunnel.Proxies()[params.ProxyName]
+		if proxy == nil {
+			for _, p := range tunnel.Providers() {
+				for _, pp := range p.Proxies() {
+					if pp.Name() == params.ProxyName {
+						proxy = pp
+						break
+					}
+				}
+				if proxy != nil {
+					break
+				}
+			}
+		}
 
 		delayData := &Delay{
 			Name: params.ProxyName,

@@ -197,7 +197,24 @@ func handleMediaCheck(paramsString string) string {
 
 func getMediaCheckProxy(params *MediaCheckParams) (C.Proxy, error) {
 	if params.ProfilePath == "" {
-		return tunnel.Proxies()[params.ProxyName], nil
+		proxy := tunnel.Proxies()[params.ProxyName]
+		if proxy == nil {
+			for _, p := range tunnel.Providers() {
+				for _, pp := range p.Proxies() {
+					if pp.Name() == params.ProxyName {
+						proxy = pp
+						break
+					}
+				}
+				if proxy != nil {
+					break
+				}
+			}
+		}
+		if proxy == nil {
+			return nil, fmt.Errorf("proxy not found: %s", params.ProxyName)
+		}
+		return proxy, nil
 	}
 
 	bytes, err := readFile(params.ProfilePath)
@@ -214,6 +231,14 @@ func getMediaCheckProxy(params *MediaCheckParams) (C.Proxy, error) {
 			continue
 		}
 		return adapter.ParseProxy(mapping, adapter.WithTunnelForAPI(tunnel.Tunnel))
+	}
+	// Fallback: search tunnel.Providers() for proxy-provider proxies
+	for _, p := range tunnel.Providers() {
+		for _, pp := range p.Proxies() {
+			if pp.Name() == params.ProxyName {
+				return pp, nil
+			}
+		}
 	}
 	return nil, fmt.Errorf("proxy %q not found in profile", params.ProxyName)
 }

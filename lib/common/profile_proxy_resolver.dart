@@ -6,6 +6,29 @@ import 'package:fl_clash/models/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+/// 从当前激活 profile 的代理组数据中提取所有叶节点（不含分组）。
+/// 数据来源与代理组页面一致，来自 Go 核心内存。
+List<Proxy> getLeafProxiesFromGroups(List<Group> groups) {
+  const builtInNames = <String>{
+    'DIRECT', 'REJECT', 'GLOBAL', 'PASS', 'COMPATIBLE', 'REJECT-DROP',
+  };
+  final groupNames = groups.map((g) => g.name).toSet();
+  final seen = <String>{};
+  final result = <Proxy>[];
+  for (final group in groups) {
+    for (final proxy in group.all) {
+      // 跳过内置节点
+      if (builtInNames.contains(proxy.name.toUpperCase())) continue;
+      // 跳过组间引用（如 Google、Apple 等嵌套分组）
+      if (groupNames.contains(proxy.name)) continue;
+      if (seen.add(proxy.name)) {
+        result.add(proxy);
+      }
+    }
+  }
+  return result;
+}
+
 /// 统一节点解析器：解析 profile 的所有可用节点。
 ///
 /// 解析顺序：
@@ -40,33 +63,45 @@ Future<List<Proxy>> resolveProfileProxies(int profileId) async {
     final providerUrl = provider['url'] as String?;
     final providerPathCfg = provider['path'] as String?;
 
-    // 构造缓存文件路径
-    String? cachePath;
+    // 构造缓存文件候选路径
+    final cachePaths = <String>[];
     if (providerUrl != null) {
-      cachePath = await appPath.getProvidersFilePath(
+      cachePaths.add(await appPath.getProvidersFilePath(
         '$profileId',
         'proxies',
         providerUrl,
-      );
-    } else if (providerPathCfg != null) {
-      // file 类型 provider，使用配置中 path
-      cachePath = p.isAbsolute(providerPathCfg)
+      ));
+    }
+    if (providerPathCfg != null) {
+      // file 类型或处理后的 path
+      cachePaths.add(p.isAbsolute(providerPathCfg)
           ? providerPathCfg
-          : p.join(profileDir, providerPathCfg);
+          : p.join(profileDir, providerPathCfg));
     }
 
-    if (cachePath == null) {
+    if (cachePaths.isEmpty) {
       commonPrint.log(
         'resolveProfileProxies: provider "$providerName" has no url or path, skip',
       );
       continue;
     }
 
-    // ── 读取 provider 缓存文件 ───────────────────────────────────────────
-    final file = File(cachePath);
-    if (!await file.exists()) {
+    // ── 读取 provider 缓存文件（尝试所有候选路径）──────────────────────
+    String? cachePath;
+    File? file;
+    for (final path in cachePaths) {
+      final f = File(path);
+      if (await f.exists()) {
+        cachePath = path;
+        file = f;
+        break;
+      }
+    }
+
+    if (file == null) {
       commonPrint.log(
-        'resolveProfileProxies: provider "$providerName" cache not found at $cachePath',
+        'resolveProfileProxies: provider "$providerName" cache not found, '
+        'tried: ${cachePaths.join(", ")}',
       );
       continue;
     }

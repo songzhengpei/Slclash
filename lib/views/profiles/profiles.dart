@@ -636,11 +636,31 @@ class _CurrentProfileSummary extends StatefulWidget {
 
 class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   late Future<List<Proxy>> _proxiesFuture;
+  void Function()? _removeGroupsListener;
+
+  void _refreshProxies() {
+    if (mounted) {
+      setState(() {
+        _proxiesFuture = _loadProfileProxies();
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _proxiesFuture = _loadProfileProxies();
+    final sub = globalState.container.listen(
+      groupsProvider,
+      (_, _) => _refreshProxies(),
+    );
+    _removeGroupsListener = sub.close;
+  }
+
+  @override
+  void dispose() {
+    _removeGroupsListener?.call();
+    super.dispose();
   }
 
   @override
@@ -652,7 +672,8 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   }
 
   Future<List<Proxy>> _loadProfileProxies() async {
-    return resolveProfileProxies(widget.profile.id);
+    final groups = globalState.container.read(groupsProvider);
+    return getLeafProxiesFromGroups(groups);
   }
 
   @override
@@ -1165,9 +1186,16 @@ class _ProfileDelayBadge extends ConsumerWidget {
     ref
         .read(proxiesActionProvider.notifier)
         .setDelay(Delay(url: testUrl, name: proxy.name, value: 0));
-    ref
-        .read(proxiesActionProvider.notifier)
-        .setDelay(await coreController.getDelay(testUrl, proxy.name));
+    try {
+      ref
+          .read(proxiesActionProvider.notifier)
+          .setDelay(await coreController.getDelay(testUrl, proxy.name));
+    } catch (e) {
+      commonPrint.log('_ProfileDelayBadge test failed for ${proxy.name}: $e');
+      ref
+          .read(proxiesActionProvider.notifier)
+          .setDelay(Delay(url: testUrl, name: proxy.name, value: -1));
+    }
   }
 
   @override
