@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 
 const _mediaCheckConcurrencyKey = 'media-check-concurrency-v1';
 const _observeIdleDelay = Duration(seconds: 30);
-const _resultPanelMaxHeight = 460.0;
+const _resultPanelMaxHeight = 470.0;
 
 typedef MediaCheckConfigLoader =
     Future<Map<String, dynamic>> Function(int profileId);

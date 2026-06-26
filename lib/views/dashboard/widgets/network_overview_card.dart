@@ -476,19 +476,22 @@ class _SurgeNetworkOverviewCardState
       }
     });
 
-    // Serial per-target: each result is shown as soon as it completes.
-    for (final target in _latencyTargets) {
-      if (!mounted) return;
-      final result = await _probeSingleTarget(
-        target,
-        mixedPort: mixedPort != 0 ? mixedPort : null,
-        fallbackCountryCode: fallbackCountryCode,
-      );
-      if (!mounted) return;
-      setState(() {
-        _latencyResults[target.name] = result;
-      });
-    }
+    // Parallel per-target: all targets probe concurrently,
+    // each result is shown as soon as it completes.
+    await Future.wait(
+      _latencyTargets.map((target) async {
+        if (!mounted) return;
+        final result = await _probeSingleTarget(
+          target,
+          mixedPort: mixedPort != 0 ? mixedPort : null,
+          fallbackCountryCode: fallbackCountryCode,
+        );
+        if (!mounted) return;
+        setState(() {
+          _latencyResults[target.name] = result;
+        });
+      }),
+    );
 
     if (!mounted) return;
     setState(() {
