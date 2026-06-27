@@ -84,7 +84,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     if (state == AppLifecycleState.resumed) {
       container.read(appForegroundProvider.notifier).set(true);
       render?.resume();
-      container.read(healthObservationSchedulerProvider.notifier)
+      container
+          .read(healthObservationSchedulerProvider.notifier)
           .onLifecycleChanged(DateTime.now());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setupAction.resumeUiStatsTimerIfNeeded();
@@ -98,6 +99,9 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       container.read(appForegroundProvider.notifier).set(false);
+      container
+          .read(healthObservationSchedulerProvider.notifier)
+          .onLifecycleChanged(DateTime.now());
       setupAction.cancelUiStatsTimer();
     }
   }

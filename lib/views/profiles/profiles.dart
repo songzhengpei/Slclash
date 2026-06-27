@@ -672,8 +672,12 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   }
 
   Future<List<Proxy>> _loadProfileProxies() async {
-    final groups = globalState.container.read(groupsProvider);
-    return getLeafProxiesFromGroups(groups);
+    try {
+      return await coreController.getRuntimeLeafProxies();
+    } catch (_) {
+      final groups = globalState.container.read(groupsProvider);
+      return getLeafProxiesFromGroups(groups);
+    }
   }
 
   @override

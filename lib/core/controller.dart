@@ -124,6 +124,14 @@ class CoreController {
     );
   }
 
+  Future<ProxiesData> getProxiesData() {
+    return _interface.getProxies();
+  }
+
+  Future<List<Proxy>> getRuntimeLeafProxies() async {
+    return getLeafProxiesFromProxiesData(await getProxiesData());
+  }
+
   FutureOr<String> changeProxy(ChangeProxyParams changeProxyParams) async {
     return await _interface.changeProxy(changeProxyParams);
   }

@@ -107,9 +107,12 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _restoreObserveSettings();
     _loadTargets();
     // Persist the initial profile selection for background health observation
-    globalState.container
-        .read(mediaCheckSelectedProfileIdProvider.notifier)
-        .select(_profile.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      globalState.container
+          .read(mediaCheckSelectedProfileIdProvider.notifier)
+          .select(_profile.id);
+    });
     // Refresh targets when groups data updates (e.g. after profile switch)
     final sub = globalState.container.listen(
       groupsProvider,
@@ -168,8 +171,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
     final cache = await _cacheStore.load();
     final targets = <_MediaCheckTarget>[];
-    final groups = globalState.container.read(groupsProvider);
-    final proxies = getLeafProxiesFromGroups(groups);
+    final proxies = await _loadRuntimeLeafProxies();
     targets.addAll(
       proxies.map(
         (proxy) => _MediaCheckTarget(profile: _profile, proxy: proxy),
@@ -194,6 +196,38 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
       _cancelRequested = false;
     });
     _maybeRunObservation();
+  }
+
+  Future<List<Proxy>> _loadRuntimeLeafProxies() async {
+    if (widget.configLoader != _defaultMediaCheckConfigLoader) {
+      try {
+        final config = await widget.configLoader(_profile.id);
+        return getLeafProxiesFromConfigMap(config);
+      } catch (_) {}
+    }
+    final currentProfileId = globalState.container.read(
+      currentProfileIdProvider,
+    );
+    if (currentProfileId != _profile.id) {
+      try {
+        return await resolveProfileProxies(_profile.id);
+      } catch (_) {}
+    }
+    try {
+      return await coreController.getRuntimeLeafProxies();
+    } catch (_) {
+      try {
+        return await resolveProfileProxies(_profile.id);
+      } catch (_) {
+        try {
+          final config = await widget.configLoader(_profile.id);
+          return getLeafProxiesFromConfigMap(config);
+        } catch (_) {
+          final groups = globalState.container.read(groupsProvider);
+          return getLeafProxiesFromGroups(groups);
+        }
+      }
+    }
   }
 
   /// Update in-memory cache only — no disk I/O, instant.
@@ -226,72 +260,13 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _cacheStore.save(_cache);
   }
 
-  /// Select targets for automatic health observation.
-  ///
-  /// Strategy (ordered by priority):
-  /// 1. Stable-low-latency candidates (keep their history fresh).
-  /// 2. Nodes with existing health samples (maintain history).
-  /// 3. Nodes with recent successful GPT/YouTube results (potential new
-  ///    candidates — previously excluded because lastResult != null was
-  ///    the only gate, but these now get sampled).
-  /// 4. A small proportion (15–20%) of untested or expired nodes so new
-  ///    proxies can naturally enter the health observation pool.
-  ///
-  /// Capped at a reasonable batch size to avoid battery/network drain.
+  /// Select every current-subscription target that is not in observation
+  /// cooldown. Manual checks intentionally ignore this filter.
   List<_MediaCheckTarget> _selectAutoHealthTargets() {
-    const maxBatch = 40; // limit per round
-    const exploreRatio = 0.15; // ~15% untested/expired nodes
-
-    final candidates = <_MediaCheckTarget>[];
-    final explored = <_MediaCheckTarget>[];
-    final remaining = <_MediaCheckTarget>[];
-
-    for (final target in _targets) {
+    return _targets.where((target) {
       final entry = _cache.entries[target.key];
-      if (entry == null) {
-        remaining.add(target);
-        continue;
-      }
-
-      final health = entry.health;
-      final hasRecentResult = entry.lastResult != null;
-
-      if (health.isStableLowLatency) {
-        // Top priority: refresh stable nodes to keep their status current.
-        candidates.add(target);
-      } else if (health.sampleCount > 0) {
-        // Has some health history — keep building it.
-        candidates.add(target);
-      } else if (hasRecentResult) {
-        // Has GPT/YouTube results but no health history yet.
-        // Previously excluded by the old filter; now included as second tier.
-        candidates.add(target);
-      } else if (entry.samples.isNotEmpty) {
-        // Has old/expired health samples — worth retrying.
-        candidates.add(target);
-      } else {
-        // No data at all — reserve for exploration sampling.
-        remaining.add(target);
-      }
-    }
-
-    // Add exploration sample from untested/expired nodes.
-    if (remaining.isNotEmpty) {
-      remaining.shuffle();
-      final exploreCount =
-          (candidates.length * exploreRatio).round().clamp(1, remaining.length);
-      explored.addAll(remaining.take(exploreCount));
-    }
-
-    final selected = [...candidates, ...explored];
-    if (selected.length <= maxBatch) return selected;
-
-    // If over the batch cap, prioritize candidates over explored.
-    if (candidates.length >= maxBatch) {
-      return candidates.sublist(0, maxBatch);
-    }
-    final slotsForExplored = maxBatch - candidates.length;
-    return [...candidates, ...explored.take(slotsForExplored)];
+      return entry == null || !entry.isObservationCoolingDown();
+    }).toList();
   }
 
   Future<void> _start({_MediaCheckFilter? mode, bool automatic = false}) async {
@@ -300,7 +275,15 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     final runTargets = healthOnly && automatic
         ? _selectAutoHealthTargets()
         : _targets;
-    if (_checking || runTargets.isEmpty) return;
+    if (_checking || runTargets.isEmpty) {
+      if (!_checking && healthOnly && automatic) {
+        final nextSettings = _observeSettings.copyWith(
+          lastRunAt: DateTime.now().millisecondsSinceEpoch,
+        );
+        await _setObserveSettings(nextSettings);
+      }
+      return;
+    }
     final generation = ++_generation;
     setState(() {
       _running.clear();
@@ -457,7 +440,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         _checking ||
         _loading ||
         _targets.isEmpty ||
-        _results.isEmpty ||
         !idleEnough ||
         !_observeSettings.isDue) {
       return;

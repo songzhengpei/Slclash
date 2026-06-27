@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:fl_clash/common/preferences.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show immutable, kDebugMode;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -22,11 +22,22 @@ const cacheTTLUnknown = Duration(hours: 24);
 const cacheTTLError = Duration(hours: 6);
 const cacheTTLHealth = Duration(days: 7);
 const maxCacheEntries = 500;
+const observeCooldownDuration = Duration(hours: 24);
+const observeSlowDelayThreshold = 1500;
+const observeConsecutiveBadLimit = 3;
+const observeRecentWindow = 5;
+const observeRecentBadLimit = 4;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 String firstNonEmptyStr(String first, String second) {
   return first.isNotEmpty ? first : second;
+}
+
+bool _isBadOrSlowHealthSample(MediaHealthSample sample) {
+  return !sample.green ||
+      sample.delay <= 0 ||
+      sample.delay > observeSlowDelayThreshold;
 }
 
 // ── MediaCheckObserveSettings ──────────────────────────────────────────────
@@ -47,7 +58,8 @@ class MediaCheckObserveSettings {
     );
   }
 
-  static const intervalOptions = [20, 40, 60, 120];
+  static List<int> get intervalOptions =>
+      kDebugMode ? const [2, 20, 40, 60, 120] : const [20, 40, 60, 120];
 
   final bool enabled;
   final int intervalMinutes;
@@ -264,6 +276,10 @@ class MediaCheckCacheEntry {
     required this.samples,
     this.modeTimes = const {},
     this.lastResult,
+    this.observeCooldownUntil = 0,
+    this.observeBadStreak = 0,
+    this.observeSlowStreak = 0,
+    this.observeLastReason = '',
   });
 
   factory MediaCheckCacheEntry.fromJson(Map<String, dynamic> json) {
@@ -289,6 +305,11 @@ class MediaCheckCacheEntry {
           (key, value) => MapEntry('$key', (value as num?)?.toInt() ?? 0),
         ),
       ),
+      observeCooldownUntil:
+          (json['observe-cooldown-until'] as num?)?.toInt() ?? 0,
+      observeBadStreak: (json['observe-bad-streak'] as num?)?.toInt() ?? 0,
+      observeSlowStreak: (json['observe-slow-streak'] as num?)?.toInt() ?? 0,
+      observeLastReason: json['observe-last-reason'] as String? ?? '',
     );
   }
 
@@ -299,17 +320,27 @@ class MediaCheckCacheEntry {
   final MediaCheckResult? lastResult;
   final List<MediaHealthSample> samples;
   final Map<String, int> modeTimes;
+  final int observeCooldownUntil;
+  final int observeBadStreak;
+  final int observeSlowStreak;
+  final String observeLastReason;
 
   MediaCheckCacheEntry addModeResult(MediaCheckResult result, String mode) {
     final merged = switch (mode) {
       'gpt' => (lastResult ?? result).copyWith(
         chatGPT: result.chatGPT,
-        region: firstNonEmptyStr(result.chatGPT.region, lastResult?.region ?? ''),
+        region: firstNonEmptyStr(
+          result.chatGPT.region,
+          lastResult?.region ?? '',
+        ),
         checkedAt: result.checkedAt,
       ),
       'youtube' => (lastResult ?? result).copyWith(
         youTube: result.youTube,
-        region: firstNonEmptyStr(result.youTube.region, lastResult?.region ?? ''),
+        region: firstNonEmptyStr(
+          result.youTube.region,
+          lastResult?.region ?? '',
+        ),
         checkedAt: result.checkedAt,
       ),
       _ => result,
@@ -355,6 +386,46 @@ class MediaCheckCacheEntry {
     final trimmed = nextSamples.length > 168
         ? nextSamples.sublist(nextSamples.length - 168)
         : nextSamples;
+    final isFailure = !sample.green || sample.delay <= 0;
+    final isSlow = sample.green && sample.delay > observeSlowDelayThreshold;
+    final isHealthy =
+        sample.green &&
+        sample.delay > 0 &&
+        sample.delay <= observeSlowDelayThreshold;
+    var nextBadStreak = observeBadStreak;
+    var nextSlowStreak = observeSlowStreak;
+    var nextCooldownUntil = observeCooldownUntil;
+    var nextReason = observeLastReason;
+
+    if (isFailure) {
+      nextBadStreak++;
+      nextSlowStreak = 0;
+      nextReason = 'timeout';
+    } else if (isSlow) {
+      nextSlowStreak++;
+      nextBadStreak = 0;
+      nextReason = 'highDelay';
+    } else if (isHealthy) {
+      nextBadStreak = 0;
+      nextSlowStreak = 0;
+      nextCooldownUntil = 0;
+      nextReason = '';
+    }
+
+    final recent = trimmed.length > observeRecentWindow
+        ? trimmed.sublist(trimmed.length - observeRecentWindow)
+        : trimmed;
+    final recentBadOrSlow = recent.where(_isBadOrSlowHealthSample).length;
+    final shouldCooldown =
+        nextBadStreak >= observeConsecutiveBadLimit ||
+        nextSlowStreak >= observeConsecutiveBadLimit ||
+        (recent.length >= observeRecentWindow &&
+            recentBadOrSlow >= observeRecentBadLimit);
+    if (shouldCooldown) {
+      nextCooldownUntil =
+          sample.checkedAt + observeCooldownDuration.inMilliseconds;
+    }
+
     return MediaCheckCacheEntry(
       key: key,
       profileId: profileId,
@@ -363,6 +434,10 @@ class MediaCheckCacheEntry {
       lastResult: lastResult,
       samples: trimmed,
       modeTimes: {...modeTimes, mode: sample.checkedAt},
+      observeCooldownUntil: nextCooldownUntil,
+      observeBadStreak: nextBadStreak,
+      observeSlowStreak: nextSlowStreak,
+      observeLastReason: nextReason,
     );
   }
 
@@ -429,6 +504,10 @@ class MediaCheckCacheEntry {
       lastResult: nextResult,
       samples: nextSamples,
       modeTimes: nextModeTimes,
+      observeCooldownUntil: mode == 'health' ? 0 : observeCooldownUntil,
+      observeBadStreak: mode == 'health' ? 0 : observeBadStreak,
+      observeSlowStreak: mode == 'health' ? 0 : observeSlowStreak,
+      observeLastReason: mode == 'health' ? '' : observeLastReason,
     );
   }
 
@@ -436,6 +515,10 @@ class MediaCheckCacheEntry {
     MediaCheckResult? lastResult,
     List<MediaHealthSample>? samples,
     Map<String, int>? modeTimes,
+    int? observeCooldownUntil,
+    int? observeBadStreak,
+    int? observeSlowStreak,
+    String? observeLastReason,
   }) {
     return MediaCheckCacheEntry(
       key: key,
@@ -445,10 +528,20 @@ class MediaCheckCacheEntry {
       lastResult: lastResult ?? this.lastResult,
       samples: samples ?? this.samples,
       modeTimes: modeTimes ?? this.modeTimes,
+      observeCooldownUntil: observeCooldownUntil ?? this.observeCooldownUntil,
+      observeBadStreak: observeBadStreak ?? this.observeBadStreak,
+      observeSlowStreak: observeSlowStreak ?? this.observeSlowStreak,
+      observeLastReason: observeLastReason ?? this.observeLastReason,
     );
   }
 
   MediaHealthStats get health => MediaHealthStats.fromSamples(samples);
+
+  bool isObservationCoolingDown([DateTime? now]) {
+    if (observeCooldownUntil <= 0) return false;
+    final timestamp = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    return observeCooldownUntil > timestamp;
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -459,6 +552,10 @@ class MediaCheckCacheEntry {
       'last-result': lastResult?.toJson(),
       'samples': samples.map((sample) => sample.toJson()).toList(),
       'mode-times': modeTimes,
+      'observe-cooldown-until': observeCooldownUntil,
+      'observe-bad-streak': observeBadStreak,
+      'observe-slow-streak': observeSlowStreak,
+      'observe-last-reason': observeLastReason,
     };
   }
 }

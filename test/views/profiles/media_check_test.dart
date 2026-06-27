@@ -1,8 +1,10 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/profiles/media_check.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -108,6 +110,108 @@ void main() {
       ]);
       expect(slow.isStableLowLatency, false);
     });
+
+    test('health observation cools repeated bad nodes for 24h', () {
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      MediaCheckResult result(int offset, MediaHTTPSResult https) {
+        return MediaCheckResult(
+          name: 'JP01',
+          profileId: 7,
+          profileLabel: 'daily',
+          chatGPT: const MediaCheckItem(status: 'skipped'),
+          youTube: const MediaCheckItem(status: 'skipped'),
+          https: https,
+          region: '',
+          score: 0,
+          checkedAt: now + offset,
+        );
+      }
+
+      final cache = const MediaCheckCache(entries: {})
+          .addHealthResult(
+            key: '7::JP01',
+            profileId: 7,
+            profileLabel: 'daily',
+            proxyName: 'JP01',
+            result: result(
+              1,
+              const MediaHTTPSResult(delay: -1, success: 0, total: 3),
+            ),
+          )
+          .addHealthResult(
+            key: '7::JP01',
+            profileId: 7,
+            profileLabel: 'daily',
+            proxyName: 'JP01',
+            result: result(
+              2,
+              const MediaHTTPSResult(delay: -1, success: 0, total: 3),
+            ),
+          )
+          .addHealthResult(
+            key: '7::JP01',
+            profileId: 7,
+            profileLabel: 'daily',
+            proxyName: 'JP01',
+            result: result(
+              3,
+              const MediaHTTPSResult(delay: -1, success: 0, total: 3),
+            ),
+          );
+
+      final entry = cache.entries['7::JP01']!;
+      expect(entry.observeBadStreak, 3);
+      expect(entry.observeLastReason, 'timeout');
+      expect(entry.isObservationCoolingDown(), true);
+      expect(
+        entry.observeCooldownUntil,
+        now + 3 + observeCooldownDuration.inMilliseconds,
+      );
+
+      final recovered = cache.addHealthResult(
+        key: '7::JP01',
+        profileId: 7,
+        profileLabel: 'daily',
+        proxyName: 'JP01',
+        result: result(
+          4,
+          const MediaHTTPSResult(delay: 120, success: 3, total: 3),
+        ),
+      );
+      final recoveredEntry = recovered.entries['7::JP01']!;
+      expect(recoveredEntry.observeBadStreak, 0);
+      expect(recoveredEntry.observeCooldownUntil, 0);
+      expect(recoveredEntry.isObservationCoolingDown(), false);
+    });
+  });
+
+  group('profile proxy resolver', () {
+    test('extracts real proxies from runtime ProxiesData', () {
+      final proxies = getLeafProxiesFromProxiesData(
+        const ProxiesData(
+          all: ['GLOBAL', 'American'],
+          proxies: {
+            'DIRECT': {'name': 'DIRECT', 'type': 'Direct'},
+            'PASS-RULE': {'name': 'PASS-RULE', 'type': 'PassRule'},
+            'GLOBAL': {'name': 'GLOBAL', 'type': 'Selector'},
+            'American': {'name': 'American', 'type': 'Selector'},
+            'Japan': {'name': 'Japan', 'type': 'URLTest'},
+            'YouTube 直连': {'name': 'YouTube 直连', 'type': 'Vless'},
+            'Netflix Direct': {'name': 'Netflix Direct', 'type': 'Trojan'},
+            'HK01': {'name': 'HK01', 'type': 'Vless'},
+            'US01': {'name': 'US01', 'type': 'Trojan'},
+            'Provider01': {'name': 'Provider01', 'type': 'Shadowsocks'},
+          },
+        ),
+      );
+
+      expect(proxies.map((proxy) => proxy.name), [
+        'HK01',
+        'US01',
+        'Provider01',
+      ]);
+    });
   });
 
   group('MediaCheckObserveSettings', () {
@@ -122,6 +226,16 @@ void main() {
       expect(settings.intervalMinutes, 60);
       expect(settings.intervalLabel, '1h');
       expect(settings.lastRunAt, 123);
+    });
+
+    test('allows two minute interval in debug builds', () {
+      expect(MediaCheckObserveSettings.intervalOptions, contains(2));
+      final settings = MediaCheckObserveSettings.fromJson({
+        'enabled': true,
+        'interval-minutes': 2,
+      });
+      expect(settings.intervalMinutes, 2);
+      expect(settings.intervalLabel, '2m');
     });
   });
 
@@ -163,6 +277,9 @@ void main() {
   group('ProfileMediaCheckView', () {
     testWidgets('renders control card and fixed filter grid', (tester) async {
       SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      globalState.container = container;
+      addTearDown(container.dispose);
       final profiles = [
         const Profile(
           id: 1,
@@ -189,18 +306,21 @@ void main() {
       }
 
       await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.delegate.supportedLocales,
-          home: ProfileMediaCheckView(
-            profiles: profiles,
-            initialProfile: profiles.first,
-            configLoader: loadConfig,
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.delegate.supportedLocales,
+            home: ProfileMediaCheckView(
+              profiles: profiles,
+              initialProfile: profiles.first,
+              configLoader: loadConfig,
+            ),
           ),
         ),
       );

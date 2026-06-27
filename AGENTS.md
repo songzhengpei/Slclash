@@ -1,103 +1,82 @@
 # AGENTS.md
 
-This repository is a private Android-only fork of FlClash. Treat Android `arm64-v8a` as the only supported target.
+This is a private Android-only fork of FlClash. Keep this file short and practical: it should preserve the constraints and project knowledge that prevent repeated investigation.
 
 ## Project Scope
 
-- Platform target: Android only
-- ABI target: `arm64-v8a` only
-- Flutter app code lives in `lib/`
-- Android native project lives in `android/`
-- Go core wrapper lives in `core/`
-- Android Go shared library output lives in `libclash/android/arm64-v8a/`
-- Local Flutter plugin build hook lives in `plugins/setup/`
-- Wi-Fi SSID plugin lives in `plugins/wifi_ssid/`
+- Target platform: Android only.
+- Target ABI: `arm64-v8a` only.
+- Flutter app code: `lib/`.
+- Android native project: `android/`.
+- Go core wrapper: `core/`.
+- Android Go shared library outputs:
+  - `libclash/android/arm64-v8a/libclash.so`
+  - `android/core/src/main/jniLibs/arm64-v8a/libclash.so`
+- Required local plugins:
+  - `plugins/setup/`
+  - `plugins/wifi_ssid/`
+  - `core/Clash.Meta` submodule
 
-Desktop platforms, desktop plugins, Rust helper IPC, system tray, desktop hotkeys, desktop system proxy, and distributor packaging have been removed.
+Do not reintroduce desktop platforms, desktop plugins, Rust IPC helpers, system tray, desktop hotkeys, desktop system proxy, distributor packaging, or non-arm64 Android ABIs unless the project scope explicitly changes.
 
-## Local SDKs
+## Local Environment
+
+Use the local environment before building:
+
+```powershell
+dev-env.bat
+```
+
+Local tools:
 
 | Tool | Path |
 |------|------|
-| Flutter SDK | `D:\Code\Tools\flutter` |
-| Go SDK | `D:\Code\Tools\Go\go` |
+| Flutter | `D:\Code\Tools\flutter` |
+| Go | `D:\Code\Tools\Go\go` |
 | Android SDK | `D:\Code\Tools\Android\Sdk` |
 | Android NDK | `D:\Code\Tools\Android\Sdk\ndk\28.2.13676358` |
 | ADB | `D:\Code\Tools\Android\Sdk\platform-tools\adb.exe` |
 
-## Environment
+Important local caches live under `.dev-tools/`; keep them because they make builds much faster.
 
-Use the local environment scripts before building:
+## Branch And Commands
 
-```powershell
-dev-env.bat
-```
+- Local development branch: `beta`.
+- Stable/release flow: merge `beta` into `main`, push `main`, then tag.
+- For Go core changes, work on `beta`; if `go.mod` or `go.sum` changes, run `go mod tidy`.
 
-or in WSL:
-
-```bash
-source dev-env.sh
-```
-
-Important variables:
-
-| Variable | Value |
-|----------|-------|
-| `GRADLE_USER_HOME` | `D:\Code\Clash myself\FlClash-dev\.dev-tools\gradle` |
-| `GOPATH` | `D:\Code\Clash myself\FlClash-dev\.dev-tools\go-pkg` |
-| `GOMODCACHE` | `D:\Code\Clash myself\FlClash-dev\.dev-tools\go-pkg\mod` |
-| `PUB_CACHE` | `D:\Code\Clash myself\FlClash-dev\.dev-tools\pub-cache` |
-| `ANDROID_HOME` | `D:\Code\Tools\Android\Sdk` |
-| `ANDROID_NDK` | `D:\Code\Tools\Android\Sdk\ndk\28.2.13676358` |
-
-## Common Commands
+Common commands:
 
 ```powershell
 flutter pub get
-flutter analyze
 flutter test
+flutter analyze
 flutter build apk --debug --target-platform android-arm64
 flutter build apk --release --target-platform android-arm64
+D:\Code\Tools\Android\Sdk\platform-tools\adb.exe install -r build\app\outputs\flutter-apk\app-debug.apk
 ```
 
-The Android Gradle/buildkit setup defaults to `arm64-v8a`; use `--target-platform android-arm64` anyway so Flutter's own target selection is explicit.
-
-Recommended local verification sequence for feature work:
+Focused checks:
 
 ```powershell
-dev-env.bat
-flutter test
-flutter analyze
-flutter build apk --debug --target-platform android-arm64
-```
-
-For Go core changes, also run:
-
-```powershell
+flutter test test\views\profiles\media_check_test.dart
 cd core
 go test ./...
 ```
 
-For a focused node batch detection check, run:
+`flutter analyze` may report existing Flutter deprecation `info` diagnostics. Treat new errors or warnings as blockers; do not fail a task only because of the known info-level deprecations.
+
+Run code generation after changing generated models, providers, or Drift schema:
 
 ```powershell
-flutter test test\views\profiles\media_check_test.dart
+dart run build_runner build --delete-conflicting-outputs
 ```
 
-Install the latest debug APK on a connected Android device with:
-
-```powershell
-D:\Code\Tools\Android\Sdk\platform-tools\adb.exe devices
-D:\Code\Tools\Android\Sdk\platform-tools\adb.exe install -r build\app\outputs\flutter-apk\app-debug.apk
-```
-
-`flutter analyze` may report existing Flutter deprecation `info` diagnostics. Treat new errors or warnings as blockers; do not treat the known deprecation info set as a failed build unless the task is to clean them up.
-
-## Go Core Build
+## Android / Go Core Build
 
 Android builds invoke `plugins/setup/buildkit/gradle/plugin.gradle`, which runs the Dart build tool in `plugins/setup/buildkit/build_tool/`.
 
-The build tool now supports only:
+Supported build-tool targets:
 
 ```powershell
 dart run build_tool android
@@ -105,79 +84,93 @@ dart run build_tool android --arch arm64
 dart run build_tool android --target-platform android-arm64
 ```
 
-It compiles the Go core as a CGO shared library and copies outputs to:
+The build tool compiles the Go core as a CGO shared library with `go build -buildmode=c-shared`.
 
-- `libclash/android/arm64-v8a/libclash.so`
-- `android/core/src/main/jniLibs/arm64-v8a/libclash.so`
-- `android/core/src/main/cpp/includes/arm64-v8a/`
+## Runtime Proxy Data
 
-## Code Generation
+There are two Go-side proxy sources:
 
-Run this after modifying generated models, providers, or Drift schema:
+| Source | Content |
+|--------|---------|
+| `tunnel.Proxies()` | Direct `proxies:` plus `proxy-groups` |
+| `tunnel.Providers()` | Downloaded `proxy-providers:` nodes |
 
-```powershell
-dart run build_runner build --delete-conflicting-outputs
+Frontend node features should use runtime merged data, not `Group.all` search-word filtering:
+
+```text
+handleGetProxies()
+  -> ProxiesData.proxies
+  -> coreController.getRuntimeLeafProxies()
+  -> getLeafProxiesFromProxiesData()
 ```
 
-Generated code covers Riverpod providers, Freezed/JSON models, and Drift database files.
+Key files:
 
-## Testing Notes
+- Go merge/filter source: `core/hub.go`
+- Dart runtime resolver: `lib/core/controller.dart`
+- Leaf-node filtering: `lib/common/profile_proxy_resolver.dart`
 
-- Use `flutter test`, not `dart test`, because models and providers use Flutter types.
-- Root tests live under `test/`.
-- `CoreController.test(mock)` can inject a mocked `CoreHandlerInterface`.
-- Call `CoreController.resetInstance()` in `tearDown` when testing the singleton.
-- For nested Freezed model round trips, test through `jsonEncode`/`jsonDecode`.
+Leaf-node filtering must exclude:
 
-## Node Batch Detection Notes
+- Built-ins such as `DIRECT`, `REJECT`, `GLOBAL`, `PASS`, `PASS-RULE`, `COMPATIBLE`, `REJECT-DROP`
+- Proxy group types such as `select`, `url-test`, `fallback`, `load-balance`, `relay`, `PassRule`
+- Names containing direct-routing text such as `直连` or `DIRECT`
+- Nested group references
 
-The node batch detection feature is intentionally scoped to the profiles/configuration area:
+`resolveProfileProxies(profileId)` is still useful for inactive/offline profile data because it reads the profile config plus provider cache files. Active runtime screens should prefer `getRuntimeLeafProxies()`.
 
-- UI entry and page live under `lib/views/profiles/`.
-- Dart bridge changes live in `lib/core/controller.dart` and `lib/core/interface.dart`.
-- Go core detection logic lives in `core/media_check.go`.
-- Go request parameters are defined in `core/constant.go`.
-- Tests live in `test/views/profiles/media_check_test.dart` and `core/media_check_test.go`.
+## Media Check
 
-Behavioral constraints:
+Main files:
 
-- Opening the node detection page must not automatically start detection.
-- Detection starts only from an explicit manual action, except health observation.
-- One run should target one subscription and one function mode.
-- Keep the three modes independent: `GPT`, `YouTube`, and `health`.
-- Do not reintroduce a combined "test all modes for all subscriptions" action unless explicitly requested.
-- Health mode is delay/HTTPS health sampling only; it should not run YouTube or GPT unlock checks.
-- Health observation should run only when due and idle. The current idle wait is 5 minutes without UI interaction.
-- Cache entries are mode-aware. Clearing one mode should not wipe other mode results for the same node.
-- Result lists should remain bounded in height and scroll internally when many nodes are shown.
-- Sorting should prefer nodes that satisfy the selected mode and then rank multi-condition quality, such as GPT unlock, YouTube CN unlock, and stable low latency.
+- Page/UI: `lib/views/profiles/media_check.dart`
+- Shared data/cache/settings: `lib/common/media_check_data.dart`
+- Go check logic: `core/media_check.go`
+- Tests: `test/views/profiles/media_check_test.dart`, `core/media_check_test.go`
 
-UI wording conventions:
+Behavior constraints:
 
-- Use `GPT`, not `AI`, for the ChatGPT unlock mode.
-- Use `YouTube`, not `video` or `视频`, for the YouTube mode.
-- Keep result text compact, for example `解锁(US)` or `阻断`, rather than long explanatory phrases inside result chips.
+- Opening the media-check page must not automatically start GPT or YouTube detection.
+- Manual detection targets one selected subscription and one selected mode.
+- Keep `GPT`, `YouTube`, and `health` independent.
+- Health mode is delay/HTTPS health sampling only; it must not run GPT or YouTube unlock checks.
+- Cache entries are mode-aware; clearing one mode must not wipe other mode results for the same node.
+- The subscription selector must reload targets for the selected subscription.
+- Result lists should stay bounded in height and scroll internally when many nodes are shown.
+- UI wording should stay compact: use `GPT`, `YouTube`, `解锁(US)`, `阻断`, etc.
 
-## Architecture Notes
+## Health Observation
 
-Android uses Go core in library mode:
+Health observation is intended to run while the app is alive, regardless of system proxy state or smart-pause state. Android background limitations are acceptable, but the app should keep trying in foreground/background when the scheduler is due and enabled.
 
-- Go builds `libclash.so` with `go build -buildmode=c-shared`
-- Flutter talks to Android native service code through method channels and FFI-facing interfaces
-- Dart Android core implementation is `lib/core/lib.dart`
-- `lib/core/controller.dart` directly uses `coreLib`
+Current strategy:
 
-Desktop `CoreService`, Rust IPC transport, named pipes, system tray, desktop windows, and desktop proxy managers are intentionally absent.
+- Scheduler: `lib/providers/health_observation.dart`
+- Settings/cache: `lib/common/media_check_data.dart`
+- Targets: selected subscription, resolved through `coreController.getRuntimeLeafProxies()`
+- Each automatic round tests all eligible nodes for the selected subscription.
+- Manual health checks ignore observation cooldown.
+- Automatic health checks skip nodes temporarily cooled down by bad history.
+- Bounded concurrency is used to avoid one-by-one long runs.
 
-## Keep
+Cooldown policy:
 
-- Keep `.dev-tools/`; it stores local build caches and speeds rebuilds.
-- Keep `plugins/setup/`; it is still required for Android Go core builds.
-- Keep `plugins/wifi_ssid/`; it has the Android Wi-Fi SSID implementation.
-- Keep `core/Clash.Meta` submodule.
+- Cool down a node for 24 hours after repeated timeout/failure or repeated high latency.
+- Current slow threshold: `observeSlowDelayThreshold = 1500`.
+- Current cooldown duration: `observeCooldownDuration = 24h`.
+- Healthy low-latency samples clear the bad/slow streaks.
+- Debug builds allow a 2-minute observation interval for testing; release/profile builds do not.
 
-## Avoid
+Avoid reintroducing a long idle-only gate unless explicitly requested. If the scheduler behavior changes, update this section and the related tests together.
 
-- Do not reintroduce desktop platform directories unless the project scope changes.
-- Do not add non-arm64 Android ABIs unless the target device requirements change.
-- Do not use `setup.dart`; it has been removed with distributor packaging.
+## Debugging Shortcuts
+
+If provider nodes are missing or tests return timeout unexpectedly, check this path first:
+
+1. `handleGetProxies()` in `core/hub.go` includes both `tunnel.Proxies()` and `tunnel.Providers()`.
+2. `ProxiesData.proxies` contains the node name before Dart parsing.
+3. `getLeafProxiesFromProxiesData()` does not filter out a real node by type/name.
+4. `coreController.getDelay()` / `handleAsyncTestDelay` can find provider nodes.
+5. `mediaCheck()` / Go media check can resolve provider nodes through runtime or provider fallback.
+
+Use `adb logcat` with the app's `commonPrint` output when investigating runtime data.

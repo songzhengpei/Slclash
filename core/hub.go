@@ -104,10 +104,16 @@ func handleGetProxies() ProxiesData {
 	rawProxies := tunnel.Proxies()
 	proxies := make(map[string]constant.Proxy, len(rawProxies))
 	for name, proxy := range rawProxies {
+		if !isFrontendVisibleProxy(proxy) {
+			continue
+		}
 		proxies[name] = proxy
 	}
 	for _, p := range tunnel.Providers() {
 		for _, proxy := range p.Proxies() {
+			if !isFrontendVisibleProxy(proxy) {
+				continue
+			}
 			proxies[proxy.Name()] = proxy
 		}
 	}
@@ -141,6 +147,18 @@ func handleGetProxies() ProxiesData {
 	return ProxiesData{
 		All:     allNames,
 		Proxies: proxies,
+	}
+}
+
+func isFrontendVisibleProxy(proxy constant.Proxy) bool {
+	if proxy == nil {
+		return false
+	}
+	switch proxy.Type() {
+	case constant.PassRule:
+		return false
+	default:
+		return true
 	}
 }
 

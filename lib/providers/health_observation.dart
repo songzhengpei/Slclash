@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
@@ -81,8 +82,9 @@ class HealthObservationSchedulerState {
     return HealthObservationSchedulerState(
       lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
       lastCompletedAt: lastCompletedAt ?? this.lastCompletedAt,
-      lastSkippedReason:
-          clearSkipReason ? null : (lastSkippedReason ?? this.lastSkippedReason),
+      lastSkippedReason: clearSkipReason
+          ? null
+          : (lastSkippedReason ?? this.lastSkippedReason),
       isObserving: isObserving ?? this.isObserving,
       enabled: enabled ?? this.enabled,
       intervalMinutes: intervalMinutes ?? this.intervalMinutes,
@@ -105,7 +107,6 @@ class HealthObservationSchedulerState {
 /// **nextEligibleAt policy (fix: not advanced before execution)**
 /// - Successful observation: advance by full [intervalMinutes].
 /// - Core / profile / group temporarily unavailable: short retry (1–5 min).
-/// - Smart-auto-stopped: short retry (2 min), or immediate when resumed.
 /// - Already running: short retry (1 min).
 ///
 /// **Health result persistence**
@@ -118,13 +119,13 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _idleDelay = Duration(seconds: 30);
   static const _mediaCheckTimeout = Duration(seconds: 15);
   static const _observeSettingsKey = 'media-check-observe-settings-v1';
+  static const _workerCount = 5;
 
   // ── Retry intervals for different skip reasons ─────────────────────────
   static const _retryCoreUnavailable = Duration(minutes: 2);
   static const _retryNoProfile = Duration(minutes: 3);
   static const _retryNoProxies = Duration(minutes: 5);
   static const _retryNoNetwork = Duration(minutes: 2);
-  static const _retrySmartStopped = Duration(minutes: 2);
 
   Timer? _tickTimer;
   DateTime? _appStartedAt;
@@ -147,10 +148,10 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
 
     // ── Reactive triggers ──────────────────────────────────────────────
 
-    // 1. Smart-auto-stop resume → request observation soon.
+    // 1. Smart-auto-stop changes should not block observation; if overdue,
+    // request a near-term run so the cache reflects the current network.
     ref.listen(isSmartStoppedProvider, (prev, next) {
-      if (prev == true && next == false) {
-        // VPN just resumed from smart-stop — schedule a health check soon.
+      if (prev != next && isOverdue) {
         requestSoon();
       }
     });
@@ -184,11 +185,15 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     try {
       final raw = await preferences.getString(_observeSettingsKey);
       if (raw == null || raw.isEmpty) return;
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      final enabled = json['enabled'] as bool? ?? false;
-      final interval = json['interval-minutes'] as int? ?? 60;
-      if (state.enabled != enabled || state.intervalMinutes != interval) {
-        state = state.copyWith(enabled: enabled, intervalMinutes: interval);
+      final settings = MediaCheckObserveSettings.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      if (state.enabled != settings.enabled ||
+          state.intervalMinutes != settings.intervalMinutes) {
+        state = state.copyWith(
+          enabled: settings.enabled,
+          intervalMinutes: settings.intervalMinutes,
+        );
       }
     } catch (_) {
       // Ignore parse errors — keep current settings
@@ -263,8 +268,9 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// Execute the health observation batch.
   ///
   /// 1. Resolves target profile (from persisted selection or current active).
-  /// 2. Loads the profile's clash config and enumerates all leaf proxies.
-  /// 3. Tests every proxy via coreController.mediaCheck() in healthOnly mode.
+  /// 2. Loads runtime ProxiesData and enumerates all real leaf proxies.
+  /// 3. Tests every non-cooled proxy via coreController.mediaCheck() in
+  ///    healthOnly mode.
   /// 4. Parses each result and writes to [MediaCheckCache] via
   ///    [MediaCheckCacheStore] so historical-stable-node data stays current.
   ///
@@ -276,14 +282,6 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     final coreStatus = ref.read(coreStatusProvider);
     if (coreStatus != CoreStatus.connected) {
       _completeObservation(skipReason: 'coreUnavailable');
-      return;
-    }
-
-    final isSmartStopped = ref.read(isSmartStoppedProvider);
-    if (isSmartStopped) {
-      // Smart-stopped: short retry, don't waste the observation attempt
-      // because coreController.mediaCheck will likely fail.
-      _completeObservation(skipReason: 'smartStopped');
       return;
     }
 
@@ -301,35 +299,16 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       return;
     }
 
-    // ── Load clash config ───────────────────────────────────────────────
-    Map<String, dynamic> configMap;
+    // ── Load runtime leaf proxies ───────────────────────────────────────
+    List<Proxy> allProxies;
     try {
-      configMap = await coreController.getConfig(profile.id);
+      allProxies = await coreController.getRuntimeLeafProxies();
     } catch (_) {
       _completeObservation(skipReason: 'coreUnavailable');
       return;
     }
 
-    final config = ClashConfig.fromJson(configMap);
-    final allProxies = config.proxies;
-
     if (allProxies.isEmpty) {
-      _completeObservation(skipReason: 'noProxies');
-      return;
-    }
-
-    // ── Enumerate leaf proxy nodes ─────────────────────────────────────
-    const reserved = {
-      'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL',
-    };
-    final proxyNames = <String>{};
-    for (final proxy in allProxies) {
-      if (!reserved.contains(proxy.name.toUpperCase())) {
-        proxyNames.add(proxy.name);
-      }
-    }
-
-    if (proxyNames.isEmpty) {
       _completeObservation(skipReason: 'noProxies');
       return;
     }
@@ -342,46 +321,88 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       cache = const MediaCheckCache(entries: {});
     }
 
-    // ── Test all proxies ────────────────────────────────────────────────
-    int successes = 0;
-    for (final proxyName in proxyNames) {
-      try {
-        final rawResult = await coreController
-            .mediaCheck(
-              proxyName,
-              profileId: profile.id,
-              healthOnly: true,
-              mode: 'health',
-            )
-            .timeout(_mediaCheckTimeout);
-        if (rawResult.isEmpty) continue;
+    final targetProfile = profile;
+    final eligibleProxies = allProxies.where((proxy) {
+      final entry = cache.entries['${targetProfile.id}::${proxy.name}'];
+      return entry == null || !entry.isObservationCoolingDown();
+    }).toList();
 
-        // Parse result and write to cache so health history is updated.
+    if (eligibleProxies.isEmpty) {
+      _completeObservation(success: true);
+      return;
+    }
+
+    // ── Test all eligible proxies with bounded concurrency ──────────────
+    var observedCount = 0;
+    var nextIndex = 0;
+
+    Future<void> worker() async {
+      while (nextIndex < eligibleProxies.length) {
+        final proxy = eligibleProxies[nextIndex++];
+        final proxyName = proxy.name;
+        MediaCheckResult result;
+        String? rawResult;
+        String? error;
+
         try {
-          final result = MediaCheckResult.fromJson(
-            json.decode(rawResult) as Map<String, dynamic>,
-          ).copyWith(
-            profileId: profile.id,
-            profileLabel: profile.realLabel,
-          );
-          cache = cache.addHealthResult(
-            key: '${profile.id}::$proxyName',
-            profileId: profile.id,
-            profileLabel: profile.realLabel,
-            proxyName: proxyName,
-            result: result,
-          );
-          successes++;
-        } catch (_) {
-          // Malformed response — skip this proxy, continue with next.
+          rawResult = await coreController
+              .mediaCheck(
+                proxyName,
+                profileId: targetProfile.id,
+                healthOnly: true,
+                mode: 'health',
+              )
+              .timeout(_mediaCheckTimeout);
+        } catch (e) {
+          error = '$e';
         }
-      } catch (_) {
-        // Individual proxy failure — continue with the next one.
+
+        if (rawResult != null && rawResult.isNotEmpty) {
+          try {
+            result =
+                MediaCheckResult.fromJson(
+                  json.decode(rawResult) as Map<String, dynamic>,
+                ).copyWith(
+                  profileId: targetProfile.id,
+                  profileLabel: targetProfile.realLabel,
+                );
+          } catch (e) {
+            result = MediaCheckResult.failed(
+              proxyName,
+              '$e',
+              profileId: targetProfile.id,
+              profileLabel: targetProfile.realLabel,
+            );
+          }
+        } else {
+          result = MediaCheckResult.failed(
+            proxyName,
+            error ?? 'empty result',
+            profileId: targetProfile.id,
+            profileLabel: targetProfile.realLabel,
+          );
+        }
+
+        cache = cache.addHealthResult(
+          key: '${targetProfile.id}::$proxyName',
+          profileId: targetProfile.id,
+          profileLabel: targetProfile.realLabel,
+          proxyName: proxyName,
+          result: result,
+        );
+        observedCount++;
       }
     }
 
+    await Future.wait(
+      List.generate(
+        math.min(_workerCount, eligibleProxies.length),
+        (_) => worker(),
+      ),
+    );
+
     // ── Persist updated cache ───────────────────────────────────────────
-    if (successes > 0) {
+    if (observedCount > 0) {
       try {
         await _cacheStore.save(cache);
       } catch (_) {
@@ -390,7 +411,7 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       }
     }
 
-    _completeObservation(success: successes > 0);
+    _completeObservation(success: observedCount > 0);
   }
 
   /// Find a [Profile] by [id] from the profiles provider.
@@ -443,7 +464,6 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       'coreUnavailable' => _retryCoreUnavailable,
       'noSelectedProfile' => _retryNoProfile,
       'noProxies' => _retryNoProxies,
-      'smartStopped' => _retrySmartStopped,
       _ => _retryNoNetwork, // fallback
     };
   }

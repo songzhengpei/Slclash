@@ -6,19 +6,93 @@ import 'package:fl_clash/models/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+const _builtInProxyNames = <String>{
+  'DIRECT',
+  'REJECT',
+  'GLOBAL',
+  'PASS',
+  'PASS-RULE',
+  'COMPATIBLE',
+  'REJECT-DROP',
+};
+
+const _proxyGroupTypes = <String>{
+  'select',
+  'selector',
+  'urltest',
+  'fallback',
+  'loadbalance',
+  'relay',
+  'passrule',
+};
+
+String _normalizeProxyType(String type) {
+  return type.toLowerCase().replaceAll('-', '');
+}
+
+bool _isDirectLikeName(String name) {
+  final upper = name.toUpperCase();
+  return name.contains('直连') || upper.contains('DIRECT');
+}
+
+bool _isRealProxy({required String name, required String type}) {
+  if (_builtInProxyNames.contains(name.toUpperCase())) return false;
+  if (_isDirectLikeName(name)) return false;
+  if (_proxyGroupTypes.contains(_normalizeProxyType(type))) return false;
+  return true;
+}
+
+/// 从 Go 核心运行时的 flat proxies map 中提取真实代理节点。
+///
+/// [ProxiesData.proxies] 同时包含直接代理、provider 代理和代理组；这里按
+/// 结构化 type 过滤代理组，避免从 Group.all 里用名称猜测叶节点。
+List<Proxy> getLeafProxiesFromProxiesData(ProxiesData proxiesData) {
+  final seen = <String>{};
+  final result = <Proxy>[];
+  for (final entry in proxiesData.proxies.entries) {
+    final raw = entry.value;
+    if (raw is! Map) continue;
+    final map = Map<String, dynamic>.from(raw);
+    final name = (map['name'] as String?)?.trim().isNotEmpty == true
+        ? map['name'] as String
+        : entry.key;
+    final type = map['type'] as String? ?? '';
+    if (name.isEmpty || type.isEmpty) continue;
+    if (!_isRealProxy(name: name, type: type)) continue;
+    if (seen.add(name)) {
+      result.add(Proxy(name: name, type: type, now: map['now'] as String?));
+    }
+  }
+  return result;
+}
+
+List<Proxy> getLeafProxiesFromConfigMap(Map<String, dynamic> configMap) {
+  final clashConfig = ClashConfig.fromJson(configMap);
+  final seen = <String>{};
+  final result = <Proxy>[];
+  for (final proxy in clashConfig.proxies) {
+    if (!_isRealProxy(name: proxy.name, type: proxy.type)) continue;
+    if (seen.add(proxy.name)) {
+      result.add(proxy);
+    }
+  }
+  return result;
+}
+
 /// 从当前激活 profile 的代理组数据中提取所有叶节点（不含分组）。
 /// 数据来源与代理组页面一致，来自 Go 核心内存。
 List<Proxy> getLeafProxiesFromGroups(List<Group> groups) {
-  const builtInNames = <String>{
-    'DIRECT', 'REJECT', 'GLOBAL', 'PASS', 'COMPATIBLE', 'REJECT-DROP',
-  };
   final groupNames = groups.map((g) => g.name).toSet();
   final seen = <String>{};
   final result = <Proxy>[];
   for (final group in groups) {
     for (final proxy in group.all) {
       // 跳过内置节点
-      if (builtInNames.contains(proxy.name.toUpperCase())) continue;
+      if (_builtInProxyNames.contains(proxy.name.toUpperCase())) continue;
+      // 跳过直连相关节点
+      if (_isDirectLikeName(proxy.name)) continue;
+      // 跳过已知代理组类型
+      if (_proxyGroupTypes.contains(_normalizeProxyType(proxy.type))) continue;
       // 跳过组间引用（如 Google、Apple 等嵌套分组）
       if (groupNames.contains(proxy.name)) continue;
       if (seen.add(proxy.name)) {
@@ -66,17 +140,21 @@ Future<List<Proxy>> resolveProfileProxies(int profileId) async {
     // 构造缓存文件候选路径
     final cachePaths = <String>[];
     if (providerUrl != null) {
-      cachePaths.add(await appPath.getProvidersFilePath(
-        '$profileId',
-        'proxies',
-        providerUrl,
-      ));
+      cachePaths.add(
+        await appPath.getProvidersFilePath(
+          '$profileId',
+          'proxies',
+          providerUrl,
+        ),
+      );
     }
     if (providerPathCfg != null) {
       // file 类型或处理后的 path
-      cachePaths.add(p.isAbsolute(providerPathCfg)
-          ? providerPathCfg
-          : p.join(profileDir, providerPathCfg));
+      cachePaths.add(
+        p.isAbsolute(providerPathCfg)
+            ? providerPathCfg
+            : p.join(profileDir, providerPathCfg),
+      );
     }
 
     if (cachePaths.isEmpty) {
@@ -157,18 +235,9 @@ Future<List<Proxy>> resolveProfileProxies(int profileId) async {
   }
 
   // ── 3. 过滤非真实节点 ─────────────────────────────────────────────────
-  const builtInNodes = <String>{
-    'DIRECT', 'REJECT', 'GLOBAL', 'PASS', 'COMPATIBLE', 'REJECT-DROP',
-  };
-  const groupTypes = <String>{
-    'select', 'selector', 'url-test', 'urltest',
-    'fallback', 'load-balance', 'loadbalance', 'relay',
-  };
-
   final realProxies = <Proxy>[];
   for (final proxy in proxies.values) {
-    if (builtInNodes.contains(proxy.name.toUpperCase())) continue;
-    if (groupTypes.contains(proxy.type.toLowerCase())) continue;
+    if (!_isRealProxy(name: proxy.name, type: proxy.type)) continue;
     realProxies.add(proxy);
   }
 
