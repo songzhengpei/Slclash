@@ -3,6 +3,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -150,7 +151,6 @@ class _LogsViewState extends ConsumerState<LogsView> {
                   },
                 ),
               )
-              .separated(const Divider(height: 0))
               .toList();
           return Align(
             alignment: Alignment.topCenter,
@@ -192,18 +192,19 @@ class LogItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListItem(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    return SurgeDataListItem(
       onTap: () {},
-      title: SelectableText(
-        log.payload,
-        style: context.textTheme.bodyLarge?.copyWith(
-          color: log.logLevel.color(context),
-        ),
-      ),
-      subtitle: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 16),
+          SelectableText(
+            log.payload,
+            style: context.textTheme.bodyLarge?.copyWith(
+              color: log.logLevel.color(context),
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

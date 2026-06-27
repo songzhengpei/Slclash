@@ -1125,7 +1125,12 @@ class ProfilesAction extends _$ProfilesAction {
     }
   }
 
-  Future<void> addProfileFormURL(String url) async {
+  Future<void> addProfileFormURL(
+    String url, {
+    String? label,
+    bool autoUpdate = true,
+    Duration autoUpdateDuration = defaultUpdateDuration,
+  }) async {
     if (globalState.navigatorKey.currentState?.canPop() ?? false) {
       globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
     }
@@ -1133,7 +1138,18 @@ class ProfilesAction extends _$ProfilesAction {
     final profile = await globalState.loadingRun(
       tag: LoadingTag.profiles,
       () async {
-        return Profile.normal(url: url).update();
+        final normalizedLabel = label?.trim();
+        final profile =
+            Profile.normal(
+              url: url,
+              label: normalizedLabel?.isNotEmpty == true
+                  ? normalizedLabel
+                  : null,
+            ).copyWith(
+              autoUpdate: autoUpdate,
+              autoUpdateDuration: autoUpdateDuration,
+            );
+        return profile.update();
       },
       title: currentAppLocalizations.addProfile,
     );

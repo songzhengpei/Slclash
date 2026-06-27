@@ -6,6 +6,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/clash_config.dart';
 import 'package:fl_clash/models/state.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
@@ -264,6 +265,11 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
+    final inputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(surge.radii.card),
+      borderSide: BorderSide.none,
+    );
     return CommonDialog(
       title: widget.rule != null
           ? appLocalizations.editRule
@@ -277,8 +283,20 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
       child: DropdownMenuTheme(
         data: DropdownMenuThemeData(
           inputDecorationTheme: InputDecorationTheme(
-            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: surge.fill,
+            border: inputBorder,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder.copyWith(
+              borderSide: BorderSide(
+                color: surge.primary.withValues(alpha: 0.42),
+                width: 1.2,
+              ),
+            ),
             labelStyle: context.textTheme.bodyLarge?.copyWith(
+              color: surge.textSecondary,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -314,8 +332,8 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
                       _handleSubmit();
                     },
                     controller: _contentController,
-                    decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
+                    decoration: surgeInputDecoration(
+                      context,
                       labelText: appLocalizations.content,
                     ),
                     validator: (_) {

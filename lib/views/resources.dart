@@ -271,26 +271,17 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
       body: ValueListenableBuilder(
         valueListenable: _updatingItems,
         builder: (_, updatingItems, _) {
-          return ListView.separated(
+          return ListView.builder(
             padding: EdgeInsets.only(
               bottom: 112 + MediaQuery.paddingOf(context).bottom,
             ),
             itemCount: _geoItems.length + 1,
-            separatorBuilder: (_, index) {
-              return const Divider(height: 0);
-            },
             itemBuilder: (_, index) {
               if (index == 0) {
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  child: Text(
-                    _autoUpdateMode == _ResourceAutoUpdateMode.off
-                        ? '资源文件用于规则匹配和地理信息识别，可按需手动同步。'
-                        : '自动更新：${_autoUpdateMode.title}',
-                    style: context.textTheme.bodySmall?.copyWith(
-                      color: context.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                return SurgeDataHeader(
+                  text: _autoUpdateMode == _ResourceAutoUpdateMode.off
+                      ? '资源文件用于规则匹配和地理信息识别，可按需手动同步。'
+                      : '自动更新：${_autoUpdateMode.title}',
                 );
               }
               final item = _geoItems[index - 1];
@@ -598,89 +589,94 @@ class _ResourceItemCard extends ConsumerWidget {
     );
     if (url == null) return const SizedBox();
 
-    return ListItem(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      minTileHeight: 76,
-      horizontalTitleGap: 12,
-      leading: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: surge.textSecondary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(item.icon, size: 18, color: surge.textSecondary),
-      ),
-      title: Text(
-        item.label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: context.textTheme.bodyLarge?.copyWith(
-          color: surge.textPrimary,
-          letterSpacing: 0,
-        ),
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 5),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FutureBuilder<FileInfo>(
-              future: _getGeoFileLastModified(item.fileName),
-              builder: (_, snapshot) {
-                final text = snapshot.data?.getDesc(context) ?? '读取中';
-                return Text(
-                  text,
+    return SurgeDataListItem(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: surge.textSecondary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(item.icon, size: 18, color: surge.textSecondary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.labelMedium?.copyWith(
-                    color: surge.textSecondary,
-                    fontSize: 11,
-                    height: 1,
+                  style: context.textTheme.bodyLarge?.copyWith(
+                    color: surge.textPrimary,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 0,
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 4),
-            Text(
-              url,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: context.textTheme.bodySmall?.copyWith(
-                color: surge.textSecondary,
-                fontSize: 11,
-                height: 1.15,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
-        ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Tooltip(
-            message: context.appLocalizations.edit,
-            child: IconButton(
-              onPressed: () => _updateUrl(context, ref, url),
-              icon: const Icon(Icons.edit_rounded),
+                ),
+                const SizedBox(height: 5),
+                FutureBuilder<FileInfo>(
+                  future: _getGeoFileLastModified(item.fileName),
+                  builder: (_, snapshot) {
+                    final text = snapshot.data?.getDesc(context) ?? '读取中';
+                    return Text(
+                      text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.labelMedium?.copyWith(
+                        color: surge.textSecondary,
+                        fontSize: 11,
+                        height: 1,
+                        letterSpacing: 0,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  url,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: surge.textSecondary,
+                    fontSize: 11,
+                    height: 1.18,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ),
-          Tooltip(
-            message: context.appLocalizations.sync,
-            child: updating
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : IconButton(
-                    onPressed: onUpdate,
-                    icon: const Icon(Icons.sync_rounded),
-                  ),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Tooltip(
+                message: context.appLocalizations.edit,
+                child: IconButton(
+                  onPressed: () => _updateUrl(context, ref, url),
+                  icon: const Icon(Icons.edit_rounded),
+                ),
+              ),
+              Tooltip(
+                message: context.appLocalizations.sync,
+                child: updating
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : IconButton(
+                        onPressed: onUpdate,
+                        icon: const Icon(Icons.sync_rounded),
+                      ),
+              ),
+            ],
           ),
         ],
       ),
@@ -713,11 +709,6 @@ class _UpdateGeoUrlFormDialogState extends State<UpdateGeoUrlFormDialog> {
     _urlController = TextEditingController(text: widget.url);
   }
 
-  Future<void> _handleReset() async {
-    if (widget.defaultValue == null) return;
-    Navigator.of(context).pop<String>(widget.defaultValue);
-  }
-
   Future<void> _handleUpdate() async {
     final url = _urlController.value.text;
     if (url.isEmpty) return;
@@ -735,28 +726,27 @@ class _UpdateGeoUrlFormDialogState extends State<UpdateGeoUrlFormDialog> {
     final appLocalizations = context.appLocalizations;
     return CommonDialog(
       title: widget.title,
-      actions: [
-        if (widget.defaultValue != null &&
-            _urlController.value.text != widget.defaultValue) ...[
-          TextButton(
-            onPressed: _handleReset,
-            child: Text(appLocalizations.reset),
-          ),
-          const SizedBox(width: 4),
-        ],
-        TextButton(
-          onPressed: _handleUpdate,
-          child: Text(appLocalizations.submit),
-        ),
-      ],
-      child: Wrap(
-        runSpacing: 16,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 18,
         children: [
           TextField(
             maxLines: 5,
             minLines: 1,
             controller: _urlController,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
+            decoration: surgeInputDecoration(
+              context,
+              hintText: appLocalizations.url,
+            ),
+          ),
+          SurgeDialogActionRow(
+            cancelLabel: appLocalizations.cancel,
+            submitLabel: appLocalizations.submit,
+            onCancel: () {
+              Navigator.of(context).pop();
+            },
+            onSubmit: _handleUpdate,
           ),
         ],
       ),

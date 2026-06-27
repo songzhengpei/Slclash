@@ -475,10 +475,11 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
               controller: _uriController,
               maxLines: 5,
               minLines: 1,
-              decoration: InputDecoration(
+              decoration: surgeInputDecoration(
+                context,
                 prefixIcon: const Icon(Icons.link),
-                border: const OutlineInputBorder(),
                 labelText: appLocalizations.address,
+                useFloatingLabel: true,
                 helperText: appLocalizations.addressHelp,
               ),
               validator: (String? value) {
@@ -490,10 +491,11 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
             ),
             TextFormField(
               controller: _userController,
-              decoration: InputDecoration(
+              decoration: surgeInputDecoration(
+                context,
                 prefixIcon: const Icon(Icons.account_circle),
-                border: const OutlineInputBorder(),
                 labelText: appLocalizations.account,
+                useFloatingLabel: true,
               ),
               validator: (String? value) {
                 if (value == null || value.isEmpty) {
@@ -508,9 +510,9 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
                 return TextFormField(
                   controller: _passwordController,
                   obscureText: obscure,
-                  decoration: InputDecoration(
+                  decoration: surgeInputDecoration(
+                    context,
                     prefixIcon: const Icon(Icons.password),
-                    border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       icon: Icon(
                         obscure ? Icons.visibility : Icons.visibility_off,
@@ -520,6 +522,7 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
                       },
                     ),
                     labelText: appLocalizations.password,
+                    useFloatingLabel: true,
                   ),
                   validator: (String? value) {
                     if (value == null || value.isEmpty) {

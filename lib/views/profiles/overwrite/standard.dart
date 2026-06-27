@@ -4,6 +4,7 @@ import 'package:fl_clash/features/overwrite/rule.dart';
 import 'package:fl_clash/models/clash_config.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/views/profiles/overwrite/custom/widgets.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,39 +99,28 @@ class _StandardContentState extends ConsumerState<StandardContent> {
         slivers: [
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
           SliverToBoxAdapter(
-            child: Column(
-              children: [
-                InfoHeader(
-                  info: Info(label: appLocalizations.addedRules),
-                  actions: [
-                    if (selectedRules.isNotEmpty) ...[
-                      CommonMinIconButtonTheme(
-                        child: IconButton.filledTonal(
-                          onPressed: () {
-                            _handleDelete();
-                          },
-                          icon: const Icon(Icons.delete),
-                        ),
+            child: OverwriteSectionHeader(
+              label: appLocalizations.addedRules,
+              actions: [
+                if (selectedRules.isNotEmpty) ...[
+                  OverwriteIconButton(
+                    icon: Icons.delete,
+                    destructive: true,
+                    onPressed: _handleDelete,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                selectedRules.isNotEmpty
+                    ? SurgeAddButton(
+                        onPressed: _handleSelectAll,
+                        label: appLocalizations.selectAll,
+                      )
+                    : SurgeAddButton(
+                        onPressed: () {
+                          _handleAddOrUpdate();
+                        },
+                        label: appLocalizations.add,
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                    CommonMinFilledButtonTheme(
-                      child: selectedRules.isNotEmpty
-                          ? FilledButton(
-                              onPressed: () {
-                                _handleSelectAll();
-                              },
-                              child: Text(appLocalizations.selectAll),
-                            )
-                          : SurgeAddButton(
-                              onPressed: () {
-                                _handleAddOrUpdate();
-                              },
-                              label: appLocalizations.add,
-                            ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),

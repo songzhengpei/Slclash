@@ -166,25 +166,22 @@ class _CustomRulesViewState extends ConsumerState<CustomRulesView>
       title: appLocalizations.rule,
       actions: [
         if (selectedRules.isNotEmpty) ...[
-          CommonMinIconButtonTheme(
-            child: IconButton.filledTonal(
-              onPressed: _handleDelete,
-              icon: const Icon(Icons.delete),
-            ),
+          OverwriteIconButton(
+            icon: Icons.delete,
+            destructive: true,
+            onPressed: _handleDelete,
           ),
-          const SizedBox(width: 2),
+          const SizedBox(width: 8),
         ],
-        CommonMinFilledButtonTheme(
-          child: selectedRules.isNotEmpty
-              ? FilledButton(
-                  onPressed: _handleSelectAll,
-                  child: Text(appLocalizations.selectAll),
-                )
-              : SurgeAddButton(
-                  onPressed: _handleAddOrUpdate,
-                  label: appLocalizations.add,
-                ),
-        ),
+        selectedRules.isNotEmpty
+            ? SurgeAddButton(
+                onPressed: _handleSelectAll,
+                label: appLocalizations.selectAll,
+              )
+            : SurgeAddButton(
+                onPressed: _handleAddOrUpdate,
+                label: appLocalizations.add,
+              ),
         const SizedBox(width: 8),
       ],
       body: rules.isEmpty
@@ -401,30 +398,11 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
     bool? invalid,
     final VoidCallback? onPressed,
   }) {
-    return DecorationListItem(
+    return OverwriteListItem(
       invalid: invalid ?? false,
       onPressed: onPressed,
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        spacing: 16,
-        children: [
-          title,
-          if (trailing != null)
-            Flexible(
-              child: IconTheme(
-                data: IconThemeData(
-                  size: 16,
-                  color: context.colorScheme.onSurface.opacity60,
-                ),
-                child: Container(
-                  alignment: Alignment.centerRight,
-                  height: globalState.measure.bodyLargeHeight + 24,
-                  child: trailing,
-                ),
-              ),
-            ),
-        ],
-      ),
+      title: title,
+      trailing: trailing,
     );
   }
 
@@ -466,7 +444,7 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.content),
-      trailing: TextFormField(
+      trailing: SurgeInlineTextFormField(
         initialValue: content,
         keyboardType: TextInputType.name,
         onChanged: (value) {
@@ -474,11 +452,7 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
               .read(ruleProvider.notifier)
               .update((state) => state.copyWith(content: value));
         },
-        textAlign: TextAlign.end,
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.inputRuleContent,
-        ),
+        hintText: appLocalizations.inputRuleContent,
       ),
     );
   }
@@ -550,17 +524,8 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (invalid)
-                CommonMinIconButtonTheme(
-                  child: IconButton(
-                    onPressed: () {
-                      globalState.showMessage(
-                        message: TextSpan(
-                          text: appLocalizations.invalidPolicy(target!),
-                        ),
-                      );
-                    },
-                    icon: Icon(Icons.info, size: 16.ap, color: foregroundColor),
-                  ),
+                InfoMessageButton(
+                  message: appLocalizations.invalidPolicy(target!),
                 ),
               Flexible(
                 flex: 1,
@@ -749,11 +714,12 @@ class _RuleTypeSelectedView extends ConsumerWidget {
             final position = ItemPosition.get(index, RuleAction.values.length);
             return ItemPositionProvider(
               position: position,
-              child: DecorationListItem(
+              child: OverwriteListItem(
+                margin: EdgeInsets.zero,
                 onPressed: () {
                   Navigator.of(context).pop(ruleAction);
                 },
-                isSelected: ruleAction == currentRuleAction,
+                selected: ruleAction == currentRuleAction,
                 subtitle: Text(ruleAction.getDesc(context)),
                 title: Text(ruleAction.name),
                 trailing: ruleAction == currentRuleAction
@@ -781,13 +747,14 @@ class _RuleTargetSelectedView extends ConsumerWidget {
   }) {
     return ItemPositionProvider(
       position: position,
-      child: DecorationListItem(
+      child: OverwriteListItem(
+        margin: EdgeInsets.zero,
         onPressed: onPressed,
         subtitle: subtitle != null ? Text(subtitle) : null,
         title: TooltipText(
           text: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
-        isSelected: isSelected,
+        selected: isSelected,
         trailing: isSelected ? const Icon(Icons.check) : null,
       ),
     );
@@ -923,9 +890,10 @@ class _RuleProviderSelectedView extends ConsumerWidget {
     final VoidCallback? onPressed,
     bool isSelected = false,
   }) {
-    return DecorationListItem(
+    return OverwriteListItem(
+      margin: EdgeInsets.zero,
       onPressed: onPressed,
-      isSelected: isSelected,
+      selected: isSelected,
       trailing: isSelected ? const Icon(Icons.check) : null,
       title: title,
     );
@@ -993,8 +961,9 @@ class _SubRuleSelectedView extends ConsumerWidget {
     final VoidCallback? onPressed,
     bool isSelected = false,
   }) {
-    return DecorationListItem(
-      isSelected: isSelected,
+    return OverwriteListItem(
+      margin: EdgeInsets.zero,
+      selected: isSelected,
       onPressed: onPressed,
       title: title,
       trailing: isSelected ? const Icon(Icons.check) : null,

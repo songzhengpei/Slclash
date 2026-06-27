@@ -86,9 +86,8 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
               final isValid = ref.watch(
                 customOverwriteTargetIsValidProvider(profileId, proxyName),
               );
-              return DecorationListItem(
+              return OverwriteListItem(
                 invalid: !isValid,
-                minVerticalPadding: 8,
                 title: TooltipText(
                   text: Text(
                     proxyName,
@@ -101,15 +100,11 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                     : (RuleTarget.baseTargets.contains(proxyName)
                           ? Text(proxyName.toLowerCase())
                           : null),
-                contentPadding: const EdgeInsets.only(left: 16, right: 0),
-                leading: CommonMinIconButtonTheme(
-                  child: IconButton.filledTonal(
-                    onPressed: () {
-                      _handleRemove(proxyName);
-                    },
-                    icon: const Icon(Icons.remove, size: 18),
-                    padding: EdgeInsets.zero,
-                  ),
+                leading: OverwriteIconButton(
+                  icon: Icons.remove,
+                  onPressed: () {
+                    _handleRemove(proxyName);
+                  },
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -124,7 +119,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                       index: index,
                       child: Container(
                         color: Colors.transparent,
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(8),
                         child: const Icon(Icons.drag_handle),
                       ),
                     ),
@@ -204,9 +199,14 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(appLocalizations.includeAllProxies),
-                        CommonMinIconButtonTheme(
+                        SizedBox.square(
+                          dimension: 28,
                           child: IconButton(
                             padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            style: IconButton.styleFrom(
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
                             onPressed: () {
                               globalState.showMessage(
                                 title: appLocalizations.tip,
@@ -217,7 +217,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                               );
                             },
                             icon: Icon(
-                              size: 16.ap,
+                              size: 15,
                               Icons.info_outline,
                               color: context.colorScheme.onSurfaceVariant,
                             ),
@@ -242,11 +242,9 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                 child: InfoHeader(
                   info: Info(label: appLocalizations.proxies),
                   actions: [
-                    CommonMinFilledButtonTheme(
-                      child: SurgeAddButton(
-                        onPressed: _handleToAddProxiesView,
-                        label: appLocalizations.add,
-                      ),
+                    SurgeAddButton(
+                      onPressed: _handleToAddProxiesView,
+                      label: appLocalizations.add,
                     ),
                   ],
                 ),
@@ -382,18 +380,12 @@ class _AddProxiesViewState extends ConsumerState<_AddProxiesView>
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: ItemPositionProvider(
           position: position,
-          child: DecorationListItem(
-            minVerticalPadding: 8,
+          child: OverwriteListItem(
             title: TooltipText(
               text: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             subtitle: Text(subtitle),
-            trailing: CommonMinIconButtonTheme(
-              child: IconButton.filledTonal(
-                onPressed: onAdd,
-                icon: const Icon(Icons.add, size: 18),
-              ),
-            ),
+            trailing: OverwriteIconButton(icon: Icons.add, onPressed: onAdd),
           ),
         ),
       ),

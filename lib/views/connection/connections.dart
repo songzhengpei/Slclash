@@ -126,7 +126,6 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                   ),
                 ),
               )
-              .separated(const Divider(height: 0))
               .toList();
           return SuperListView.builder(
             controller: _scrollController,

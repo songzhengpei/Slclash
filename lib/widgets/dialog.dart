@@ -28,7 +28,16 @@ class CommonDialog extends ConsumerWidget {
     final size = ref.watch(viewSizeProvider);
     final surge = SurgeTheme.of(context);
     return AlertDialog(
-      title: Text(title),
+      title: Text(
+        title,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: surge.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+      ),
       actions: actions,
       contentPadding: padding,
       backgroundColor: backgroundColor ?? surge.card,

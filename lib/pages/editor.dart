@@ -504,9 +504,9 @@ class FindPanel extends StatelessWidget implements PreferredSizeWidget {
         maxLines: 1,
         focusNode: focusNode,
         style: context.textTheme.bodyMedium,
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12),
+        decoration: surgeInputDecoration(
+          context,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
         ),
         onSubmitted: (_) {
           onSubmitted();

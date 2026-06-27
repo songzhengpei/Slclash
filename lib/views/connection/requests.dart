@@ -131,7 +131,6 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
                   ),
                 ),
               )
-              .separated(const Divider(height: 0))
               .toList();
           return Align(
             alignment: Alignment.topCenter,

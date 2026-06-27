@@ -6,10 +6,13 @@ import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'widgets.dart';
 
 class _IconEditStateNotifier<T> extends ChangeNotifier {
   _IconEditStateNotifier({
@@ -151,9 +154,8 @@ class _IconEditViewState extends ConsumerState<IconEditView>
     final position = ItemPosition.get(index, total);
     return ItemPositionProvider(
       position: position,
-      child: DecorationListItem(
+      child: OverwriteListItem(
         onPressed: onPressed,
-        minVerticalPadding: 12,
         leading: SizedBox.square(
           dimension: 28,
           child: IconTheme.merge(
@@ -164,7 +166,7 @@ class _IconEditViewState extends ConsumerState<IconEditView>
         title: TooltipText(
           text: Text(record.url, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
-        isSelected: isSelected,
+        selected: isSelected,
       ),
     );
   }
@@ -215,9 +217,12 @@ class _IconEditViewState extends ConsumerState<IconEditView>
                                       child: SizedBox.square(
                                         dimension: dimension,
                                         child: _state.value != null
-                                            ? CommonCard(
-                                                type: CommonCardType.filled,
-                                                radius: 20,
+                                            ? SurgeActionCard(
+                                                variant: SurgeActionCardVariant
+                                                    .filled,
+                                                borderRadius: SurgeTheme.of(
+                                                  context,
+                                                ).radii.list,
                                                 padding: const EdgeInsets.all(
                                                   8,
                                                 ),
@@ -238,21 +243,23 @@ class _IconEditViewState extends ConsumerState<IconEditView>
                           },
                         ),
                         Flexible(
-                          child: CommonCard(
-                            radius: 20,
-                            type: CommonCardType.filled,
-                            child: ListTile(
-                              minTileHeight: dimension,
-                              title: TextField(
+                          child: SurgeActionCard(
+                            variant: SurgeActionCardVariant.filled,
+                            borderRadius: SurgeTheme.of(context).radii.list,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: SizedBox(
+                              height: dimension - 16,
+                              child: SurgeInlineTextFormField(
                                 controller: _srcController,
                                 keyboardType: TextInputType.url,
                                 onChanged: (_) {
                                   _handleInputChange();
                                 },
-                                decoration: InputDecoration.collapsed(
-                                  border: const NoInputBorder(),
-                                  hintText: appLocalizations.iconUrl,
-                                ),
+                                hintText: appLocalizations.iconUrl,
+                                maxWidth: double.infinity,
                               ),
                             ),
                           ),

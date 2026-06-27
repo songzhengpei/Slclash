@@ -3,6 +3,7 @@ import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'groups.dart';
 import 'rules.dart';
+import 'widgets.dart';
 
 class CustomContent extends ConsumerWidget {
   const CustomContent({super.key});
@@ -62,58 +64,39 @@ class CustomContent extends ConsumerWidget {
       slivers: [
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
         SliverToBoxAdapter(
-          child: Column(
-            children: [InfoHeader(info: Info(label: appLocalizations.custom))],
-          ),
+          child: OverwriteSectionHeader(label: appLocalizations.custom),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 8)),
         SliverToBoxAdapter(
-          child: MoreActionButton(
-            label: appLocalizations.proxyGroup,
+          child: OverwriteListItem(
+            title: Text(appLocalizations.proxyGroup),
+            leading: const Icon(Icons.account_tree_rounded),
             onPressed: () {
               _handleToProxyGroupsView(context, profileId);
             },
-            trailing: Card.filled(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 44),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  child: Text(
-                    textAlign: TextAlign.center,
-                    '$proxyGroupNum',
-                    style: context.textTheme.bodySmall,
-                  ),
-                ),
-              ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OverwriteCountPill(value: proxyGroupNum),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_ios),
+              ],
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 4)),
         SliverToBoxAdapter(
-          child: MoreActionButton(
-            label: appLocalizations.rule,
+          child: OverwriteListItem(
+            title: Text(appLocalizations.rule),
+            leading: const Icon(Icons.rule_rounded),
             onPressed: () {
               _handleToRulesView(context, profileId);
             },
-            trailing: Card.filled(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 44),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Text(
-                  '$ruleNum',
-                  style: context.textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OverwriteCountPill(value: ruleNum),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_ios),
+              ],
             ),
           ),
         ),
@@ -125,28 +108,28 @@ class CustomContent extends ConsumerWidget {
             hasScrollBody: false,
             child: Align(
               alignment: Alignment.bottomCenter,
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: ShapeDecoration(
-                  shape: RoundedSuperellipseBorder(
-                    borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: SurgeActionCard(
+                  variant: SurgeActionCardVariant.tonal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
                   ),
-                ),
-                margin: const EdgeInsets.all(12),
-                child: MaterialBanner(
-                  elevation: 0,
-                  dividerColor: Colors.transparent,
-                  content: Text(appLocalizations.configDataDetected),
-                  actions: [
-                    CommonMinFilledButtonTheme(
-                      child: FilledButton.tonal(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(appLocalizations.configDataDetected),
+                      ),
+                      const SizedBox(width: 12),
+                      SurgeAddButton(
                         onPressed: () {
                           _handleUseDefault(ref, profileId);
                         },
-                        child: Text(appLocalizations.quickFill),
+                        label: appLocalizations.quickFill,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -9,6 +9,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/pages/editor.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
@@ -215,116 +216,6 @@ class _EditProfileViewState extends State<EditProfileView> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
-    final items = [
-      ListItem(
-        title: TextFormField(
-          textInputAction: TextInputAction.next,
-          controller: _labelController,
-          decoration: InputDecoration(
-            border: const OutlineInputBorder(),
-            labelText: appLocalizations.name,
-          ),
-          validator: (String? value) {
-            if (value == null || value.isEmpty) {
-              return appLocalizations.profileNameNullValidationDesc;
-            }
-            return null;
-          },
-        ),
-      ),
-      if (widget.profile.type == ProfileType.url) ...[
-        ListItem(
-          title: TextFormField(
-            textInputAction: TextInputAction.next,
-            keyboardType: TextInputType.url,
-            controller: _urlController,
-            maxLines: 5,
-            minLines: 1,
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              labelText: appLocalizations.url,
-            ),
-            validator: (String? value) {
-              if (value == null || value.isEmpty) {
-                return appLocalizations.profileUrlNullValidationDesc;
-              }
-              if (!value.isUrl) {
-                return appLocalizations.profileUrlInvalidValidationDesc;
-              }
-              return null;
-            },
-          ),
-        ),
-        ListItem.switchItem(
-          title: Text(appLocalizations.autoUpdate),
-          delegate: SwitchDelegate<bool>(
-            value: _autoUpdate,
-            onChanged: _setAutoUpdate,
-          ),
-        ),
-        if (_autoUpdate)
-          ListItem(
-            title: TextFormField(
-              textInputAction: TextInputAction.next,
-              controller: _autoUpdateDurationController,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                labelText: appLocalizations.autoUpdateInterval,
-              ),
-              validator: (String? value) {
-                if (value == null || value.isEmpty) {
-                  return appLocalizations
-                      .profileAutoUpdateIntervalNullValidationDesc;
-                }
-                try {
-                  int.parse(value);
-                } catch (_) {
-                  return appLocalizations
-                      .profileAutoUpdateIntervalInvalidValidationDesc;
-                }
-                return null;
-              },
-            ),
-          ),
-      ],
-      ValueListenableBuilder<FileInfo?>(
-        valueListenable: _fileInfoNotifier,
-        builder: (_, fileInfo, _) {
-          return FadeThroughBox(
-            alignment: Alignment.centerLeft,
-            child: fileInfo == null
-                ? Container()
-                : ListItem(
-                    title: Text(appLocalizations.profile),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Text(fileInfo.getDesc(context)),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          runSpacing: 6,
-                          spacing: 12,
-                          children: [
-                            CommonChip(
-                              avatar: const Icon(Icons.edit),
-                              label: appLocalizations.edit,
-                              onPressed: _editProfileFile,
-                            ),
-                            CommonChip(
-                              avatar: const Icon(Icons.upload),
-                              label: appLocalizations.upload,
-                              onPressed: _uploadProfileFile,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-          );
-        },
-      ),
-    ];
     return CommonPopScope(
       onPop: (context) {
         if (_fileData == null) {
@@ -333,29 +224,296 @@ class _EditProfileViewState extends State<EditProfileView> {
         _handleBack();
         return false;
       },
-      child: FloatLayout(
-        floatingWidget: FloatWrapper(
-          child: FloatingActionButton.extended(
-            heroTag: null,
-            onPressed: _handleConfirm,
-            label: Text(appLocalizations.save),
-            icon: const Icon(Icons.save),
+      child: AdaptiveSheetScaffold(
+        title: appLocalizations.edit,
+        backAction: () {
+          if (_fileData == null) {
+            Navigator.of(context).pop();
+            return;
+          }
+          _handleBack();
+        },
+        actions: [
+          IconButtonData(icon: Icons.check_rounded, onPressed: _handleConfirm),
+        ],
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              20 + MediaQuery.paddingOf(context).bottom,
+            ),
+            children: [
+              _ProfileEditField(
+                label: appLocalizations.name,
+                child: TextFormField(
+                  textInputAction: TextInputAction.next,
+                  controller: _labelController,
+                  decoration: surgeInputDecoration(
+                    context,
+                    hintText: appLocalizations.name,
+                  ),
+                  validator: (String? value) {
+                    if (value == null || value.isEmpty) {
+                      return appLocalizations.profileNameNullValidationDesc;
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              if (widget.profile.type == ProfileType.url) ...[
+                const SizedBox(height: 14),
+                _ProfileEditField(
+                  label: appLocalizations.url,
+                  child: TextFormField(
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.url,
+                    controller: _urlController,
+                    maxLines: 4,
+                    minLines: 1,
+                    decoration: surgeInputDecoration(
+                      context,
+                      hintText: appLocalizations.url,
+                    ),
+                    validator: (String? value) {
+                      if (value == null || value.isEmpty) {
+                        return appLocalizations.profileUrlNullValidationDesc;
+                      }
+                      if (!value.isUrl) {
+                        return appLocalizations.profileUrlInvalidValidationDesc;
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _ProfileEditSwitchRow(
+                  label: appLocalizations.autoUpdate,
+                  value: _autoUpdate,
+                  onChanged: _setAutoUpdate,
+                ),
+                if (_autoUpdate) ...[
+                  const SizedBox(height: 14),
+                  _ProfileEditField(
+                    label: appLocalizations.autoUpdateInterval,
+                    child: TextFormField(
+                      textInputAction: TextInputAction.next,
+                      keyboardType: TextInputType.number,
+                      controller: _autoUpdateDurationController,
+                      decoration: surgeInputDecoration(
+                        context,
+                        hintText: appLocalizations.autoUpdateInterval,
+                      ),
+                      validator: (String? value) {
+                        if (value == null || value.isEmpty) {
+                          return appLocalizations
+                              .profileAutoUpdateIntervalNullValidationDesc;
+                        }
+                        try {
+                          int.parse(value);
+                        } catch (_) {
+                          return appLocalizations
+                              .profileAutoUpdateIntervalInvalidValidationDesc;
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ],
+              const SizedBox(height: 18),
+              ValueListenableBuilder<FileInfo?>(
+                valueListenable: _fileInfoNotifier,
+                builder: (_, fileInfo, _) {
+                  return FadeThroughBox(
+                    alignment: Alignment.centerLeft,
+                    child: fileInfo == null
+                        ? const SizedBox.shrink()
+                        : _ProfileEditFileActions(
+                            description: fileInfo.getDesc(context),
+                            onEdit: _editProfileFile,
+                            onUpload: _uploadProfileFile,
+                          ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
-        child: Form(
-          key: _formKey,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: ListView.separated(
-              padding: kMaterialListPadding.copyWith(bottom: 72),
-              itemBuilder: (_, index) {
-                return items[index];
-              },
-              separatorBuilder: (_, _) {
-                return const SizedBox(height: 24);
-              },
-              itemCount: items.length,
+      ),
+    );
+  }
+}
+
+class _ProfileEditField extends StatelessWidget {
+  const _ProfileEditField({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 7),
+          child: Text(
+            label,
+            style: context.textTheme.labelMedium?.copyWith(
+              color: surge.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0,
             ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+class _ProfileEditSwitchRow extends StatelessWidget {
+  const _ProfileEditSwitchRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          onChanged(!value);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: surge.fill,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: surge.separator, width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: surge.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              SurgeSwitch(value: value, onChanged: onChanged),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileEditFileActions extends StatelessWidget {
+  const _ProfileEditFileActions({
+    required this.description,
+    required this.onEdit,
+    required this.onUpload,
+  });
+
+  final String description;
+  final VoidCallback onEdit;
+  final VoidCallback onUpload;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final appLocalizations = context.appLocalizations;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
+          child: Text(
+            description,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.textTheme.labelSmall?.copyWith(
+              color: surge.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: _ProfileEditActionButton(
+                icon: Icons.edit_rounded,
+                label: appLocalizations.edit,
+                onPressed: onEdit,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ProfileEditActionButton(
+                icon: Icons.upload_rounded,
+                label: appLocalizations.upload,
+                onPressed: onUpload,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileEditActionButton extends StatelessWidget {
+  const _ProfileEditActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return SizedBox(
+      height: 40,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: FilledButton.styleFrom(
+          elevation: 0,
+          backgroundColor: surge.fill,
+          foregroundColor: surge.textPrimary,
+          textStyle: context.textTheme.labelLarge?.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(surge.radii.smallCard),
           ),
         ),
       ),

@@ -4,6 +4,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,7 +70,7 @@ class TrackerInfoItem extends ConsumerWidget {
         const SizedBox(height: 6),
         Text(
           _getSourceText(context, trackerInfo),
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: context.textTheme.bodyMedium?.copyWith(
             color: context.colorScheme.onSurfaceVariant,
@@ -139,8 +140,7 @@ class TrackerInfoItem extends ConsumerWidget {
             ),
           )
         : null;
-    return ListItem(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    return SurgeDataListItem(
       onTap: () {
         showExtend(
           context,
@@ -152,7 +152,7 @@ class TrackerInfoItem extends ConsumerWidget {
           },
         );
       },
-      title: Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

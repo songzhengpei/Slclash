@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'custom/custom.dart';
+import 'custom/widgets.dart';
 import 'script.dart';
 import 'standard.dart';
 
@@ -44,11 +45,9 @@ class _OverwriteViewState extends ConsumerState<OverwriteView> {
       child: CommonScaffold(
         title: appLocalizations.override,
         actions: [
-          CommonMinFilledButtonTheme(
-            child: FilledButton(
-              onPressed: _handlePreview,
-              child: Text(appLocalizations.preview),
-            ),
+          SurgeAddButton(
+            onPressed: _handlePreview,
+            label: appLocalizations.preview,
           ),
           const SizedBox(width: 8),
         ],
@@ -106,32 +105,30 @@ class _Title extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InfoHeader(info: Info(label: appLocalizations.overrideMode)),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          OverwriteSectionHeader(label: appLocalizations.overrideMode),
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Wrap(
-              spacing: 16,
+            child: Row(
               children: [
-                for (final type in OverwriteType.values)
-                  CommonCard(
-                    isSelected: overwriteType == type,
-                    onPressed: () {
-                      _handleChangeType(ref, profileId, type);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Icon(_getIcon(type)),
-                          const SizedBox(width: 8),
-                          Flexible(child: Text(_getTitle(context, type))),
-                        ],
+                for (final type in OverwriteType.values) ...[
+                  Expanded(
+                    child: OverwriteListItem(
+                      margin: EdgeInsets.zero,
+                      selected: overwriteType == type,
+                      leading: Icon(_getIcon(type)),
+                      title: Text(_getTitle(context, type)),
+                      onPressed: () {
+                        _handleChangeType(ref, profileId, type);
+                      },
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 11,
                       ),
                     ),
                   ),
+                  if (type != OverwriteType.values.last)
+                    const SizedBox(width: 8),
+                ],
               ],
             ),
           ),

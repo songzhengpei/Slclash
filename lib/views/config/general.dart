@@ -3,6 +3,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -573,263 +574,325 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
     final appLocalizations = context.appLocalizations;
     return CommonDialog(
       title: appLocalizations.port,
-      actions: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Form(
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 18,
           children: [
-            IconButton.filledTonal(
-              onPressed: _handleMore,
-              icon: CommonExpandIcon(expand: _isMore),
-            ),
             Row(
               children: [
+                SizedBox.square(
+                  dimension: 28,
+                  child: IconButton.filledTonal(
+                    onPressed: _handleMore,
+                    style: IconButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size.square(28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: IconTheme.merge(
+                      data: const IconThemeData(size: 17),
+                      child: CommonExpandIcon(expand: _isMore),
+                    ),
+                  ),
+                ),
+                const Spacer(),
                 TextButton(
                   onPressed: _handleReset,
                   child: Text(appLocalizations.reset),
                 ),
-                const SizedBox(width: 4),
-                TextButton(
-                  onPressed: _handleUpdate,
-                  child: Text(appLocalizations.submit),
-                ),
               ],
+            ),
+            AnimatedSize(
+              duration: midDuration,
+              curve: Curves.easeOutQuad,
+              alignment: Alignment.topCenter,
+              child: Column(
+                spacing: 16,
+                children: [
+                  _PortInputField(
+                    label: appLocalizations.mixedPort,
+                    child: TextFormField(
+                      keyboardType: TextInputType.url,
+                      maxLines: 1,
+                      minLines: 1,
+                      controller: _mixedPortController,
+                      onFieldSubmitted: (_) {
+                        _handleUpdate();
+                      },
+                      decoration: surgeInputDecoration(
+                        context,
+                        hintText: appLocalizations.mixedPort,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return appLocalizations.emptyTip(
+                            appLocalizations.mixedPort,
+                          );
+                        }
+                        final port = int.tryParse(value);
+                        if (port == null) {
+                          return appLocalizations.numberTip(
+                            appLocalizations.mixedPort,
+                          );
+                        }
+                        if (port < 1024 || port > 49151) {
+                          return appLocalizations.portTip(
+                            appLocalizations.mixedPort,
+                          );
+                        }
+                        final ports = [
+                          _portController.text,
+                          _socksPortController.text,
+                          _tProxyPortController.text,
+                          _redirPortController.text,
+                        ].map((item) => item.trim());
+                        if (ports.contains(value.trim())) {
+                          return appLocalizations.portConflictTip;
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  if (_isMore) ...[
+                    _PortInputField(
+                      label: appLocalizations.port,
+                      child: TextFormField(
+                        keyboardType: TextInputType.url,
+                        maxLines: 1,
+                        minLines: 1,
+                        controller: _portController,
+                        onFieldSubmitted: (_) {
+                          _handleUpdate();
+                        },
+                        decoration: surgeInputDecoration(
+                          context,
+                          hintText: appLocalizations.port,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return appLocalizations.emptyTip(
+                              appLocalizations.port,
+                            );
+                          }
+                          final port = int.tryParse(value);
+                          if (port == null) {
+                            return appLocalizations.numberTip(
+                              appLocalizations.port,
+                            );
+                          }
+                          if (port == 0) {
+                            return null;
+                          }
+                          if (port < 1024 || port > 49151) {
+                            return appLocalizations.portTip(
+                              appLocalizations.port,
+                            );
+                          }
+                          final ports = [
+                            _mixedPortController.text,
+                            _socksPortController.text,
+                            _tProxyPortController.text,
+                            _redirPortController.text,
+                          ].map((item) => item.trim());
+                          if (ports.contains(value.trim())) {
+                            return appLocalizations.portConflictTip;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    _PortInputField(
+                      label: appLocalizations.socksPort,
+                      child: TextFormField(
+                        keyboardType: TextInputType.url,
+                        maxLines: 1,
+                        minLines: 1,
+                        controller: _socksPortController,
+                        onFieldSubmitted: (_) {
+                          _handleUpdate();
+                        },
+                        decoration: surgeInputDecoration(
+                          context,
+                          hintText: appLocalizations.socksPort,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return appLocalizations.emptyTip(
+                              appLocalizations.socksPort,
+                            );
+                          }
+                          final port = int.tryParse(value);
+                          if (port == null) {
+                            return appLocalizations.numberTip(
+                              appLocalizations.socksPort,
+                            );
+                          }
+                          if (port == 0) {
+                            return null;
+                          }
+                          if (port < 1024 || port > 49151) {
+                            return appLocalizations.portTip(
+                              appLocalizations.socksPort,
+                            );
+                          }
+                          final ports = [
+                            _portController.text,
+                            _mixedPortController.text,
+                            _tProxyPortController.text,
+                            _redirPortController.text,
+                          ].map((item) => item.trim());
+                          if (ports.contains(value.trim())) {
+                            return appLocalizations.portConflictTip;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    _PortInputField(
+                      label: appLocalizations.redirPort,
+                      child: TextFormField(
+                        keyboardType: TextInputType.url,
+                        maxLines: 1,
+                        minLines: 1,
+                        controller: _redirPortController,
+                        onFieldSubmitted: (_) {
+                          _handleUpdate();
+                        },
+                        decoration: surgeInputDecoration(
+                          context,
+                          hintText: appLocalizations.redirPort,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return appLocalizations.emptyTip(
+                              appLocalizations.redirPort,
+                            );
+                          }
+                          final port = int.tryParse(value);
+                          if (port == null) {
+                            return appLocalizations.numberTip(
+                              appLocalizations.redirPort,
+                            );
+                          }
+                          if (port == 0) {
+                            return null;
+                          }
+                          if (port < 1024 || port > 49151) {
+                            return appLocalizations.portTip(
+                              appLocalizations.redirPort,
+                            );
+                          }
+                          final ports = [
+                            _portController.text,
+                            _socksPortController.text,
+                            _tProxyPortController.text,
+                            _mixedPortController.text,
+                          ].map((item) => item.trim());
+                          if (ports.contains(value.trim())) {
+                            return appLocalizations.portConflictTip;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    _PortInputField(
+                      label: appLocalizations.tproxyPort,
+                      child: TextFormField(
+                        keyboardType: TextInputType.url,
+                        maxLines: 1,
+                        minLines: 1,
+                        controller: _tProxyPortController,
+                        onFieldSubmitted: (_) {
+                          _handleUpdate();
+                        },
+                        decoration: surgeInputDecoration(
+                          context,
+                          hintText: appLocalizations.tproxyPort,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return appLocalizations.emptyTip(
+                              appLocalizations.tproxyPort,
+                            );
+                          }
+                          final port = int.tryParse(value);
+                          if (port == null) {
+                            return appLocalizations.numberTip(
+                              appLocalizations.tproxyPort,
+                            );
+                          }
+                          if (port == 0) {
+                            return null;
+                          }
+                          if (port < 1024 || port > 49151) {
+                            return appLocalizations.portTip(
+                              appLocalizations.tproxyPort,
+                            );
+                          }
+                          final ports = [
+                            _portController.text,
+                            _socksPortController.text,
+                            _mixedPortController.text,
+                            _redirPortController.text,
+                          ].map((item) => item.trim());
+                          if (ports.contains(value.trim())) {
+                            return appLocalizations.portConflictTip;
+                          }
+
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            SurgeDialogActionRow(
+              cancelLabel: appLocalizations.cancel,
+              submitLabel: appLocalizations.submit,
+              onCancel: () {
+                Navigator.of(context).pop();
+              },
+              onSubmit: _handleUpdate,
             ),
           ],
         ),
-      ],
-      child: Form(
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        key: _formKey,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: AnimatedSize(
-            duration: midDuration,
-            curve: Curves.easeOutQuad,
-            alignment: Alignment.topCenter,
-            child: Column(
-              spacing: 24,
-              children: [
-                TextFormField(
-                  keyboardType: TextInputType.url,
-                  maxLines: 1,
-                  minLines: 1,
-                  controller: _mixedPortController,
-                  onFieldSubmitted: (_) {
-                    _handleUpdate();
-                  },
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    labelText: appLocalizations.mixedPort,
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return appLocalizations.emptyTip(
-                        appLocalizations.mixedPort,
-                      );
-                    }
-                    final port = int.tryParse(value);
-                    if (port == null) {
-                      return appLocalizations.numberTip(
-                        appLocalizations.mixedPort,
-                      );
-                    }
-                    if (port < 1024 || port > 49151) {
-                      return appLocalizations.portTip(
-                        appLocalizations.mixedPort,
-                      );
-                    }
-                    final ports = [
-                      _portController.text,
-                      _socksPortController.text,
-                      _tProxyPortController.text,
-                      _redirPortController.text,
-                    ].map((item) => item.trim());
-                    if (ports.contains(value.trim())) {
-                      return appLocalizations.portConflictTip;
-                    }
-                    return null;
-                  },
-                ),
-                if (_isMore) ...[
-                  TextFormField(
-                    keyboardType: TextInputType.url,
-                    maxLines: 1,
-                    minLines: 1,
-                    controller: _portController,
-                    onFieldSubmitted: (_) {
-                      _handleUpdate();
-                    },
-                    decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      labelText: appLocalizations.port,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return appLocalizations.emptyTip(appLocalizations.port);
-                      }
-                      final port = int.tryParse(value);
-                      if (port == null) {
-                        return appLocalizations.numberTip(
-                          appLocalizations.port,
-                        );
-                      }
-                      if (port == 0) {
-                        return null;
-                      }
-                      if (port < 1024 || port > 49151) {
-                        return appLocalizations.portTip(appLocalizations.port);
-                      }
-                      final ports = [
-                        _mixedPortController.text,
-                        _socksPortController.text,
-                        _tProxyPortController.text,
-                        _redirPortController.text,
-                      ].map((item) => item.trim());
-                      if (ports.contains(value.trim())) {
-                        return appLocalizations.portConflictTip;
-                      }
-                      return null;
-                    },
-                  ),
-                  TextFormField(
-                    keyboardType: TextInputType.url,
-                    maxLines: 1,
-                    minLines: 1,
-                    controller: _socksPortController,
-                    onFieldSubmitted: (_) {
-                      _handleUpdate();
-                    },
-                    decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      labelText: appLocalizations.socksPort,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return appLocalizations.emptyTip(
-                          appLocalizations.socksPort,
-                        );
-                      }
-                      final port = int.tryParse(value);
-                      if (port == null) {
-                        return appLocalizations.numberTip(
-                          appLocalizations.socksPort,
-                        );
-                      }
-                      if (port == 0) {
-                        return null;
-                      }
-                      if (port < 1024 || port > 49151) {
-                        return appLocalizations.portTip(
-                          appLocalizations.socksPort,
-                        );
-                      }
-                      final ports = [
-                        _portController.text,
-                        _mixedPortController.text,
-                        _tProxyPortController.text,
-                        _redirPortController.text,
-                      ].map((item) => item.trim());
-                      if (ports.contains(value.trim())) {
-                        return appLocalizations.portConflictTip;
-                      }
-                      return null;
-                    },
-                  ),
-                  TextFormField(
-                    keyboardType: TextInputType.url,
-                    maxLines: 1,
-                    minLines: 1,
-                    controller: _redirPortController,
-                    onFieldSubmitted: (_) {
-                      _handleUpdate();
-                    },
-                    decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      labelText: appLocalizations.redirPort,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return appLocalizations.emptyTip(
-                          appLocalizations.redirPort,
-                        );
-                      }
-                      final port = int.tryParse(value);
-                      if (port == null) {
-                        return appLocalizations.numberTip(
-                          appLocalizations.redirPort,
-                        );
-                      }
-                      if (port == 0) {
-                        return null;
-                      }
-                      if (port < 1024 || port > 49151) {
-                        return appLocalizations.portTip(
-                          appLocalizations.redirPort,
-                        );
-                      }
-                      final ports = [
-                        _portController.text,
-                        _socksPortController.text,
-                        _tProxyPortController.text,
-                        _mixedPortController.text,
-                      ].map((item) => item.trim());
-                      if (ports.contains(value.trim())) {
-                        return appLocalizations.portConflictTip;
-                      }
-                      return null;
-                    },
-                  ),
-                  TextFormField(
-                    keyboardType: TextInputType.url,
-                    maxLines: 1,
-                    minLines: 1,
-                    controller: _tProxyPortController,
-                    onFieldSubmitted: (_) {
-                      _handleUpdate();
-                    },
-                    decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      labelText: appLocalizations.tproxyPort,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return appLocalizations.emptyTip(
-                          appLocalizations.tproxyPort,
-                        );
-                      }
-                      final port = int.tryParse(value);
-                      if (port == null) {
-                        return appLocalizations.numberTip(
-                          appLocalizations.tproxyPort,
-                        );
-                      }
-                      if (port == 0) {
-                        return null;
-                      }
-                      if (port < 1024 || port > 49151) {
-                        return appLocalizations.portTip(
-                          appLocalizations.tproxyPort,
-                        );
-                      }
-                      final ports = [
-                        _portController.text,
-                        _socksPortController.text,
-                        _mixedPortController.text,
-                        _redirPortController.text,
-                      ].map((item) => item.trim());
-                      if (ports.contains(value.trim())) {
-                        return appLocalizations.portConflictTip;
-                      }
+      ),
+    );
+  }
+}
 
-                      return null;
-                    },
-                  ),
-                ],
-              ],
+class _PortInputField extends StatelessWidget {
+  const _PortInputField({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 7),
+          child: Text(
+            label,
+            style: context.textTheme.labelMedium?.copyWith(
+              color: surge.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
             ),
           ),
         ),
-      ),
+        child,
+      ],
     );
   }
 }

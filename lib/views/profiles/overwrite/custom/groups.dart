@@ -115,12 +115,7 @@ class _CustomProxyGroupsViewState extends ConsumerState<CustomProxyGroupsView> {
     return CommonScaffold(
       title: appLocalizations.proxyGroup,
       actions: [
-        CommonMinFilledButtonTheme(
-          child: SurgeAddButton(
-            onPressed: _handleAdd,
-            label: appLocalizations.add,
-          ),
-        ),
+        SurgeAddButton(onPressed: _handleAdd, label: appLocalizations.add),
         const SizedBox(width: 8),
       ],
       body: proxyGroups.isEmpty
@@ -202,51 +197,46 @@ class _ProxyGroupItem extends ConsumerWidget {
     final position = ItemPosition.get(index, total);
     return ItemPositionProvider(
       position: position,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Consumer(
-          builder: (_, ref, _) {
-            return DecorationListItem(
-              invalid: !isValid,
-              onPressed: onPressed,
-              contentPadding: const EdgeInsets.only(left: 16, right: 0),
-              minVerticalPadding: 8,
-              leading: SizedBox.square(
-                dimension: 32,
-                child: IconTheme.merge(
-                  data: const IconThemeData(size: 32),
-                  child: CommonTargetIcon(src: proxyGroup.icon ?? ''),
-                ),
+      child: Consumer(
+        builder: (_, ref, _) {
+          return OverwriteListItem(
+            invalid: !isValid,
+            onPressed: onPressed,
+            leading: SizedBox.square(
+              dimension: 28,
+              child: IconTheme.merge(
+                data: const IconThemeData(size: 28),
+                child: CommonTargetIcon(src: proxyGroup.icon ?? ''),
               ),
-              title: TooltipText(
-                text: Text(
-                  proxyGroup.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+            ),
+            title: TooltipText(
+              text: Text(
+                proxyGroup.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              subtitle: Text(proxyGroup.type.name),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (!isValid)
-                    InfoMessageButton(
-                      message: appLocalizations.proxyGroupDetectedAbnormal,
-                    ),
-                  ReorderableDelayedDragStartListener(
-                    index: index,
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      color: Colors.transparent,
-                      child: const Icon(Icons.drag_handle),
-                    ),
+            ),
+            subtitle: Text(proxyGroup.type.name),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (!isValid)
+                  InfoMessageButton(
+                    message: appLocalizations.proxyGroupDetectedAbnormal,
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                ReorderableDelayedDragStartListener(
+                  index: index,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    color: Colors.transparent,
+                    child: const Icon(Icons.drag_handle),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -459,30 +449,11 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final VoidCallback? onPressed,
     bool invalid = false,
   }) {
-    return DecorationListItem(
+    return OverwriteListItem(
       invalid: invalid,
       onPressed: onPressed,
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        spacing: 16,
-        children: [
-          title,
-          if (trailing != null)
-            Flexible(
-              child: IconTheme(
-                data: IconThemeData(
-                  size: 16.ap,
-                  color: context.colorScheme.onSurface.opacity60,
-                ),
-                child: Container(
-                  alignment: Alignment.centerRight,
-                  height: globalState.measure.bodyLargeHeight + 24,
-                  child: trailing,
-                ),
-              ),
-            ),
-        ],
-      ),
+      title: title,
+      trailing: trailing,
     );
   }
 
@@ -533,18 +504,14 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.proxyFilter),
-      trailing: TextFormField(
-        textAlign: TextAlign.end,
+      trailing: SurgeInlineTextFormField(
         initialValue: filter,
         onChanged: (value) {
           ref
               .read(proxyGroupProvider.notifier)
               .update((state) => state.copyWith(filter: value));
         },
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.optional,
-        ),
+        hintText: appLocalizations.optional,
       ),
     );
   }
@@ -553,10 +520,9 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.maxFailedTimes),
-      trailing: TextFormField(
+      trailing: SurgeInlineTextFormField(
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        textAlign: TextAlign.end,
         initialValue: maxFailedTimes?.toString(),
         onChanged: (value) {
           ref
@@ -565,10 +531,7 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
                 (state) => state.copyWith(maxFailedTimes: int.tryParse(value)),
               );
         },
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.optional,
-        ),
+        hintText: appLocalizations.optional,
       ),
     );
   }
@@ -577,19 +540,15 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.testUrl),
-      trailing: TextFormField(
+      trailing: SurgeInlineTextFormField(
         keyboardType: TextInputType.url,
-        textAlign: TextAlign.end,
         initialValue: url,
         onChanged: (value) {
           ref
               .read(proxyGroupProvider.notifier)
               .update((state) => state.copyWith(url: value));
         },
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.optional,
-        ),
+        hintText: appLocalizations.optional,
       ),
     );
   }
@@ -598,20 +557,16 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.testInterval),
-      trailing: TextFormField(
+      trailing: SurgeInlineTextFormField(
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        textAlign: TextAlign.end,
         initialValue: interval?.toString(),
         onChanged: (value) {
           ref
               .read(proxyGroupProvider.notifier)
               .update((state) => state.copyWith(interval: int.tryParse(value)));
         },
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.optional,
-        ),
+        hintText: appLocalizations.optional,
       ),
     );
   }
@@ -620,18 +575,14 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.excludeProxyFilter),
-      trailing: TextFormField(
-        textAlign: TextAlign.end,
+      trailing: SurgeInlineTextFormField(
         initialValue: excludeFilter,
         onChanged: (value) {
           ref
               .read(proxyGroupProvider.notifier)
               .update((state) => state.copyWith(excludeFilter: value));
         },
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.optional,
-        ),
+        hintText: appLocalizations.optional,
       ),
     );
   }
@@ -640,18 +591,14 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.excludeType),
-      trailing: TextFormField(
-        textAlign: TextAlign.end,
+      trailing: SurgeInlineTextFormField(
         initialValue: type,
         onChanged: (value) {
           ref
               .read(proxyGroupProvider.notifier)
               .update((state) => state.copyWith(excludeType: value));
         },
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.optional,
-        ),
+        hintText: appLocalizations.optional,
       ),
     );
   }
@@ -660,18 +607,14 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.expectedStatus),
-      trailing: TextFormField(
-        textAlign: TextAlign.end,
+      trailing: SurgeInlineTextFormField(
         initialValue: expectedStatus,
         onChanged: (value) {
           ref
               .read(proxyGroupProvider.notifier)
               .update((state) => state.copyWith(expectedStatus: value));
         },
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.optional,
-        ),
+        hintText: appLocalizations.optional,
       ),
     );
   }
@@ -742,7 +685,7 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     final appLocalizations = context.appLocalizations;
     return _buildItem(
       title: Text(appLocalizations.name),
-      trailing: TextFormField(
+      trailing: SurgeInlineTextFormField(
         initialValue: name,
         keyboardType: TextInputType.name,
         onChanged: (value) {
@@ -753,11 +696,7 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
         onFieldSubmitted: (_) {
           _handleSave();
         },
-        textAlign: TextAlign.end,
-        decoration: InputDecoration.collapsed(
-          border: const NoInputBorder(),
-          hintText: appLocalizations.inputProxyGroupName,
-        ),
+        hintText: appLocalizations.inputProxyGroupName,
       ),
     );
   }
@@ -946,20 +885,6 @@ class _NumberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 32),
-        alignment: Alignment.center,
-        height: globalState.measure.bodySmallHeight + 6,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-        child: Text(
-          textAlign: TextAlign.center,
-          '$number',
-          style: context.textTheme.bodySmall,
-        ),
-      ),
-    );
+    return OverwriteCountPill(value: number);
   }
 }

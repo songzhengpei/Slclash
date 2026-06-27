@@ -369,34 +369,52 @@ class _AccessViewState extends ConsumerState<AccessView> {
 
   Widget _buildBannerBar(AccessControlMode mode, int count) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     final describe = mode == AccessControlMode.acceptSelected
         ? appLocalizations.accessControlAllowDesc
         : appLocalizations.accessControlNotAllowDesc;
-    final textStyle = context.textTheme.labelLarge?.copyWith(
-      color: context.colorScheme.onPrimary,
-    );
-    return MaterialBanner(
-      content: Text(describe),
-      actions: [
-        Card.filled(
-          color: context.colorScheme.primary,
-          elevation: 0,
-          shape: RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(appLocalizations.selected, style: textStyle),
-                const SizedBox(width: 4),
-                Flexible(child: Text('$count', style: textStyle)),
-              ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: SurgeActionCard(
+        variant: SurgeActionCardVariant.filled,
+        borderRadius: surge.radii.list,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                describe,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: surge.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: surge.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${appLocalizations.selected} $count',
+                maxLines: 1,
+                style: context.textTheme.labelSmall?.copyWith(
+                  color: surge.primary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -449,7 +467,7 @@ class _AccessViewState extends ConsumerState<AccessView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildBannerBar(mode, valueList.length),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Expanded(
               child: _buildContent(
                 packages: viewPackages,

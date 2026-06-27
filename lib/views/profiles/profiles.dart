@@ -295,10 +295,20 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
         .addProfileFormFile();
   }
 
-  Future<void> _handleAddProfileFormURL(String url) async {
+  Future<void> _handleAddProfileFormURL(
+    String url, {
+    String? label,
+    bool autoUpdate = true,
+    Duration autoUpdateDuration = defaultUpdateDuration,
+  }) async {
     await globalState.container
         .read(profilesActionProvider.notifier)
-        .addProfileFormURL(url);
+        .addProfileFormURL(
+          url,
+          label: label,
+          autoUpdate: autoUpdate,
+          autoUpdateDuration: autoUpdateDuration,
+        );
   }
 
   Future<void> _toScan() async {
@@ -317,26 +327,23 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
   }
 
   Future<void> _toAddUrl() async {
-    final appLocalizations = context.appLocalizations;
-    final url = await globalState.showCommonDialog<String>(
-      child: InputDialog(
-        autovalidateMode: AutovalidateMode.onUnfocus,
-        title: appLocalizations.importFromURL,
-        labelText: appLocalizations.url,
-        value: '',
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return appLocalizations.emptyTip('').trim();
-          }
-          if (!value.isUrl) {
-            return appLocalizations.urlTip('').trim();
-          }
-          return null;
-        },
-      ),
+    final result = await showSheet<_AddUrlProfileResult>(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
+      builder: (_) {
+        return const FractionallySizedBox(
+          heightFactor: 0.75,
+          child: _AddUrlProfileSheet(),
+        );
+      },
     );
-    if (url != null) {
-      await _handleAddProfileFormURL(url);
+    if (result != null) {
+      await _handleAddProfileFormURL(
+        result.url,
+        label: result.label,
+        autoUpdate: result.autoUpdate,
+        autoUpdateDuration: result.autoUpdateDuration,
+      );
     }
   }
 
@@ -365,19 +372,16 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
             title: '添加订阅',
             children: [
               _ProfileSettingOption(
-                icon: Icons.qr_code_rounded,
                 label: appLocalizations.qrcode,
                 subtitle: appLocalizations.qrcodeDesc,
                 onTap: _toScan,
               ),
               _ProfileSettingOption(
-                icon: Icons.upload_file_rounded,
                 label: appLocalizations.file,
                 subtitle: appLocalizations.fileDesc,
                 onTap: _handleAddProfileFormFile,
               ),
               _ProfileSettingOption(
-                icon: Icons.cloud_download_rounded,
                 label: appLocalizations.url,
                 subtitle: appLocalizations.urlDesc,
                 onTap: _toAddUrl,
@@ -418,6 +422,245 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AddUrlProfileResult {
+  const _AddUrlProfileResult({
+    required this.url,
+    required this.autoUpdate,
+    required this.autoUpdateDuration,
+    this.label,
+  });
+
+  final String url;
+  final String? label;
+  final bool autoUpdate;
+  final Duration autoUpdateDuration;
+}
+
+class _AddUrlProfileSheet extends StatefulWidget {
+  const _AddUrlProfileSheet();
+
+  @override
+  State<_AddUrlProfileSheet> createState() => _AddUrlProfileSheetState();
+}
+
+class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _labelController = TextEditingController();
+  final _urlController = TextEditingController();
+  final _autoUpdateDurationController = TextEditingController(
+    text: defaultUpdateDuration.inMinutes.toString(),
+  );
+  bool _autoUpdate = false;
+
+  void _handleSubmit() {
+    if (_formKey.currentState?.validate() == false) return;
+    Navigator.of(context).pop(
+      _AddUrlProfileResult(
+        url: _urlController.text.trim(),
+        label: _labelController.text.trim(),
+        autoUpdate: _autoUpdate,
+        autoUpdateDuration: Duration(
+          minutes: int.parse(_autoUpdateDurationController.text),
+        ),
+      ),
+    );
+  }
+
+  void _setAutoUpdate(bool value) {
+    if (_autoUpdate == value) return;
+    setState(() {
+      _autoUpdate = value;
+    });
+  }
+
+  @override
+  void dispose() {
+    _labelController.dispose();
+    _urlController.dispose();
+    _autoUpdateDurationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
+    return AdaptiveSheetScaffold(
+      title: appLocalizations.importFromURL,
+      actions: [IconButtonData(icon: Icons.check, onPressed: _handleSubmit)],
+      body: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUnfocus,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            20 + MediaQuery.paddingOf(context).bottom,
+          ),
+          children: [
+            _AddUrlProfileField(
+              label: appLocalizations.name,
+              child: TextFormField(
+                textInputAction: TextInputAction.next,
+                controller: _labelController,
+                decoration: surgeInputDecoration(
+                  context,
+                  hintText: appLocalizations.optional,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _AddUrlProfileField(
+              label: appLocalizations.url,
+              child: TextFormField(
+                textInputAction: TextInputAction.done,
+                keyboardType: TextInputType.url,
+                controller: _urlController,
+                decoration: surgeInputDecoration(
+                  context,
+                  hintText: appLocalizations.url,
+                ),
+                onFieldSubmitted: (_) {
+                  _handleSubmit();
+                },
+                validator: (value) {
+                  final url = value?.trim();
+                  if (url == null || url.isEmpty) {
+                    return appLocalizations.emptyTip('').trim();
+                  }
+                  if (!url.isUrl) {
+                    return appLocalizations.urlTip('').trim();
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 18),
+            _AddUrlProfileSwitchRow(
+              label: appLocalizations.autoUpdate,
+              value: _autoUpdate,
+              onChanged: _setAutoUpdate,
+            ),
+            if (_autoUpdate) ...[
+              const SizedBox(height: 14),
+              _AddUrlProfileField(
+                label: appLocalizations.autoUpdateInterval,
+                child: TextFormField(
+                  textInputAction: TextInputAction.done,
+                  keyboardType: TextInputType.number,
+                  controller: _autoUpdateDurationController,
+                  decoration: surgeInputDecoration(
+                    context,
+                    hintText: appLocalizations.autoUpdateInterval,
+                  ),
+                  onFieldSubmitted: (_) {
+                    _handleSubmit();
+                  },
+                  validator: (value) {
+                    if (!_autoUpdate) return null;
+                    if (value == null || value.isEmpty) {
+                      return appLocalizations
+                          .profileAutoUpdateIntervalNullValidationDesc;
+                    }
+                    try {
+                      int.parse(value);
+                    } catch (_) {
+                      return appLocalizations
+                          .profileAutoUpdateIntervalInvalidValidationDesc;
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddUrlProfileField extends StatelessWidget {
+  const _AddUrlProfileField({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 7),
+          child: Text(
+            label,
+            style: context.textTheme.labelMedium?.copyWith(
+              color: surge.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+class _AddUrlProfileSwitchRow extends StatelessWidget {
+  const _AddUrlProfileSwitchRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fillColor = isDark
+        ? Color.lerp(surge.fill, surge.card, 0.10)!
+        : Color.lerp(surge.fill, surge.card, 0.68)!;
+    final radius = BorderRadius.circular(surge.radii.card);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          onChanged(!value);
+        },
+        borderRadius: radius,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(color: fillColor, borderRadius: radius),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: surge.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              SurgeSwitch(value: value, onChanged: onChanged),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -484,14 +727,14 @@ class _ProfileSettingSection extends StatelessWidget {
 
 class _ProfileSettingOption extends StatelessWidget {
   const _ProfileSettingOption({
-    required this.icon,
     required this.label,
     required this.onTap,
+    this.icon,
     this.subtitle,
     this.enabled = true,
   });
 
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final String? subtitle;
   final VoidCallback onTap;
@@ -512,16 +755,18 @@ class _ProfileSettingOption extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           child: Row(
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: foreground.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
+              if (icon != null) ...[
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: foreground.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 17, color: foreground),
                 ),
-                child: Icon(icon, size: 17, color: foreground),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1432,12 +1677,13 @@ class _ProfileListItem extends StatelessWidget {
   }
 
   void _handleShowEditExtendPage(BuildContext context) {
-    showExtend(
-      context,
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
       builder: (_) {
-        return AdaptiveSheetScaffold(
-          body: EditProfileView(profile: profile, context: context),
-          title: context.appLocalizations.edit,
+        return FractionallySizedBox(
+          heightFactor: 0.75,
+          child: EditProfileView(profile: profile, context: context),
         );
       },
     );
@@ -1629,12 +1875,13 @@ class ProfileItem extends StatelessWidget {
   }
 
   void _handleShowEditExtendPage(BuildContext context) {
-    showExtend(
-      context,
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
       builder: (_) {
-        return AdaptiveSheetScaffold(
-          body: EditProfileView(profile: profile, context: context),
-          title: context.appLocalizations.edit,
+        return FractionallySizedBox(
+          heightFactor: 0.75,
+          child: EditProfileView(profile: profile, context: context),
         );
       },
     );

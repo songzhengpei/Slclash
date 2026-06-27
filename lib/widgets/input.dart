@@ -8,12 +8,265 @@ import 'package:fl_clash/widgets/inherited.dart';
 import 'package:fl_clash/widgets/null_status.dart';
 import 'package:fl_clash/widgets/pop_scope.dart';
 import 'package:fl_clash/widgets/scaffold.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import 'effect.dart';
 import 'list.dart';
 import 'theme.dart';
+
+InputDecoration surgeInputDecoration(
+  BuildContext context, {
+  String? labelText,
+  String? hintText,
+  String? suffixText,
+  String? helperText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+  EdgeInsetsGeometry? contentPadding,
+  bool useFloatingLabel = false,
+}) {
+  final surge = SurgeTheme.of(context);
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final fillColor = isDark
+      ? Color.lerp(surge.fill, surge.card, 0.10)!
+      : Color.lerp(surge.fill, surge.card, 0.68)!;
+  final radius = BorderRadius.circular(surge.radii.card);
+  final border = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide.none,
+  );
+  final focusedBorder = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(
+      color: surge.primary.withValues(alpha: 0.42),
+      width: 1.2,
+    ),
+  );
+  final errorBorder = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(
+      color: surge.red.withValues(alpha: 0.72),
+      width: 1.2,
+    ),
+  );
+  final hintStyle = context.textTheme.bodyLarge?.copyWith(
+    color: surge.textSecondary.withValues(alpha: 0.68),
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0,
+  );
+
+  return InputDecoration(
+    filled: true,
+    fillColor: fillColor,
+    border: border,
+    enabledBorder: border,
+    disabledBorder: border,
+    focusedBorder: focusedBorder,
+    errorBorder: errorBorder,
+    focusedErrorBorder: errorBorder,
+    isDense: true,
+    contentPadding:
+        contentPadding ??
+        const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+    hintText: hintText ?? (useFloatingLabel ? null : labelText),
+    labelText: useFloatingLabel ? labelText : null,
+    hintStyle: hintStyle,
+    labelStyle: hintStyle,
+    floatingLabelStyle: context.textTheme.bodySmall?.copyWith(
+      color: surge.primary,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0,
+    ),
+    errorStyle: context.textTheme.labelSmall?.copyWith(
+      color: surge.red,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0,
+    ),
+    helperText: helperText,
+    helperStyle: context.textTheme.labelSmall?.copyWith(
+      color: surge.textSecondary,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0,
+    ),
+    prefixIcon: prefixIcon,
+    prefixIconColor: surge.textSecondary,
+    suffixIcon: suffixIcon,
+    suffixIconColor: surge.textSecondary,
+    suffixText: suffixText,
+  );
+}
+
+class SurgeDialogActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final bool primary;
+
+  const SurgeDialogActionButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.primary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final background = primary
+        ? (onPressed == null
+              ? surge.primary.withValues(alpha: 0.24)
+              : surge.primary)
+        : surge.fill.withValues(alpha: 0.82);
+    final foreground = primary
+        ? surge.onPrimary.withValues(alpha: onPressed == null ? 0.62 : 1)
+        : surge.textPrimary.withValues(alpha: onPressed == null ? 0.42 : 1);
+    return Expanded(
+      child: SizedBox(
+        height: 34,
+        child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            elevation: 0,
+            minimumSize: const Size.fromHeight(34),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            backgroundColor: background,
+            foregroundColor: foreground,
+            disabledBackgroundColor: background,
+            disabledForegroundColor: foreground,
+            textStyle: context.textTheme.titleMedium?.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(surge.radii.card),
+            ),
+          ),
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ),
+    );
+  }
+}
+
+class SurgeDialogActionRow extends StatelessWidget {
+  final String cancelLabel;
+  final String submitLabel;
+  final VoidCallback onCancel;
+  final VoidCallback? onSubmit;
+
+  const SurgeDialogActionRow({
+    super.key,
+    required this.cancelLabel,
+    required this.submitLabel,
+    required this.onCancel,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SurgeDialogActionButton(label: cancelLabel, onPressed: onCancel),
+        const SizedBox(width: 14),
+        SurgeDialogActionButton(
+          label: submitLabel,
+          onPressed: onSubmit,
+          primary: true,
+        ),
+      ],
+    );
+  }
+}
+
+class SurgeInlineTextFormField extends StatelessWidget {
+  final TextEditingController? controller;
+  final String? initialValue;
+  final String? hintText;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onFieldSubmitted;
+  final TextInputAction? textInputAction;
+  final int maxLines;
+  final double maxWidth;
+
+  const SurgeInlineTextFormField({
+    super.key,
+    this.controller,
+    this.initialValue,
+    this.hintText,
+    this.keyboardType,
+    this.inputFormatters,
+    this.onChanged,
+    this.onFieldSubmitted,
+    this.textInputAction,
+    this.maxLines = 1,
+    this.maxWidth = 240,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final radius = BorderRadius.circular(surge.radii.smallCard);
+    final border = OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide.none,
+    );
+    final focusedBorder = OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(
+        color: surge.primary.withValues(alpha: 0.38),
+        width: 1,
+      ),
+    );
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: 96, maxWidth: maxWidth),
+      child: SizedBox(
+        height: 36,
+        child: TextFormField(
+          controller: controller,
+          initialValue: controller == null ? initialValue : null,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          onChanged: onChanged,
+          onFieldSubmitted: onFieldSubmitted,
+          textInputAction: textInputAction,
+          textAlign: TextAlign.end,
+          maxLines: maxLines,
+          minLines: 1,
+          style: context.textTheme.bodyLarge?.copyWith(
+            color: surge.textPrimary,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: surge.fill.withValues(alpha: 0.72),
+            hoverColor: Colors.transparent,
+            border: border,
+            enabledBorder: border,
+            disabledBorder: border,
+            focusedBorder: focusedBorder,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            hintText: hintText,
+            hintStyle: context.textTheme.bodyLarge?.copyWith(
+              color: surge.textSecondary.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class OptionsDialog<T> extends StatelessWidget {
   final String title;
@@ -144,13 +397,6 @@ class _InputDialogState extends State<InputDialog> {
     Navigator.of(context).pop<String>(text);
   }
 
-  Future<void> _handleReset() async {
-    if (widget.resetValue == null) {
-      return;
-    }
-    Navigator.of(context).pop<String>(widget.resetValue);
-  }
-
   @override
   void dispose() {
     _textController.dispose();
@@ -162,30 +408,13 @@ class _InputDialogState extends State<InputDialog> {
     final appLocalizations = context.appLocalizations;
     return CommonDialog(
       title: title,
-      actions: [
-        if (widget.resetValue != null &&
-            _textController.value.text != widget.resetValue) ...[
-          TextButton(
-            onPressed: _handleReset,
-            child: Text(appLocalizations.reset),
-          ),
-        ] else
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: Text(appLocalizations.cancel),
-          ),
-        TextButton(
-          onPressed: _handleUpdate,
-          child: Text(appLocalizations.submit),
-        ),
-      ],
       child: Form(
         autovalidateMode: widget.autovalidateMode,
         key: _formKey,
-        child: Wrap(
-          runSpacing: 16,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 18,
           children: [
             TextFormField(
               maxLength: widget.maxLength,
@@ -197,13 +426,21 @@ class _InputDialogState extends State<InputDialog> {
               onFieldSubmitted: (_) {
                 _handleUpdate();
               },
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
+              decoration: surgeInputDecoration(
+                context,
                 suffixText: suffixText,
                 hintText: widget.hintText,
                 labelText: widget.labelText,
               ),
               validator: widget.validator,
+            ),
+            SurgeDialogActionRow(
+              cancelLabel: appLocalizations.cancel,
+              submitLabel: appLocalizations.submit,
+              onCancel: () {
+                Navigator.of(context).pop();
+              },
+              onSubmit: _handleUpdate,
             ),
           ],
         ),
@@ -219,6 +456,7 @@ class ListInputPage extends ConsumerStatefulWidget {
   final Widget Function(String item)? subtitleBuilder;
   final Widget Function(String item)? leadingBuilder;
   final String? valueLabel;
+  final String? valueHint;
 
   const ListInputPage({
     super.key,
@@ -227,6 +465,7 @@ class ListInputPage extends ConsumerStatefulWidget {
     required this.titleBuilder,
     this.leadingBuilder,
     this.valueLabel,
+    this.valueHint,
     this.subtitleBuilder,
   });
 
@@ -286,6 +525,7 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
 
     final value = await globalState.showCommonDialog<String>(
       child: AddDialog(
+        valueHint: widget.valueHint,
         valueField: Field(
           label: widget.valueLabel ?? appLocalizations.value,
           value: item ?? '',
@@ -713,12 +953,14 @@ class AddDialog extends StatefulWidget {
   final String title;
   final Field? keyField;
   final Field valueField;
+  final String? valueHint;
 
   const AddDialog({
     super.key,
     required this.title,
     this.keyField,
     required this.valueField,
+    this.valueHint,
   });
 
   @override
@@ -766,22 +1008,21 @@ class _AddDialogState extends State<AddDialog> {
     final appLocalizations = context.appLocalizations;
     return CommonDialog(
       title: widget.title,
-      actions: [
-        TextButton(onPressed: _submit, child: Text(appLocalizations.confirm)),
-      ],
       child: Form(
         autovalidateMode: AutovalidateMode.onUserInteraction,
         key: _formKey,
-        child: Wrap(
-          runSpacing: 16,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 18,
           children: [
             if (keyField != null)
               TextFormField(
                 maxLines: 3,
                 minLines: 1,
                 controller: _keyController,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
+                decoration: surgeInputDecoration(
+                  context,
                   labelText: keyField!.label,
                 ),
                 validator: (String? value) {
@@ -803,9 +1044,10 @@ class _AddDialogState extends State<AddDialog> {
               minLines: 1,
               keyboardType: TextInputType.text,
               controller: _valueController,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
+              decoration: surgeInputDecoration(
+                context,
                 labelText: valueField.label,
+                hintText: widget.valueHint,
               ),
               onFieldSubmitted: (_) {
                 _submit();
@@ -823,6 +1065,14 @@ class _AddDialogState extends State<AddDialog> {
                 }
                 return null;
               },
+            ),
+            SurgeDialogActionRow(
+              cancelLabel: appLocalizations.cancel,
+              submitLabel: appLocalizations.confirm,
+              onCancel: () {
+                Navigator.of(context).pop();
+              },
+              onSubmit: _submit,
             ),
           ],
         ),

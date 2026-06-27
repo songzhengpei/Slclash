@@ -213,21 +213,28 @@ class _SettingOption extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 width: 18,
                 height: 18,
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: selected ? surge.primary : Colors.transparent,
+                  color: selected
+                      ? surge.primary.withValues(alpha: 0.14)
+                      : Colors.transparent,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: selected ? surge.primary : surge.separator,
                     width: 1.2,
                   ),
                 ),
-                child: selected
-                    ? Icon(
-                        Icons.check_rounded,
-                        size: 13,
-                        color: surge.onPrimary,
-                      )
-                    : null,
+                child: AnimatedScale(
+                  scale: selected ? 1 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: surge.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
