@@ -254,13 +254,34 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
 
 @Riverpod(keepAlive: true)
 class SetupAction extends _$SetupAction {
+  static const _dashboardStatsInterval = Duration(seconds: 1);
+  static const _backgroundPageStatsInterval = Duration(seconds: 3);
+
   Timer? _updateTimer;
   DateTime? startTime;
+  bool _isUpdatingUiStats = false;
 
   bool get isStart => startTime != null && startTime!.isBeforeNow;
 
   @override
-  void build() {}
+  void build() {
+    ref.listen(currentPageLabelProvider, (prev, next) {
+      if (prev != next) {
+        _restartUiStatsTimerIfNeeded();
+      }
+    });
+    ref.listen(appForegroundProvider, (prev, next) {
+      if (prev == true && next == false) {
+        cancelUiStatsTimer();
+      } else if (prev == false && next == true) {
+        resumeUiStatsTimerIfNeeded();
+      }
+    });
+    ref.onDispose(() {
+      _updateTimer?.cancel();
+      _updateTimer = null;
+    });
+  }
 
   SetupParams get _setupParams {
     final selectedMap = ref.read(selectedMapProvider);
@@ -281,20 +302,46 @@ class SetupAction extends _$SetupAction {
   Future<void> _handleStart() async {
     startTime ??= DateTime.now();
     //The local status must be updated when performing the run task
-    ref.read(commonActionProvider.notifier).updateRunTime();
-    ref.read(commonActionProvider.notifier).updateTraffic();
+    unawaited(_updateUiStats());
     if (!ref.read(suspendProvider)) {
       await coreController.startListener();
     }
     _startUiStatsTimer();
   }
 
+  Duration get _uiStatsInterval {
+    final isDashboard =
+        ref.read(currentPageLabelProvider) == PageLabel.dashboard;
+    return isDashboard ? _dashboardStatsInterval : _backgroundPageStatsInterval;
+  }
+
+  Future<void> _updateUiStats() async {
+    ref.read(commonActionProvider.notifier).updateRunTime();
+    if (_isUpdatingUiStats) return;
+    _isUpdatingUiStats = true;
+    try {
+      await ref.read(commonActionProvider.notifier).updateTraffic();
+    } catch (e) {
+      commonPrint.log('update ui stats failed: $e', logLevel: LogLevel.warning);
+    } finally {
+      _isUpdatingUiStats = false;
+    }
+  }
+
   void _startUiStatsTimer() {
     _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      ref.read(commonActionProvider.notifier).updateRunTime();
-      ref.read(commonActionProvider.notifier).updateTraffic();
+    _updateTimer = Timer.periodic(_uiStatsInterval, (_) {
+      unawaited(_updateUiStats());
     });
+  }
+
+  void _restartUiStatsTimerIfNeeded() {
+    if (_updateTimer == null) return;
+    if (!ref.read(isStartProvider) || ref.read(isSmartStoppedProvider)) {
+      cancelUiStatsTimer();
+      return;
+    }
+    _startUiStatsTimer();
   }
 
   /// Cancel the UI stats timer when app goes to background.
@@ -311,8 +358,7 @@ class SetupAction extends _$SetupAction {
     final isSmartStopped = ref.read(isSmartStoppedProvider);
     if (!isRunning || isSmartStopped) return;
     // Refresh immediately
-    ref.read(commonActionProvider.notifier).updateRunTime();
-    ref.read(commonActionProvider.notifier).updateTraffic();
+    unawaited(_updateUiStats());
     // Restore periodic timer (no-op if already running)
     if (_updateTimer == null) {
       _startUiStatsTimer();
@@ -346,8 +392,7 @@ class SetupAction extends _$SetupAction {
     startTime = nativeStartTime;
     ref.read(runTimeProvider.notifier).value =
         nativeStartTime.millisecondsSinceEpoch;
-    ref.read(commonActionProvider.notifier).updateRunTime();
-    ref.read(commonActionProvider.notifier).updateTraffic();
+    unawaited(_updateUiStats());
     if (!ref.read(suspendProvider)) {
       await coreController.startListener();
     }
