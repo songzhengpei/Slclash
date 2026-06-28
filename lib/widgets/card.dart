@@ -304,13 +304,25 @@ class SettingsBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.fromLTRB(
+        surge.spacing.pagePadding,
+        0,
+        surge.spacing.pagePadding,
+        surge.spacing.sectionSpacing,
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InfoHeader(info: Info(label: title)),
-          Card(
-            color: context.colorScheme.surfaceContainer,
+          InfoHeader(
+            info: Info(label: title),
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+          ),
+          SurgeCard(
+            padding: EdgeInsets.zero,
+            borderRadius: surge.radii.list,
+            shadow: false,
             child: Column(children: settings),
           ),
         ],

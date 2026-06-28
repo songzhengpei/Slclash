@@ -502,25 +502,11 @@ class _ResourceSettingOption extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: selected ? surge.primary : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected ? surge.primary : surge.separator,
-                    width: 1.2,
-                  ),
-                ),
-                child: selected
-                    ? Icon(
-                        Icons.check_rounded,
-                        size: 13,
-                        color: surge.onPrimary,
-                      )
-                    : null,
+              SurgeSelectIndicator(
+                selected: selected,
+                size: 18,
+                iconSize: 12,
+                showCheck: false,
               ),
             ],
           ),
@@ -613,7 +599,8 @@ class _ResourceItemCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: context.textTheme.bodyLarge?.copyWith(
                     color: surge.textPrimary,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 0,
                   ),
                 ),
@@ -731,13 +718,17 @@ class _UpdateGeoUrlFormDialogState extends State<UpdateGeoUrlFormDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 18,
         children: [
-          TextField(
-            maxLines: 5,
-            minLines: 1,
-            controller: _urlController,
-            decoration: surgeInputDecoration(
-              context,
-              hintText: appLocalizations.url,
+          SurgeField(
+            label: appLocalizations.url,
+            child: TextField(
+              maxLines: 5,
+              minLines: 1,
+              keyboardType: TextInputType.url,
+              controller: _urlController,
+              decoration: surgeInputDecoration(
+                context,
+                hintText: appLocalizations.url,
+              ),
             ),
           ),
           SurgeDialogActionRow(

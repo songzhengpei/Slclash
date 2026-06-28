@@ -4,6 +4,7 @@ export 'surge_card.dart';
 export 'surge_data_list.dart';
 export 'surge_feature_card.dart';
 export 'surge_list_tile.dart';
+export 'surge_motion.dart';
 export 'surge_section.dart';
 export 'surge_select_indicator.dart';
 export 'surge_segmented_control.dart';

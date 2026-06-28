@@ -5,6 +5,7 @@ import 'package:animations/animations.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:fl_clash/common/theme.dart';
 import 'package:fl_clash/widgets/dialog.dart';
+import 'package:fl_clash/widgets/input.dart';
 import 'package:fl_clash/widgets/list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -67,8 +68,7 @@ class GlobalState {
     try {
       corePalette = await DynamicColorPlugin.getCorePalette();
       accentColor =
-          await DynamicColorPlugin.getAccentColor() ??
-          const Color(0xFF0A84FF);
+          await DynamicColorPlugin.getAccentColor() ?? const Color(0xFF0A84FF);
     } catch (_) {}
   }
 
@@ -297,10 +297,58 @@ class GlobalState {
   }
 
   Future<void> openUrl(String url) async {
-    final res = await showMessage(
-      message: TextSpan(text: url),
-      title: currentAppLocalizations.externalLink,
-      confirmText: currentAppLocalizations.go,
+    final res = await showCommonDialog<bool>(
+      child: Builder(
+        builder: (context) {
+          final appLocalizations = context.appLocalizations;
+          return CommonDialog(
+            title: appLocalizations.externalLink,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 16,
+              children: [
+                TextFormField(
+                  initialValue: url,
+                  readOnly: true,
+                  maxLines: 4,
+                  minLines: 1,
+                  decoration:
+                      surgeInputDecoration(
+                        context,
+                        hintText: appLocalizations.externalLink,
+                        contentPadding: const EdgeInsets.fromLTRB(
+                          16,
+                          14,
+                          8,
+                          14,
+                        ),
+                        suffixIcon: const Icon(Icons.lock_outline_rounded),
+                      ).copyWith(
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 34,
+                          minHeight: 34,
+                        ),
+                      ),
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    letterSpacing: 0,
+                  ),
+                ),
+                SurgeDialogActionRow(
+                  cancelLabel: appLocalizations.cancel,
+                  submitLabel: appLocalizations.go,
+                  onCancel: () {
+                    Navigator.of(context).pop(false);
+                  },
+                  onSubmit: () {
+                    Navigator.of(context).pop(true);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
     if (res != true) {
       return;

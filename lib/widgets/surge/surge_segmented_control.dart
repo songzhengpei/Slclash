@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'surge_motion.dart';
 import 'surge_theme_extension.dart';
 
 @immutable
@@ -78,8 +79,8 @@ class _SurgeSegment<T> extends StatelessWidget {
     final foreground = selected ? surge.primary : surge.textSecondary;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
+      duration: SurgeMotion.reveal,
+      curve: SurgeMotion.stateCurve,
       decoration: BoxDecoration(
         color: selected ? surge.elevatedCard : Colors.transparent,
         borderRadius: BorderRadius.circular(surge.radii.button),

@@ -1,11 +1,12 @@
 import 'dart:ui';
 
 import 'package:fl_clash/common/color.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-const Duration _bottomSheetEnterDuration = Duration(milliseconds: 300);
-const Duration _bottomSheetExitDuration = Duration(milliseconds: 200);
+const Duration _bottomSheetEnterDuration = SurgeMotion.sheetEnter;
+const Duration _bottomSheetExitDuration = SurgeMotion.sheetExit;
 const Curve _modalBottomSheetCurve = Easing.standardDecelerate;
 const double _defaultScrollControlDisabledMaxHeightRatio = 9.0 / 16.0;
 

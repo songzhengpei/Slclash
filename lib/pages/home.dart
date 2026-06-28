@@ -12,6 +12,8 @@ import 'package:intl/intl.dart';
 
 typedef OnSelected = void Function(int index);
 
+final _homePageViewKey = GlobalKey<_HomePageViewState>();
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -46,7 +48,12 @@ class HomePage extends StatelessWidget {
                     )
                     .toList(),
                 onTap: (index) {
-                  _handleToPage(navigationItems[index].label);
+                  final pageLabel = navigationItems[index].label;
+                  if (index == currentIndex) {
+                    _homePageViewKey.currentState?.scrollPageToTop(pageLabel);
+                    return;
+                  }
+                  _handleToPage(pageLabel);
                 },
               );
               if (isMobile) {
@@ -98,6 +105,7 @@ class HomePage extends StatelessWidget {
                     .value;
                 final isMobile = ref.watch(isMobileViewProvider);
                 return _HomePageView(
+                  key: _homePageViewKey,
                   navigationItems: navigationItems,
                   pageBuilder: (_, index) {
                     final navigationItem = navigationItems[index];
@@ -148,6 +156,7 @@ class _HomePageView extends ConsumerStatefulWidget {
   final List<NavigationItem> navigationItems;
 
   const _HomePageView({
+    super.key,
     required this.pageBuilder,
     required this.navigationItems,
   });
@@ -165,6 +174,9 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
     _pageController = PageController(initialPage: _pageIndex);
     ref.listenManual(currentPageLabelProvider, (prev, next) {
       if (prev != next) {
+        if (prev != null) {
+          scrollPageToTop(prev, animate: false);
+        }
         _toPage(next);
       }
     });
@@ -201,12 +213,53 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
     if (isAnimateToPage && isMobile && !ignoreAnimateTo) {
       await _pageController.animateToPage(
         index,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
+        duration: SurgeMotion.pageEnter,
+        curve: SurgeMotion.stateCurve,
       );
     } else {
       _pageController.jumpToPage(index);
     }
+    scrollPageToTop(pageLabel);
+  }
+
+  void scrollPageToTop(PageLabel pageLabel, {bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pageContext = GlobalObjectKey(pageLabel).currentContext;
+      if (!mounted || pageContext is! Element) {
+        return;
+      }
+      final positions = <ScrollPosition>{};
+      void collect(Element element) {
+        if (element is StatefulElement && element.state is ScrollableState) {
+          final position = (element.state as ScrollableState).position;
+          if (position.axis == Axis.vertical &&
+              position.hasPixels &&
+              position.hasContentDimensions) {
+            positions.add(position);
+          }
+        }
+        element.visitChildElements(collect);
+      }
+
+      pageContext.visitChildElements(collect);
+      for (final position in positions) {
+        final target = position.axisDirection == AxisDirection.up
+            ? position.maxScrollExtent
+            : position.minScrollExtent;
+        if ((position.pixels - target).abs() < 0.5) {
+          continue;
+        }
+        if (animate) {
+          position.animateTo(
+            target,
+            duration: SurgeMotion.container,
+            curve: SurgeMotion.stateCurve,
+          );
+        } else {
+          position.jumpTo(target);
+        }
+      }
+    });
   }
 
   void _updatePageController() {

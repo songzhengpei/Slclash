@@ -220,6 +220,9 @@ class HostsItem extends ConsumerWidget {
         widget: MapInputPage(
           title: 'Hosts',
           map: hosts,
+          keyHint: appLocalizations.key,
+          valueHint: appLocalizations.value,
+          showFieldLabels: false,
           titleBuilder: (item) => Text(item.key),
           subtitleBuilder: (item) => Text(item.value),
         ),
@@ -572,6 +575,7 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
     return CommonDialog(
       title: appLocalizations.port,
       child: Form(
@@ -601,23 +605,46 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
                   ),
                 ),
                 const Spacer(),
-                TextButton(
-                  onPressed: _handleReset,
-                  child: Text(appLocalizations.reset),
+                SizedBox(
+                  height: 28,
+                  child: OutlinedButton.icon(
+                    onPressed: _handleReset,
+                    icon: const Icon(Icons.replay_rounded, size: 15),
+                    label: Text(appLocalizations.reset),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      foregroundColor: surge.textPrimary,
+                      side: BorderSide(
+                        color: surge.separator.withValues(alpha: 0.9),
+                        width: surge.spacing.hairline,
+                      ),
+                      textStyle: context.textTheme.labelMedium?.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
             AnimatedSize(
-              duration: midDuration,
-              curve: Curves.easeOutQuad,
+              duration: SurgeMotion.container,
+              curve: SurgeMotion.stateCurve,
               alignment: Alignment.topCenter,
               child: Column(
                 spacing: 16,
                 children: [
-                  _PortInputField(
+                  SurgeField(
                     label: appLocalizations.mixedPort,
                     child: TextFormField(
-                      keyboardType: TextInputType.url,
+                      keyboardType: TextInputType.number,
                       maxLines: 1,
                       minLines: 1,
                       controller: _mixedPortController,
@@ -659,10 +686,10 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
                     ),
                   ),
                   if (_isMore) ...[
-                    _PortInputField(
+                    SurgeField(
                       label: appLocalizations.port,
                       child: TextFormField(
-                        keyboardType: TextInputType.url,
+                        keyboardType: TextInputType.number,
                         maxLines: 1,
                         minLines: 1,
                         controller: _portController,
@@ -706,10 +733,10 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
                         },
                       ),
                     ),
-                    _PortInputField(
+                    SurgeField(
                       label: appLocalizations.socksPort,
                       child: TextFormField(
-                        keyboardType: TextInputType.url,
+                        keyboardType: TextInputType.number,
                         maxLines: 1,
                         minLines: 1,
                         controller: _socksPortController,
@@ -753,10 +780,10 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
                         },
                       ),
                     ),
-                    _PortInputField(
+                    SurgeField(
                       label: appLocalizations.redirPort,
                       child: TextFormField(
-                        keyboardType: TextInputType.url,
+                        keyboardType: TextInputType.number,
                         maxLines: 1,
                         minLines: 1,
                         controller: _redirPortController,
@@ -800,10 +827,10 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
                         },
                       ),
                     ),
-                    _PortInputField(
+                    SurgeField(
                       label: appLocalizations.tproxyPort,
                       child: TextFormField(
-                        keyboardType: TextInputType.url,
+                        keyboardType: TextInputType.number,
                         maxLines: 1,
                         minLines: 1,
                         controller: _tProxyPortController,
@@ -863,36 +890,6 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _PortInputField extends StatelessWidget {
-  const _PortInputField({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 7),
-          child: Text(
-            label,
-            style: context.textTheme.labelMedium?.copyWith(
-              color: surge.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        child,
-      ],
     );
   }
 }

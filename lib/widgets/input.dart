@@ -130,12 +130,12 @@ class SurgeDialogActionButton extends StatelessWidget {
         : surge.textPrimary.withValues(alpha: onPressed == null ? 0.42 : 1);
     return Expanded(
       child: SizedBox(
-        height: 34,
+        height: 45,
         child: FilledButton(
           onPressed: onPressed,
           style: FilledButton.styleFrom(
             elevation: 0,
-            minimumSize: const Size.fromHeight(34),
+            minimumSize: const Size.fromHeight(45),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             backgroundColor: background,
             foregroundColor: foreground,
@@ -183,6 +183,148 @@ class SurgeDialogActionRow extends StatelessWidget {
           primary: true,
         ),
       ],
+    );
+  }
+}
+
+class SurgeField extends StatelessWidget {
+  const SurgeField({
+    super.key,
+    required this.label,
+    required this.child,
+    this.helperText,
+  });
+
+  final String label;
+  final Widget child;
+  final String? helperText;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark
+        ? surge.textSecondary
+        : Color.lerp(surge.textSecondary, surge.textPrimary, 0.22)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 7),
+          child: Text(
+            label,
+            style: context.textTheme.labelMedium?.copyWith(
+              color: labelColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+        child,
+        if (helperText != null) ...[
+          const SizedBox(height: 7),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              helperText!,
+              style: context.textTheme.labelSmall?.copyWith(
+                color: surge.textSecondary,
+                fontSize: 11,
+                height: 1.2,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class SurgeToggleFieldRow extends StatelessWidget {
+  const SurgeToggleFieldRow({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+  });
+
+  final String label;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fillColor = isDark
+        ? Color.lerp(surge.fill, surge.card, 0.10)!
+        : surge.fill;
+    final radius = BorderRadius.circular(surge.radii.card);
+    final border = Border.all(
+      color: isDark
+          ? surge.separator.withValues(alpha: 0.36)
+          : surge.separator.withValues(alpha: 0.82),
+      width: 0.7,
+    );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          onChanged(!value);
+        },
+        borderRadius: radius,
+        child: AnimatedContainer(
+          duration: SurgeMotion.state,
+          curve: SurgeMotion.stateCurve,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: fillColor,
+            borderRadius: radius,
+            border: border,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        color: surge.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.labelSmall?.copyWith(
+                          color: surge.textSecondary,
+                          fontSize: 11,
+                          height: 1.2,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SurgeSwitch(value: value, onChanged: onChanged),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -412,6 +554,30 @@ class _InputDialogState extends State<InputDialog> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final labelText = widget.labelText;
+    final fieldHintText = labelText != null
+        ? (widget.hintText == labelText ? null : widget.hintText)
+        : widget.hintText ?? title;
+    Widget buildTextField() {
+      return TextFormField(
+        maxLength: widget.maxLength,
+        obscureText: widget.obscureText ?? false,
+        keyboardType: TextInputType.url,
+        maxLines: widget.obscureText == true ? 1 : 5,
+        minLines: 1,
+        controller: _textController,
+        onFieldSubmitted: (_) {
+          _handleUpdate();
+        },
+        decoration: surgeInputDecoration(
+          context,
+          suffixText: suffixText,
+          hintText: fieldHintText,
+        ),
+        validator: widget.validator,
+      );
+    }
+
     return CommonDialog(
       title: title,
       child: Form(
@@ -422,24 +588,10 @@ class _InputDialogState extends State<InputDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 18,
           children: [
-            TextFormField(
-              maxLength: widget.maxLength,
-              obscureText: widget.obscureText ?? false,
-              keyboardType: TextInputType.url,
-              maxLines: widget.obscureText == true ? 1 : 5,
-              minLines: 1,
-              controller: _textController,
-              onFieldSubmitted: (_) {
-                _handleUpdate();
-              },
-              decoration: surgeInputDecoration(
-                context,
-                suffixText: suffixText,
-                hintText: widget.hintText,
-                labelText: widget.labelText,
-              ),
-              validator: widget.validator,
-            ),
+            if (labelText != null && labelText.isNotEmpty)
+              SurgeField(label: labelText, child: buildTextField())
+            else
+              buildTextField(),
             SurgeDialogActionRow(
               cancelLabel: appLocalizations.cancel,
               submitLabel: appLocalizations.submit,
@@ -463,6 +615,8 @@ class ListInputPage extends ConsumerStatefulWidget {
   final Widget Function(String item)? leadingBuilder;
   final String? valueLabel;
   final String? valueHint;
+  final String? addTitle;
+  final bool showFieldLabels;
 
   const ListInputPage({
     super.key,
@@ -472,6 +626,8 @@ class ListInputPage extends ConsumerStatefulWidget {
     this.leadingBuilder,
     this.valueLabel,
     this.valueHint,
+    this.addTitle,
+    this.showFieldLabels = true,
     this.subtitleBuilder,
   });
 
@@ -532,12 +688,15 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
     final value = await globalState.showCommonDialog<String>(
       child: AddDialog(
         valueHint: widget.valueHint,
+        showFieldLabels: widget.showFieldLabels,
         valueField: Field(
           label: widget.valueLabel ?? appLocalizations.value,
           value: item ?? '',
           validator: uniqueValidator,
         ),
-        title: item != null ? appLocalizations.edit : appLocalizations.add,
+        title: item != null
+            ? appLocalizations.edit
+            : widget.addTitle ?? appLocalizations.add,
       ),
     );
 
@@ -708,6 +867,10 @@ class MapInputPage extends ConsumerStatefulWidget {
   final Widget Function(MapEntry<String, String> item)? leadingBuilder;
   final String? keyLabel;
   final String? valueLabel;
+  final String? keyHint;
+  final String? valueHint;
+  final String? addTitle;
+  final bool showFieldLabels;
 
   const MapInputPage({
     super.key,
@@ -717,6 +880,10 @@ class MapInputPage extends ConsumerStatefulWidget {
     this.leadingBuilder,
     this.keyLabel,
     this.valueLabel,
+    this.keyHint,
+    this.valueHint,
+    this.addTitle,
+    this.showFieldLabels = true,
     this.subtitleBuilder,
   });
 
@@ -789,7 +956,12 @@ class _MapInputPageState extends ConsumerState<MapInputPage> {
       child: AddDialog(
         keyField: keyField,
         valueField: valueField,
-        title: item != null ? appLocalizations.edit : appLocalizations.add,
+        keyHint: widget.keyHint,
+        valueHint: widget.valueHint,
+        showFieldLabels: widget.showFieldLabels,
+        title: item != null
+            ? appLocalizations.edit
+            : widget.addTitle ?? appLocalizations.add,
       ),
     );
     if (value == null) return;
@@ -959,14 +1131,18 @@ class AddDialog extends StatefulWidget {
   final String title;
   final Field? keyField;
   final Field valueField;
+  final String? keyHint;
   final String? valueHint;
+  final bool showFieldLabels;
 
   const AddDialog({
     super.key,
     required this.title,
     this.keyField,
     required this.valueField,
+    this.keyHint,
     this.valueHint,
+    this.showFieldLabels = true,
   });
 
   @override
@@ -1012,6 +1188,44 @@ class _AddDialogState extends State<AddDialog> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
+    final showValueLabel =
+        widget.showFieldLabels && keyField != null ||
+        widget.showFieldLabels &&
+            (valueField.label != appLocalizations.value ||
+                (widget.valueHint != null &&
+                    widget.valueHint != valueField.label));
+    final valueHintText = showValueLabel
+        ? widget.valueHint
+        : widget.valueHint ?? valueField.label;
+    final showKeyLabel = widget.showFieldLabels;
+    final keyHintText = showKeyLabel ? null : widget.keyHint ?? keyField?.label;
+
+    Widget buildValueField() {
+      return TextFormField(
+        maxLines: 3,
+        minLines: 1,
+        keyboardType: TextInputType.text,
+        controller: _valueController,
+        decoration: surgeInputDecoration(context, hintText: valueHintText),
+        onFieldSubmitted: (_) {
+          _submit();
+        },
+        validator: (String? value) {
+          String? res;
+          if (valueField.validator != null) {
+            res = valueField.validator!(value);
+          }
+          if (res != null) {
+            return res;
+          }
+          if (value == null || value.isEmpty) {
+            return appLocalizations.emptyTip(appLocalizations.value);
+          }
+          return null;
+        },
+      );
+    }
+
     return CommonDialog(
       title: widget.title,
       child: Form(
@@ -1023,55 +1237,51 @@ class _AddDialogState extends State<AddDialog> {
           spacing: 18,
           children: [
             if (keyField != null)
-              TextFormField(
-                maxLines: 3,
-                minLines: 1,
-                controller: _keyController,
-                decoration: surgeInputDecoration(
-                  context,
-                  labelText: keyField!.label,
+              if (showKeyLabel)
+                SurgeField(
+                  label: keyField!.label,
+                  child: _AddDialogTextField(
+                    controller: _keyController!,
+                    hintText: keyHintText,
+                    onSubmit: _submit,
+                    validator: (String? value) {
+                      String? res;
+                      if (keyField!.validator != null) {
+                        res = keyField!.validator!(value);
+                      }
+                      if (res != null) {
+                        return res;
+                      }
+                      if (value == null || value.isEmpty) {
+                        return appLocalizations.emptyTip(appLocalizations.key);
+                      }
+                      return null;
+                    },
+                  ),
+                )
+              else
+                _AddDialogTextField(
+                  controller: _keyController!,
+                  hintText: keyHintText,
+                  onSubmit: _submit,
+                  validator: (String? value) {
+                    String? res;
+                    if (keyField!.validator != null) {
+                      res = keyField!.validator!(value);
+                    }
+                    if (res != null) {
+                      return res;
+                    }
+                    if (value == null || value.isEmpty) {
+                      return appLocalizations.emptyTip(appLocalizations.key);
+                    }
+                    return null;
+                  },
                 ),
-                validator: (String? value) {
-                  String? res;
-                  if (keyField!.validator != null) {
-                    res = keyField!.validator!(value);
-                  }
-                  if (res != null) {
-                    return res;
-                  }
-                  if (value == null || value.isEmpty) {
-                    return appLocalizations.emptyTip(appLocalizations.key);
-                  }
-                  return null;
-                },
-              ),
-            TextFormField(
-              maxLines: 3,
-              minLines: 1,
-              keyboardType: TextInputType.text,
-              controller: _valueController,
-              decoration: surgeInputDecoration(
-                context,
-                labelText: valueField.label,
-                hintText: widget.valueHint,
-              ),
-              onFieldSubmitted: (_) {
-                _submit();
-              },
-              validator: (String? value) {
-                String? res;
-                if (valueField.validator != null) {
-                  res = valueField.validator!(value);
-                }
-                if (res != null) {
-                  return res;
-                }
-                if (value == null || value.isEmpty) {
-                  return appLocalizations.emptyTip(appLocalizations.value);
-                }
-                return null;
-              },
-            ),
+            if (showValueLabel)
+              SurgeField(label: valueField.label, child: buildValueField())
+            else
+              buildValueField(),
             SurgeDialogActionRow(
               cancelLabel: appLocalizations.cancel,
               submitLabel: appLocalizations.confirm,
@@ -1083,6 +1293,34 @@ class _AddDialogState extends State<AddDialog> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AddDialogTextField extends StatelessWidget {
+  const _AddDialogTextField({
+    required this.controller,
+    required this.onSubmit,
+    required this.validator,
+    this.hintText,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSubmit;
+  final FormFieldValidator<String> validator;
+  final String? hintText;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      maxLines: 3,
+      minLines: 1,
+      controller: controller,
+      decoration: surgeInputDecoration(context, hintText: hintText),
+      onFieldSubmitted: (_) {
+        onSubmit();
+      },
+      validator: validator,
     );
   }
 }

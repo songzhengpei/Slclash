@@ -610,8 +610,8 @@ class SurgeSwitch extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: enabled ? () => onChanged!(!value) : null,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
+          duration: SurgeMotion.reveal,
+          curve: SurgeMotion.stateCurve,
           width: 48,
           height: 28,
           padding: const EdgeInsets.all(3),
@@ -626,8 +626,8 @@ class SurgeSwitch extends StatelessWidget {
             ),
           ),
           child: AnimatedAlign(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
+            duration: SurgeMotion.reveal,
+            curve: SurgeMotion.stateCurve,
             alignment: knobAlign,
             child: Container(
               width: 22,

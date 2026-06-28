@@ -468,19 +468,20 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
       ],
       child: Form(
         key: _formKey,
-        child: Wrap(
-          runSpacing: 16,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 16,
           children: [
             TextFormField(
               controller: _uriController,
               maxLines: 5,
               minLines: 1,
+              keyboardType: TextInputType.url,
               decoration: surgeInputDecoration(
                 context,
-                prefixIcon: const Icon(Icons.link),
-                labelText: appLocalizations.address,
-                useFloatingLabel: true,
-                helperText: appLocalizations.addressHelp,
+                hintText: appLocalizations.address,
+                prefixIcon: const Icon(Icons.link_rounded),
               ),
               validator: (String? value) {
                 if (value == null || value.isEmpty || !value.isUrl) {
@@ -493,9 +494,8 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
               controller: _userController,
               decoration: surgeInputDecoration(
                 context,
-                prefixIcon: const Icon(Icons.account_circle),
-                labelText: appLocalizations.account,
-                useFloatingLabel: true,
+                hintText: appLocalizations.account,
+                prefixIcon: const Icon(Icons.account_circle_rounded),
               ),
               validator: (String? value) {
                 if (value == null || value.isEmpty) {
@@ -512,17 +512,18 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
                   obscureText: obscure,
                   decoration: surgeInputDecoration(
                     context,
-                    prefixIcon: const Icon(Icons.password),
+                    hintText: appLocalizations.password,
+                    prefixIcon: const Icon(Icons.password_rounded),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        obscure ? Icons.visibility : Icons.visibility_off,
+                        obscure
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
                       ),
                       onPressed: () {
                         _obscureController.value = !obscure;
                       },
                     ),
-                    labelText: appLocalizations.password,
-                    useFloatingLabel: true,
                   ),
                   validator: (String? value) {
                     if (value == null || value.isEmpty) {

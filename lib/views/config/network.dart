@@ -314,6 +314,9 @@ class RouteAddressItem extends ConsumerWidget {
         widget: ListInputPage(
           title: appLocalizations.routeAddress,
           items: routeAddress,
+          valueLabel: appLocalizations.routeAddress,
+          addTitle: appLocalizations.routeAddress,
+          showFieldLabels: false,
           titleBuilder: (item) => Text(item),
         ),
         onChanged: (items) {
@@ -377,6 +380,8 @@ class SmartAutoStopNetworksItem extends ConsumerWidget {
           items: networks,
           valueLabel: appLocalizations.networkAddress,
           valueHint: '192.168.100.0/24',
+          addTitle: appLocalizations.networkAddress,
+          showFieldLabels: false,
           titleBuilder: (item) => Text(item),
         ),
         onChanged: (items) {

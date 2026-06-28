@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import 'surge_motion.dart';
 import 'surge_theme_extension.dart';
 
 @immutable
@@ -122,8 +123,8 @@ class _SurgeBottomNavTile extends StatelessWidget {
             children: [
               AnimatedScale(
                 scale: selected ? 1.08 : 1,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
+                duration: SurgeMotion.reveal,
+                curve: SurgeMotion.stateCurve,
                 child: Icon(icon, color: color, size: selected ? 25 : 24),
               ),
               const SizedBox(height: 5),

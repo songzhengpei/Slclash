@@ -274,12 +274,6 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
       title: widget.rule != null
           ? appLocalizations.editRule
           : appLocalizations.addRule,
-      actions: [
-        TextButton(
-          onPressed: _handleSubmit,
-          child: Text(appLocalizations.confirm),
-        ),
-      ],
       child: DropdownMenuTheme(
         data: DropdownMenuThemeData(
           inputDecorationTheme: InputDecorationTheme(
@@ -415,6 +409,14 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
                     ),
                   ],
                   const SizedBox(height: 20),
+                  SurgeDialogActionRow(
+                    cancelLabel: appLocalizations.cancel,
+                    submitLabel: appLocalizations.confirm,
+                    onCancel: () {
+                      Navigator.of(context).pop();
+                    },
+                    onSubmit: _handleSubmit,
+                  ),
                 ],
               );
             },

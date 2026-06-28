@@ -1,6 +1,7 @@
 import 'package:animations/animations.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 
 class BaseNavigator {
@@ -106,10 +107,10 @@ class CommonRoute<T> extends PageRoute<T> {
   }
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 280);
+  Duration get transitionDuration => SurgeMotion.pageEnter;
 
   @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 260);
+  Duration get reverseTransitionDuration => SurgeMotion.pageExit;
 }
 
 final Animatable<Offset> _kRightMiddleTween = Tween<Offset>(

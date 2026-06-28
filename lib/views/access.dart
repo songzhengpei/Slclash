@@ -544,8 +544,8 @@ class AccessControlPanel extends ConsumerStatefulWidget {
 class _AccessControlPanelState extends ConsumerState<AccessControlPanel> {
   IconData _getIconWithAccessControlMode(AccessControlMode mode) {
     return switch (mode) {
-      AccessControlMode.acceptSelected => Icons.adjust_outlined,
-      AccessControlMode.rejectSelected => Icons.block_outlined,
+      AccessControlMode.acceptSelected => Icons.adjust_rounded,
+      AccessControlMode.rejectSelected => Icons.block_rounded,
     };
   }
 
@@ -568,141 +568,145 @@ class _AccessControlPanelState extends ConsumerState<AccessControlPanel> {
 
   IconData _getIconWithProxiesSortType(AccessSortType type) {
     return switch (type) {
-      AccessSortType.none => Icons.sort,
-      AccessSortType.name => Icons.sort_by_alpha,
-      AccessSortType.time => Icons.timeline,
+      AccessSortType.none => Icons.sort_rounded,
+      AccessSortType.name => Icons.sort_by_alpha_rounded,
+      AccessSortType.time => Icons.timeline_rounded,
     };
   }
 
   List<Widget> _buildModeSetting() {
     final appLocalizations = context.appLocalizations;
-    return generateSection(
-      isFirst: true,
-      title: appLocalizations.mode,
-      items: [
-        SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          scrollDirection: Axis.horizontal,
-          child: Consumer(
-            builder: (_, ref, _) {
-              final accessControlMode = ref.watch(
-                accessControlStateProvider.select((state) => state.mode),
-              );
-              return Wrap(
-                spacing: 16,
-                children: [
-                  for (final item in AccessControlMode.values)
-                    SettingInfoCard(
-                      Info(
-                        label: _getTextWithAccessControlMode(item),
-                        iconData: _getIconWithAccessControlMode(item),
-                      ),
-                      isSelected: accessControlMode == item,
-                      onPressed: () {
-                        ref
-                            .read(accessControlStateProvider.notifier)
-                            .update((state) => state.copyWith(mode: item));
-                      },
+    return [
+      Consumer(
+        builder: (_, ref, _) {
+          final accessControlMode = ref.watch(
+            accessControlStateProvider.select((state) => state.mode),
+          );
+          return SurgeSettingSection(
+            title: appLocalizations.mode,
+            children: [
+              for (
+                var index = 0;
+                index < AccessControlMode.values.length;
+                index++
+              )
+                SurgeSettingOption(
+                  leading: Icon(
+                    _getIconWithAccessControlMode(
+                      AccessControlMode.values[index],
                     ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
-    );
+                  ),
+                  title: _getTextWithAccessControlMode(
+                    AccessControlMode.values[index],
+                  ),
+                  selected:
+                      accessControlMode == AccessControlMode.values[index],
+                  showDivider: false,
+                  dense: true,
+                  onTap: () {
+                    ref
+                        .read(accessControlStateProvider.notifier)
+                        .update(
+                          (state) => state.copyWith(
+                            mode: AccessControlMode.values[index],
+                          ),
+                        );
+                  },
+                ),
+            ],
+          );
+        },
+      ),
+    ];
   }
 
   List<Widget> _buildSortSetting() {
     final appLocalizations = context.appLocalizations;
-    return generateSection(
-      title: appLocalizations.sort,
-      items: [
-        SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          scrollDirection: Axis.horizontal,
-          child: Consumer(
-            builder: (_, ref, _) {
-              final accessSortType = ref.watch(
-                accessControlStateProvider.select((state) => state.sort),
-              );
-              return Wrap(
-                spacing: 16,
-                children: [
-                  for (final item in AccessSortType.values)
-                    SettingInfoCard(
-                      Info(
-                        label: _getTextWithAccessSortType(item),
-                        iconData: _getIconWithProxiesSortType(item),
-                      ),
-                      isSelected: accessSortType == item,
-                      onPressed: () {
-                        ref
-                            .read(accessControlStateProvider.notifier)
-                            .update((state) => state.copyWith(sort: item));
-                      },
-                    ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
-    );
+    return [
+      Consumer(
+        builder: (_, ref, _) {
+          final accessSortType = ref.watch(
+            accessControlStateProvider.select((state) => state.sort),
+          );
+          return SurgeSettingSection(
+            title: appLocalizations.sort,
+            children: [
+              for (var index = 0; index < AccessSortType.values.length; index++)
+                SurgeSettingOption(
+                  leading: Icon(
+                    _getIconWithProxiesSortType(AccessSortType.values[index]),
+                  ),
+                  title: _getTextWithAccessSortType(
+                    AccessSortType.values[index],
+                  ),
+                  selected: accessSortType == AccessSortType.values[index],
+                  showDivider: false,
+                  dense: true,
+                  onTap: () {
+                    ref
+                        .read(accessControlStateProvider.notifier)
+                        .update(
+                          (state) => state.copyWith(
+                            sort: AccessSortType.values[index],
+                          ),
+                        );
+                  },
+                ),
+            ],
+          );
+        },
+      ),
+    ];
   }
 
   List<Widget> _buildSourceSetting() {
     final appLocalizations = context.appLocalizations;
-    return generateSection(
-      title: appLocalizations.source,
-      items: [
-        SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          scrollDirection: Axis.horizontal,
-          child: Consumer(
-            builder: (_, ref, _) {
-              final vm2 = ref.watch(
-                accessControlStateProvider.select(
-                  (state) => VM2(
-                    state.isFilterSystemApp,
-                    state.isFilterNonInternetApp,
-                  ),
-                ),
-              );
-              return Wrap(
-                spacing: 16,
-                children: [
-                  SettingTextCard(
-                    appLocalizations.systemApp,
-                    isSelected: vm2.a == false,
-                    onPressed: () {
-                      ref
-                          .read(accessControlStateProvider.notifier)
-                          .update(
-                            (state) =>
-                                state.copyWith(isFilterSystemApp: !vm2.a),
-                          );
-                    },
-                  ),
-                  SettingTextCard(
-                    appLocalizations.noNetworkApp,
-                    isSelected: vm2.b == false,
-                    onPressed: () {
-                      ref
-                          .read(accessControlStateProvider.notifier)
-                          .update(
-                            (state) =>
-                                state.copyWith(isFilterNonInternetApp: !vm2.b),
-                          );
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
-    );
+    return [
+      Consumer(
+        builder: (_, ref, _) {
+          final vm2 = ref.watch(
+            accessControlStateProvider.select(
+              (state) =>
+                  VM2(state.isFilterSystemApp, state.isFilterNonInternetApp),
+            ),
+          );
+          return SurgeSettingSection(
+            title: appLocalizations.source,
+            children: [
+              SurgeSettingOption(
+                leading: const Icon(Icons.apps_rounded),
+                title: appLocalizations.systemApp,
+                selected: vm2.a == false,
+                showDivider: false,
+                dense: true,
+                onTap: () {
+                  ref
+                      .read(accessControlStateProvider.notifier)
+                      .update(
+                        (state) => state.copyWith(isFilterSystemApp: !vm2.a),
+                      );
+                },
+              ),
+              SurgeSettingOption(
+                leading: const Icon(Icons.wifi_tethering_off_rounded),
+                title: appLocalizations.noNetworkApp,
+                selected: vm2.b == false,
+                showDivider: false,
+                dense: true,
+                onTap: () {
+                  ref
+                      .read(accessControlStateProvider.notifier)
+                      .update(
+                        (state) =>
+                            state.copyWith(isFilterNonInternetApp: !vm2.b),
+                      );
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    ];
   }
 
   @override

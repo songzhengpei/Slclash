@@ -1,7 +1,7 @@
 name: fl_clash
 description: A lightweight Android arm64-v8a proxy client based on ClashMeta.
 publish_to: 'none'
-version: 1.9.1+10
+version: 1.9.3+12
 environment:
   sdk: '>=3.8.0 <4.0.0'
 

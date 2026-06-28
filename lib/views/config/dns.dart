@@ -373,6 +373,9 @@ class NameserverPolicyItem extends ConsumerWidget {
         widget: MapInputPage(
           title: appLocalizations.nameserverPolicy,
           map: nameserverPolicy,
+          keyHint: appLocalizations.key,
+          valueHint: appLocalizations.value,
+          showFieldLabels: false,
           titleBuilder: (item) => Text(item.key),
           subtitleBuilder: (item) => Text(item.value),
         ),

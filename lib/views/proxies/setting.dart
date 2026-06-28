@@ -209,32 +209,11 @@ class _SettingOption extends StatelessWidget {
                   ),
                 ),
               ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 18,
-                height: 18,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? surge.primary.withValues(alpha: 0.14)
-                      : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected ? surge.primary : surge.separator,
-                    width: 1.2,
-                  ),
-                ),
-                child: AnimatedScale(
-                  scale: selected ? 1 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: surge.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
+              SurgeSelectIndicator(
+                selected: selected,
+                size: 18,
+                iconSize: 12,
+                showCheck: false,
               ),
             ],
           ),

@@ -503,7 +503,7 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
             20 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
-            _AddUrlProfileField(
+            SurgeField(
               label: appLocalizations.name,
               child: TextFormField(
                 textInputAction: TextInputAction.next,
@@ -515,7 +515,7 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            _AddUrlProfileField(
+            SurgeField(
               label: appLocalizations.url,
               child: TextFormField(
                 textInputAction: TextInputAction.done,
@@ -541,139 +541,51 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
               ),
             ),
             const SizedBox(height: 18),
-            _AddUrlProfileSwitchRow(
+            SurgeToggleFieldRow(
               label: appLocalizations.autoUpdate,
               value: _autoUpdate,
               onChanged: _setAutoUpdate,
             ),
-            if (_autoUpdate) ...[
-              const SizedBox(height: 14),
-              _AddUrlProfileField(
-                label: appLocalizations.autoUpdateInterval,
-                child: TextFormField(
-                  textInputAction: TextInputAction.done,
-                  keyboardType: TextInputType.number,
-                  controller: _autoUpdateDurationController,
-                  decoration: surgeInputDecoration(
-                    context,
-                    hintText: appLocalizations.autoUpdateInterval,
-                  ),
-                  onFieldSubmitted: (_) {
-                    _handleSubmit();
-                  },
-                  validator: (value) {
-                    if (!_autoUpdate) return null;
-                    if (value == null || value.isEmpty) {
-                      return appLocalizations
-                          .profileAutoUpdateIntervalNullValidationDesc;
-                    }
-                    try {
-                      int.parse(value);
-                    } catch (_) {
-                      return appLocalizations
-                          .profileAutoUpdateIntervalInvalidValidationDesc;
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AddUrlProfileField extends StatelessWidget {
-  const _AddUrlProfileField({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final labelColor = isDark
-        ? surge.textSecondary
-        : Color.lerp(surge.textSecondary, surge.textPrimary, 0.22)!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 7),
-          child: Text(
-            label,
-            style: context.textTheme.labelMedium?.copyWith(
-              color: labelColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
+            AnimatedSize(
+              duration: SurgeMotion.reveal,
+              curve: SurgeMotion.stateCurve,
+              alignment: Alignment.topCenter,
+              child: _autoUpdate
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: SurgeField(
+                        label: appLocalizations.autoUpdateInterval,
+                        child: TextFormField(
+                          textInputAction: TextInputAction.done,
+                          keyboardType: TextInputType.number,
+                          controller: _autoUpdateDurationController,
+                          decoration: surgeInputDecoration(
+                            context,
+                            hintText: appLocalizations.autoUpdateInterval,
+                          ),
+                          onFieldSubmitted: (_) {
+                            _handleSubmit();
+                          },
+                          validator: (value) {
+                            if (!_autoUpdate) return null;
+                            if (value == null || value.isEmpty) {
+                              return appLocalizations
+                                  .profileAutoUpdateIntervalNullValidationDesc;
+                            }
+                            try {
+                              int.parse(value);
+                            } catch (_) {
+                              return appLocalizations
+                                  .profileAutoUpdateIntervalInvalidValidationDesc;
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
             ),
-          ),
-        ),
-        child,
-      ],
-    );
-  }
-}
-
-class _AddUrlProfileSwitchRow extends StatelessWidget {
-  const _AddUrlProfileSwitchRow({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fillColor = isDark
-        ? Color.lerp(surge.fill, surge.card, 0.10)!
-        : surge.fill;
-    final radius = BorderRadius.circular(surge.radii.card);
-    final border = Border.all(
-      color: isDark
-          ? surge.separator.withValues(alpha: 0.36)
-          : surge.separator.withValues(alpha: 0.82),
-      width: 0.7,
-    );
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          onChanged(!value);
-        },
-        borderRadius: radius,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            color: fillColor,
-            borderRadius: radius,
-            border: border,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    color: surge.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-              SurgeSwitch(value: value, onChanged: onChanged),
-            ],
-          ),
+          ],
         ),
       ),
     );
