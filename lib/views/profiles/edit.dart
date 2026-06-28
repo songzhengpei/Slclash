@@ -356,6 +356,10 @@ class _ProfileEditField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark
+        ? surge.textSecondary
+        : Color.lerp(surge.textSecondary, surge.textPrimary, 0.22)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -364,9 +368,9 @@ class _ProfileEditField extends StatelessWidget {
           child: Text(
             label,
             style: context.textTheme.labelMedium?.copyWith(
-              color: surge.textSecondary,
+              color: labelColor,
               fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
               letterSpacing: 0,
             ),
           ),
@@ -391,19 +395,27 @@ class _ProfileEditSwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final radius = BorderRadius.circular(surge.radii.card);
+    final border = Border.all(
+      color: isDark
+          ? surge.separator.withValues(alpha: 0.36)
+          : surge.separator.withValues(alpha: 0.82),
+      width: 0.7,
+    );
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
           onChanged(!value);
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radius,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
             color: surge.fill,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: surge.separator, width: 0.5),
+            borderRadius: radius,
+            border: border,
           ),
           child: Row(
             children: [

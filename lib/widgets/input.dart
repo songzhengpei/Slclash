@@ -32,11 +32,17 @@ InputDecoration surgeInputDecoration(
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final fillColor = isDark
       ? Color.lerp(surge.fill, surge.card, 0.10)!
-      : Color.lerp(surge.fill, surge.card, 0.68)!;
+      : surge.fill;
+  final borderSide = BorderSide(
+    color: isDark
+        ? surge.separator.withValues(alpha: 0.36)
+        : surge.separator.withValues(alpha: 0.82),
+    width: 0.7,
+  );
   final radius = BorderRadius.circular(surge.radii.card);
   final border = OutlineInputBorder(
     borderRadius: radius,
-    borderSide: BorderSide.none,
+    borderSide: borderSide,
   );
   final focusedBorder = OutlineInputBorder(
     borderRadius: radius,
