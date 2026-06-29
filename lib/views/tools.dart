@@ -107,7 +107,7 @@ class _ToolViewState extends ConsumerState<ToolsView> {
         itemBuilder: (_, index) => items[index],
         padding: EdgeInsets.only(
           top: 12,
-          bottom: 112 + MediaQuery.paddingOf(context).bottom,
+          bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
         ),
       ),
     );

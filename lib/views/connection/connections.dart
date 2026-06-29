@@ -12,6 +12,21 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'item.dart';
 
+@visibleForTesting
+bool shouldRefreshConnectionsView({
+  required bool appForeground,
+  required bool isStart,
+  required bool isSuspended,
+  required PageLabel currentPageLabel,
+  required bool isMobileView,
+}) {
+  return appForeground &&
+      isStart &&
+      !isSuspended &&
+      (currentPageLabel == PageLabel.connections ||
+          (isMobileView && currentPageLabel == PageLabel.tools));
+}
+
 class ConnectionsView extends ConsumerStatefulWidget {
   const ConnectionsView({super.key});
 
@@ -20,7 +35,6 @@ class ConnectionsView extends ConsumerStatefulWidget {
 }
 
 class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
-  static const _pageLabel = PageLabel.connections;
   static const _refreshInterval = Duration(seconds: 1);
 
   final _connectionsStateNotifier = ValueNotifier<TrackerInfosState>(
@@ -56,8 +70,27 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   }
 
   bool get _shouldRefresh {
-    return ref.read(appForegroundProvider) &&
-        ref.read(currentPageLabelProvider) == _pageLabel;
+    return shouldRefreshConnectionsView(
+      appForeground: ref.read(appForegroundProvider),
+      isStart: ref.read(isStartProvider),
+      isSuspended: ref.read(suspendProvider),
+      currentPageLabel: ref.read(currentPageLabelProvider),
+      isMobileView: ref.read(isMobileViewProvider),
+    );
+  }
+
+  Future<void> _ensureRuntimeListener() async {
+    if (!ref.read(isStartProvider) || ref.read(suspendProvider)) {
+      return;
+    }
+    try {
+      await coreController.startListener();
+    } catch (e) {
+      commonPrint.log(
+        'start listener for connections failed: $e',
+        logLevel: LogLevel.warning,
+      );
+    }
   }
 
   void _syncRefreshTimer() {
@@ -67,6 +100,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
       return;
     }
     if (_timer != null) return;
+    unawaited(_ensureRuntimeListener());
     unawaited(_updateConnections());
     _timer = Timer.periodic(_refreshInterval, (_) {
       if (!_shouldRefresh) {
@@ -90,6 +124,21 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
         _syncRefreshTimer();
       }
     });
+    ref.listenManual(isStartProvider, (prev, next) {
+      if (prev != next) {
+        _syncRefreshTimer();
+      }
+    });
+    ref.listenManual(isMobileViewProvider, (prev, next) {
+      if (prev != next) {
+        _syncRefreshTimer();
+      }
+    });
+    ref.listenManual(suspendProvider, (prev, next) {
+      if (prev != next) {
+        _syncRefreshTimer();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _syncRefreshTimer();
@@ -101,8 +150,18 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     if (_isUpdating) return;
     if (!force && !_shouldRefresh) return;
     _isUpdating = true;
-    final trackerInfos = await coreController.getConnections();
-    _isUpdating = false;
+    final List<TrackerInfo> trackerInfos;
+    try {
+      trackerInfos = await coreController.getConnections();
+    } catch (e) {
+      commonPrint.log(
+        'update connections failed: $e',
+        logLevel: LogLevel.warning,
+      );
+      return;
+    } finally {
+      _isUpdating = false;
+    }
     if (!mounted) return;
     if (!force && !_shouldRefresh) return;
     _connectionsStateNotifier.value = _connectionsStateNotifier.value.copyWith(
