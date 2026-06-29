@@ -74,16 +74,14 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
       .read(proxiesActionProvider.notifier)
       .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: 0));
   try {
-    ref
-        .read(proxiesActionProvider.notifier)
-        .setDelay(
+    ref.read(proxiesActionProvider.notifier).setDelay(
           await coreController.getDelay(currentTestUrl, state.proxyName),
         );
   } catch (e) {
     commonPrint.log('proxyDelayTest failed for ${state.proxyName}: $e');
-    ref
-        .read(proxiesActionProvider.notifier)
-        .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: -1));
+    ref.read(proxiesActionProvider.notifier).setDelay(
+          Delay(url: currentTestUrl, name: state.proxyName, value: -1),
+        );
   }
 }
 
@@ -102,8 +100,6 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
 double getScrollToSelectedOffset({
   required String groupName,
   required List<Proxy> proxies,
-  double focusPadding = 40,
-  double itemGap = 6,
 }) {
   final ref = globalState.container;
   final selectedProxyName = ref.read(selectedProxyNameProvider(groupName));
@@ -111,5 +107,5 @@ double getScrollToSelectedOffset({
     (proxy) => proxy.name == selectedProxyName,
   );
   final selectedIndex = findSelectedIndex != -1 ? findSelectedIndex : 0;
-  return (selectedIndex * (getProxyTileHeight() + itemGap)) - focusPadding;
+  return (selectedIndex * (getProxyTileHeight() + 6)) - 40;
 }
