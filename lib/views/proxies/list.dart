@@ -4,6 +4,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/config.dart';
+import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -148,6 +149,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                 key: ValueKey('$groupName.${proxy.name}'),
                 proxy: proxy,
                 groupName: groupName,
+                isExpanded: true,
               ),
             ),
             const SizedBox(height: 6),
@@ -521,6 +523,31 @@ class _ListHeaderState extends State<ListHeader> {
                                           selectedProxyNameProvider(groupName),
                                         )
                                         .takeFirstValid([]);
+                                    if (proxyName.isEmpty) {
+                                      return const SizedBox();
+                                    }
+                                    final groups = ref.watch(groupsProvider);
+                                    final nestedGroup = groups
+                                        .getGroup(proxyName);
+                                    String displayLabel;
+                                    if (nestedGroup != null) {
+                                      // Resolve to leaf node
+                                      String leafName = nestedGroup.realNow;
+                                      int depth = 0;
+                                      while (leafName.isNotEmpty &&
+                                          groups.getGroup(leafName) != null &&
+                                          depth < 4) {
+                                        leafName = groups
+                                            .getGroup(leafName)!
+                                            .realNow;
+                                        depth++;
+                                      }
+                                      displayLabel = leafName.isNotEmpty
+                                          ? '${nestedGroup.name}: $leafName'
+                                          : nestedGroup.name;
+                                    } else {
+                                      displayLabel = proxyName;
+                                    }
                                     return Row(
                                       mainAxisSize: MainAxisSize.min,
                                       mainAxisAlignment:
@@ -528,25 +555,23 @@ class _ListHeaderState extends State<ListHeader> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.center,
                                       children: [
-                                        if (proxyName.isNotEmpty) ...[
-                                          Flexible(
-                                            flex: 1,
-                                            child: EmojiText(
-                                              '  Current: $proxyName',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: context
-                                                  .textTheme
-                                                  .labelMedium
-                                                  ?.copyWith(
-                                                    color: surge.primary,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                    letterSpacing: 0,
-                                                  ),
-                                            ),
+                                        Flexible(
+                                          flex: 1,
+                                          child: EmojiText(
+                                            '  $displayLabel',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: context
+                                                .textTheme
+                                                .labelMedium
+                                                ?.copyWith(
+                                                  color: surge.primary,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  letterSpacing: 0,
+                                                ),
                                           ),
-                                        ],
+                                        ),
                                       ],
                                     );
                                   },

@@ -15,6 +15,7 @@ class ProxyCard extends StatelessWidget {
   final GroupType groupType;
   final ProxyCardType type;
   final String? testUrl;
+  final bool isExpanded;
 
   const ProxyCard({
     super.key,
@@ -23,6 +24,7 @@ class ProxyCard extends StatelessWidget {
     required this.proxy,
     required this.groupType,
     required this.type,
+    this.isExpanded = false,
   });
 
   void _handleTestCurrentDelay() {
@@ -76,13 +78,19 @@ class ProxyCard extends StatelessWidget {
               padding: EdgeInsets.zero,
               shadow: false,
               borderRadius: surge.radii.list,
-              backgroundColor: isSelected ? surge.selectedFill : surge.card,
-              border: Border.all(
-                color: isSelected
-                    ? selectedBorderColor
-                    : surge.separator.withValues(alpha: 0.95),
-                width: isSelected ? 1.05 : 0.75,
-              ),
+              backgroundColor: isExpanded
+                  ? (isSelected ? surge.selectedFill : surge.fill)
+                  : (isSelected ? surge.selectedFill : surge.card),
+              border: isExpanded
+                  ? (isSelected
+                      ? Border.all(color: surge.primary.withValues(alpha: 0.48), width: 1)
+                      : Border.all(color: surge.separator, width: 0.5))
+                  : Border.all(
+                      color: isSelected
+                          ? selectedBorderColor
+                          : surge.separator.withValues(alpha: 0.95),
+                      width: isSelected ? 1.05 : 0.75,
+                    ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
