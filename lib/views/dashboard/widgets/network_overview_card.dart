@@ -148,9 +148,9 @@ class NetworkOverviewCardLayoutCalculator {
   }) {
     final heightDiff = availableInnerHeight - naturalInnerHeightFor(scale);
     // Distribute extra height to all flexible components
-    // If height is insufficient, reduce flexible components proportionally
-    final chartExtra = heightDiff * 0.35;
-    final gapExtra = heightDiff * 0.65;
+    // Chart gets 25%, gaps get 75% for a more spacious layout
+    final chartExtra = heightDiff * 0.25;
+    final gapExtra = heightDiff * 0.75;
 
     return NetworkOverviewCardLayout(
       chartHeight: (chartBaseHeight * scale + chartExtra).clamp(
@@ -158,39 +158,39 @@ class NetworkOverviewCardLayoutCalculator {
         chartBaseHeight * scale * 1.5, // Maximum 150% of base height
       ),
       headerToChartGap:
-          (headerToChartGap * scale + gapExtra * 0.15).clamp(
+          (headerToChartGap * scale + gapExtra * 0.12).clamp(
         6.0, // Minimum gap
-        headerToChartGap * scale * 2.0, // Maximum gap
+        headerToChartGap * scale * 3.0, // Maximum gap
       ),
       chartToDividerGap:
-          (chartToDividerGap * scale + gapExtra * 0.15).clamp(
+          (chartToDividerGap * scale + gapExtra * 0.12).clamp(
         8.0, // Minimum gap
-        chartToDividerGap * scale * 2.0, // Maximum gap
+        chartToDividerGap * scale * 3.0, // Maximum gap
       ),
       dividerToTrafficGap:
-          (dividerToTrafficGap * scale + gapExtra * 0.15).clamp(
+          (dividerToTrafficGap * scale + gapExtra * 0.12).clamp(
         8.0, // Minimum gap
-        dividerToTrafficGap * scale * 2.0, // Maximum gap
+        dividerToTrafficGap * scale * 3.0, // Maximum gap
       ),
       trafficTitleToChartGap:
-          (trafficTitleToChartBaseGap * scale + gapExtra * 0.15).clamp(
+          (trafficTitleToChartBaseGap * scale + gapExtra * 0.18).clamp(
         8.0, // Minimum gap
-        trafficTitleToChartBaseGap * scale * 2.0, // Maximum gap
+        trafficTitleToChartBaseGap * scale * 3.0, // Maximum gap
       ),
       latencyHeaderToRowsGap:
-          (latencyHeaderToRowsBaseGap * scale + gapExtra * 0.15).clamp(
+          (latencyHeaderToRowsBaseGap * scale + gapExtra * 0.18).clamp(
         12.0, // Minimum gap
-        latencyHeaderToRowsBaseGap * scale * 2.0, // Maximum gap
+        latencyHeaderToRowsBaseGap * scale * 3.0, // Maximum gap
       ),
       afterTrafficGap:
-          (trafficToDividerBaseGap * scale + gapExtra * 0.10).clamp(
+          (trafficToDividerBaseGap * scale + gapExtra * 0.15).clamp(
         8.0, // Minimum gap
-        trafficToDividerBaseGap * scale * 2.0, // Maximum gap
+        trafficToDividerBaseGap * scale * 3.0, // Maximum gap
       ),
       dividerToDetectionGap:
-          (dividerToDetectionGap * scale + gapExtra * 0.15).clamp(
+          (dividerToDetectionGap * scale + gapExtra * 0.13).clamp(
         8.0, // Minimum gap
-        dividerToDetectionGap * scale * 2.0, // Maximum gap
+        dividerToDetectionGap * scale * 3.0, // Maximum gap
       ),
     );
   }
