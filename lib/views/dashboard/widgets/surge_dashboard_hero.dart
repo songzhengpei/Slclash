@@ -15,7 +15,9 @@ const _heroFillDuration = Duration(milliseconds: 1500);
 const _statusLightPulseDuration = Duration(milliseconds: 112);
 
 class SurgeDashboardHero extends ConsumerStatefulWidget {
-  const SurgeDashboardHero({super.key});
+  const SurgeDashboardHero({super.key, this.layoutScale = 1.0});
+
+  final double layoutScale;
 
   @override
   ConsumerState<SurgeDashboardHero> createState() => _SurgeDashboardHeroState();
@@ -31,6 +33,8 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
   late final AnimationController _fillController;
   late final AnimationController _sheenController;
   late final Animation<double> _fillAnimation;
+
+  double _scaled(double value) => value * widget.layoutScale;
 
   @override
   void initState() {
@@ -226,7 +230,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      padding: EdgeInsets.fromLTRB(18, _scaled(18), 18, _scaled(16)),
       decoration: BoxDecoration(
         color: surge.card,
         borderRadius: BorderRadius.circular(26),
@@ -245,9 +249,11 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                 isSmartPaused: isSmartPaused,
                 showConnecting: _showConnecting,
                 showFailure: _showFailure,
+                layoutScale: widget.layoutScale,
               ),
               const SizedBox(width: 12),
               _HeroActionButton(
+                layoutScale: widget.layoutScale,
                 isStart: isStart,
                 isSmartPaused: isSmartPaused,
                 isSmartResuming: isSmartResuming,
@@ -268,7 +274,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: _scaled(16)),
           AnimatedBuilder(
             animation: _fillAnimation,
             builder: (context, _) {
@@ -283,16 +289,18 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                     _showConnecting || coreStatus == CoreStatus.connecting,
                 failed: _showFailure,
                 statusLabel: statusLabel,
+                layoutScale: widget.layoutScale,
               );
             },
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: _scaled(12)),
           _ModeSwitch(
             value: mode,
             onChanged: (value) => _handleChangeMode(value, ref),
+            layoutScale: widget.layoutScale,
           ),
-          const SizedBox(height: 10),
-          const _HeroProxySelectorBar(),
+          SizedBox(height: _scaled(10)),
+          _HeroProxySelectorBar(layoutScale: widget.layoutScale),
         ],
       ),
     );
@@ -310,6 +318,7 @@ class _HeroModeCard extends StatelessWidget {
     required this.connecting,
     required this.failed,
     required this.statusLabel,
+    this.layoutScale = 1.0,
   });
 
   final double fillProgress;
@@ -321,6 +330,7 @@ class _HeroModeCard extends StatelessWidget {
   final bool connecting;
   final bool failed;
   final String statusLabel;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -336,6 +346,7 @@ class _HeroModeCard extends StatelessWidget {
         failed: failed,
         statusLabel: statusLabel,
         fillProgress: fillProgress.clamp(0.0, 1.0),
+        layoutScale: layoutScale,
       ),
     );
   }
@@ -352,6 +363,7 @@ class _HeroModeCardSurface extends StatelessWidget {
     required this.failed,
     required this.statusLabel,
     required this.fillProgress,
+    this.layoutScale = 1.0,
   });
 
   final String title;
@@ -363,6 +375,7 @@ class _HeroModeCardSurface extends StatelessWidget {
   final bool failed;
   final String statusLabel;
   final double fillProgress;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -392,8 +405,8 @@ class _HeroModeCardSurface extends StatelessWidget {
         )!;
         return Container(
           width: double.infinity,
-          height: 80,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          height: 80 * layoutScale,
+          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10 * layoutScale),
           decoration: BoxDecoration(
             color: fillColor,
             gradient: !dynamicColor && progress > 0.001
@@ -469,6 +482,7 @@ class _HeroModeCardSurface extends StatelessWidget {
             label: statusLabel,
             dynamicColor: dynamicColor,
             onBlue: onBlue,
+            layoutScale: layoutScale,
           ),
         ],
       ),
@@ -485,6 +499,7 @@ class _HeroActionButton extends StatelessWidget {
     required this.label,
     required this.sheenController,
     required this.onPressed,
+    this.layoutScale = 1.0,
   });
 
   final bool isStart;
@@ -494,6 +509,7 @@ class _HeroActionButton extends StatelessWidget {
   final String label;
   final AnimationController sheenController;
   final VoidCallback? onPressed;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -528,9 +544,9 @@ class _HeroActionButton extends StatelessWidget {
           onTap: onPressed,
           borderRadius: BorderRadius.circular(18),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 74, minHeight: 28),
+            constraints: BoxConstraints(minWidth: 74, minHeight: 28 * layoutScale),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4 * layoutScale),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -547,7 +563,7 @@ class _HeroActionButton extends StatelessWidget {
                         label,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 14 * layoutScale,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0,
                         ),
@@ -664,6 +680,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
     required this.isSmartPaused,
     required this.showConnecting,
     required this.showFailure,
+    this.layoutScale = 1.0,
   });
 
   final String profileLabel;
@@ -673,6 +690,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
   final bool isSmartPaused;
   final bool showConnecting;
   final bool showFailure;
+  final double layoutScale;
 
   Color _statusColor(SurgeTheme surge) {
     if (showFailure) return surge.red;
@@ -708,7 +726,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 19,
+                  fontSize: 19 * layoutScale,
                   fontWeight: FontWeight.w500,
                   height: 1.0,
                   letterSpacing: 0,
@@ -721,7 +739,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
               duration: const Duration(milliseconds: 180),
               child: Icon(
                 Icons.keyboard_arrow_down_rounded,
-                size: 18,
+                size: 18 * layoutScale,
                 color: statusColor,
               ),
             ),
@@ -840,6 +858,7 @@ class _StatusPill extends StatelessWidget {
     required this.label,
     required this.dynamicColor,
     required this.onBlue,
+    this.layoutScale = 1.0,
   });
 
   final bool active;
@@ -849,6 +868,7 @@ class _StatusPill extends StatelessWidget {
   final String label;
   final bool dynamicColor;
   final bool onBlue;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -859,7 +879,7 @@ class _StatusPill extends StatelessWidget {
         : Colors.white.withValues(alpha: 0.18);
     const textColor = Colors.white;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9 * layoutScale),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(20),
@@ -999,10 +1019,11 @@ class _PillStatusLightState extends State<_PillStatusLight>
 }
 
 class _ModeSwitch extends StatelessWidget {
-  const _ModeSwitch({required this.value, required this.onChanged});
+  const _ModeSwitch({required this.value, required this.onChanged, this.layoutScale = 1.0});
 
   final Mode value;
   final ValueChanged<Mode> onChanged;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -1012,8 +1033,8 @@ class _ModeSwitch extends StatelessWidget {
     final selectedIndex = modes.indexOf(value).clamp(0, modes.length - 1);
 
     return Container(
-      height: 32,
-      padding: const EdgeInsets.all(3),
+      height: 32 * layoutScale,
+      padding: EdgeInsets.all(3 * layoutScale),
       decoration: BoxDecoration(
         color: surge.fill,
         borderRadius: BorderRadius.circular(26),
@@ -1112,7 +1133,9 @@ class _ModeSwitchItem extends StatelessWidget {
 }
 
 class _HeroProxySelectorBar extends ConsumerWidget {
-  const _HeroProxySelectorBar();
+  const _HeroProxySelectorBar({this.layoutScale = 1.0});
+
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1133,8 +1156,8 @@ class _HeroProxySelectorBar extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      height: 34 * layoutScale,
+      padding: EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: surge.fill,
         borderRadius: BorderRadius.circular(22),

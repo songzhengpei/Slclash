@@ -18,7 +18,7 @@ class DashboardAdaptiveLayout {
 
   static const double baseShortestSide = 384;
   static const double minScale = 0.92;
-  static const double maxScale = 1.35;
+  static const double maxScale = 1.45;
   static const double horizontalPadding = 18;
   static const double topPadding = 16;
   static const double cardGap = 16;
@@ -63,7 +63,7 @@ class DashboardView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Hero card - natural height
-                const SurgeDashboardHero(),
+                SurgeDashboardHero(layoutScale: overviewLayout.scale),
                 const SizedBox(height: DashboardAdaptiveLayout.cardGap),
                 // Network overview card - fills remaining space
                 Flexible(

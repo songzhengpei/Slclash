@@ -86,6 +86,7 @@ String? _extractEmbeddedFlag(String text) {
 @visibleForTesting
 class NetworkOverviewCardLayout {
   const NetworkOverviewCardLayout({
+    required this.headerHeight,
     required this.chartHeight,
     required this.trafficTitleToChartGap,
     required this.latencyHeaderToRowsGap,
@@ -96,6 +97,7 @@ class NetworkOverviewCardLayout {
     required this.dividerToDetectionGap,
   });
 
+  final double headerHeight;
   final double chartHeight;
   final double trafficTitleToChartGap;
   final double latencyHeaderToRowsGap;
@@ -128,7 +130,7 @@ class NetworkOverviewCardLayoutCalculator {
   }
 
   static double naturalInnerHeightFor(double scale) {
-    return headerHeight +
+    return headerHeight * scale +
         headerToChartGap * scale +
         chartBaseHeight * scale +
         chartToDividerGap * scale +
@@ -146,52 +148,17 @@ class NetworkOverviewCardLayoutCalculator {
     required double availableInnerHeight,
     required double scale,
   }) {
-    final heightDiff = availableInnerHeight - naturalInnerHeightFor(scale);
-    // Distribute extra height to all flexible components
-    // Chart gets 25%, gaps get 75% for a more spacious layout
-    final chartExtra = heightDiff * 0.25;
-    final gapExtra = heightDiff * 0.75;
-
+    // Simple linear scaling - same approach as Hero card
     return NetworkOverviewCardLayout(
-      chartHeight: (chartBaseHeight * scale + chartExtra).clamp(
-        chartBaseHeight * scale * 0.8, // Minimum 80% of base height
-        chartBaseHeight * scale * 1.5, // Maximum 150% of base height
-      ),
-      headerToChartGap:
-          (headerToChartGap * scale + gapExtra * 0.12).clamp(
-        6.0, // Minimum gap
-        headerToChartGap * scale * 3.0, // Maximum gap
-      ),
-      chartToDividerGap:
-          (chartToDividerGap * scale + gapExtra * 0.12).clamp(
-        8.0, // Minimum gap
-        chartToDividerGap * scale * 3.0, // Maximum gap
-      ),
-      dividerToTrafficGap:
-          (dividerToTrafficGap * scale + gapExtra * 0.12).clamp(
-        8.0, // Minimum gap
-        dividerToTrafficGap * scale * 3.0, // Maximum gap
-      ),
-      trafficTitleToChartGap:
-          (trafficTitleToChartBaseGap * scale + gapExtra * 0.18).clamp(
-        8.0, // Minimum gap
-        trafficTitleToChartBaseGap * scale * 3.0, // Maximum gap
-      ),
-      latencyHeaderToRowsGap:
-          (latencyHeaderToRowsBaseGap * scale + gapExtra * 0.18).clamp(
-        12.0, // Minimum gap
-        latencyHeaderToRowsBaseGap * scale * 3.0, // Maximum gap
-      ),
-      afterTrafficGap:
-          (trafficToDividerBaseGap * scale + gapExtra * 0.15).clamp(
-        8.0, // Minimum gap
-        trafficToDividerBaseGap * scale * 3.0, // Maximum gap
-      ),
-      dividerToDetectionGap:
-          (dividerToDetectionGap * scale + gapExtra * 0.13).clamp(
-        8.0, // Minimum gap
-        dividerToDetectionGap * scale * 3.0, // Maximum gap
-      ),
+      headerHeight: headerHeight * scale,
+      chartHeight: chartBaseHeight * scale,
+      headerToChartGap: headerToChartGap * scale,
+      chartToDividerGap: chartToDividerGap * scale,
+      dividerToTrafficGap: dividerToTrafficGap * scale,
+      trafficTitleToChartGap: trafficTitleToChartBaseGap * scale,
+      latencyHeaderToRowsGap: latencyHeaderToRowsBaseGap * scale,
+      afterTrafficGap: trafficToDividerBaseGap * scale,
+      dividerToDetectionGap: dividerToDetectionGap * scale,
     );
   }
 }
@@ -679,7 +646,7 @@ class _SurgeNetworkOverviewCardState
                 children: [
                   SizedBox(
                     width: 18,
-                    height: 18,
+                    height: layout.headerHeight,
                     child: Align(
                       alignment: Alignment.topLeft,
                       child: Icon(
@@ -704,7 +671,7 @@ class _SurgeNetworkOverviewCardState
                             letterSpacing: 0,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2 * widget.layoutScale),
                         Text(
                           'Network Overview',
                           style: context.textTheme.bodySmall?.copyWith(
@@ -775,11 +742,14 @@ class _SurgeNetworkOverviewCardState
                           children: [
                             SizedBox(
                               width: 18,
-                              height: 18,
-                              child: Icon(
-                                Icons.data_saver_off_rounded,
-                                size: 18,
-                                color: surge.textSecondary,
+                              height: layout.headerHeight,
+                              child: Align(
+                                alignment: Alignment.topLeft,
+                                child: Icon(
+                                  Icons.data_saver_off_rounded,
+                                  size: 18,
+                                  color: surge.textSecondary,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -800,7 +770,7 @@ class _SurgeNetworkOverviewCardState
                                           letterSpacing: 0,
                                         ),
                                   ),
-                                  const SizedBox(height: 2),
+                                  SizedBox(height: 2 * widget.layoutScale),
                                   Text(
                                     'Traffic',
                                     style: context.textTheme.bodySmall
@@ -871,6 +841,7 @@ class _SurgeNetworkOverviewCardState
                             unawaited(_testLatencies(force: true));
                           },
                           rowGap: _scaled(12),
+                          layoutScale: widget.layoutScale,
                         ),
                       ],
                     ),
@@ -889,6 +860,7 @@ class _SurgeNetworkOverviewCardState
                 fillColor: surge.fill,
                 dangerColor: surge.red,
                 label: appLocalizations.networkDetection,
+                layoutScale: widget.layoutScale,
               ),
             ],
           );
@@ -974,7 +946,10 @@ class _NetworkDetectionBar extends StatelessWidget {
     required this.fillColor,
     required this.dangerColor,
     required this.label,
+    this.layoutScale = 1.0,
   });
+
+  final double layoutScale;
 
   final NetworkDetectionState networkDetection;
   final Color primaryColor;
@@ -1082,7 +1057,7 @@ class _NetworkDetectionBar extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      height: 34,
+      height: 34 * layoutScale,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: fillColor,
@@ -1234,6 +1209,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
     required this.dangerColor,
     required this.onRetest,
     required this.rowGap,
+    this.layoutScale = 1.0,
   });
 
   final List<_LatencyTarget> targets;
@@ -1246,6 +1222,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
   final Color dangerColor;
   final VoidCallback onRetest;
   final double rowGap;
+  final double layoutScale;
 
   Color _flowColor(_LatencyResult? result) {
     if (result == null || result.pending) return activeColor;
@@ -1334,6 +1311,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
             secondaryTextColor: secondaryTextColor,
             trailing: _value(context, results[target.name]),
             onRetest: onRetest,
+            layoutScale: layoutScale,
           ),
           if (target != targets.last) SizedBox(height: rowGap),
         ],
@@ -1353,6 +1331,7 @@ class _PlatformLatencyRow extends StatelessWidget {
     required this.secondaryTextColor,
     required this.trailing,
     required this.onRetest,
+    this.layoutScale = 1.0,
   });
 
   final _LatencyTarget target;
@@ -1364,26 +1343,28 @@ class _PlatformLatencyRow extends StatelessWidget {
   final Color secondaryTextColor;
   final Widget trailing;
   final VoidCallback onRetest;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _PlatformBrandIcon(target: target),
+        _PlatformBrandIcon(target: target, layoutScale: layoutScale),
         const SizedBox(width: 6),
-        _RouteFlagBadge(countryCode: countryCode),
+        _RouteFlagBadge(countryCode: countryCode, layoutScale: layoutScale),
         const SizedBox(width: 8),
         Expanded(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onRetest,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: EdgeInsets.symmetric(vertical: 8 * layoutScale),
               child: _FlowingLatencyBar(
                 widthFactor: barWidthFactor,
                 trackColor: trackColor,
                 flowColor: flowColor,
+                layoutScale: layoutScale,
               ),
             ),
           ),
@@ -1399,9 +1380,10 @@ class _PlatformLatencyRow extends StatelessWidget {
 }
 
 class _PlatformBrandIcon extends StatelessWidget {
-  const _PlatformBrandIcon({required this.target});
+  const _PlatformBrandIcon({required this.target, this.layoutScale = 1.0});
 
   final _LatencyTarget target;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -1410,6 +1392,7 @@ class _PlatformBrandIcon extends StatelessWidget {
       return _BrandImageIcon(
         tooltip: target.name,
         assetPath: 'assets/images/icon/latency_youtube.png',
+        layoutScale: layoutScale,
       );
     }
     if (name == 'chatgpt') {
@@ -1417,12 +1400,14 @@ class _PlatformBrandIcon extends StatelessWidget {
         tooltip: target.name,
         assetPath: 'assets/images/icon/latency_chatgpt.png',
         tintInDarkMode: true,
+        layoutScale: layoutScale,
       );
     }
     return _BrandImageIcon(
       tooltip: target.name,
       assetPath: 'assets/images/icon/latency_github.png',
       tintInDarkMode: true,
+      layoutScale: layoutScale,
     );
   }
 }
@@ -1432,11 +1417,13 @@ class _BrandImageIcon extends StatelessWidget {
     required this.tooltip,
     required this.assetPath,
     this.tintInDarkMode = false,
+    this.layoutScale = 1.0,
   });
 
   final String tooltip;
   final String assetPath;
   final bool tintInDarkMode;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -1447,8 +1434,8 @@ class _BrandImageIcon extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: SizedBox(
-        width: 25,
-        height: 25,
+        width: 25 * layoutScale,
+        height: 25 * layoutScale,
         child: Image.asset(
           assetPath,
           fit: BoxFit.contain,
@@ -1462,9 +1449,10 @@ class _BrandImageIcon extends StatelessWidget {
 }
 
 class _RouteFlagBadge extends StatelessWidget {
-  const _RouteFlagBadge({required this.countryCode});
+  const _RouteFlagBadge({required this.countryCode, this.layoutScale = 1.0});
 
   final String? countryCode;
+  final double layoutScale;
 
   String _countryCodeToEmoji(String code) {
     final c = code.toUpperCase();
@@ -1481,8 +1469,8 @@ class _RouteFlagBadge extends StatelessWidget {
         ? _countryCodeToEmoji(countryCode!)
         : null;
     return SizedBox(
-      width: 20,
-      height: 20,
+      width: 20 * layoutScale,
+      height: 20 * layoutScale,
       child: flag == null || flag.isEmpty
           ? Center(
               child: Icon(
@@ -1511,11 +1499,13 @@ class _FlowingLatencyBar extends StatefulWidget {
     required this.widthFactor,
     required this.trackColor,
     required this.flowColor,
+    this.layoutScale = 1.0,
   });
 
   final double widthFactor;
   final Color trackColor;
   final Color flowColor;
+  final double layoutScale;
 
   @override
   State<_FlowingLatencyBar> createState() => _FlowingLatencyBarState();
@@ -1545,7 +1535,7 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
       child: SizedBox(
-        height: 8,
+        height: 8 * widget.layoutScale,
         child: Stack(
           children: [
             Positioned.fill(child: ColoredBox(color: widget.trackColor)),
