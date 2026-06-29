@@ -130,7 +130,7 @@ class NetworkOverviewCardLayoutCalculator {
         trafficToDividerBaseGap * scale +
         dividerHeight +
         dividerToDetectionGap * scale +
-        detectionBarHeight;
+        detectionBarHeight * scale;
   }
 
   @visibleForTesting
