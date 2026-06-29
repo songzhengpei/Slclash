@@ -879,7 +879,8 @@ class _SurgeNetworkOverviewCardState
               ),
               SizedBox(height: layout.afterTrafficGap),
               Container(height: 1, color: surge.separator),
-              SizedBox(height: layout.dividerToDetectionGap),
+              // Center the detection bar between divider and card bottom
+              SizedBox(height: _scaled(28)),
               _NetworkDetectionBar(
                 networkDetection: networkDetection,
                 primaryColor: surge.primary,
