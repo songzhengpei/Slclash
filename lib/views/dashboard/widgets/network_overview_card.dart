@@ -116,7 +116,7 @@ class NetworkOverviewCardLayoutCalculator {
   static const double dividerToDetectionGap = 14;
 
   static double naturalOuterHeightFor(double scale) {
-    return 20 * scale + naturalInnerHeightFor(scale) + 18 * scale;
+    return 20 * scale + naturalInnerHeightFor(scale) + 28 * scale;
   }
 
   static double naturalInnerHeightFor(double scale) {
