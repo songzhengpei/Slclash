@@ -48,7 +48,11 @@ app.*.map.json
 .claude/settings.local.json
 
 # Documentation (generated/planning artifacts)
-docs/
+docs/*
+!docs/images/
+docs/images/*
+!docs/images/readme/
+!docs/images/readme/*
 
 
 # Android Studio will place build artifacts here
