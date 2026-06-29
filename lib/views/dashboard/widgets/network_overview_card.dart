@@ -90,12 +90,20 @@ class NetworkOverviewCardLayout {
     required this.trafficTitleToChartGap,
     required this.latencyHeaderToRowsGap,
     required this.afterTrafficGap,
+    required this.headerToChartGap,
+    required this.chartToDividerGap,
+    required this.dividerToTrafficGap,
+    required this.dividerToDetectionGap,
   });
 
   final double chartHeight;
   final double trafficTitleToChartGap;
   final double latencyHeaderToRowsGap;
   final double afterTrafficGap;
+  final double headerToChartGap;
+  final double chartToDividerGap;
+  final double dividerToTrafficGap;
+  final double dividerToDetectionGap;
 }
 
 class NetworkOverviewCardLayoutCalculator {
@@ -139,30 +147,50 @@ class NetworkOverviewCardLayoutCalculator {
     required double scale,
   }) {
     final heightDiff = availableInnerHeight - naturalInnerHeightFor(scale);
-    // Distribute extra height to flexible components
+    // Distribute extra height to all flexible components
     // If height is insufficient, reduce flexible components proportionally
-    final chartExtra = heightDiff * 0.55;
-    final middleExtra = heightDiff - chartExtra;
+    final chartExtra = heightDiff * 0.35;
+    final gapExtra = heightDiff * 0.65;
 
     return NetworkOverviewCardLayout(
       chartHeight: (chartBaseHeight * scale + chartExtra).clamp(
         chartBaseHeight * scale * 0.8, // Minimum 80% of base height
         chartBaseHeight * scale * 1.5, // Maximum 150% of base height
       ),
+      headerToChartGap:
+          (headerToChartGap * scale + gapExtra * 0.15).clamp(
+        6.0, // Minimum gap
+        headerToChartGap * scale * 2.0, // Maximum gap
+      ),
+      chartToDividerGap:
+          (chartToDividerGap * scale + gapExtra * 0.15).clamp(
+        8.0, // Minimum gap
+        chartToDividerGap * scale * 2.0, // Maximum gap
+      ),
+      dividerToTrafficGap:
+          (dividerToTrafficGap * scale + gapExtra * 0.15).clamp(
+        8.0, // Minimum gap
+        dividerToTrafficGap * scale * 2.0, // Maximum gap
+      ),
       trafficTitleToChartGap:
-          (trafficTitleToChartBaseGap * scale + middleExtra * 0.35).clamp(
+          (trafficTitleToChartBaseGap * scale + gapExtra * 0.15).clamp(
         8.0, // Minimum gap
         trafficTitleToChartBaseGap * scale * 2.0, // Maximum gap
       ),
       latencyHeaderToRowsGap:
-          (latencyHeaderToRowsBaseGap * scale + middleExtra * 0.35).clamp(
+          (latencyHeaderToRowsBaseGap * scale + gapExtra * 0.15).clamp(
         12.0, // Minimum gap
         latencyHeaderToRowsBaseGap * scale * 2.0, // Maximum gap
       ),
       afterTrafficGap:
-          (trafficToDividerBaseGap * scale + middleExtra * 0.30).clamp(
+          (trafficToDividerBaseGap * scale + gapExtra * 0.10).clamp(
         8.0, // Minimum gap
         trafficToDividerBaseGap * scale * 2.0, // Maximum gap
+      ),
+      dividerToDetectionGap:
+          (dividerToDetectionGap * scale + gapExtra * 0.15).clamp(
+        8.0, // Minimum gap
+        dividerToDetectionGap * scale * 2.0, // Maximum gap
       ),
     );
   }
@@ -699,7 +727,7 @@ class _SurgeNetworkOverviewCardState
                   ),
                 ],
               ),
-              SizedBox(height: _scaled(10)),
+              SizedBox(height: layout.headerToChartGap),
               SizedBox(
                 height: layout.chartHeight,
                 child: Stack(
@@ -731,9 +759,9 @@ class _SurgeNetworkOverviewCardState
                   ],
                 ),
               ),
-              SizedBox(height: _scaled(14)),
+              SizedBox(height: layout.chartToDividerGap),
               Container(height: 1, color: surge.separator),
-              SizedBox(height: _scaled(14)),
+              SizedBox(height: layout.dividerToTrafficGap),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -850,7 +878,7 @@ class _SurgeNetworkOverviewCardState
               ),
               SizedBox(height: layout.afterTrafficGap),
               Container(height: 1, color: surge.separator),
-              SizedBox(height: _scaled(14)),
+              SizedBox(height: layout.dividerToDetectionGap),
               _NetworkDetectionBar(
                 networkDetection: networkDetection,
                 primaryColor: surge.primary,
