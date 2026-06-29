@@ -18,7 +18,7 @@ class DashboardAdaptiveLayout {
 
   static const double baseShortestSide = 384;
   static const double minScale = 0.92;
-  static const double maxScale = 1.12;
+  static const double maxScale = 1.35;
   static const double horizontalPadding = 18;
   static const double topPadding = 16;
   static const double cardGap = 16;
