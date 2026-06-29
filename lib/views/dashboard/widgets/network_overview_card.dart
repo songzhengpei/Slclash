@@ -1040,8 +1040,8 @@ class _NetworkDetectionBar extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      constraints: const BoxConstraints(minHeight: 34),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: fillColor,
         borderRadius: BorderRadius.circular(22),
