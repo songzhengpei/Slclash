@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -622,7 +622,7 @@ class _SurgeNetworkOverviewCardState
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(18, _scaled(20), 18, _scaled(28)),
+      padding: EdgeInsets.fromLTRB(18, _scaled(20), 18, 0),
       decoration: BoxDecoration(
         color: surge.card,
         borderRadius: BorderRadius.circular(_cardRadius),
@@ -851,16 +851,19 @@ class _SurgeNetworkOverviewCardState
               SizedBox(height: layout.afterTrafficGap),
               Container(height: 1, color: surge.separator),
               // Center the detection bar between divider and card bottom
-              SizedBox(height: _scaled(28)),
-              _NetworkDetectionBar(
-                networkDetection: networkDetection,
-                primaryColor: surge.primary,
-                textColor: surge.textPrimary,
-                secondaryTextColor: surge.textSecondary,
-                fillColor: surge.fill,
-                dangerColor: surge.red,
-                label: appLocalizations.networkDetection,
-                layoutScale: widget.layoutScale,
+              Expanded(
+                child: Center(
+                  child: _NetworkDetectionBar(
+                    networkDetection: networkDetection,
+                    primaryColor: surge.primary,
+                    textColor: surge.textPrimary,
+                    secondaryTextColor: surge.textSecondary,
+                    fillColor: surge.fill,
+                    dangerColor: surge.red,
+                    label: appLocalizations.networkDetection,
+                    layoutScale: widget.layoutScale,
+                  ),
+                ),
               ),
             ],
           );
