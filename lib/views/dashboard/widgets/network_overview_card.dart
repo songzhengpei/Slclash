@@ -138,20 +138,32 @@ class NetworkOverviewCardLayoutCalculator {
     required double availableInnerHeight,
     required double scale,
   }) {
-    final extraHeight = math.max(
-      0.0,
-      availableInnerHeight - naturalInnerHeightFor(scale),
-    );
-    final chartExtra = extraHeight * 0.55;
-    final middleExtra = extraHeight - chartExtra;
+    final heightDiff = availableInnerHeight - naturalInnerHeightFor(scale);
+    // Distribute extra height to flexible components
+    // If height is insufficient, reduce flexible components proportionally
+    final chartExtra = heightDiff * 0.55;
+    final middleExtra = heightDiff - chartExtra;
 
     return NetworkOverviewCardLayout(
-      chartHeight: chartBaseHeight * scale + chartExtra,
+      chartHeight: (chartBaseHeight * scale + chartExtra).clamp(
+        chartBaseHeight * scale * 0.8, // Minimum 80% of base height
+        chartBaseHeight * scale * 1.5, // Maximum 150% of base height
+      ),
       trafficTitleToChartGap:
-          trafficTitleToChartBaseGap * scale + middleExtra * 0.35,
+          (trafficTitleToChartBaseGap * scale + middleExtra * 0.35).clamp(
+        8.0, // Minimum gap
+        trafficTitleToChartBaseGap * scale * 2.0, // Maximum gap
+      ),
       latencyHeaderToRowsGap:
-          latencyHeaderToRowsBaseGap * scale + middleExtra * 0.35,
-      afterTrafficGap: trafficToDividerBaseGap * scale + middleExtra * 0.30,
+          (latencyHeaderToRowsBaseGap * scale + middleExtra * 0.35).clamp(
+        12.0, // Minimum gap
+        latencyHeaderToRowsBaseGap * scale * 2.0, // Maximum gap
+      ),
+      afterTrafficGap:
+          (trafficToDividerBaseGap * scale + middleExtra * 0.30).clamp(
+        8.0, // Minimum gap
+        trafficToDividerBaseGap * scale * 2.0, // Maximum gap
+      ),
     );
   }
 }
