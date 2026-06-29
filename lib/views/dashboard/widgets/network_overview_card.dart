@@ -870,6 +870,7 @@ class _SurgeNetworkOverviewCardState
                           onRetest: () {
                             unawaited(_testLatencies(force: true));
                           },
+                          rowGap: _scaled(12),
                         ),
                       ],
                     ),
@@ -1231,6 +1232,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
     required this.secondaryTextColor,
     required this.dangerColor,
     required this.onRetest,
+    required this.rowGap,
   });
 
   final List<_LatencyTarget> targets;
@@ -1242,6 +1244,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
   final Color secondaryTextColor;
   final Color dangerColor;
   final VoidCallback onRetest;
+  final double rowGap;
 
   Color _flowColor(_LatencyResult? result) {
     if (result == null || result.pending) return activeColor;
@@ -1331,7 +1334,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
             trailing: _value(context, results[target.name]),
             onRetest: onRetest,
           ),
-          if (target != targets.last) const SizedBox(height: 12),
+          if (target != targets.last) SizedBox(height: rowGap),
         ],
       ],
     );
