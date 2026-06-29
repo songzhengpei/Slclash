@@ -11,7 +11,13 @@ SlClash 是基于 [FlClash](https://github.com/chen08209/FlClash) 和 [Mihomo](h
 <p align="center">
   <img src="docs/images/readme/dashboard-dark-idle.jpg" width="30%" alt="深色主题仪表盘">
   <img src="docs/images/readme/dashboard-dark-running.jpg" width="30%" alt="深色主题运行状态">
+  <img src="docs/images/readme/dashboard-dark-paused.jpg" width="30%" alt="深色主题智能暂停状态">
+</p>
+
+<p align="center">
+  <img src="docs/images/readme/dashboard-light-idle.jpg" width="30%" alt="浅色主题仪表盘">
   <img src="docs/images/readme/dashboard-light-running.jpg" width="30%" alt="浅色主题运行状态">
+  <img src="docs/images/readme/dashboard-light-paused.jpg" width="30%" alt="浅色主题智能暂停状态">
 </p>
 
 <p align="center">
@@ -21,7 +27,6 @@ SlClash 是基于 [FlClash](https://github.com/chen08209/FlClash) 和 [Mihomo](h
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/dashboard-light-idle.jpg" width="30%" alt="浅色主题仪表盘">
   <img src="docs/images/readme/smart-auto-stop.png" width="30%" alt="智能暂停设置">
   <img src="docs/images/readme/about.jpg" width="30%" alt="关于页面">
 </p>
