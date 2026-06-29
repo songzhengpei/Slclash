@@ -615,7 +615,7 @@ class _SurgeNetworkOverviewCardState
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(18, _scaled(20), 18, _scaled(18)),
+      padding: EdgeInsets.fromLTRB(18, _scaled(20), 18, _scaled(28)),
       decoration: BoxDecoration(
         color: surge.card,
         borderRadius: BorderRadius.circular(_cardRadius),
