@@ -199,35 +199,16 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   }
 
   Future<List<Proxy>> _loadRuntimeLeafProxies() async {
-    if (widget.configLoader != _defaultMediaCheckConfigLoader) {
-      try {
-        final config = await widget.configLoader(_profile.id);
-        return getLeafProxiesFromConfigMap(config);
-      } catch (_) {}
-    }
     final currentProfileId = globalState.container.read(
       currentProfileIdProvider,
     );
-    if (currentProfileId != _profile.id) {
-      try {
-        return await resolveProfileProxies(_profile.id);
-      } catch (_) {}
-    }
-    try {
-      return await coreController.getRuntimeLeafProxies();
-    } catch (_) {
-      try {
-        return await resolveProfileProxies(_profile.id);
-      } catch (_) {
-        try {
-          final config = await widget.configLoader(_profile.id);
-          return getLeafProxiesFromConfigMap(config);
-        } catch (_) {
-          final groups = globalState.container.read(groupsProvider);
-          return getLeafProxiesFromGroups(groups);
-        }
-      }
-    }
+    final groups = globalState.container.read(groupsProvider);
+    return loadProfileLeafProxies(
+      profileId: _profile.id,
+      currentProfileId: currentProfileId,
+      configLoader: widget.configLoader,
+      fallbackGroups: groups,
+    );
   }
 
   /// Update in-memory cache only — no disk I/O, instant.

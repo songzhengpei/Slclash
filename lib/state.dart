@@ -308,11 +308,7 @@ class GlobalState {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: 16,
               children: [
-                TextFormField(
-                  initialValue: url,
-                  readOnly: true,
-                  maxLines: 4,
-                  minLines: 1,
+                InputDecorator(
                   decoration:
                       surgeInputDecoration(
                         context,
@@ -326,12 +322,21 @@ class GlobalState {
                         suffixIcon: const Icon(Icons.lock_outline_rounded),
                       ).copyWith(
                         suffixIconConstraints: const BoxConstraints(
-                          minWidth: 34,
-                          minHeight: 34,
+                          minWidth: 40,
+                          minHeight: 44,
                         ),
                       ),
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    letterSpacing: 0,
+                  child: Transform.translate(
+                    offset: const Offset(0, -3),
+                    child: Text(
+                      url,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        height: 1.25,
+                        letterSpacing: 0,
+                      ),
+                    ),
                   ),
                 ),
                 SurgeDialogActionRow(

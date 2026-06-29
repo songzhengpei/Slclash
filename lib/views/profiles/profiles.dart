@@ -843,15 +843,15 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   }
 
   Future<List<Proxy>> _loadProfileProxies() async {
-    try {
-      return await resolveProfileProxies(widget.profile.id);
-    } catch (_) {
-      try {
-        return await coreController.getRuntimeLeafProxies();
-      } catch (_) {
-        return const <Proxy>[];
-      }
-    }
+    final currentProfileId = globalState.container.read(
+      currentProfileIdProvider,
+    );
+    final groups = globalState.container.read(groupsProvider);
+    return loadProfileLeafProxies(
+      profileId: widget.profile.id,
+      currentProfileId: currentProfileId,
+      fallbackGroups: groups,
+    );
   }
 
   @override

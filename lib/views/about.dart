@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
-import 'package:fl_clash/widgets/list.dart';
 import 'package:fl_clash/widgets/scaffold.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
@@ -58,32 +57,26 @@ class AboutView extends StatelessWidget {
       margin: EdgeInsets.zero,
       showDividers: true,
       children: [
-        ListItem(
-          title: Text(appLocalizations.checkUpdate),
-          onTap: () {
-            _checkUpdate(context);
-          },
+        _AboutLinkItem(
+          icon: Icons.system_update_alt_rounded,
+          title: appLocalizations.checkUpdate,
+          onTap: () => _checkUpdate(context),
         ),
-        ListItem(
-          title: const Text('原生项目'),
-          onTap: () {
-            globalState.openUrl('https://github.com/chen08209/FlClash');
-          },
-          trailing: const Icon(Icons.launch),
+        _AboutLinkItem(
+          icon: Icons.code_rounded,
+          title: '原生项目',
+          onTap: () =>
+              globalState.openUrl('https://github.com/chen08209/FlClash'),
         ),
-        ListItem(
-          title: Text(appLocalizations.project),
-          onTap: () {
-            globalState.openUrl('https://github.com/$repository');
-          },
-          trailing: const Icon(Icons.launch),
+        _AboutLinkItem(
+          icon: Icons.account_tree_rounded,
+          title: appLocalizations.project,
+          onTap: () => globalState.openUrl('https://github.com/$repository'),
         ),
-        ListItem(
-          title: Text(appLocalizations.core),
-          onTap: () {
-            globalState.openUrl(_coreSourceUrl);
-          },
-          trailing: const Icon(Icons.launch),
+        _AboutLinkItem(
+          icon: Icons.memory_rounded,
+          title: appLocalizations.core,
+          onTap: () => globalState.openUrl(_coreSourceUrl),
         ),
       ],
     );
@@ -189,6 +182,76 @@ class AboutView extends StatelessWidget {
             const SizedBox(height: 16),
             _buildMoreSection(context),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutLinkItem extends StatelessWidget {
+  const _AboutLinkItem({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 56,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox.square(
+                  dimension: 28,
+                  child: Center(
+                    child: Icon(icon, size: 20, color: surge.primary),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    strutStyle: const StrutStyle(
+                      forceStrutHeight: true,
+                      height: 1.2,
+                    ),
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: surge.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox.square(
+                  dimension: 28,
+                  child: Center(
+                    child: Icon(
+                      Icons.open_in_new_rounded,
+                      size: 18,
+                      color: surge.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

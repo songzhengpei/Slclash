@@ -11,6 +11,7 @@ import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
+import 'package:fl_clash/widgets/input.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,21 +82,14 @@ class CommonAction extends _$CommonAction {
       final tagName = data['tag_name'];
       final body = data['body'];
       final submits = utils.parseReleaseBody(body);
-      final context = globalState.navigatorKey.currentContext!;
-      final textTheme = context.textTheme;
-      final res = await globalState.showMessage(
-        title: currentAppLocalizations.discoverNewVersion,
-        message: TextSpan(
-          text: '$tagName \n',
-          style: textTheme.headlineSmall,
-          children: [
-            TextSpan(text: '\n', style: textTheme.bodyMedium),
-            for (final submit in submits)
-              TextSpan(text: '- $submit \n', style: textTheme.bodyMedium),
-          ],
+      final res = await globalState.showCommonDialog<bool>(
+        child: _UpdateAvailableDialog(
+          tagName: tagName?.toString() ?? '',
+          submits: submits,
+          cancelText: isUser
+              ? currentAppLocalizations.cancel
+              : currentAppLocalizations.noLongerRemind,
         ),
-        confirmText: currentAppLocalizations.goDownload,
-        cancelText: isUser ? null : currentAppLocalizations.noLongerRemind,
       );
       if (res == true) {
         await _downloadAndInstallUpdate(data);
@@ -105,9 +99,12 @@ class CommonAction extends _$CommonAction {
             .update((state) => state.copyWith(autoCheckUpdate: false));
       }
     } else if (isUser) {
-      globalState.showMessage(
-        title: currentAppLocalizations.checkUpdate,
-        message: TextSpan(text: currentAppLocalizations.checkUpdateError),
+      globalState.showCommonDialog<void>(
+        child: _UpdateStatusDialog(
+          title: currentAppLocalizations.checkUpdate,
+          message: currentAppLocalizations.checkUpdateError,
+          icon: Icons.verified_rounded,
+        ),
       );
     }
   }
@@ -219,11 +216,54 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                percent == null ? '正在下载 APK...' : '正在下载 APK · $percent%',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: surge.textPrimary,
-                  letterSpacing: 0,
+              Container(
+                height: 64,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: surge.fill,
+                  borderRadius: BorderRadius.circular(surge.radii.card),
+                  border: Border.all(color: surge.separator, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox.square(
+                      dimension: 36,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            value: value,
+                            strokeWidth: 3,
+                            color: surge.primary,
+                            backgroundColor: surge.separator,
+                          ),
+                          Icon(
+                            Icons.download_rounded,
+                            size: 18,
+                            color: surge.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        percent == null ? '正在下载 APK' : '正在下载 APK · $percent%',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        strutStyle: const StrutStyle(
+                          forceStrutHeight: true,
+                          height: 1.2,
+                        ),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: surge.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 14),
@@ -241,6 +281,7 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
                 '下载完成后将自动打开系统安装界面。',
                 style: textTheme.bodySmall?.copyWith(
                   color: surge.textSecondary,
+                  height: 1.35,
                   letterSpacing: 0,
                 ),
               ),
@@ -248,6 +289,194 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _UpdateAvailableDialog extends StatelessWidget {
+  const _UpdateAvailableDialog({
+    required this.tagName,
+    required this.submits,
+    required this.cancelText,
+  });
+
+  final String tagName;
+  final List<String> submits;
+  final String cancelText;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final textTheme = context.textTheme;
+    return CommonDialog(
+      title: currentAppLocalizations.discoverNewVersion,
+      overrideScroll: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: surge.fill,
+              borderRadius: BorderRadius.circular(surge.radii.card),
+              border: Border.all(color: surge.separator, width: 0.5),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.new_releases_rounded,
+                  color: surge.primary,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    tagName.takeFirstValid(['新版本']),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    strutStyle: const StrutStyle(
+                      forceStrutHeight: true,
+                      height: 1.2,
+                    ),
+                    style: textTheme.titleMedium?.copyWith(
+                      color: surge.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (submits.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: Scrollbar(
+                thumbVisibility: false,
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: submits.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (_, index) =>
+                      _UpdateChangeItem(text: submits[index]),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 18),
+          SurgeDialogActionRow(
+            cancelLabel: cancelText,
+            submitLabel: '下载',
+            onCancel: () => Navigator.of(context).pop(false),
+            onSubmit: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpdateStatusDialog extends StatelessWidget {
+  const _UpdateStatusDialog({
+    required this.title,
+    required this.message,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return CommonDialog(
+      title: title,
+      overrideScroll: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: surge.fill,
+              borderRadius: BorderRadius.circular(surge.radii.card),
+              border: Border.all(color: surge.separator, width: 0.5),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: surge.primary, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: surge.textPrimary,
+                      height: 1.35,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              SurgeDialogActionButton(
+                label: currentAppLocalizations.confirm,
+                onPressed: () => Navigator.of(context).pop(),
+                primary: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpdateChangeItem extends StatelessWidget {
+  const _UpdateChangeItem({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 7),
+          child: Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: surge.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: surge.textSecondary,
+              height: 1.35,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -514,7 +743,9 @@ class SetupAction extends _$SetupAction {
       silence: silence,
       preloadInvoke: preloadInvoke,
       onUpdated: () async {
-        await ref.read(proxiesActionProvider.notifier).updateGroups();
+        final proxiesAction = ref.read(proxiesActionProvider.notifier);
+        await proxiesAction.updateGroups();
+        unawaited(proxiesAction.preheatComputedGroups());
         await ref.read(providersProvider.notifier).syncProviders();
       },
     );
@@ -1007,6 +1238,25 @@ class ProxiesAction extends _$ProxiesAction {
     } catch (e) {
       commonPrint.log('updateGroups error: $e');
       ref.read(groupsProvider.notifier).value = [];
+    }
+  }
+
+  Future<void> preheatComputedGroups() async {
+    final groups = ref.read(groupsProvider);
+    if (groups.isEmpty) return;
+    final testUrl = ref.read(
+      appSettingProvider.select((state) => state.testUrl),
+    );
+    try {
+      await warmUpComputedGroupDelays(
+        groups: groups,
+        defaultTestUrl: testUrl,
+        delayLoader: coreController.getDelay,
+        onDelay: setDelay,
+      );
+      updateGroupsDebounce();
+    } catch (e) {
+      commonPrint.log('preheatComputedGroups error: $e');
     }
   }
 

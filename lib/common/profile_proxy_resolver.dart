@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
@@ -40,6 +41,180 @@ bool _isRealProxy({required String name, required String type}) {
   if (_isDirectLikeName(name)) return false;
   if (_proxyGroupTypes.contains(_normalizeProxyType(type))) return false;
   return true;
+}
+
+typedef ProfileConfigLoader =
+    Future<Map<String, dynamic>> Function(int profileId);
+
+typedef RuntimeLeafProxiesLoader = Future<List<Proxy>> Function();
+
+typedef ProfileProxyResolver = Future<List<Proxy>> Function(int profileId);
+
+typedef DelayLoader = Future<Delay> Function(String url, String proxyName);
+
+typedef DelaySink = void Function(Delay delay);
+
+Future<Map<String, dynamic>> _defaultProfileConfigLoader(int profileId) {
+  return coreController.getConfig(profileId);
+}
+
+Future<List<Proxy>> _defaultRuntimeLeafProxiesLoader() {
+  return coreController.getRuntimeLeafProxies();
+}
+
+Future<List<Proxy>> _defaultProfileProxyResolver(int profileId) {
+  return resolveProfileProxies(profileId);
+}
+
+/// Loads leaf proxies with the same priority used by active runtime screens.
+///
+/// The active profile prefers the core runtime map because it includes provider
+/// nodes already loaded by mihomo. Inactive profiles still use offline config
+/// and provider-cache parsing first.
+Future<List<Proxy>> loadProfileLeafProxies({
+  required int profileId,
+  required int? currentProfileId,
+  ProfileConfigLoader configLoader = _defaultProfileConfigLoader,
+  RuntimeLeafProxiesLoader runtimeLoader = _defaultRuntimeLeafProxiesLoader,
+  ProfileProxyResolver profileResolver = _defaultProfileProxyResolver,
+  List<Group> fallbackGroups = const [],
+}) async {
+  if (currentProfileId == profileId) {
+    try {
+      final runtimeProxies = await runtimeLoader();
+      try {
+        final orderedProxies = await profileResolver(profileId);
+        return sortProxiesByReferenceOrder(runtimeProxies, orderedProxies);
+      } catch (e) {
+        commonPrint.log('loadProfileLeafProxies: order resolver failed: $e');
+        return runtimeProxies;
+      }
+    } catch (e) {
+      commonPrint.log('loadProfileLeafProxies: runtime failed: $e');
+    }
+  }
+
+  final hasCustomConfigLoader = configLoader != _defaultProfileConfigLoader;
+  if (hasCustomConfigLoader) {
+    try {
+      final config = await configLoader(profileId);
+      return getLeafProxiesFromConfigMap(config);
+    } catch (e) {
+      commonPrint.log('loadProfileLeafProxies: custom config failed: $e');
+    }
+  }
+
+  try {
+    return await profileResolver(profileId);
+  } catch (e) {
+    commonPrint.log('loadProfileLeafProxies: profile resolver failed: $e');
+  }
+
+  if (!hasCustomConfigLoader) {
+    try {
+      final config = await configLoader(profileId);
+      return getLeafProxiesFromConfigMap(config);
+    } catch (e) {
+      commonPrint.log('loadProfileLeafProxies: config loader failed: $e');
+    }
+  }
+
+  return getLeafProxiesFromGroups(fallbackGroups);
+}
+
+/// Keeps the runtime proxy set authoritative while restoring the profile's
+/// subscription/provider order whenever that order can be resolved offline.
+List<Proxy> sortProxiesByReferenceOrder(
+  List<Proxy> proxies,
+  List<Proxy> referenceOrder,
+) {
+  if (proxies.length < 2 || referenceOrder.isEmpty) return proxies;
+
+  final orderByName = <String, int>{};
+  for (final entry in referenceOrder.indexed) {
+    orderByName.putIfAbsent(entry.$2.name, () => entry.$1);
+  }
+
+  final indexedProxies = proxies.indexed.toList();
+  indexedProxies.sort((a, b) {
+    final aOrder = orderByName[a.$2.name];
+    final bOrder = orderByName[b.$2.name];
+    if (aOrder == null && bOrder == null) {
+      return a.$1.compareTo(b.$1);
+    }
+    if (aOrder == null) return 1;
+    if (bOrder == null) return -1;
+    final orderCompare = aOrder.compareTo(bOrder);
+    if (orderCompare != 0) return orderCompare;
+    return a.$1.compareTo(b.$1);
+  });
+
+  return indexedProxies.map((entry) => entry.$2).toList(growable: false);
+}
+
+class ComputedGroupDelayTarget {
+  const ComputedGroupDelayTarget({required this.testUrl, required this.proxy});
+
+  final String testUrl;
+  final Proxy proxy;
+
+  String get key => '$testUrl\x00${proxy.name}';
+}
+
+List<ComputedGroupDelayTarget> collectComputedGroupDelayTargets({
+  required List<Group> groups,
+  required String defaultTestUrl,
+}) {
+  final seen = <String>{};
+  final targets = <ComputedGroupDelayTarget>[];
+  for (final group in groups) {
+    if (!group.type.isComputedSelected) continue;
+    final testUrl = group.testUrl?.trim().isNotEmpty == true
+        ? group.testUrl!.trim()
+        : defaultTestUrl.trim();
+    if (testUrl.isEmpty) continue;
+    for (final proxy in group.all) {
+      if (!_isRealProxy(name: proxy.name, type: proxy.type)) continue;
+      final target = ComputedGroupDelayTarget(testUrl: testUrl, proxy: proxy);
+      if (seen.add(target.key)) {
+        targets.add(target);
+      }
+    }
+  }
+  return targets;
+}
+
+Future<void> warmUpComputedGroupDelays({
+  required List<Group> groups,
+  required String defaultTestUrl,
+  required DelayLoader delayLoader,
+  required DelaySink onDelay,
+  int concurrency = 10,
+}) async {
+  final targets = collectComputedGroupDelayTargets(
+    groups: groups,
+    defaultTestUrl: defaultTestUrl,
+  );
+  final limit = concurrency.clamp(1, 20);
+  for (var index = 0; index < targets.length; index += limit) {
+    final end = (index + limit).clamp(0, targets.length);
+    final batch = targets.sublist(index, end);
+    await Future.wait(
+      batch.map((target) async {
+        onDelay(Delay(url: target.testUrl, name: target.proxy.name, value: 0));
+        try {
+          onDelay(await delayLoader(target.testUrl, target.proxy.name));
+        } catch (e) {
+          commonPrint.log(
+            'warmUpComputedGroupDelays failed for ${target.proxy.name}: $e',
+          );
+          onDelay(
+            Delay(url: target.testUrl, name: target.proxy.name, value: -1),
+          );
+        }
+      }),
+    );
+  }
 }
 
 /// 从 Go 核心运行时的 flat proxies map 中提取真实代理节点。

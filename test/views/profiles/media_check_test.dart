@@ -1,4 +1,5 @@
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/state.dart';
@@ -210,6 +211,136 @@ void main() {
         'HK01',
         'US01',
         'Provider01',
+      ]);
+    });
+
+    test('loads active profile from runtime and keeps offline order', () async {
+      var runtimeCalls = 0;
+      var resolverCalls = 0;
+
+      final proxies = await loadProfileLeafProxies(
+        profileId: 1,
+        currentProfileId: 1,
+        runtimeLoader: () async {
+          runtimeCalls++;
+          return const [
+            Proxy(name: 'RuntimeExtra', type: 'Vless'),
+            Proxy(name: 'US01', type: 'Trojan'),
+            Proxy(name: 'HK01', type: 'Vless'),
+          ];
+        },
+        profileResolver: (_) async {
+          resolverCalls++;
+          return const [
+            Proxy(name: 'HK01', type: 'Vless'),
+            Proxy(name: 'US01', type: 'Trojan'),
+          ];
+        },
+      );
+
+      expect(proxies.map((proxy) => proxy.name), [
+        'HK01',
+        'US01',
+        'RuntimeExtra',
+      ]);
+      expect(runtimeCalls, 1);
+      expect(resolverCalls, 1);
+    });
+
+    test('falls back to offline resolver when active runtime fails', () async {
+      var resolverCalls = 0;
+
+      final proxies = await loadProfileLeafProxies(
+        profileId: 1,
+        currentProfileId: 1,
+        runtimeLoader: () async => throw StateError('runtime unavailable'),
+        profileResolver: (_) async {
+          resolverCalls++;
+          return const [Proxy(name: 'Offline01', type: 'Trojan')];
+        },
+      );
+
+      expect(proxies.map((proxy) => proxy.name), ['Offline01']);
+      expect(resolverCalls, 1);
+    });
+
+    test('collects computed group targets with test URL and proxy dedupe', () {
+      final targets = collectComputedGroupDelayTargets(
+        defaultTestUrl: 'https://default.test/generate_204',
+        groups: const [
+          Group(
+            name: 'AutoA',
+            type: GroupType.URLTest,
+            testUrl: 'https://group.test/generate_204',
+            all: [
+              Proxy(name: 'HK01', type: 'Vless'),
+              Proxy(name: 'HK01', type: 'Vless'),
+              Proxy(name: 'DIRECT', type: 'Direct'),
+              Proxy(name: 'Nested', type: 'Selector'),
+            ],
+          ),
+          Group(
+            name: 'AutoB',
+            type: GroupType.Fallback,
+            all: [
+              Proxy(name: 'HK01', type: 'Vless'),
+              Proxy(name: 'US01', type: 'Trojan'),
+            ],
+          ),
+          Group(
+            name: 'Manual',
+            type: GroupType.Selector,
+            all: [Proxy(name: 'SG01', type: 'Vless')],
+          ),
+        ],
+      );
+
+      expect(
+        targets.map((target) => '${target.testUrl}::${target.proxy.name}'),
+        [
+          'https://group.test/generate_204::HK01',
+          'https://default.test/generate_204::HK01',
+          'https://default.test/generate_204::US01',
+        ],
+      );
+    });
+
+    test('warms computed group delays and records failed targets', () async {
+      final delays = <Delay>[];
+      final calls = <String>[];
+
+      await warmUpComputedGroupDelays(
+        concurrency: 1,
+        defaultTestUrl: 'https://default.test/generate_204',
+        groups: const [
+          Group(
+            name: 'Auto',
+            type: GroupType.URLTest,
+            all: [
+              Proxy(name: 'OK01', type: 'Vless'),
+              Proxy(name: 'BAD01', type: 'Trojan'),
+            ],
+          ),
+        ],
+        delayLoader: (url, proxyName) async {
+          calls.add('$url::$proxyName');
+          if (proxyName == 'BAD01') {
+            throw StateError('timeout');
+          }
+          return Delay(url: url, name: proxyName, value: 88);
+        },
+        onDelay: delays.add,
+      );
+
+      expect(calls, [
+        'https://default.test/generate_204::OK01',
+        'https://default.test/generate_204::BAD01',
+      ]);
+      expect(delays.map((delay) => '${delay.name}:${delay.value}'), [
+        'OK01:0',
+        'OK01:88',
+        'BAD01:0',
+        'BAD01:-1',
       ]);
     });
   });
