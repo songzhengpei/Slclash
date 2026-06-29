@@ -46,9 +46,13 @@ void main() {
         layout.afterTrafficGap,
         NetworkOverviewCardLayoutCalculator.trafficToDividerBaseGap,
       );
+      expect(
+        layout.detectionSlotHeight,
+        NetworkOverviewCardLayoutCalculator.detectionSlotHeightFor(scale),
+      );
     });
 
-    test('distributes 410dp extra height into chart and middle content', () {
+    test('uses linear scale when extra height is available', () {
       final scale = DashboardAdaptiveLayout.scaleForShortestSide(410);
       final naturalHeight =
           NetworkOverviewCardLayoutCalculator.naturalInnerHeightFor(scale);
@@ -59,29 +63,35 @@ void main() {
 
       expect(
         layout.chartHeight,
-        greaterThan(
-          NetworkOverviewCardLayoutCalculator.chartBaseHeight * scale,
-        ),
+        NetworkOverviewCardLayoutCalculator.chartBaseHeight * scale,
       );
       expect(
         layout.trafficTitleToChartGap,
-        greaterThan(
-          NetworkOverviewCardLayoutCalculator.trafficTitleToChartBaseGap *
-              scale,
-        ),
+        NetworkOverviewCardLayoutCalculator.trafficTitleToChartBaseGap * scale,
       );
       expect(
         layout.latencyHeaderToRowsGap,
-        greaterThan(
-          NetworkOverviewCardLayoutCalculator.latencyHeaderToRowsBaseGap *
-              scale,
-        ),
+        NetworkOverviewCardLayoutCalculator.latencyHeaderToRowsBaseGap * scale,
       );
       expect(
         layout.afterTrafficGap,
+        NetworkOverviewCardLayoutCalculator.trafficToDividerBaseGap * scale,
+      );
+      expect(
+        layout.detectionSlotHeight,
         greaterThan(
-          NetworkOverviewCardLayoutCalculator.trafficToDividerBaseGap * scale,
+          NetworkOverviewCardLayoutCalculator.detectionSlotHeightFor(scale),
         ),
+      );
+    });
+
+    test('natural outer height matches the real zero bottom padding', () {
+      const scale = 1.0;
+
+      expect(
+        NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(scale),
+        20 * scale +
+            NetworkOverviewCardLayoutCalculator.naturalInnerHeightFor(scale),
       );
     });
 

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -94,7 +94,7 @@ class NetworkOverviewCardLayout {
     required this.headerToChartGap,
     required this.chartToDividerGap,
     required this.dividerToTrafficGap,
-    required this.dividerToDetectionGap,
+    required this.detectionSlotHeight,
   });
 
   final double headerHeight;
@@ -105,7 +105,7 @@ class NetworkOverviewCardLayout {
   final double headerToChartGap;
   final double chartToDividerGap;
   final double dividerToTrafficGap;
-  final double dividerToDetectionGap;
+  final double detectionSlotHeight;
 }
 
 class NetworkOverviewCardLayoutCalculator {
@@ -123,13 +123,17 @@ class NetworkOverviewCardLayoutCalculator {
   static const double trafficTitleToChartBaseGap = 28;
   static const double latencyHeaderToRowsBaseGap = 26;
   static const double trafficToDividerBaseGap = 14;
-  static const double dividerToDetectionGap = 14;
+  static const double detectionSlotExtraHeight = 14;
 
   static double naturalOuterHeightFor(double scale) {
-    return 20 * scale + naturalInnerHeightFor(scale) + 28 * scale;
+    return 20 * scale + naturalInnerHeightFor(scale);
   }
 
   static double naturalInnerHeightFor(double scale) {
+    return naturalFixedInnerHeightFor(scale) + detectionSlotHeightFor(scale);
+  }
+
+  static double naturalFixedInnerHeightFor(double scale) {
     return headerHeight * scale +
         headerToChartGap * scale +
         chartBaseHeight * scale +
@@ -138,9 +142,11 @@ class NetworkOverviewCardLayoutCalculator {
         dividerToTrafficGap * scale +
         trafficRowBaseHeight * scale +
         trafficToDividerBaseGap * scale +
-        dividerHeight +
-        dividerToDetectionGap * scale +
-        detectionBarHeight * scale;
+        dividerHeight;
+  }
+
+  static double detectionSlotHeightFor(double scale) {
+    return detectionSlotExtraHeight * scale + detectionBarHeight * scale;
   }
 
   @visibleForTesting
@@ -148,7 +154,12 @@ class NetworkOverviewCardLayoutCalculator {
     required double availableInnerHeight,
     required double scale,
   }) {
-    // Simple linear scaling - same approach as Hero card
+    final naturalDetectionSlotHeight = detectionSlotHeightFor(scale);
+    final fixedHeight = naturalFixedInnerHeightFor(scale);
+    final detectionSlotHeight = math.max(
+      naturalDetectionSlotHeight,
+      availableInnerHeight - fixedHeight,
+    );
     return NetworkOverviewCardLayout(
       headerHeight: headerHeight * scale,
       chartHeight: chartBaseHeight * scale,
@@ -158,7 +169,7 @@ class NetworkOverviewCardLayoutCalculator {
       trafficTitleToChartGap: trafficTitleToChartBaseGap * scale,
       latencyHeaderToRowsGap: latencyHeaderToRowsBaseGap * scale,
       afterTrafficGap: trafficToDividerBaseGap * scale,
-      dividerToDetectionGap: dividerToDetectionGap * scale,
+      detectionSlotHeight: detectionSlotHeight,
     );
   }
 }
@@ -850,8 +861,9 @@ class _SurgeNetworkOverviewCardState
               ),
               SizedBox(height: layout.afterTrafficGap),
               Container(height: 1, color: surge.separator),
-              // Center the detection bar between divider and card bottom
-              Expanded(
+              // Center the detection bar in the explicit remaining-height slot.
+              SizedBox(
+                height: layout.detectionSlotHeight,
                 child: Center(
                   child: _NetworkDetectionBar(
                     networkDetection: networkDetection,
