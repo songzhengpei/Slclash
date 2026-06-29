@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -50,6 +53,11 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
       _requests = next.a;
       updateRequestsThrottler();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_primeRuntimeRequests());
+      }
+    });
   }
 
   @override
@@ -79,6 +87,42 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
         }
       });
     }, duration: commonDuration);
+  }
+
+  Future<void> _ensureRuntimeListener() async {
+    if (!ref.read(isStartProvider) || ref.read(suspendProvider)) {
+      return;
+    }
+    try {
+      await coreController.startListener();
+    } catch (e) {
+      commonPrint.log(
+        'start listener for requests failed: $e',
+        logLevel: LogLevel.warning,
+      );
+    }
+  }
+
+  Future<void> _primeRuntimeRequests() async {
+    await _ensureRuntimeListener();
+    if (!mounted || _requests.isNotEmpty || !ref.read(isStartProvider)) {
+      return;
+    }
+    try {
+      final trackerInfos = await coreController.getConnections();
+      if (!mounted || trackerInfos.isEmpty || _requests.isNotEmpty) {
+        return;
+      }
+      _requests = trackerInfos;
+      _requestsStateNotifier.value = _requestsStateNotifier.value.copyWith(
+        trackerInfos: _requests,
+      );
+    } catch (e) {
+      commonPrint.log(
+        'prime runtime requests failed: $e',
+        logLevel: LogLevel.warning,
+      );
+    }
   }
 
   @override

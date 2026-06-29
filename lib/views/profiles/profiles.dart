@@ -132,7 +132,9 @@ class _ProfilesViewState extends State<ProfilesView> {
                       left: 16,
                       right: 16,
                       top: 16,
-                      bottom: 112 + MediaQuery.paddingOf(context).bottom,
+                      bottom: SurgeBottomNavLayout.mainPageBottomPadding(
+                        context,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
@@ -82,8 +83,105 @@ String? _extractEmbeddedFlag(String text) {
   ).firstMatch(text)?.group(0);
 }
 
+@visibleForTesting
+class NetworkOverviewCardLayout {
+  const NetworkOverviewCardLayout({
+    required this.headerHeight,
+    required this.chartHeight,
+    required this.trafficTitleToChartGap,
+    required this.latencyHeaderToRowsGap,
+    required this.afterTrafficGap,
+    required this.headerToChartGap,
+    required this.chartToDividerGap,
+    required this.dividerToTrafficGap,
+    required this.detectionSlotHeight,
+  });
+
+  final double headerHeight;
+  final double chartHeight;
+  final double trafficTitleToChartGap;
+  final double latencyHeaderToRowsGap;
+  final double afterTrafficGap;
+  final double headerToChartGap;
+  final double chartToDividerGap;
+  final double dividerToTrafficGap;
+  final double detectionSlotHeight;
+}
+
+class NetworkOverviewCardLayoutCalculator {
+  const NetworkOverviewCardLayoutCalculator._();
+
+  static const double headerHeight = 28;
+  static const double chartBaseHeight = 82;
+  static const double trafficRowBaseHeight = 140;
+  static const double detectionBarHeight = 34;
+  static const double dividerHeight = 1;
+
+  static const double headerToChartGap = 10;
+  static const double chartToDividerGap = 14;
+  static const double dividerToTrafficGap = 14;
+  static const double trafficTitleToChartBaseGap = 28;
+  static const double latencyHeaderToRowsBaseGap = 26;
+  static const double trafficToDividerBaseGap = 14;
+  static const double detectionSlotExtraHeight = 14;
+
+  static double naturalOuterHeightFor(double scale) {
+    return 20 * scale + naturalInnerHeightFor(scale);
+  }
+
+  static double naturalInnerHeightFor(double scale) {
+    return naturalFixedInnerHeightFor(scale) + detectionSlotHeightFor(scale);
+  }
+
+  static double naturalFixedInnerHeightFor(double scale) {
+    return headerHeight * scale +
+        headerToChartGap * scale +
+        chartBaseHeight * scale +
+        chartToDividerGap * scale +
+        dividerHeight +
+        dividerToTrafficGap * scale +
+        trafficRowBaseHeight * scale +
+        trafficToDividerBaseGap * scale +
+        dividerHeight;
+  }
+
+  static double detectionSlotHeightFor(double scale) {
+    return detectionSlotExtraHeight * scale + detectionBarHeightFor(scale);
+  }
+
+  static double detectionBarHeightFor(double scale) {
+    return math.max(detectionBarHeight, detectionBarHeight * scale);
+  }
+
+  @visibleForTesting
+  static NetworkOverviewCardLayout layoutFor({
+    required double availableInnerHeight,
+    required double scale,
+  }) {
+    final naturalDetectionSlotHeight = detectionSlotHeightFor(scale);
+    final fixedHeight = naturalFixedInnerHeightFor(scale);
+    final detectionSlotHeight = math.max(
+      naturalDetectionSlotHeight,
+      availableInnerHeight - fixedHeight,
+    );
+    return NetworkOverviewCardLayout(
+      headerHeight: headerHeight * scale,
+      chartHeight: chartBaseHeight * scale,
+      headerToChartGap: headerToChartGap * scale,
+      chartToDividerGap: chartToDividerGap * scale,
+      dividerToTrafficGap: dividerToTrafficGap * scale,
+      trafficTitleToChartGap: trafficTitleToChartBaseGap * scale,
+      latencyHeaderToRowsGap: latencyHeaderToRowsBaseGap * scale,
+      afterTrafficGap: trafficToDividerBaseGap * scale,
+      detectionSlotHeight: detectionSlotHeight,
+    );
+  }
+}
+
 class SurgeNetworkOverviewCard extends ConsumerStatefulWidget {
-  const SurgeNetworkOverviewCard({super.key});
+  const SurgeNetworkOverviewCard({super.key, this.layoutScale = 1});
+
+  final double layoutScale;
 
   @override
   ConsumerState<SurgeNetworkOverviewCard> createState() =>
@@ -118,6 +216,9 @@ class _SurgeNetworkOverviewCardState
   final Map<String, _LatencyResult> _latencyResults = {};
   Timer? _latencyRefreshTimer;
   bool _isTestingLatencies = false;
+
+  double _scaled(double value) => value * widget.layoutScale;
+
   bool _isChinese(BuildContext context) {
     return Localizations.localeOf(context).languageCode.toLowerCase() == 'zh';
   }
@@ -168,11 +269,7 @@ class _SurgeNetworkOverviewCardState
     final bareHost = target.bareHost;
     final meta = conn.metadata;
 
-    for (final raw in [
-      meta.host,
-      meta.destinationIP,
-      meta.remoteDestination,
-    ]) {
+    for (final raw in [meta.host, meta.destinationIP, meta.remoteDestination]) {
       final field = raw.toLowerCase();
       if (field.isEmpty) continue;
       if (field == host || field == bareHost) return true;
@@ -258,8 +355,11 @@ class _SurgeNetworkOverviewCardState
     required String? fallbackCountryCode,
   }) async {
     // --- snapshot IDs before the probe so we only match NEW connections ---
-    final beforeProviderIds =
-        ref.read(requestsProvider).list.map((e) => e.id).toSet();
+    final beforeProviderIds = ref
+        .read(requestsProvider)
+        .list
+        .map((e) => e.id)
+        .toSet();
     Set<String> beforeCoreIds;
     if (mixedPort != null) {
       try {
@@ -388,8 +488,7 @@ class _SurgeNetworkOverviewCardState
 
   bool _shouldRunLatencyRefresh(WidgetRef ref) {
     final uiAutoRefresh = ref.read(uiAutoRefreshEnabledProvider);
-    final isDashboardPage =
-        ref.read(currentPageLabelProvider) == _pageLabel;
+    final isDashboardPage = ref.read(currentPageLabelProvider) == _pageLabel;
     return uiAutoRefresh && isDashboardPage;
   }
 
@@ -431,8 +530,7 @@ class _SurgeNetworkOverviewCardState
       return httpRequest.close().timeout(_latencyTimeout);
     }
 
-    final client = HttpClient()
-      ..connectionTimeout = _latencyTimeout;
+    final client = HttpClient()..connectionTimeout = _latencyTimeout;
     if (mixedPort != null) {
       client.findProxy = (uri) => 'PROXY 127.0.0.1:$mixedPort';
     }
@@ -466,8 +564,10 @@ class _SurgeNetworkOverviewCardState
     final mixedPort = hasProxy
         ? ref.read(patchClashConfigProvider).mixedPort
         : null;
-    final fallbackCountryCode =
-        ref.read(networkDetectionProvider).ipInfo?.countryCode;
+    final fallbackCountryCode = ref
+        .read(networkDetectionProvider)
+        .ipInfo
+        ?.countryCode;
 
     setState(() {
       _isTestingLatencies = true;
@@ -537,227 +637,253 @@ class _SurgeNetworkOverviewCardState
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+      padding: EdgeInsets.fromLTRB(18, _scaled(20), 18, 0),
       decoration: BoxDecoration(
         color: surge.card,
         borderRadius: BorderRadius.circular(_cardRadius),
         border: Border.all(color: surge.separator),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = NetworkOverviewCardLayoutCalculator.layoutFor(
+            availableInnerHeight: constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : NetworkOverviewCardLayoutCalculator.naturalInnerHeightFor(
+                    widget.layoutScale,
+                  ),
+            scale: widget.layoutScale,
+          );
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: Icon(
-                    Icons.public_rounded,
-                    color: isStart ? surge.primary : surge.inactive,
-                    size: 18,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _overviewTitle(context),
-                      style: context.textTheme.titleMedium?.copyWith(
-                        color: surge.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.08,
-                        letterSpacing: 0,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: layout.headerHeight,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Icon(
+                        Icons.public_rounded,
+                        color: isStart ? surge.primary : surge.inactive,
+                        size: 18,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Network Overview',
-                      style: context.textTheme.bodySmall?.copyWith(
-                        color: surge.textSecondary,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w400,
-                        height: 1.12,
-                        letterSpacing: 0,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _overviewTitle(context),
+                          style: context.textTheme.titleMedium?.copyWith(
+                            color: surge.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.08,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        SizedBox(height: 2 * widget.layoutScale),
+                        Text(
+                          'Network Overview',
+                          style: context.textTheme.bodySmall?.copyWith(
+                            color: surge.textSecondary,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w400,
+                            height: 1.12,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _LiveSpeedBadge(
+                    up: lastTraffic.up,
+                    down: lastTraffic.down,
+                    upColor: uploadColor,
+                    downColor: downloadColor,
+                  ),
+                ],
+              ),
+              SizedBox(height: layout.headerToChartGap),
+              SizedBox(
+                height: layout.chartHeight,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: LineChart(
+                        points: uploadPoints,
+                        color: uploadColor,
+                        gradient: true,
+                        gradientStartAlpha: lineFillStartAlpha,
+                        gradientEndAlpha: lineFillEndAlpha,
+                        duration: commonDuration,
+                        minY: hasLiveTraffic ? null : 0,
+                        maxY: hasLiveTraffic ? null : 0.2,
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: LineChart(
+                        points: downloadPoints,
+                        color: downloadColor,
+                        gradient: true,
+                        gradientStartAlpha: lineFillStartAlpha,
+                        gradientEndAlpha: lineFillEndAlpha,
+                        duration: commonDuration,
+                        minY: hasLiveTraffic ? null : 0,
+                        maxY: hasLiveTraffic ? null : 0.2,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              _LiveSpeedBadge(
-                up: lastTraffic.up,
-                down: lastTraffic.down,
-                upColor: uploadColor,
-                downColor: downloadColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 82,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: LineChart(
-                    points: uploadPoints,
-                    color: uploadColor,
-                    gradient: true,
-                    gradientStartAlpha: lineFillStartAlpha,
-                    gradientEndAlpha: lineFillEndAlpha,
-                    duration: commonDuration,
-                    minY: hasLiveTraffic ? null : 0,
-                    maxY: hasLiveTraffic ? null : 0.2,
-                  ),
-                ),
-                Positioned.fill(
-                  child: LineChart(
-                    points: downloadPoints,
-                    color: downloadColor,
-                    gradient: true,
-                    gradientStartAlpha: lineFillStartAlpha,
-                    gradientEndAlpha: lineFillEndAlpha,
-                    duration: commonDuration,
-                    minY: hasLiveTraffic ? null : 0,
-                    maxY: hasLiveTraffic ? null : 0.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(height: 1, color: surge.separator),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 112,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              SizedBox(height: layout.chartToDividerGap),
+              Container(height: 1, color: surge.separator),
+              SizedBox(height: layout.dividerToTrafficGap),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 112,
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: Icon(
-                            Icons.data_saver_off_rounded,
-                            size: 18,
-                            color: surge.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                appLocalizations.trafficUsage,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: context.textTheme.titleSmall?.copyWith(
-                                  color: surge.textPrimary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.08,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Traffic',
-                                style: context.textTheme.bodySmall?.copyWith(
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              height: layout.headerHeight,
+                              child: Align(
+                                alignment: Alignment.topLeft,
+                                child: Icon(
+                                  Icons.data_saver_off_rounded,
+                                  size: 18,
                                   color: surge.textSecondary,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.12,
-                                  letterSpacing: 0,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 2),
-                      child: SizedBox(
-                        width: 78,
-                        height: 78,
-                        child: DonutChart(
-                          data: [
-                            DonutChartData(
-                              value: totalTraffic.up.toDouble(),
-                              color: uploadColor,
                             ),
-                            DonutChartData(
-                              value: totalTraffic.down.toDouble(),
-                              color: downloadColor,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    appLocalizations.trafficUsage,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: context.textTheme.titleSmall
+                                        ?.copyWith(
+                                          color: surge.textPrimary,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.08,
+                                          letterSpacing: 0,
+                                        ),
+                                  ),
+                                  SizedBox(height: 2 * widget.layoutScale),
+                                  Text(
+                                    'Traffic',
+                                    style: context.textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: surge.textSecondary,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.12,
+                                          letterSpacing: 0,
+                                        ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 0),
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Spacer(),
-                        _TotalTrafficBadge(
-                          up: totalTraffic.up,
-                          down: totalTraffic.down,
-                          upColor: uploadColor,
-                          downColor: downloadColor,
+                        SizedBox(height: layout.trafficTitleToChartGap),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 2),
+                          child: SizedBox(
+                            width: _scaled(78),
+                            height: _scaled(78),
+                            child: DonutChart(
+                              data: [
+                                DonutChartData(
+                                  value: totalTraffic.up.toDouble(),
+                                  color: uploadColor,
+                                ),
+                                DonutChartData(
+                                  value: totalTraffic.down.toDouble(),
+                                  color: downloadColor,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 26),
-                    _PlatformLatencyPanel(
-                      targets: _latencyTargets,
-                      results: _latencyResults,
-                      fallbackCountryCode: networkDetection.ipInfo?.countryCode,
-                      activeColor: dashboardDynamicActiveFill,
-                      fillColor: surge.fill,
-                      textColor: surge.textPrimary,
-                      secondaryTextColor: surge.textSecondary,
-                      dangerColor: surge.red,
-                      onRetest: () {
-                        unawaited(_testLatencies(force: true));
-                      },
+                  ),
+                  const SizedBox(width: 0),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Spacer(),
+                            _TotalTrafficBadge(
+                              up: totalTraffic.up,
+                              down: totalTraffic.down,
+                              upColor: uploadColor,
+                              downColor: downloadColor,
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: layout.latencyHeaderToRowsGap),
+                        _PlatformLatencyPanel(
+                          targets: _latencyTargets,
+                          results: _latencyResults,
+                          fallbackCountryCode:
+                              networkDetection.ipInfo?.countryCode,
+                          activeColor: dashboardDynamicActiveFill,
+                          fillColor: surge.fill,
+                          textColor: surge.textPrimary,
+                          secondaryTextColor: surge.textSecondary,
+                          dangerColor: surge.red,
+                          onRetest: () {
+                            unawaited(_testLatencies(force: true));
+                          },
+                          rowGap: _scaled(12),
+                          layoutScale: widget.layoutScale,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              SizedBox(height: layout.afterTrafficGap),
+              Container(height: 1, color: surge.separator),
+              // Center the detection bar in the explicit remaining-height slot.
+              SizedBox(
+                height: layout.detectionSlotHeight,
+                child: Center(
+                  child: _NetworkDetectionBar(
+                    networkDetection: networkDetection,
+                    primaryColor: surge.primary,
+                    textColor: surge.textPrimary,
+                    secondaryTextColor: surge.textSecondary,
+                    fillColor: surge.fill,
+                    dangerColor: surge.red,
+                    label: appLocalizations.networkDetection,
+                    layoutScale: widget.layoutScale,
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 14),
-          Container(height: 1, color: surge.separator),
-          const SizedBox(height: 14),
-          _NetworkDetectionBar(
-            networkDetection: networkDetection,
-            primaryColor: surge.primary,
-            textColor: surge.textPrimary,
-            secondaryTextColor: surge.textSecondary,
-            fillColor: surge.fill,
-            dangerColor: surge.red,
-            label: appLocalizations.networkDetection,
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -839,7 +965,10 @@ class _NetworkDetectionBar extends StatelessWidget {
     required this.fillColor,
     required this.dangerColor,
     required this.label,
+    this.layoutScale = 1.0,
   });
+
+  final double layoutScale;
 
   final NetworkDetectionState networkDetection;
   final Color primaryColor;
@@ -863,6 +992,9 @@ class _NetworkDetectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final ipInfo = networkDetection.ipInfo;
     final isLoading = networkDetection.isLoading;
+    final height = NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
+      layoutScale,
+    );
 
     Widget valueWidget;
     if (ipInfo != null) {
@@ -947,8 +1079,8 @@ class _NetworkDetectionBar extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 34),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      height: height,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: fillColor,
         borderRadius: BorderRadius.circular(22),
@@ -1004,11 +1136,11 @@ class _LatencyResult {
   }) : pending = false;
 
   const _LatencyResult.pending()
-      : latency = null,
-        pending = true,
-        countryCode = null,
-        routeName = null,
-        proxyName = null;
+    : latency = null,
+      pending = true,
+      countryCode = null,
+      routeName = null,
+      proxyName = null;
 
   final int? latency;
   final bool pending;
@@ -1098,6 +1230,8 @@ class _PlatformLatencyPanel extends StatelessWidget {
     required this.secondaryTextColor,
     required this.dangerColor,
     required this.onRetest,
+    required this.rowGap,
+    this.layoutScale = 1.0,
   });
 
   final List<_LatencyTarget> targets;
@@ -1109,6 +1243,8 @@ class _PlatformLatencyPanel extends StatelessWidget {
   final Color secondaryTextColor;
   final Color dangerColor;
   final VoidCallback onRetest;
+  final double rowGap;
+  final double layoutScale;
 
   Color _flowColor(_LatencyResult? result) {
     if (result == null || result.pending) return activeColor;
@@ -1197,8 +1333,9 @@ class _PlatformLatencyPanel extends StatelessWidget {
             secondaryTextColor: secondaryTextColor,
             trailing: _value(context, results[target.name]),
             onRetest: onRetest,
+            layoutScale: layoutScale,
           ),
-          if (target != targets.last) const SizedBox(height: 12),
+          if (target != targets.last) SizedBox(height: rowGap),
         ],
       ],
     );
@@ -1216,6 +1353,7 @@ class _PlatformLatencyRow extends StatelessWidget {
     required this.secondaryTextColor,
     required this.trailing,
     required this.onRetest,
+    this.layoutScale = 1.0,
   });
 
   final _LatencyTarget target;
@@ -1227,28 +1365,28 @@ class _PlatformLatencyRow extends StatelessWidget {
   final Color secondaryTextColor;
   final Widget trailing;
   final VoidCallback onRetest;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _PlatformBrandIcon(target: target),
+        _PlatformBrandIcon(target: target, layoutScale: layoutScale),
         const SizedBox(width: 6),
-        _RouteFlagBadge(
-          countryCode: countryCode,
-        ),
+        _RouteFlagBadge(countryCode: countryCode, layoutScale: layoutScale),
         const SizedBox(width: 8),
         Expanded(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onRetest,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: EdgeInsets.symmetric(vertical: 8 * layoutScale),
               child: _FlowingLatencyBar(
                 widthFactor: barWidthFactor,
                 trackColor: trackColor,
                 flowColor: flowColor,
+                layoutScale: layoutScale,
               ),
             ),
           ),
@@ -1264,9 +1402,10 @@ class _PlatformLatencyRow extends StatelessWidget {
 }
 
 class _PlatformBrandIcon extends StatelessWidget {
-  const _PlatformBrandIcon({required this.target});
+  const _PlatformBrandIcon({required this.target, this.layoutScale = 1.0});
 
   final _LatencyTarget target;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -1275,6 +1414,7 @@ class _PlatformBrandIcon extends StatelessWidget {
       return _BrandImageIcon(
         tooltip: target.name,
         assetPath: 'assets/images/icon/latency_youtube.png',
+        layoutScale: layoutScale,
       );
     }
     if (name == 'chatgpt') {
@@ -1282,12 +1422,14 @@ class _PlatformBrandIcon extends StatelessWidget {
         tooltip: target.name,
         assetPath: 'assets/images/icon/latency_chatgpt.png',
         tintInDarkMode: true,
+        layoutScale: layoutScale,
       );
     }
     return _BrandImageIcon(
       tooltip: target.name,
       assetPath: 'assets/images/icon/latency_github.png',
       tintInDarkMode: true,
+      layoutScale: layoutScale,
     );
   }
 }
@@ -1297,11 +1439,13 @@ class _BrandImageIcon extends StatelessWidget {
     required this.tooltip,
     required this.assetPath,
     this.tintInDarkMode = false,
+    this.layoutScale = 1.0,
   });
 
   final String tooltip;
   final String assetPath;
   final bool tintInDarkMode;
+  final double layoutScale;
 
   @override
   Widget build(BuildContext context) {
@@ -1312,8 +1456,8 @@ class _BrandImageIcon extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: SizedBox(
-        width: 25,
-        height: 25,
+        width: 25 * layoutScale,
+        height: 25 * layoutScale,
         child: Image.asset(
           assetPath,
           fit: BoxFit.contain,
@@ -1327,11 +1471,10 @@ class _BrandImageIcon extends StatelessWidget {
 }
 
 class _RouteFlagBadge extends StatelessWidget {
-  const _RouteFlagBadge({
-    required this.countryCode,
-  });
+  const _RouteFlagBadge({required this.countryCode, this.layoutScale = 1.0});
 
   final String? countryCode;
+  final double layoutScale;
 
   String _countryCodeToEmoji(String code) {
     final c = code.toUpperCase();
@@ -1348,8 +1491,8 @@ class _RouteFlagBadge extends StatelessWidget {
         ? _countryCodeToEmoji(countryCode!)
         : null;
     return SizedBox(
-      width: 20,
-      height: 20,
+      width: 20 * layoutScale,
+      height: 20 * layoutScale,
       child: flag == null || flag.isEmpty
           ? Center(
               child: Icon(
@@ -1378,11 +1521,13 @@ class _FlowingLatencyBar extends StatefulWidget {
     required this.widthFactor,
     required this.trackColor,
     required this.flowColor,
+    this.layoutScale = 1.0,
   });
 
   final double widthFactor;
   final Color trackColor;
   final Color flowColor;
+  final double layoutScale;
 
   @override
   State<_FlowingLatencyBar> createState() => _FlowingLatencyBarState();
@@ -1412,7 +1557,7 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
       child: SizedBox(
-        height: 8,
+        height: 8 * widget.layoutScale,
         child: Stack(
           children: [
             Positioned.fill(child: ColoredBox(color: widget.trackColor)),

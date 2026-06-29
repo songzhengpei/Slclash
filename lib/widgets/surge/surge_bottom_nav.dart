@@ -6,6 +6,37 @@ import 'package:flutter/material.dart';
 import 'surge_motion.dart';
 import 'surge_theme_extension.dart';
 
+class SurgeBottomNavLayout {
+  const SurgeBottomNavLayout._();
+
+  static const double height = 56;
+  static const double horizontalInset = 18;
+  static const double extraBottomInset = 5;
+  static const double noGestureBottomInset = 19;
+  static const double contentGap = 9;
+
+  static double navBottomInset(BuildContext context) {
+    return navBottomInsetFor(MediaQuery.viewPaddingOf(context).bottom);
+  }
+
+  static double mainPageBottomPadding(BuildContext context) {
+    return mainPageBottomPaddingFor(MediaQuery.viewPaddingOf(context).bottom);
+  }
+
+  @visibleForTesting
+  static double navBottomInsetFor(double viewPaddingBottom) {
+    if (viewPaddingBottom <= 0) {
+      return noGestureBottomInset;
+    }
+    return viewPaddingBottom + extraBottomInset;
+  }
+
+  @visibleForTesting
+  static double mainPageBottomPaddingFor(double viewPaddingBottom) {
+    return navBottomInsetFor(viewPaddingBottom) + height + contentGap;
+  }
+}
+
 @immutable
 class SurgeBottomNavItem {
   const SurgeBottomNavItem({
@@ -34,11 +65,20 @@ class SurgeBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final bottomPadding = MediaQuery.paddingOf(context).bottom + 5;
-    final navWidth = math.max(MediaQuery.sizeOf(context).width - 36, 0.0);
+    final bottomPadding = SurgeBottomNavLayout.navBottomInset(context);
+    final navWidth = math.max(
+      MediaQuery.sizeOf(context).width -
+          SurgeBottomNavLayout.horizontalInset * 2,
+      0.0,
+    );
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(18, 0, 18, bottomPadding),
+      padding: EdgeInsets.fromLTRB(
+        SurgeBottomNavLayout.horizontalInset,
+        0,
+        SurgeBottomNavLayout.horizontalInset,
+        bottomPadding,
+      ),
       child: Align(
         alignment: Alignment.bottomCenter,
         child: SizedBox(
@@ -66,7 +106,7 @@ class SurgeBottomNav extends StatelessWidget {
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: SizedBox(
-                    height: 56,
+                    height: SurgeBottomNavLayout.height,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Row(

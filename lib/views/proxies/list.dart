@@ -3,9 +3,7 @@ import 'dart:math';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
-import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/providers.dart';
-import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -306,7 +304,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                       16,
                       16,
                       16,
-                      112 + MediaQuery.paddingOf(context).bottom,
+                      SurgeBottomNavLayout.mainPageBottomPadding(context),
                     ),
                     controller: _controller,
                     itemExtentBuilder: (index, _) {
@@ -527,8 +525,9 @@ class _ListHeaderState extends State<ListHeader> {
                                       return const SizedBox();
                                     }
                                     final groups = ref.watch(groupsProvider);
-                                    final nestedGroup = groups
-                                        .getGroup(proxyName);
+                                    final nestedGroup = groups.getGroup(
+                                      proxyName,
+                                    );
                                     String displayLabel;
                                     if (nestedGroup != null) {
                                       // Resolve to leaf node
@@ -561,9 +560,7 @@ class _ListHeaderState extends State<ListHeader> {
                                             '  $displayLabel',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: context
-                                                .textTheme
-                                                .labelMedium
+                                            style: context.textTheme.labelMedium
                                                 ?.copyWith(
                                                   color: surge.primary,
                                                   fontSize: 12,
