@@ -103,7 +103,7 @@ class NetworkOverviewCardLayoutCalculator {
 
   static const double headerHeight = 26;
   static const double chartBaseHeight = 82;
-  static const double trafficRowBaseHeight = 132;
+  static const double trafficRowBaseHeight = 140;
   static const double detectionBarHeight = 34;
   static const double dividerHeight = 1;
 
