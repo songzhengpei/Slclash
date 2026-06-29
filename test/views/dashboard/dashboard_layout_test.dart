@@ -95,6 +95,20 @@ void main() {
       );
     });
 
+    test('keeps detection bar at least baseline height below 384dp', () {
+      const scale = 0.92;
+
+      expect(
+        NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(scale),
+        NetworkOverviewCardLayoutCalculator.detectionBarHeight,
+      );
+      expect(
+        NetworkOverviewCardLayoutCalculator.detectionSlotHeightFor(scale),
+        NetworkOverviewCardLayoutCalculator.detectionSlotExtraHeight * scale +
+            NetworkOverviewCardLayoutCalculator.detectionBarHeight,
+      );
+    });
+
     test(
       'does not shrink below natural sizes when available height is tight',
       () {

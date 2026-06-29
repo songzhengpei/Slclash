@@ -146,7 +146,11 @@ class NetworkOverviewCardLayoutCalculator {
   }
 
   static double detectionSlotHeightFor(double scale) {
-    return detectionSlotExtraHeight * scale + detectionBarHeight * scale;
+    return detectionSlotExtraHeight * scale + detectionBarHeightFor(scale);
+  }
+
+  static double detectionBarHeightFor(double scale) {
+    return math.max(detectionBarHeight, detectionBarHeight * scale);
   }
 
   @visibleForTesting
@@ -988,6 +992,9 @@ class _NetworkDetectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final ipInfo = networkDetection.ipInfo;
     final isLoading = networkDetection.isLoading;
+    final height = NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
+      layoutScale,
+    );
 
     Widget valueWidget;
     if (ipInfo != null) {
@@ -1072,7 +1079,7 @@ class _NetworkDetectionBar extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      height: 34 * layoutScale,
+      height: height,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: fillColor,
