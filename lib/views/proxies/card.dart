@@ -15,6 +15,7 @@ class ProxyCard extends StatelessWidget {
   final GroupType groupType;
   final ProxyCardType type;
   final String? testUrl;
+  final bool embedded;
 
   const ProxyCard({
     super.key,
@@ -23,6 +24,7 @@ class ProxyCard extends StatelessWidget {
     required this.proxy,
     required this.groupType,
     required this.type,
+    this.embedded = false,
   });
 
   void _handleTestCurrentDelay() {
@@ -65,50 +67,81 @@ class ProxyCard extends StatelessWidget {
         final selectedBorderColor = !dynamicColor
             ? surge.textPrimary
             : surge.primary;
+        final content = Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: embedded ? 10 : 12,
+            vertical: embedded ? 6 : 7,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _ProxyTextBlock(proxy: proxy, type: type),
+              ),
+              if (groupType.isComputedSelected) ...[
+                const SizedBox(width: 8),
+                _ProxyComputedMark(groupName: groupName, proxy: proxy),
+              ],
+              const SizedBox(width: 12),
+              _DelayBadge(
+                proxyName: proxy.name,
+                testUrl: testUrl,
+                onTap: _handleTestCurrentDelay,
+              ),
+            ],
+          ),
+        );
+        final card = embedded
+            ? Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(surge.radii.list),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    _changeProxy(ref);
+                  },
+                  borderRadius: BorderRadius.circular(surge.radii.list),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOutCubic,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? surge.selectedFill
+                          : surge.fill.withValues(alpha: 0.32),
+                      borderRadius: BorderRadius.circular(surge.radii.list),
+                      border: Border.all(
+                        color: isSelected
+                            ? selectedBorderColor.withValues(alpha: 0.72)
+                            : surge.separator.withValues(alpha: 0.42),
+                        width: isSelected ? 0.9 : 0.5,
+                      ),
+                    ),
+                    child: content,
+                  ),
+                ),
+              )
+            : SurgeCard(
+                key: key,
+                onTap: () {
+                  _changeProxy(ref);
+                },
+                padding: EdgeInsets.zero,
+                shadow: false,
+                borderRadius: surge.radii.list,
+                backgroundColor: isSelected ? surge.selectedFill : surge.card,
+                border: Border.all(
+                  color: isSelected
+                      ? selectedBorderColor
+                      : surge.separator.withValues(alpha: 0.95),
+                  width: isSelected ? 1.05 : 0.75,
+                ),
+                child: content,
+              );
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            SurgeCard(
-              key: key,
-              onTap: () {
-                _changeProxy(ref);
-              },
-              padding: EdgeInsets.zero,
-              shadow: false,
-              borderRadius: surge.radii.list,
-              backgroundColor: isSelected ? surge.selectedFill : surge.card,
-              border: Border.all(
-                color: isSelected
-                    ? selectedBorderColor
-                    : surge.separator.withValues(alpha: 0.95),
-                width: isSelected ? 1.05 : 0.75,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _ProxyTextBlock(proxy: proxy, type: type),
-                    ),
-                    if (groupType.isComputedSelected) ...[
-                      const SizedBox(width: 8),
-                      _ProxyComputedMark(groupName: groupName, proxy: proxy),
-                    ],
-                    const SizedBox(width: 12),
-                    _DelayBadge(
-                      proxyName: proxy.name,
-                      testUrl: testUrl,
-                      onTap: _handleTestCurrentDelay,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            card,
             Positioned(
-              right: 10,
+              right: embedded ? 8 : 10,
               top: -6,
               child: AnimatedScale(
                 scale: isSelected ? 1 : 0.65,
