@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/views/dashboard/widgets/network_overview_card.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
@@ -24,7 +22,6 @@ class DashboardAdaptiveLayout {
   static const double horizontalPadding = 18;
   static const double topPadding = 16;
   static const double cardGap = 16;
-  static const double estimatedHeroHeight = 270;
 
   @visibleForTesting
   static double scaleForShortestSide(double shortestSide) {
@@ -34,20 +31,6 @@ class DashboardAdaptiveLayout {
   @visibleForTesting
   static DashboardOverviewLayout overviewLayoutFor(double shortestSide) {
     return DashboardOverviewLayout(scale: scaleForShortestSide(shortestSide));
-  }
-
-  @visibleForTesting
-  static double overviewHeightFor({
-    required double viewportHeight,
-    required double bottomPadding,
-    required double scale,
-  }) {
-    final availableHeight =
-        viewportHeight - topPadding - bottomPadding - cardGap;
-    final targetHeight = availableHeight - estimatedHeroHeight;
-    final naturalHeight =
-        NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(scale);
-    return math.max(naturalHeight, targetHeight);
   }
 }
 
@@ -69,35 +52,27 @@ class DashboardView extends StatelessWidget {
       body: ColoredBox(
         color: pageBackground,
         child: ExcludeSemantics(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final overviewHeight = DashboardAdaptiveLayout.overviewHeightFor(
-                viewportHeight: constraints.maxHeight,
-                bottomPadding: bottomPadding,
-                scale: overviewLayout.scale,
-              );
-              return SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  DashboardAdaptiveLayout.horizontalPadding,
-                  DashboardAdaptiveLayout.topPadding,
-                  DashboardAdaptiveLayout.horizontalPadding,
-                  bottomPadding,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              DashboardAdaptiveLayout.horizontalPadding,
+              DashboardAdaptiveLayout.topPadding,
+              DashboardAdaptiveLayout.horizontalPadding,
+              bottomPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Hero card - natural height
+                const SurgeDashboardHero(),
+                const SizedBox(height: DashboardAdaptiveLayout.cardGap),
+                // Network overview card - fills remaining space
+                Flexible(
+                  child: SurgeNetworkOverviewCard(
+                    layoutScale: overviewLayout.scale,
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SurgeDashboardHero(),
-                    const SizedBox(height: DashboardAdaptiveLayout.cardGap),
-                    SizedBox(
-                      height: overviewHeight,
-                      child: SurgeNetworkOverviewCard(
-                        layoutScale: overviewLayout.scale,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+              ],
+            ),
           ),
         ),
       ),
