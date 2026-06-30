@@ -23,6 +23,7 @@ import com.follow.clash.service.modules.SuspendModule
 import com.follow.clash.service.modules.moduleLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import java.util.LinkedHashMap
 import java.net.InetSocketAddress
 import android.net.VpnService as SystemVpnService
 
@@ -45,13 +46,33 @@ class VpnService : SystemVpnService(), IBaseService,
 
     override fun onDestroy() {
         handleDestroy()
+        clearResolverCache()
         super.onDestroy()
     }
 
     private val connectivity by lazy {
         getSystemService<ConnectivityManager>()
     }
-    private val uidPageNameMap = mutableMapOf<Int, String>()
+    private val uidPageNameMap = object : LinkedHashMap<Int, String>(128, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, String>?): Boolean {
+            return size > 256
+        }
+    }
+
+    private fun clearResolverCache() {
+        synchronized(uidPageNameMap) {
+            uidPageNameMap.clear()
+        }
+    }
+
+    private fun getPackageNameForUid(uid: Int): String {
+        synchronized(uidPageNameMap) {
+            uidPageNameMap[uid]?.let { return it }
+            val packageName = this.packageManager?.getPackagesForUid(uid)?.first() ?: ""
+            uidPageNameMap[uid] = packageName
+            return packageName
+        }
+    }
 
     private fun resolverProcess(
         protocol: Int,
@@ -67,10 +88,7 @@ class VpnService : SystemVpnService(), IBaseService,
         if (nextUid == -1) {
             return ""
         }
-        if (!uidPageNameMap.containsKey(nextUid)) {
-            uidPageNameMap[nextUid] = this.packageManager?.getPackagesForUid(nextUid)?.first() ?: ""
-        }
-        return uidPageNameMap[nextUid] ?: ""
+        return getPackageNameForUid(nextUid)
     }
 
     val VpnOptions.address
@@ -246,11 +264,13 @@ class VpnService : SystemVpnService(), IBaseService,
 
     override fun stop() {
         loader.cancel()
+        clearResolverCache()
         Core.stopTun()
         stopSelf()
     }
 
     override fun smartStop() {
+        clearResolverCache()
         Core.stopTun()
     }
 

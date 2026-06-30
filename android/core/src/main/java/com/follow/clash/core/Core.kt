@@ -1,8 +1,6 @@
 package com.follow.clash.core
 
-import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.URL
 
 data object Core {
     private external fun startTun(
@@ -21,9 +19,24 @@ data object Core {
     )
 
     private fun parseInetSocketAddress(address: String): InetSocketAddress {
-        val url = URL("https://$address")
+        val value = address.trim()
+        if (value.startsWith("[")) {
+            val end = value.indexOf(']')
+            if (end > 0) {
+                val host = value.substring(1, end)
+                val port = value.substringAfter("]:", "0").toIntOrNull() ?: 0
+                return InetSocketAddress.createUnresolved(host, port)
+            }
+        }
 
-        return InetSocketAddress(InetAddress.getByName(url.host), url.port)
+        val index = value.lastIndexOf(':')
+        if (index <= 0) {
+            return InetSocketAddress.createUnresolved(value, 0)
+        }
+
+        val host = value.substring(0, index)
+        val port = value.substring(index + 1).toIntOrNull() ?: 0
+        return InetSocketAddress.createUnresolved(host, port)
     }
 
     fun startTun(
