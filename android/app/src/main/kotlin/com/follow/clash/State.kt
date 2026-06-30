@@ -1,10 +1,15 @@
 package com.follow.clash
 
+import android.app.ActivityManager
 import android.net.VpnService
+import androidx.core.content.getSystemService
 import com.follow.clash.common.GlobalState
 import com.follow.clash.models.SharedState
 import com.follow.clash.plugins.AppPlugin
 import com.follow.clash.plugins.TilePlugin
+import com.follow.clash.service.CommonService
+import com.follow.clash.service.RemoteService
+import com.follow.clash.service.VpnService as ClashVpnService
 import com.follow.clash.service.models.NotificationParams
 import com.google.gson.Gson
 import io.flutter.embedding.engine.FlutterEngine
@@ -19,6 +24,12 @@ enum class RunState {
 
 
 object State {
+
+    private val remoteServiceClassNames = setOf(
+        ClashVpnService::class.java.name,
+        CommonService::class.java.name,
+        RemoteService::class.java.name,
+    )
 
     val runLock = Mutex()
 
@@ -51,6 +62,9 @@ object State {
     suspend fun handleSyncState() {
         runLock.withLock {
             try {
+                if (runTime == 0L && runStateFlow.value == RunState.STOP && !hasRunningRemoteService()) {
+                    return
+                }
                 Service.bind()
                 runTime = Service.getRunTime()
                 val runState = when (runTime == 0L) {
@@ -61,6 +75,15 @@ object State {
             } catch (_: Exception) {
                 runStateFlow.tryEmit(RunState.STOP)
             }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun hasRunningRemoteService(): Boolean {
+        val activityManager = GlobalState.application.getSystemService<ActivityManager>() ?: return false
+        return activityManager.getRunningServices(Int.MAX_VALUE).any {
+            it.service.packageName == GlobalState.packageName &&
+                    remoteServiceClassNames.contains(it.service.className)
         }
     }
 
