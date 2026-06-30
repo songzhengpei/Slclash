@@ -91,6 +91,10 @@ func handleAction(action *Action, result ActionResult) {
 		data := action.Data.(bool)
 		result.success(handleGetTotalTraffic(data))
 		return
+	case getTrafficSnapshotMethod:
+		data := action.Data.(bool)
+		result.success(handleGetTrafficSnapshot(data))
+		return
 	case resetTrafficMethod:
 		handleResetTraffic()
 		result.success(true)

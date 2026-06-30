@@ -231,6 +231,24 @@ func handleGetTotalTraffic(onlyStatisticsProxy bool) string {
 	return string(data)
 }
 
+func handleGetTrafficSnapshot(onlyStatisticsProxy bool) string {
+	_ = onlyStatisticsProxy
+	up, down := statistic.DefaultManager.Now()
+	totalUp, totalDown := statistic.DefaultManager.Total()
+	traffic := map[string]int64{
+		"up":        up,
+		"down":      down,
+		"totalUp":   totalUp,
+		"totalDown": totalDown,
+	}
+	data, err := json.Marshal(traffic)
+	if err != nil {
+		logError("Error: %s", err)
+		return ""
+	}
+	return string(data)
+}
+
 func handleResetTraffic() {
 	statistic.DefaultManager.ResetStatistic()
 }

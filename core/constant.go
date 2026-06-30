@@ -91,6 +91,7 @@ const (
 	changeProxyMethod              Method = "changeProxy"
 	getTrafficMethod               Method = "getTraffic"
 	getTotalTrafficMethod          Method = "getTotalTraffic"
+	getTrafficSnapshotMethod       Method = "getTrafficSnapshot"
 	resetTrafficMethod             Method = "resetTraffic"
 	asyncTestDelayMethod           Method = "asyncTestDelay"
 	mediaCheckMethod               Method = "mediaCheck"
