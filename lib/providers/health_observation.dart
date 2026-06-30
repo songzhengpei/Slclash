@@ -144,7 +144,6 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     });
 
     _loadSettings();
-    _startTickTimer();
 
     // ── Reactive triggers ──────────────────────────────────────────────
 
@@ -176,15 +175,32 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   }
 
   void _startTickTimer() {
+    if (_tickTimer != null) return;
     _tickTimer?.cancel();
     _tickTimer = Timer.periodic(_tickInterval, (_) => _onTick());
+  }
+
+  void _cancelTickTimer() {
+    _tickTimer?.cancel();
+    _tickTimer = null;
+  }
+
+  void _syncTickTimer() {
+    if (state.enabled) {
+      _startTickTimer();
+    } else {
+      _cancelTickTimer();
+    }
   }
 
   /// Reload scheduler settings from preferences (enabled, intervalMinutes).
   Future<void> _loadSettings() async {
     try {
       final raw = await preferences.getString(_observeSettingsKey);
-      if (raw == null || raw.isEmpty) return;
+      if (raw == null || raw.isEmpty) {
+        _syncTickTimer();
+        return;
+      }
       final settings = MediaCheckObserveSettings.fromJson(
         jsonDecode(raw) as Map<String, dynamic>,
       );
@@ -195,8 +211,10 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
           intervalMinutes: settings.intervalMinutes,
         );
       }
+      _syncTickTimer();
     } catch (_) {
       // Ignore parse errors — keep current settings
+      _syncTickTimer();
     }
   }
 
@@ -478,6 +496,7 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// Update the enabled flag.
   void setEnabled(bool value) {
     state = state.copyWith(enabled: value);
+    _syncTickTimer();
   }
 
   /// Update the observation interval (minutes).
