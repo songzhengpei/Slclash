@@ -18,6 +18,12 @@ void main() {
       expect(list.list, [2, 3, 4]);
     });
 
+    test('truncates when adding a batch beyond maxLength', () {
+      final list = FixedList(3);
+      list.addAll([1, 2, 3, 4, 5]);
+      expect(list.list, [3, 4, 5]);
+    });
+
     test('clear empties the list', () {
       final list = FixedList(3, list: [1, 2, 3]);
       list.clear();

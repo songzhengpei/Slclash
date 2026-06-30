@@ -47,14 +47,43 @@ class Logs extends _$Logs with AutoDisposeNotifierMixin {
 
 @Riverpod(keepAlive: true)
 class Requests extends _$Requests with AutoDisposeNotifierMixin {
+  static const _batchInterval = Duration(seconds: 1);
+  static const _maxBatchSize = 50;
+
+  final List<TrackerInfo> _pendingRequests = [];
+  Timer? _flushTimer;
+  int _droppedRequests = 0;
+
   @override
   FixedList<TrackerInfo> build() {
+    ref.onDispose(() {
+      _flushTimer?.cancel();
+      _flushTimer = null;
+      _pendingRequests.clear();
+    });
     return FixedList(0);
   }
 
   void addRequest(TrackerInfo value) {
-    this.value = state.copyWith()..add(value);
+    if (_pendingRequests.length >= _maxBatchSize) {
+      _droppedRequests++;
+      return;
+    }
+    _pendingRequests.add(value);
+    _flushTimer ??= Timer(_batchInterval, _flushRequests);
   }
+
+  void _flushRequests() {
+    _flushTimer = null;
+    if (_pendingRequests.isEmpty) {
+      return;
+    }
+    final batch = List<TrackerInfo>.of(_pendingRequests);
+    _pendingRequests.clear();
+    value = state.copyWith()..addAll(batch);
+  }
+
+  int get droppedRequests => _droppedRequests;
 }
 
 @Riverpod(keepAlive: true)

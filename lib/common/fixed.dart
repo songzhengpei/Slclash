@@ -16,6 +16,12 @@ class FixedList<T> {
     _list.truncate(maxLength);
   }
 
+  void addAll(Iterable<T> items) {
+    for (final item in items) {
+      add(item);
+    }
+  }
+
   void clear() {
     _list.clear();
   }
