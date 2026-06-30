@@ -116,6 +116,20 @@ Duration? healthObservationOneShotDelay({
   return next.difference(now);
 }
 
+@visibleForTesting
+int healthObservationWorkerCount({
+  required int eligibleProxyCount,
+  required bool appForeground,
+  bool cellular = false,
+  bool screenOn = true,
+  bool powerSaveMode = false,
+}) {
+  if (eligibleProxyCount <= 0 || powerSaveMode) return 0;
+  if (!screenOn || cellular) return 1;
+  final maxWorkers = appForeground ? 5 : 2;
+  return math.min(maxWorkers, eligibleProxyCount);
+}
+
 /// App-level health observation scheduler.
 ///
 /// Runs independently of widget lifecycle, page visibility, and VPN state.
@@ -137,7 +151,6 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _idleRetryDelay = Duration(seconds: 30);
   static const _mediaCheckTimeout = Duration(seconds: 15);
   static const _observeSettingsKey = 'media-check-observe-settings-v1';
-  static const _workerCount = 5;
 
   // ── Retry intervals for different skip reasons ─────────────────────────
   static const _retryCoreUnavailable = Duration(minutes: 2);
@@ -375,6 +388,15 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       _completeObservation(success: true);
       return;
     }
+    final workerCount = healthObservationWorkerCount(
+      eligibleProxyCount: eligibleProxies.length,
+      appForeground: ref.read(appForegroundProvider),
+    );
+
+    if (workerCount <= 0) {
+      _completeObservation(skipReason: 'observationPaused');
+      return;
+    }
 
     // ── Test all eligible proxies with bounded concurrency ──────────────
     var observedCount = 0;
@@ -438,12 +460,7 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       }
     }
 
-    await Future.wait(
-      List.generate(
-        math.min(_workerCount, eligibleProxies.length),
-        (_) => worker(),
-      ),
-    );
+    await Future.wait(List.generate(workerCount, (_) => worker()));
 
     // ── Persist updated cache ───────────────────────────────────────────
     if (observedCount > 0) {

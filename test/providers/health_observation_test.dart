@@ -65,4 +65,66 @@ void main() {
       );
     });
   });
+
+  group('healthObservationWorkerCount', () {
+    test('returns zero without eligible proxies', () {
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 0,
+          appForeground: true,
+        ),
+        0,
+      );
+    });
+
+    test('caps foreground workers at five', () {
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 12,
+          appForeground: true,
+        ),
+        5,
+      );
+    });
+
+    test('caps background workers at two', () {
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 12,
+          appForeground: false,
+        ),
+        2,
+      );
+    });
+
+    test('uses one worker on cellular or screen off', () {
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 12,
+          appForeground: true,
+          cellular: true,
+        ),
+        1,
+      );
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 12,
+          appForeground: true,
+          screenOn: false,
+        ),
+        1,
+      );
+    });
+
+    test('pauses in power save mode', () {
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 12,
+          appForeground: true,
+          powerSaveMode: true,
+        ),
+        0,
+      );
+    });
+  });
 }
