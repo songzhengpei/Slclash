@@ -381,8 +381,6 @@ class GlobalState {
     autoLaunch?.updateStatus(container.read(appSettingProvider).autoLaunch);
     await _handleFailedPreference();
     await _handlerDisclaimer();
-    await container.read(coreActionProvider.notifier).connectCore();
-    await container.read(coreActionProvider.notifier).initCore();
     await container.read(setupActionProvider.notifier).initStatus();
     container.read(initProvider.notifier).value = true;
   }

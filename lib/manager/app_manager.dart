@@ -90,7 +90,10 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setupAction.resumeUiStatsTimerIfNeeded();
         setupAction.tryCheckIp();
-        if (system.isAndroid) {
+        if (shouldReconnectCoreOnResume(
+          isAndroid: system.isAndroid,
+          isRunning: ref.read(isStartProvider),
+        )) {
           container.read(coreActionProvider.notifier).tryStartCore();
         }
       });

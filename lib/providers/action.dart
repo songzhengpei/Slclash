@@ -25,6 +25,13 @@ bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
   return isRunning || autoRun;
 }
 
+bool shouldReconnectCoreOnResume({
+  required bool isAndroid,
+  required bool isRunning,
+}) {
+  return isAndroid && isRunning;
+}
+
 @Riverpod(keepAlive: true)
 class CommonAction extends _$CommonAction {
   @override
@@ -647,6 +654,9 @@ class SetupAction extends _$SetupAction {
       autoRun: ref.read(appSettingProvider).autoRun,
     );
     if (shouldFullSetup) {
+      final coreAction = ref.read(coreActionProvider.notifier);
+      await coreAction.connectCore();
+      await coreAction.initCore();
       await updateStatus(true, isInit: true);
     } else {
       globalState.needInitStatus = false;

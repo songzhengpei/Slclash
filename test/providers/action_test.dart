@@ -26,6 +26,29 @@ void main() {
     });
   });
 
+  group('shouldReconnectCoreOnResume', () {
+    test('does not reconnect core on Android when VPN is stopped', () {
+      expect(
+        shouldReconnectCoreOnResume(isAndroid: true, isRunning: false),
+        isFalse,
+      );
+    });
+
+    test('reconnects core on Android when VPN is running', () {
+      expect(
+        shouldReconnectCoreOnResume(isAndroid: true, isRunning: true),
+        isTrue,
+      );
+    });
+
+    test('does not reconnect core on non-Android platforms', () {
+      expect(
+        shouldReconnectCoreOnResume(isAndroid: false, isRunning: true),
+        isFalse,
+      );
+    });
+  });
+
   group('ProfilesAction', () {
     test('keeps edited profile data when remote update fails', () async {
       final original = Profile.normal(label: 'old label', url: 'bad-url');
