@@ -267,6 +267,7 @@ func applyConfig(params *SetupParams) error {
 		currentProxyGroupNames = getRawProxyGroupNames(configPath)
 	}
 	hub.ApplyConfig(currentConfig)
+	invalidateProxiesCacheLocked()
 	patchSelectGroup(params.SelectedMap)
 	updateListeners()
 	return err

@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -31,6 +32,9 @@ var (
 	isInit            = false
 	externalProviders = map[string]cp.Provider{}
 	logSubscriber     observable.Subscription[log.Event]
+	proxiesCache      ProxiesData
+	proxiesCacheKey   string
+	proxiesCacheValid bool
 )
 
 func handleInitClash(paramsString string) bool {
@@ -80,6 +84,7 @@ func handleForceGC() {
 func handleShutdown() bool {
 	stopListeners()
 	executor.Shutdown()
+	invalidateProxiesCache()
 	handleForceGC()
 	isInit = false
 	return true
@@ -99,9 +104,14 @@ func handleGetProxies() ProxiesData {
 	defer runLock.Unlock()
 
 	nameList := getProxyNameList()
+	rawProxies := tunnel.Proxies()
+	providers := tunnel.Providers()
+	cacheKey := buildProxiesCacheKey(nameList, rawProxies, providers)
+	if proxiesCacheValid && proxiesCacheKey == cacheKey {
+		return proxiesCache
+	}
 
 	// Merge direct proxies and provider proxies into a single flat map.
-	rawProxies := tunnel.Proxies()
 	proxies := make(map[string]constant.Proxy, len(rawProxies))
 	for name, proxy := range rawProxies {
 		if !isFrontendVisibleProxy(proxy) {
@@ -109,7 +119,7 @@ func handleGetProxies() ProxiesData {
 		}
 		proxies[name] = proxy
 	}
-	for _, p := range tunnel.Providers() {
+	for _, p := range providers {
 		for _, proxy := range p.Proxies() {
 			if !isFrontendVisibleProxy(proxy) {
 				continue
@@ -144,10 +154,13 @@ func handleGetProxies() ProxiesData {
 		}
 	}
 
-	return ProxiesData{
+	proxiesCache = ProxiesData{
 		All:     allNames,
 		Proxies: proxies,
 	}
+	proxiesCacheKey = cacheKey
+	proxiesCacheValid = true
+	return proxiesCache
 }
 
 func isFrontendVisibleProxy(proxy constant.Proxy) bool {
@@ -160,6 +173,43 @@ func isFrontendVisibleProxy(proxy constant.Proxy) bool {
 	default:
 		return true
 	}
+}
+
+func buildProxiesCacheKey(nameList []string, rawProxies map[string]constant.Proxy, providers map[string]cp.ProxyProvider) string {
+	parts := make([]string, 0, len(nameList)+len(providers)+1)
+	parts = append(parts, "raw:"+strconv.Itoa(len(rawProxies)))
+	parts = append(parts, nameList...)
+	providerNames := make([]string, 0, len(providers))
+	for name := range providers {
+		providerNames = append(providerNames, name)
+	}
+	slices.Sort(providerNames)
+	for _, name := range providerNames {
+		provider := providers[name]
+		if provider == nil {
+			parts = append(parts, name+":nil")
+			continue
+		}
+		parts = append(
+			parts,
+			name+":"+
+				strconv.Itoa(int(provider.Version()))+":"+
+				strconv.Itoa(provider.Count()),
+		)
+	}
+	return strings.Join(parts, "\x00")
+}
+
+func invalidateProxiesCache() {
+	runLock.Lock()
+	defer runLock.Unlock()
+	invalidateProxiesCacheLocked()
+}
+
+func invalidateProxiesCacheLocked() {
+	proxiesCache = ProxiesData{}
+	proxiesCacheKey = ""
+	proxiesCacheValid = false
 }
 
 func handleChangeProxy(data string, fn func(string string)) {
@@ -469,6 +519,7 @@ func handleUpdateExternalProvider(providerName string, fn func(value string)) {
 			fn(err.Error())
 			return
 		}
+		invalidateProxiesCache()
 		fn("")
 	}()
 }
@@ -487,6 +538,7 @@ func handleSideLoadExternalProvider(providerName string, data []byte, fn func(va
 			fn(err.Error())
 			return
 		}
+		invalidateProxiesCacheLocked()
 		fn("")
 	}()
 }
