@@ -130,6 +130,8 @@ data object Core {
 
     external fun getTotalTraffic(onlyStatisticsProxy: Boolean): String
 
+    external fun getTrafficSnapshot(onlyStatisticsProxy: Boolean): String
+
     init {
         System.loadLibrary("core")
     }

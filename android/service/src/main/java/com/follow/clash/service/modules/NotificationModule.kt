@@ -1,6 +1,6 @@
 package com.follow.clash.service.modules
 
-import android.app.Notification.FOREGROUND_SERVICE_IMMEDIATE
+import android.app.NotificationManager
 import android.app.Service
 import android.app.Service.STOP_FOREGROUND_REMOVE
 import android.content.Intent
@@ -44,7 +44,13 @@ val NotificationParams.extended: ExtendedNotificationParams
     )
 
 class NotificationModule(private val service: Service) : Module() {
+    private companion object {
+        const val REFRESH_INTERVAL_MILLIS = 10_000L
+    }
+
     private val scope = CoroutineScope(Dispatchers.Default)
+    private var foregroundStarted = false
+    private var lastParams: ExtendedNotificationParams? = null
 
     override fun onInstall() {
         scope.launch {
@@ -57,21 +63,17 @@ class NotificationModule(private val service: Service) : Module() {
                 emit(isScreenOn())
             }
 
+            update(State.notificationParamsFlow.value?.extended ?: NotificationParams().extended, true)
+
             combine(
-                tickerFlow(1000, 0), State.notificationParamsFlow, screenFlow
+                tickerFlow(REFRESH_INTERVAL_MILLIS), State.notificationParamsFlow, screenFlow
             ) { _, params, screenOn ->
-                params?.extended to screenOn
-            }.filter { (params, screenOn) -> params != null && screenOn }
-                .distinctUntilChanged { old, new -> old.first == new.first && old.second == new.second }
-                .collect { (params, _) ->
+                if (screenOn) params?.extended else null
+            }.filter { params -> params != null }
+                .distinctUntilChanged()
+                .collect { params ->
                     update(params!!)
                 }
-
-            State.notificationParamsFlow.value?.let {
-                update(it.extended)
-            } ?: run {
-                update(NotificationParams().extended)
-            }
         }
     }
 
@@ -92,12 +94,9 @@ class NotificationModule(private val service: Service) : Module() {
             setSmallIcon(R.drawable.ic_service)
             setContentTitle("FlClash")
             setContentIntent(intent.toPendingIntent)
-            setPriority(NotificationCompat.PRIORITY_HIGH)
+            setPriority(NotificationCompat.PRIORITY_LOW)
             setCategory(NotificationCompat.CATEGORY_SERVICE)
             setOngoing(true)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                foregroundServiceBehavior = FOREGROUND_SERVICE_IMMEDIATE
-            }
             setShowWhen(true)
             setOnlyAlertOnce(true)
 //            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -106,16 +105,28 @@ class NotificationModule(private val service: Service) : Module() {
         }
     }
 
-    private fun update(params: ExtendedNotificationParams) {
-        service.startForeground(
-            with(notificationBuilder) {
-                setContentTitle(params.title)
-                setContentText(params.contentText)
-                clearActions()
-                addAction(
-                    0, params.stopText, QuickAction.STOP.quickIntent.toPendingIntent
-                ).build()
-            })
+    private fun update(params: ExtendedNotificationParams, forceForeground: Boolean = false) {
+        val shouldStartForeground = forceForeground || !foregroundStarted
+        if (!shouldStartForeground && lastParams == params) return
+        lastParams = params
+
+        val notification = with(notificationBuilder) {
+            setContentTitle(params.title)
+            setContentText(params.contentText)
+            clearActions()
+            addAction(
+                0, params.stopText, QuickAction.STOP.quickIntent.toPendingIntent
+            ).build()
+        }
+
+        if (shouldStartForeground) {
+            service.startForeground(notification)
+            foregroundStarted = true
+            return
+        }
+
+        service.getSystemService<NotificationManager>()
+            ?.notify(GlobalState.NOTIFICATION_ID, notification)
     }
 
     override fun onUninstall() {

@@ -73,6 +73,16 @@ Java_com_follow_clash_core_Core_getTotalTraffic(JNIEnv *env, jobject thiz,
 }
 
 extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_follow_clash_core_Core_getTrafficSnapshot(JNIEnv *env, jobject thiz,
+                                                   const jboolean only_statistics_proxy) {
+    char *traffic = getTrafficSnapshot(only_statistics_proxy);
+    jstring result = new_string(traffic);
+    free_string(traffic);
+    return result;
+}
+
+extern "C"
 JNIEXPORT void JNICALL
 Java_com_follow_clash_core_Core_suspended(JNIEnv *env, jobject thiz, jboolean suspended) {
     suspend(suspended);
@@ -215,6 +225,12 @@ extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_follow_clash_core_Core_getTotalTraffic(JNIEnv *env, jobject thiz,
                                                 const jboolean only_statistics_proxy) {
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_follow_clash_core_Core_getTrafficSnapshot(JNIEnv *env, jobject thiz,
+                                                   const jboolean only_statistics_proxy) {
 }
 
 extern "C"

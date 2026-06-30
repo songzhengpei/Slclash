@@ -242,6 +242,11 @@ func getTraffic(onlyStatisticsProxy bool) *C.char {
 	return C.CString(handleGetTraffic(onlyStatisticsProxy))
 }
 
+//export getTrafficSnapshot
+func getTrafficSnapshot(onlyStatisticsProxy bool) *C.char {
+	return C.CString(handleGetTrafficSnapshot(onlyStatisticsProxy))
+}
+
 func sendMessage(message Message) {
 	if eventListener == nil {
 		return
