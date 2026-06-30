@@ -19,19 +19,14 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
   List<Point> initPoints = const [Point(0, 0), Point(1, 0)];
 
   List<Point> _getPoints(List<Traffic> traffics) {
-    final List<Point> trafficPoints = traffics
-        .toList()
-        .asMap()
-        .map(
-          (index, e) => MapEntry(
-            index,
-            Point((index + initPoints.length).toDouble(), e.speed.toDouble()),
-          ),
-        )
-        .values
-        .toList();
-
-    return [...initPoints, ...trafficPoints];
+    final points = List<Point>.of(initPoints, growable: true);
+    for (var i = 0; i < traffics.length; i++) {
+      final traffic = traffics[i];
+      points.add(
+        Point((i + initPoints.length).toDouble(), traffic.speed.toDouble()),
+      );
+    }
+    return points;
   }
 
   Traffic _getLastTraffic(List<Traffic> traffics) {

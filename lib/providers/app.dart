@@ -106,7 +106,7 @@ class Traffics extends _$Traffics with AutoDisposeNotifierMixin {
   }
 
   void clear() {
-    value = state.copyWith()..clear();
+    value = FixedList(state.maxLength);
   }
 }
 
