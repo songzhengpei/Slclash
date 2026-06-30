@@ -87,6 +87,16 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   FutureOr<bool> destroy();
 
+  bool _shouldLogInvoke(ActionMethod method) {
+    return switch (method) {
+      ActionMethod.getTraffic ||
+      ActionMethod.getTotalTraffic ||
+      ActionMethod.getMemory ||
+      ActionMethod.getConnections => false,
+      _ => true,
+    };
+  }
+
   Future<T?> _invoke<T>({
     required ActionMethod method,
     dynamic data,
@@ -101,15 +111,20 @@ abstract class CoreHandlerInterface with CoreInterface {
       );
       return null;
     }
+    final shouldLog = _shouldLogInvoke(method);
     return await utils.handleWatch(
       onStart: () {
-        commonPrint.log('Invoke ${method.name} ${DateTime.now()} $data');
+        if (shouldLog) {
+          commonPrint.log('Invoke ${method.name} ${DateTime.now()} $data');
+        }
       },
       function: () async {
         return invoke<T>(method: method, data: data, timeout: timeout);
       },
       onEnd: (data, elapsedMilliseconds) {
-        commonPrint.log('Invoke ${method.name} ${elapsedMilliseconds}ms');
+        if (shouldLog) {
+          commonPrint.log('Invoke ${method.name} ${elapsedMilliseconds}ms');
+        }
       },
     );
   }
