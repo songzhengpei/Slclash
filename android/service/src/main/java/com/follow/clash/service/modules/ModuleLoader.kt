@@ -21,11 +21,13 @@ private val mutex = Mutex()
 fun CoroutineScope.moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): ModuleLoader {
     val modules = mutableListOf<Module>()
     var job: Job? = null
+    var loaded = false
 
     return object : ModuleLoader {
         override fun load() {
             job = launch(Dispatchers.IO) {
                 mutex.withLock {
+                    if (loaded) return@withLock
                     val scope = object : ModuleLoaderScope {
                         override fun <T : Module> install(module: T): T {
                             modules.add(module)
@@ -33,7 +35,15 @@ fun CoroutineScope.moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): Mo
                             return module
                         }
                     }
-                    scope.block()
+                    try {
+                        scope.block()
+                        loaded = true
+                    } catch (e: Throwable) {
+                        modules.asReversed().forEach { it.uninstall() }
+                        modules.clear()
+                        loaded = false
+                        throw e
+                    }
                 }
             }
         }
@@ -44,6 +54,7 @@ fun CoroutineScope.moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): Mo
                 mutex.withLock {
                     modules.asReversed().forEach { it.uninstall() }
                     modules.clear()
+                    loaded = false
                 }
             }
         }
