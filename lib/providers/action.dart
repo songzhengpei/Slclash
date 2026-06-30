@@ -21,6 +21,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 part 'generated/action.g.dart';
 
+bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
+  return isRunning || autoRun;
+}
+
 @Riverpod(keepAlive: true)
 class CommonAction extends _$CommonAction {
   @override
@@ -638,13 +642,16 @@ class SetupAction extends _$SetupAction {
     if (system.isAndroid) {
       await _updateStartTime();
     }
-    final status = isStart == true
-        ? true
-        : ref.read(appSettingProvider).autoRun;
-    if (status == true) {
+    final shouldFullSetup = shouldFullSetupOnInit(
+      isRunning: isStart,
+      autoRun: ref.read(appSettingProvider).autoRun,
+    );
+    if (shouldFullSetup) {
       await updateStatus(true, isInit: true);
     } else {
-      await applyProfile(force: true);
+      globalState.needInitStatus = false;
+      ref.read(runTimeProvider.notifier).value = null;
+      commonPrint.log('init status skip full setup');
     }
   }
 

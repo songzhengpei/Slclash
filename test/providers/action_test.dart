@@ -6,6 +6,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  group('shouldFullSetupOnInit', () {
+    test(
+      'skips full setup when VPN is not running and auto run is disabled',
+      () {
+        expect(
+          shouldFullSetupOnInit(isRunning: false, autoRun: false),
+          isFalse,
+        );
+      },
+    );
+
+    test('runs full setup when VPN is already running', () {
+      expect(shouldFullSetupOnInit(isRunning: true, autoRun: false), isTrue);
+    });
+
+    test('runs full setup when auto run is enabled', () {
+      expect(shouldFullSetupOnInit(isRunning: false, autoRun: true), isTrue);
+    });
+  });
+
   group('ProfilesAction', () {
     test('keeps edited profile data when remote update fails', () async {
       final original = Profile.normal(label: 'old label', url: 'bad-url');
