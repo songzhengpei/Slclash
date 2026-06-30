@@ -10,6 +10,23 @@ import 'package:fl_clash/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+@visibleForTesting
+bool shouldCollectCoreLogs({
+  required bool openLogs,
+  required bool appForeground,
+  required PageLabel currentPageLabel,
+}) {
+  return openLogs && appForeground && currentPageLabel == PageLabel.logs;
+}
+
+@visibleForTesting
+bool shouldCollectCoreRequests({
+  required bool appForeground,
+  required PageLabel currentPageLabel,
+}) {
+  return appForeground && currentPageLabel == PageLabel.requests;
+}
+
 class CoreManager extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -21,9 +38,41 @@ class CoreManager extends ConsumerStatefulWidget {
 
 class _CoreContainerState extends ConsumerState<CoreManager>
     with CoreEventListener {
+  bool _logStreamRunning = false;
+
   @override
   Widget build(BuildContext context) {
     return widget.child;
+  }
+
+  void _syncCoreEventControls() {
+    final shouldCollectLogs = shouldCollectCoreLogs(
+      openLogs: ref.read(appSettingProvider.select((state) => state.openLogs)),
+      appForeground: ref.read(appForegroundProvider),
+      currentPageLabel: ref.read(currentPageLabelProvider),
+    );
+    final shouldCollectRequests = shouldCollectCoreRequests(
+      appForeground: ref.read(appForegroundProvider),
+      currentPageLabel: ref.read(currentPageLabelProvider),
+    );
+
+    coreEventManager.setEventTypeEnabled(CoreEventType.log, shouldCollectLogs);
+    coreEventManager.setEventTypeEnabled(
+      CoreEventType.request,
+      shouldCollectRequests,
+    );
+
+    if (!coreController.isCompleted) {
+      _logStreamRunning = false;
+      return;
+    }
+    if (shouldCollectLogs && !_logStreamRunning) {
+      _logStreamRunning = true;
+      coreController.startLog();
+    } else if (!shouldCollectLogs && _logStreamRunning) {
+      _logStreamRunning = false;
+      coreController.stopLog();
+    }
   }
 
   @override
@@ -42,20 +91,37 @@ class _CoreContainerState extends ConsumerState<CoreManager>
         ref.read(setupActionProvider.notifier).updateConfigDebounce();
       }
     });
-    ref.listenManual(appSettingProvider.select((state) => state.openLogs), (
-      prev,
-      next,
-    ) {
-      if (next) {
-        coreController.startLog();
-      } else {
-        coreController.stopLog();
+    ref.listenManual(
+      appSettingProvider.select((state) => state.openLogs),
+      (prev, next) => _syncCoreEventControls(),
+    );
+    ref.listenManual(
+      appForegroundProvider,
+      (prev, next) => _syncCoreEventControls(),
+    );
+    ref.listenManual(
+      currentPageLabelProvider,
+      (prev, next) => _syncCoreEventControls(),
+    );
+    ref.listenManual(
+      coreStatusProvider,
+      (prev, next) => _syncCoreEventControls(),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncCoreEventControls();
       }
-    }, fireImmediately: true);
+    });
   }
 
   @override
   Future<void> dispose() async {
+    coreEventManager.setEventTypeEnabled(CoreEventType.log, false);
+    coreEventManager.setEventTypeEnabled(CoreEventType.request, false);
+    if (_logStreamRunning && coreController.isCompleted) {
+      coreController.stopLog();
+    }
+    _logStreamRunning = false;
     coreEventManager.removeListener(this);
     super.dispose();
   }
@@ -72,7 +138,14 @@ class _CoreContainerState extends ConsumerState<CoreManager>
 
   @override
   void onLog(Log log) {
-    // ref.read(logsProvider.notifier).add(log);
+    if (!shouldCollectCoreLogs(
+      openLogs: ref.read(appSettingProvider.select((state) => state.openLogs)),
+      appForeground: ref.read(appForegroundProvider),
+      currentPageLabel: ref.read(currentPageLabelProvider),
+    )) {
+      return;
+    }
+    ref.read(logsProvider.notifier).add(log);
     if (log.logLevel == LogLevel.error) {
       globalState.showNotifier(log.payload);
     }
@@ -81,6 +154,12 @@ class _CoreContainerState extends ConsumerState<CoreManager>
 
   @override
   void onRequest(TrackerInfo trackerInfo) async {
+    if (!shouldCollectCoreRequests(
+      appForeground: ref.read(appForegroundProvider),
+      currentPageLabel: ref.read(currentPageLabelProvider),
+    )) {
+      return;
+    }
     ref.read(requestsProvider.notifier).addRequest(trackerInfo);
     super.onRequest(trackerInfo);
   }

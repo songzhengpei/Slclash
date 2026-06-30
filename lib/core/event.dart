@@ -18,9 +18,17 @@ abstract mixin class CoreEventListener {
 
 class CoreEventManager {
   final _controller = StreamController<CoreEvent>();
+  final Set<CoreEventType> _enabledEventTypes = {
+    CoreEventType.delay,
+    CoreEventType.loaded,
+    CoreEventType.crash,
+  };
 
   CoreEventManager._() {
     _controller.stream.listen((event) {
+      if (!_enabledEventTypes.contains(event.type)) {
+        return;
+      }
       for (final CoreEventListener listener in _listeners) {
         switch (event.type) {
           case CoreEventType.log:
@@ -54,6 +62,14 @@ class CoreEventManager {
 
   void sendEvent(CoreEvent event) {
     _controller.add(event);
+  }
+
+  void setEventTypeEnabled(CoreEventType type, bool enabled) {
+    if (enabled) {
+      _enabledEventTypes.add(type);
+    } else {
+      _enabledEventTypes.remove(type);
+    }
   }
 
   void addListener(CoreEventListener listener) {
