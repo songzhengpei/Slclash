@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
@@ -364,6 +365,18 @@ class AppForeground extends _$AppForeground with AutoDisposeNotifierMixin {
   bool build() => true;
 
   void set(bool value) => state = value;
+}
+
+/// Last connectivity results reported by connectivity_plus.
+@Riverpod(keepAlive: true)
+class ConnectivityResults extends _$ConnectivityResults
+    with AutoDisposeNotifierMixin {
+  @override
+  List<ConnectivityResult> build() => const [];
+
+  void set(List<ConnectivityResult> value) {
+    state = List.unmodifiable(value);
+  }
 }
 
 /// Tracks the last time the user interacted with the app (touch/mouse).

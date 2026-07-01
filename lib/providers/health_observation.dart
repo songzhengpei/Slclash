@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -128,6 +129,11 @@ int healthObservationWorkerCount({
   if (!screenOn || cellular) return 1;
   final maxWorkers = appForeground ? 5 : 2;
   return math.min(maxWorkers, eligibleProxyCount);
+}
+
+@visibleForTesting
+bool healthObservationIsCellular(Iterable<ConnectivityResult> results) {
+  return results.contains(ConnectivityResult.mobile);
 }
 
 /// App-level health observation scheduler.
@@ -391,6 +397,9 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     final workerCount = healthObservationWorkerCount(
       eligibleProxyCount: eligibleProxies.length,
       appForeground: ref.read(appForegroundProvider),
+      cellular: healthObservationIsCellular(
+        ref.read(connectivityResultsProvider),
+      ),
     );
 
     if (workerCount <= 0) {

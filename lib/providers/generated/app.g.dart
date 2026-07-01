@@ -92,7 +92,7 @@ final class LogsProvider extends $NotifierProvider<Logs, FixedList<Log>> {
   }
 }
 
-String _$logsHash() => r'2f10830d8a103688a59afce45ab6c52a82f38ca2';
+String _$logsHash() => r'1c8857e490740c773d06ee4e7177471c677d807b';
 
 abstract class _$Logs extends $Notifier<FixedList<Log>> {
   FixedList<Log> build();
@@ -144,7 +144,7 @@ final class RequestsProvider
   }
 }
 
-String _$requestsHash() => r'32e4f0141a66b27732f8156a55a6fb23d74cfc07';
+String _$requestsHash() => r'63c5d24ab80b4d27da6f824826be6488ccf401f9';
 
 abstract class _$Requests extends $Notifier<FixedList<TrackerInfo>> {
   FixedList<TrackerInfo> build();
@@ -354,7 +354,7 @@ final class TrafficsProvider
   }
 }
 
-String _$trafficsHash() => r'00b83d393175b51abcef277417fb3d9b70cc247f';
+String _$trafficsHash() => r'5087fcbb7f68c356c745580f3db01667dc7274cb';
 
 abstract class _$Traffics extends $Notifier<FixedList<Traffic>> {
   FixedList<Traffic> build();
@@ -1319,6 +1319,67 @@ abstract class _$AppForeground extends $Notifier<bool> {
             as $ClassProviderElement<
               AnyNotifier<bool, bool>,
               bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+/// Last connectivity results reported by connectivity_plus.
+
+@ProviderFor(ConnectivityResults)
+final connectivityResultsProvider = ConnectivityResultsProvider._();
+
+/// Last connectivity results reported by connectivity_plus.
+final class ConnectivityResultsProvider
+    extends $NotifierProvider<ConnectivityResults, List<ConnectivityResult>> {
+  /// Last connectivity results reported by connectivity_plus.
+  ConnectivityResultsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'connectivityResultsProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$connectivityResultsHash();
+
+  @$internal
+  @override
+  ConnectivityResults create() => ConnectivityResults();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(List<ConnectivityResult> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<List<ConnectivityResult>>(value),
+    );
+  }
+}
+
+String _$connectivityResultsHash() =>
+    r'fcc7ac5bb04be9eb7c0f022b7e964af98a20c251';
+
+/// Last connectivity results reported by connectivity_plus.
+
+abstract class _$ConnectivityResults
+    extends $Notifier<List<ConnectivityResult>> {
+  List<ConnectivityResult> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref =
+        this.ref as $Ref<List<ConnectivityResult>, List<ConnectivityResult>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<List<ConnectivityResult>, List<ConnectivityResult>>,
+              List<ConnectivityResult>,
               Object?,
               Object?
             >;

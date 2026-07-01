@@ -1,4 +1,5 @@
 import 'package:fl_clash/providers/health_observation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -124,6 +125,28 @@ void main() {
           powerSaveMode: true,
         ),
         0,
+      );
+    });
+  });
+
+  group('healthObservationIsCellular', () {
+    test('detects mobile connectivity', () {
+      expect(
+        healthObservationIsCellular([
+          ConnectivityResult.wifi,
+          ConnectivityResult.mobile,
+        ]),
+        isTrue,
+      );
+    });
+
+    test('ignores non-cellular connectivity', () {
+      expect(
+        healthObservationIsCellular([
+          ConnectivityResult.vpn,
+          ConnectivityResult.wifi,
+        ]),
+        isFalse,
       );
     });
   });
