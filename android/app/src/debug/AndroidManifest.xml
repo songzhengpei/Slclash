@@ -6,11 +6,11 @@
     -->
     <application
         android:icon="@mipmap/ic_launcher"
-        android:label="SlClash Debug"
+        android:label="${debugAppLabel}"
         tools:replace="android:label">
         <service
             android:name="com.follow.clash.TileService"
-            android:label="SlClash Debug"
+            android:label="${debugAppLabel}"
             tools:replace="android:label" />
     </application>
 </manifest>

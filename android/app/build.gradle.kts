@@ -23,6 +23,10 @@ val isRelease =
 val skipAbiFilters = providers.gradleProperty("slclashSkipAbiFilters")
     .map { it.toBoolean() }
     .getOrElse(false)
+val debugApplicationIdSuffix = providers.gradleProperty("slclashDebugApplicationIdSuffix")
+    .getOrElse(".dev")
+val debugAppLabel = providers.gradleProperty("slclashDebugAppLabel")
+    .getOrElse("SlClash Debug")
 
 
 android {
@@ -70,7 +74,8 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
-            applicationIdSuffix = ".dev"
+            applicationIdSuffix = debugApplicationIdSuffix
+            manifestPlaceholders["debugAppLabel"] = debugAppLabel
         }
 
         release {

@@ -140,7 +140,7 @@ extension ProfilesCompanionExt on Profile {
       subscriptionInfo: Value(subscriptionInfo),
       autoUpdate: autoUpdate,
       selectedMap: selectedMap,
-      computedSelectedMap: computedSelectedMap,
+      computedSelectedMap: Value(computedSelectedMap),
       unfoldSet: unfoldSet,
       overwriteType: overwriteType,
       scriptId: Value(scriptId),
