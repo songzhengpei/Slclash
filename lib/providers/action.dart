@@ -1236,12 +1236,21 @@ class ProxiesAction extends _$ProxiesAction {
         retryIf: (res) => res.isEmpty || res.any((g) => g.all.isEmpty),
       );
       ref.read(groupsProvider.notifier).value = groups;
-      // Sync computed group cache from fresh data.
+      // Sync computed group cache from fresh data and persist it.
       // Run only after a successful retry; the catch path must NOT
       // call syncFromGroups, otherwise an empty-list fallback would
       // clear the UI-only cache and defeat the lifecycle fix.
-      ref.read(computedSelectedCacheProvider.notifier)
-          .syncFromGroups(groups);
+      final baseComputedSelectedMap =
+          ref.read(currentProfileProvider)?.computedSelectedMap ?? {};
+      final computedSelectedMap = ref
+          .read(computedSelectedCacheProvider.notifier)
+          .syncFromGroups(
+            groups,
+            base: baseComputedSelectedMap,
+          );
+      ref
+          .read(profilesActionProvider.notifier)
+          .updateCurrentComputedSelectedMap(computedSelectedMap);
     } catch (e) {
       commonPrint.log('updateGroups error: $e');
       ref.read(groupsProvider.notifier).value = [];
@@ -1340,6 +1349,21 @@ class ProfilesAction extends _$ProfilesAction {
           .read(profilesProvider.notifier)
           .put(currentProfile.copyWith(selectedMap: selectedMap));
     }
+  }
+
+  void updateCurrentComputedSelectedMap(
+      Map<String, String> computedSelectedMap) {
+    final currentProfile = ref.read(currentProfileProvider);
+    if (currentProfile == null) return;
+    final next = Map<String, String>.from(computedSelectedMap);
+    final current = currentProfile.computedSelectedMap;
+    final sameLength = current.length == next.length;
+    final sameContent =
+        sameLength && current.entries.every((e) => next[e.key] == e.value);
+    if (sameContent) return;
+    ref.read(profilesProvider.notifier).put(
+          currentProfile.copyWith(computedSelectedMap: next),
+        );
   }
 
   Future<void> deleteProfile(int id) async {

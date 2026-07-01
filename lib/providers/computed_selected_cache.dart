@@ -10,10 +10,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// cache provides a fallback for display until the runtime auto-selects a
 /// real node again.
 ///
+/// This provider is an in-memory staging helper. The stable result is also
+/// persisted into Profile.computedSelectedMap.
+///
 /// Important:
 /// - Never written to Profile.selectedMap (user manual selections only).
 /// - Never fed back to coreController.changeProxy or patchSelectGroup.
-/// - Never persisted — purely transient UI cache.
+/// - Not fed to SetupParams.selectedMap.
 final computedSelectedCacheProvider =
     NotifierProvider<ComputedSelectedCache, Map<String, String>>(
   ComputedSelectedCache.new,
@@ -34,7 +37,7 @@ class ComputedSelectedCache extends Notifier<Map<String, String>> {
   /// Incrementally sync the cache from the current list of groups.
   ///
   /// Rules:
-  /// - If [groups] is empty, return without clearing cache (protect against
+  /// - If [groups] is empty, return existing cache (protect against
   ///   transient empty states during core restart).
   /// - When a computed group has a real (non-fallback) [now] that exists in
   ///   [group.all], update the cache entry.
@@ -43,10 +46,19 @@ class ComputedSelectedCache extends Notifier<Map<String, String>> {
   /// - If a previously cached node no longer exists in [group.all], remove
   ///   that group's cache entry (stale node eviction).
   /// - Groups that are not [isComputedSelected] are ignored.
-  void syncFromGroups(List<Group> groups) {
-    if (groups.isEmpty) return;
+  ///
+  /// [base] allows passing in the persisted computedSelectedMap from the
+  /// current Profile, so switching profiles does not reuse the previous
+  /// profile's in-memory cache.
+  ///
+  /// Returns the merged cache map for callers that need to persist it.
+  Map<String, String> syncFromGroups(
+    List<Group> groups, {
+    Map<String, String>? base,
+  }) {
+    if (groups.isEmpty) return Map<String, String>.from(base ?? state);
 
-    final cache = Map<String, String>.from(state);
+    final cache = Map<String, String>.from(base ?? state);
     final computedGroups =
         groups.where((g) => g.type.isComputedSelected).toList();
     final computedGroupNames = computedGroups.map((g) => g.name).toSet();
@@ -68,6 +80,7 @@ class ComputedSelectedCache extends Notifier<Map<String, String>> {
     }
 
     state = cache;
+    return cache;
   }
 
   /// Get cached stable `now` for [groupName], or null if not cached.

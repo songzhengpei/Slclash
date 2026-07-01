@@ -348,6 +348,13 @@ Map<String, String> selectedMap(Ref ref) {
 }
 
 @riverpod
+Map<String, String> computedSelectedMap(Ref ref) {
+  return ref.watch(
+    currentProfileProvider.select((state) => state?.computedSelectedMap ?? {}),
+  );
+}
+
+@riverpod
 Set<String> unfoldSet(Ref ref) {
   final unfoldSet = ref.watch(
     currentProfileProvider.select((state) => state?.unfoldSet ?? {}),
@@ -409,7 +416,7 @@ String? selectedProxyName(Ref ref, String groupName) {
   );
   if (group == null) return null;
   final cachedNow = ref.watch(
-    computedSelectedCacheProvider.select((state) => state[groupName]),
+    computedSelectedMapProvider.select((state) => state[groupName]),
   );
   return group.getCurrentSelectedName(proxyName ?? '', cachedComputedNow: cachedNow);
 }

@@ -123,6 +123,18 @@ class $ProfilesTable extends Profiles
     requiredDuringInsert: true,
   ).withConverter<Map<String, String>>($ProfilesTable.$converterselectedMap);
   @override
+  late final GeneratedColumnWithTypeConverter<Map<String, String>, String>
+      computedSelectedMap = GeneratedColumn<String>(
+        'computed_selected_map',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+        defaultValue: const Constant('{}'),
+      ).withConverter<Map<String, String>>(
+        $ProfilesTable.$convertercomputedSelectedMap,
+      );
+  @override
   late final GeneratedColumnWithTypeConverter<Set<String>, String> unfoldSet =
       GeneratedColumn<String>(
         'unfold_set',
@@ -153,6 +165,7 @@ class $ProfilesTable extends Profiles
     subscriptionInfo,
     autoUpdate,
     selectedMap,
+    computedSelectedMap,
     unfoldSet,
     order,
   ];
@@ -295,6 +308,12 @@ class $ProfilesTable extends Profiles
           data['${effectivePrefix}selected_map'],
         )!,
       ),
+      computedSelectedMap: $ProfilesTable.$convertercomputedSelectedMap.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}computed_selected_map'],
+        )!,
+      ),
       unfoldSet: $ProfilesTable.$converterunfoldSet.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -321,6 +340,8 @@ class $ProfilesTable extends Profiles
       const SubscriptionInfoConverter();
   static TypeConverter<Map<String, String>, String> $converterselectedMap =
       const StringMapConverter();
+  static TypeConverter<Map<String, String>, String> $convertercomputedSelectedMap =
+      const StringMapConverter();
   static TypeConverter<Set<String>, String> $converterunfoldSet =
       const StringSetConverter();
 }
@@ -337,6 +358,7 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
   final SubscriptionInfo? subscriptionInfo;
   final bool autoUpdate;
   final Map<String, String> selectedMap;
+  final Map<String, String> computedSelectedMap;
   final Set<String> unfoldSet;
   final int? order;
   const RawProfile({
@@ -351,6 +373,7 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
     this.subscriptionInfo,
     required this.autoUpdate,
     required this.selectedMap,
+    required this.computedSelectedMap,
     required this.unfoldSet,
     this.order,
   });
@@ -389,6 +412,11 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
       );
     }
     {
+      map['computed_selected_map'] = Variable<String>(
+        $ProfilesTable.$convertercomputedSelectedMap.toSql(computedSelectedMap),
+      );
+    }
+    {
       map['unfold_set'] = Variable<String>(
         $ProfilesTable.$converterunfoldSet.toSql(unfoldSet),
       );
@@ -420,6 +448,7 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
           : Value(subscriptionInfo),
       autoUpdate: Value(autoUpdate),
       selectedMap: Value(selectedMap),
+      computedSelectedMap: Value(computedSelectedMap),
       unfoldSet: Value(unfoldSet),
       order: order == null && nullToAbsent
           ? const Value.absent()
@@ -452,6 +481,9 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
       selectedMap: serializer.fromJson<Map<String, String>>(
         json['selectedMap'],
       ),
+      computedSelectedMap: serializer.fromJson<Map<String, String>>(
+        json['computedSelectedMap'],
+      ),
       unfoldSet: serializer.fromJson<Set<String>>(json['unfoldSet']),
       order: serializer.fromJson<int?>(json['order']),
     );
@@ -477,6 +509,9 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
       ),
       'autoUpdate': serializer.toJson<bool>(autoUpdate),
       'selectedMap': serializer.toJson<Map<String, String>>(selectedMap),
+      'computedSelectedMap': serializer.toJson<Map<String, String>>(
+        computedSelectedMap,
+      ),
       'unfoldSet': serializer.toJson<Set<String>>(unfoldSet),
       'order': serializer.toJson<int?>(order),
     };
@@ -494,6 +529,7 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
     Value<SubscriptionInfo?> subscriptionInfo = const Value.absent(),
     bool? autoUpdate,
     Map<String, String>? selectedMap,
+    Map<String, String>? computedSelectedMap,
     Set<String>? unfoldSet,
     Value<int?> order = const Value.absent(),
   }) => RawProfile(
@@ -515,6 +551,7 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
         : this.subscriptionInfo,
     autoUpdate: autoUpdate ?? this.autoUpdate,
     selectedMap: selectedMap ?? this.selectedMap,
+    computedSelectedMap: computedSelectedMap ?? this.computedSelectedMap,
     unfoldSet: unfoldSet ?? this.unfoldSet,
     order: order.present ? order.value : this.order,
   );
@@ -545,6 +582,9 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
       selectedMap: data.selectedMap.present
           ? data.selectedMap.value
           : this.selectedMap,
+      computedSelectedMap: data.computedSelectedMap.present
+          ? data.computedSelectedMap.value
+          : this.computedSelectedMap,
       unfoldSet: data.unfoldSet.present ? data.unfoldSet.value : this.unfoldSet,
       order: data.order.present ? data.order.value : this.order,
     );
@@ -564,6 +604,7 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
           ..write('subscriptionInfo: $subscriptionInfo, ')
           ..write('autoUpdate: $autoUpdate, ')
           ..write('selectedMap: $selectedMap, ')
+          ..write('computedSelectedMap: $computedSelectedMap, ')
           ..write('unfoldSet: $unfoldSet, ')
           ..write('order: $order')
           ..write(')'))
@@ -583,6 +624,7 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
     subscriptionInfo,
     autoUpdate,
     selectedMap,
+    computedSelectedMap,
     unfoldSet,
     order,
   );
@@ -601,6 +643,7 @@ class RawProfile extends DataClass implements Insertable<RawProfile> {
           other.subscriptionInfo == this.subscriptionInfo &&
           other.autoUpdate == this.autoUpdate &&
           other.selectedMap == this.selectedMap &&
+          other.computedSelectedMap == this.computedSelectedMap &&
           other.unfoldSet == this.unfoldSet &&
           other.order == this.order);
 }
@@ -617,6 +660,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
   final Value<SubscriptionInfo?> subscriptionInfo;
   final Value<bool> autoUpdate;
   final Value<Map<String, String>> selectedMap;
+  final Value<Map<String, String>> computedSelectedMap;
   final Value<Set<String>> unfoldSet;
   final Value<int?> order;
   const ProfilesCompanion({
@@ -631,6 +675,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
     this.subscriptionInfo = const Value.absent(),
     this.autoUpdate = const Value.absent(),
     this.selectedMap = const Value.absent(),
+    this.computedSelectedMap = const Value.absent(),
     this.unfoldSet = const Value.absent(),
     this.order = const Value.absent(),
   });
@@ -646,6 +691,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
     this.subscriptionInfo = const Value.absent(),
     required bool autoUpdate,
     required Map<String, String> selectedMap,
+    required Map<String, String> computedSelectedMap,
     required Set<String> unfoldSet,
     this.order = const Value.absent(),
   }) : label = Value(label),
@@ -654,6 +700,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
        autoUpdateDurationMillis = Value(autoUpdateDurationMillis),
        autoUpdate = Value(autoUpdate),
        selectedMap = Value(selectedMap),
+       computedSelectedMap = Value(computedSelectedMap),
        unfoldSet = Value(unfoldSet);
   static Insertable<RawProfile> custom({
     Expression<int>? id,
@@ -667,6 +714,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
     Expression<String>? subscriptionInfo,
     Expression<bool>? autoUpdate,
     Expression<String>? selectedMap,
+    Expression<String>? computedSelectedMap,
     Expression<String>? unfoldSet,
     Expression<int>? order,
   }) {
@@ -683,6 +731,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
       if (subscriptionInfo != null) 'subscription_info': subscriptionInfo,
       if (autoUpdate != null) 'auto_update': autoUpdate,
       if (selectedMap != null) 'selected_map': selectedMap,
+      if (computedSelectedMap != null) 'computed_selected_map': computedSelectedMap,
       if (unfoldSet != null) 'unfold_set': unfoldSet,
       if (order != null) 'order': order,
     });
@@ -700,6 +749,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
     Value<SubscriptionInfo?>? subscriptionInfo,
     Value<bool>? autoUpdate,
     Value<Map<String, String>>? selectedMap,
+    Value<Map<String, String>>? computedSelectedMap,
     Value<Set<String>>? unfoldSet,
     Value<int?>? order,
   }) {
@@ -716,6 +766,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
       subscriptionInfo: subscriptionInfo ?? this.subscriptionInfo,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       selectedMap: selectedMap ?? this.selectedMap,
+      computedSelectedMap: computedSelectedMap ?? this.computedSelectedMap,
       unfoldSet: unfoldSet ?? this.unfoldSet,
       order: order ?? this.order,
     );
@@ -765,6 +816,11 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
         $ProfilesTable.$converterselectedMap.toSql(selectedMap.value),
       );
     }
+    if (computedSelectedMap.present) {
+      map['computed_selected_map'] = Variable<String>(
+        $ProfilesTable.$convertercomputedSelectedMap.toSql(computedSelectedMap.value),
+      );
+    }
     if (unfoldSet.present) {
       map['unfold_set'] = Variable<String>(
         $ProfilesTable.$converterunfoldSet.toSql(unfoldSet.value),
@@ -790,6 +846,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
           ..write('subscriptionInfo: $subscriptionInfo, ')
           ..write('autoUpdate: $autoUpdate, ')
           ..write('selectedMap: $selectedMap, ')
+          ..write('computedSelectedMap: $computedSelectedMap, ')
           ..write('unfoldSet: $unfoldSet, ')
           ..write('order: $order')
           ..write(')'))
