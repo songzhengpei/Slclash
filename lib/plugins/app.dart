@@ -99,6 +99,16 @@ class App {
     if (!Platform.isAndroid) return false;
     return methodChannel.invokeMethod<bool>('openAppSettings');
   }
+
+  Future<bool> isScreenOn() async {
+    if (!Platform.isAndroid) return true;
+    return await methodChannel.invokeMethod<bool>('isScreenOn') ?? true;
+  }
+
+  Future<bool> isPowerSaveMode() async {
+    if (!Platform.isAndroid) return false;
+    return await methodChannel.invokeMethod<bool>('isPowerSaveMode') ?? false;
+  }
 }
 
 final app = system.isAndroid ? App() : null;

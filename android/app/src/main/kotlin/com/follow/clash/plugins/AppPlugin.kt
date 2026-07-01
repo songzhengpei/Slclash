@@ -9,6 +9,7 @@ import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -164,6 +165,14 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(openAppSettings())
             }
 
+            "isScreenOn" -> {
+                result.success(isScreenOn())
+            }
+
+            "isPowerSaveMode" -> {
+                result.success(isPowerSaveMode())
+            }
+
             "installApk" -> {
                 result.success(installApk(call.argument<String>("path")))
             }
@@ -205,6 +214,18 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun tip(message: String?) {
         GlobalState.application.showToast(message)
+    }
+
+    private fun powerManager(): PowerManager? {
+        return getSystemService(GlobalState.application, PowerManager::class.java)
+    }
+
+    private fun isScreenOn(): Boolean {
+        return powerManager()?.isInteractive ?: true
+    }
+
+    private fun isPowerSaveMode(): Boolean {
+        return powerManager()?.isPowerSaveMode ?: false
     }
 
     private fun openAppSettings(): Boolean {

@@ -7,6 +7,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -394,12 +395,15 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       _completeObservation(success: true);
       return;
     }
+    final powerState = await _readPowerState();
     final workerCount = healthObservationWorkerCount(
       eligibleProxyCount: eligibleProxies.length,
       appForeground: ref.read(appForegroundProvider),
       cellular: healthObservationIsCellular(
         ref.read(connectivityResultsProvider),
       ),
+      screenOn: powerState.screenOn,
+      powerSaveMode: powerState.powerSaveMode,
     );
 
     if (workerCount <= 0) {
@@ -482,6 +486,21 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     }
 
     _completeObservation(success: observedCount > 0);
+  }
+
+  Future<({bool screenOn, bool powerSaveMode})> _readPowerState() async {
+    final appPlugin = app;
+    if (appPlugin == null) {
+      return (screenOn: true, powerSaveMode: false);
+    }
+    try {
+      return (
+        screenOn: await appPlugin.isScreenOn(),
+        powerSaveMode: await appPlugin.isPowerSaveMode(),
+      );
+    } catch (_) {
+      return (screenOn: true, powerSaveMode: false);
+    }
   }
 
   /// Find a [Profile] by [id] from the profiles provider.
