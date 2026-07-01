@@ -24,23 +24,28 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strconv"
-	"strings"
 	"time"
 )
 
 var (
-	isInit            = false
-	externalProviders = map[string]cp.Provider{}
-	logSubscriber     observable.Subscription[log.Event]
-	proxiesCache      ProxiesData
-	proxiesCacheKey   string
-	proxiesCacheValid bool
+	isInit                  = false
+	externalProviders       = map[string]cp.Provider{}
+	logSubscriber           observable.Subscription[log.Event]
+	proxiesCache            ProxiesData
+	proxiesCacheRawCount    int
+	proxiesCacheProviders   map[string]providerCacheVersion
+	proxiesCacheDirty       = true
 )
 
 const (
 	logEventBatchInterval = time.Second
 	logEventBatchMaxSize  = 100
 )
+
+type providerCacheVersion struct {
+	version int
+	count   int
+}
 
 func handleInitClash(paramsString string) bool {
 	runLock.Lock()
@@ -111,8 +116,7 @@ func handleGetProxies() ProxiesData {
 	nameList := getProxyNameList()
 	rawProxies := tunnel.Proxies()
 	providers := tunnel.Providers()
-	cacheKey := buildProxiesCacheKey(nameList, rawProxies, providers)
-	if proxiesCacheValid && proxiesCacheKey == cacheKey {
+	if !proxiesCacheDirty && !proxiesCacheSourcesChanged(rawProxies, providers) {
 		return proxiesCache
 	}
 
@@ -163,8 +167,9 @@ func handleGetProxies() ProxiesData {
 		All:     allNames,
 		Proxies: proxies,
 	}
-	proxiesCacheKey = cacheKey
-	proxiesCacheValid = true
+	proxiesCacheRawCount = len(rawProxies)
+	proxiesCacheProviders = snapshotProviderCacheVersions(providers)
+	proxiesCacheDirty = false
 	return proxiesCache
 }
 
@@ -180,29 +185,39 @@ func isFrontendVisibleProxy(proxy constant.Proxy) bool {
 	}
 }
 
-func buildProxiesCacheKey(nameList []string, rawProxies map[string]constant.Proxy, providers map[string]cp.ProxyProvider) string {
-	parts := make([]string, 0, len(nameList)+len(providers)+1)
-	parts = append(parts, "raw:"+strconv.Itoa(len(rawProxies)))
-	parts = append(parts, nameList...)
-	providerNames := make([]string, 0, len(providers))
-	for name := range providers {
-		providerNames = append(providerNames, name)
+func proxiesCacheSourcesChanged(rawProxies map[string]constant.Proxy, providers map[string]cp.ProxyProvider) bool {
+	if proxiesCacheRawCount != len(rawProxies) {
+		return true
 	}
-	slices.Sort(providerNames)
-	for _, name := range providerNames {
-		provider := providers[name]
+	if len(proxiesCacheProviders) != len(providers) {
+		return true
+	}
+	for name, provider := range providers {
+		current := providerCacheVersion{}
+		if provider != nil {
+			current.version = int(provider.Version())
+			current.count = provider.Count()
+		}
+		if proxiesCacheProviders[name] != current {
+			return true
+		}
+	}
+	return false
+}
+
+func snapshotProviderCacheVersions(providers map[string]cp.ProxyProvider) map[string]providerCacheVersion {
+	versions := make(map[string]providerCacheVersion, len(providers))
+	for name, provider := range providers {
 		if provider == nil {
-			parts = append(parts, name+":nil")
+			versions[name] = providerCacheVersion{}
 			continue
 		}
-		parts = append(
-			parts,
-			name+":"+
-				strconv.Itoa(int(provider.Version()))+":"+
-				strconv.Itoa(provider.Count()),
-		)
+		versions[name] = providerCacheVersion{
+			version: int(provider.Version()),
+			count:   provider.Count(),
+		}
 	}
-	return strings.Join(parts, "\x00")
+	return versions
 }
 
 func invalidateProxiesCache() {
@@ -213,8 +228,9 @@ func invalidateProxiesCache() {
 
 func invalidateProxiesCacheLocked() {
 	proxiesCache = ProxiesData{}
-	proxiesCacheKey = ""
-	proxiesCacheValid = false
+	proxiesCacheRawCount = 0
+	proxiesCacheProviders = nil
+	proxiesCacheDirty = true
 }
 
 func handleChangeProxy(data string, fn func(string string)) {
