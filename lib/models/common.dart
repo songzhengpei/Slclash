@@ -310,11 +310,41 @@ extension GroupsExt on List<Group> {
 }
 
 extension GroupExt on Group {
+  /// Placeholder fallback names that the mihomo runtime assigns to computed
+  /// groups when the auto-selection result is not yet available.
+  static const _fallbackNames = <String>{
+    'DIRECT',
+    'REJECT',
+    'REJECT-DROP',
+    'PASS',
+  };
+
   String get realNow => now ?? '';
 
-  String getCurrentSelectedName(String proxyName) {
+  /// Returns the effective selected proxy name for this group.
+  ///
+  /// For computed groups (URL-test / Fallback / LoadBalance):
+  /// - Returns [realNow] if it is non-empty and not a fallback placeholder.
+  /// - Otherwise, if [cachedComputedNow] is provided and still exists in
+  ///   [all], returns the cached value as a UI-only fallback.
+  /// - Falls back to [realNow] or [proxyName].
+  ///
+  /// For Selector groups: returns [proxyName] if non-empty, otherwise [realNow].
+  String getCurrentSelectedName(String proxyName,
+      {String? cachedComputedNow}) {
     if (type.isComputedSelected) {
-      return realNow.isNotEmpty ? realNow : proxyName;
+      final current = realNow;
+      if (current.isNotEmpty &&
+          !_fallbackNames.contains(current.toUpperCase())) {
+        return current;
+      }
+      // Runtime returned a fallback — try UI-only cache
+      if (cachedComputedNow != null &&
+          cachedComputedNow.isNotEmpty &&
+          all.any((p) => p.name == cachedComputedNow)) {
+        return cachedComputedNow;
+      }
+      return current.isNotEmpty ? current : proxyName;
     }
     return proxyName.isNotEmpty ? proxyName : realNow;
   }

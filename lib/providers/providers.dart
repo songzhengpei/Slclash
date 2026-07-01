@@ -1,5 +1,6 @@
 export 'action.dart';
 export 'app.dart';
+export 'computed_selected_cache.dart';
 export 'config.dart';
 export 'database.dart';
 export 'health_observation.dart';

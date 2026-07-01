@@ -1239,6 +1239,11 @@ class ProxiesAction extends _$ProxiesAction {
       commonPrint.log('updateGroups error: $e');
       ref.read(groupsProvider.notifier).value = [];
     }
+    // Sync computed group cache from the updated groups list.
+    // This ensures the UI-only cache reflects the latest runtime state,
+    // including after core restarts that reset computed group `now`.
+    ref.read(computedSelectedCacheProvider.notifier)
+        .syncFromGroups(ref.read(groupsProvider));
   }
 
   Future<void> preheatComputedGroups() async {
