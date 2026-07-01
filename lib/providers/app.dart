@@ -22,19 +22,58 @@ class RealTunEnable extends _$RealTunEnable with AutoDisposeNotifierMixin {
 
 @Riverpod(keepAlive: true)
 class Logs extends _$Logs with AutoDisposeNotifierMixin {
+  static const _batchInterval = Duration(seconds: 1);
+  static const _maxBatchSize = 100;
+
+  final List<Log> _pendingLogs = [];
+  Timer? _flushTimer;
+  int _droppedLogs = 0;
+
   @override
   FixedList<Log> build() {
+    ref.onDispose(() {
+      _flushTimer?.cancel();
+      _flushTimer = null;
+      _pendingLogs.clear();
+    });
     return FixedList(0);
   }
 
   void add(Log value) {
+    addAll([value]);
+  }
+
+  void addAll(Iterable<Log> values) {
     if (!ref.mounted) {
       return;
     }
-    this.value = state.copyWith()..add(value);
+    for (final value in values) {
+      if (_pendingLogs.length >= _maxBatchSize) {
+        _droppedLogs++;
+        continue;
+      }
+      _pendingLogs.add(value);
+    }
+    if (_pendingLogs.isNotEmpty) {
+      _flushTimer ??= Timer(_batchInterval, _flushLogs);
+    }
   }
 
+  void _flushLogs() {
+    _flushTimer = null;
+    if (_pendingLogs.isEmpty || !ref.mounted) {
+      return;
+    }
+    final batch = List<Log>.of(_pendingLogs);
+    _pendingLogs.clear();
+    value = state.copyWith()..addAll(batch);
+  }
+
+  int get droppedLogs => _droppedLogs;
+
   Future<bool> exportLogs() async {
+    _flushTimer?.cancel();
+    _flushLogs();
     final logString = await encodeLogsTask(value.list);
     final tempFilePath = await appPath.tempFilePath;
     final file = File(tempFilePath);
@@ -65,17 +104,28 @@ class Requests extends _$Requests with AutoDisposeNotifierMixin {
   }
 
   void addRequest(TrackerInfo value) {
-    if (_pendingRequests.length >= _maxBatchSize) {
-      _droppedRequests++;
+    addRequests([value]);
+  }
+
+  void addRequests(Iterable<TrackerInfo> values) {
+    if (!ref.mounted) {
       return;
     }
-    _pendingRequests.add(value);
-    _flushTimer ??= Timer(_batchInterval, _flushRequests);
+    for (final value in values) {
+      if (_pendingRequests.length >= _maxBatchSize) {
+        _droppedRequests++;
+        continue;
+      }
+      _pendingRequests.add(value);
+    }
+    if (_pendingRequests.isNotEmpty) {
+      _flushTimer ??= Timer(_batchInterval, _flushRequests);
+    }
   }
 
   void _flushRequests() {
     _flushTimer = null;
-    if (_pendingRequests.isEmpty) {
+    if (_pendingRequests.isEmpty || !ref.mounted) {
       return;
     }
     final batch = List<TrackerInfo>.of(_pendingRequests);

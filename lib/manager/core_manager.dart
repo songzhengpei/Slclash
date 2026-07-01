@@ -138,6 +138,12 @@ class _CoreContainerState extends ConsumerState<CoreManager>
 
   @override
   void onLog(Log log) {
+    onLogs([log]);
+    super.onLog(log);
+  }
+
+  @override
+  void onLogs(List<Log> logs) {
     if (!shouldCollectCoreLogs(
       openLogs: ref.read(appSettingProvider.select((state) => state.openLogs)),
       appForeground: ref.read(appForegroundProvider),
@@ -145,23 +151,29 @@ class _CoreContainerState extends ConsumerState<CoreManager>
     )) {
       return;
     }
-    ref.read(logsProvider.notifier).add(log);
-    if (log.logLevel == LogLevel.error) {
-      globalState.showNotifier(log.payload);
+    ref.read(logsProvider.notifier).addAll(logs);
+    for (final log in logs) {
+      if (log.logLevel == LogLevel.error) {
+        globalState.showNotifier(log.payload);
+      }
     }
-    super.onLog(log);
   }
 
   @override
   void onRequest(TrackerInfo trackerInfo) async {
+    onRequests([trackerInfo]);
+    super.onRequest(trackerInfo);
+  }
+
+  @override
+  void onRequests(List<TrackerInfo> trackerInfos) {
     if (!shouldCollectCoreRequests(
       appForeground: ref.read(appForegroundProvider),
       currentPageLabel: ref.read(currentPageLabelProvider),
     )) {
       return;
     }
-    ref.read(requestsProvider.notifier).addRequest(trackerInfo);
-    super.onRequest(trackerInfo);
+    ref.read(requestsProvider.notifier).addRequests(trackerInfos);
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fl_clash/common/constant.dart';
+import 'package:fl_clash/common/fixed.dart';
 import 'package:fl_clash/common/request.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -30,6 +31,23 @@ void main() {
     test('can update to true', () {
       container.read(realTunEnableProvider.notifier).update((_) => true);
       expect(container.read(realTunEnableProvider), true);
+    });
+  });
+
+  group('Logs provider', () {
+    test('batches log writes', () async {
+      final notifier = container.read(logsProvider.notifier);
+      notifier.value = FixedList(500);
+
+      notifier.add(Log.app('first'));
+      notifier.add(Log.app('second'));
+
+      expect(container.read(logsProvider).list, isEmpty);
+
+      await Future.delayed(const Duration(milliseconds: 1100));
+
+      final logs = container.read(logsProvider).list;
+      expect(logs.map((log) => log.payload), ['first', 'second']);
     });
   });
 
