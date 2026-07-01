@@ -428,9 +428,35 @@ class MediaCheckSelectedProfileId extends _$MediaCheckSelectedProfileId
 
 @riverpod
 class Query extends _$Query with AutoDisposeNotifierMixin {
+  static const _proxyDebounceDuration = Duration(milliseconds: 200);
+
+  late QueryTag _tag;
+  Timer? _debounceTimer;
+
   @override
   String build(QueryTag tag) {
+    _tag = tag;
+    ref.onDispose(() {
+      _debounceTimer?.cancel();
+      _debounceTimer = null;
+    });
     return '';
+  }
+
+  @override
+  set value(String value) {
+    if (_tag != QueryTag.proxies || value.isEmpty) {
+      _debounceTimer?.cancel();
+      _debounceTimer = null;
+      super.value = value;
+      return;
+    }
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_proxyDebounceDuration, () {
+      if (!ref.mounted) return;
+      super.value = value;
+      _debounceTimer = null;
+    });
   }
 }
 

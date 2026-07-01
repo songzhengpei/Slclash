@@ -1625,7 +1625,7 @@ final class QueryProvider extends $NotifierProvider<Query, String> {
   }
 }
 
-String _$queryHash() => r'b6be53823f3351ee2bf1c0d147c0ccf5f31bb8b5';
+String _$queryHash() => r'4f0788f33df949126dc0e3c3b99780e7c0bb6b1c';
 
 final class QueryFamily extends $Family
     with $ClassFamilyOverride<Query, String, String, String, QueryTag> {

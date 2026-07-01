@@ -242,6 +242,54 @@ void main() {
     });
   });
 
+  group('Query provider', () {
+    test('debounces non-empty proxy search query', () async {
+      final subscription = container.listen(
+        queryProvider(QueryTag.proxies),
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      final notifier = container.read(queryProvider(QueryTag.proxies).notifier);
+
+      notifier.value = 'h';
+      notifier.value = 'hk';
+
+      expect(container.read(queryProvider(QueryTag.proxies)), '');
+
+      await Future.delayed(const Duration(milliseconds: 240));
+
+      expect(container.read(queryProvider(QueryTag.proxies)), 'hk');
+    });
+
+    test('clears proxy search query immediately', () async {
+      final subscription = container.listen(
+        queryProvider(QueryTag.proxies),
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      final notifier = container.read(queryProvider(QueryTag.proxies).notifier);
+
+      notifier.value = 'hk';
+      await Future.delayed(const Duration(milliseconds: 240));
+      notifier.value = '';
+
+      expect(container.read(queryProvider(QueryTag.proxies)), '');
+    });
+
+    test('keeps non-proxy query updates synchronous', () {
+      final subscription = container.listen(
+        queryProvider(QueryTag.access),
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      final notifier = container.read(queryProvider(QueryTag.access).notifier);
+
+      notifier.value = 'browser';
+
+      expect(container.read(queryProvider(QueryTag.access)), 'browser');
+    });
+  });
+
   group('NetworkDetection provider', () {
     late HttpClientAdapter originalAdapter;
 
