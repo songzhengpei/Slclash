@@ -59,10 +59,14 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
   final selectedMap = ref.read(
     currentProfileProvider.select((state) => state?.selectedMap ?? {}),
   );
+  final computedSelectedMap = ref.read(
+    currentProfileProvider.select((state) => state?.computedSelectedMap ?? {}),
+  );
   final state = computeRealSelectedProxyState(
     proxy.name,
     groups: groups,
     selectedMap: selectedMap,
+    computedSelectedMap: computedSelectedMap,
   );
   final currentTestUrl = state.testUrl.takeFirstValid([
     ref.read(realTestUrlProvider(testUrl)),

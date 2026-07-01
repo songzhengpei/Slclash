@@ -14,13 +14,15 @@ part of '../health_observation.dart';
 /// Uses a lightweight 15-second tick timer only for condition checking.
 /// Actual observation interval is user-configured (default 10 min).
 ///
-/// Idle conditions (any is sufficient):
-/// 1. App in background for >=30s
-/// 2. App in foreground with no user interaction for >=30s
-/// 3. App just started >=30s ago with no interaction yet
+/// **nextEligibleAt policy (fix: not advanced before execution)**
+/// - Successful observation: advance by full [intervalMinutes].
+/// - Core / profile / group temporarily unavailable: short retry (1–5 min).
+/// - Already running: short retry (1 min).
 ///
-/// When the environment is not available (core not running, no network),
-/// records `skippedEnvironment` -- does NOT count as node failure.
+/// **Health result persistence**
+/// Results from app-level observations are written to [MediaCheckCache]
+/// via [MediaCheckCacheStore], the same store used by the page-level UI.
+/// This ensures historical-stable-node calculations reflect both sources.
 
 @ProviderFor(HealthObservationScheduler)
 final healthObservationSchedulerProvider =
@@ -32,13 +34,15 @@ final healthObservationSchedulerProvider =
 /// Uses a lightweight 15-second tick timer only for condition checking.
 /// Actual observation interval is user-configured (default 10 min).
 ///
-/// Idle conditions (any is sufficient):
-/// 1. App in background for >=30s
-/// 2. App in foreground with no user interaction for >=30s
-/// 3. App just started >=30s ago with no interaction yet
+/// **nextEligibleAt policy (fix: not advanced before execution)**
+/// - Successful observation: advance by full [intervalMinutes].
+/// - Core / profile / group temporarily unavailable: short retry (1–5 min).
+/// - Already running: short retry (1 min).
 ///
-/// When the environment is not available (core not running, no network),
-/// records `skippedEnvironment` -- does NOT count as node failure.
+/// **Health result persistence**
+/// Results from app-level observations are written to [MediaCheckCache]
+/// via [MediaCheckCacheStore], the same store used by the page-level UI.
+/// This ensures historical-stable-node calculations reflect both sources.
 final class HealthObservationSchedulerProvider
     extends
         $NotifierProvider<
@@ -51,13 +55,15 @@ final class HealthObservationSchedulerProvider
   /// Uses a lightweight 15-second tick timer only for condition checking.
   /// Actual observation interval is user-configured (default 10 min).
   ///
-  /// Idle conditions (any is sufficient):
-  /// 1. App in background for >=30s
-  /// 2. App in foreground with no user interaction for >=30s
-  /// 3. App just started >=30s ago with no interaction yet
+  /// **nextEligibleAt policy (fix: not advanced before execution)**
+  /// - Successful observation: advance by full [intervalMinutes].
+  /// - Core / profile / group temporarily unavailable: short retry (1–5 min).
+  /// - Already running: short retry (1 min).
   ///
-  /// When the environment is not available (core not running, no network),
-  /// records `skippedEnvironment` -- does NOT count as node failure.
+  /// **Health result persistence**
+  /// Results from app-level observations are written to [MediaCheckCache]
+  /// via [MediaCheckCacheStore], the same store used by the page-level UI.
+  /// This ensures historical-stable-node calculations reflect both sources.
   HealthObservationSchedulerProvider._()
     : super(
         from: null,
@@ -88,7 +94,7 @@ final class HealthObservationSchedulerProvider
 }
 
 String _$healthObservationSchedulerHash() =>
-    r'7d584412f0c6ac8eebf8236a4ec5d5f856e9d89a';
+    r'090cc3ea6cc88858058545d9a87b3db4786de0ae';
 
 /// App-level health observation scheduler.
 ///
@@ -96,13 +102,15 @@ String _$healthObservationSchedulerHash() =>
 /// Uses a lightweight 15-second tick timer only for condition checking.
 /// Actual observation interval is user-configured (default 10 min).
 ///
-/// Idle conditions (any is sufficient):
-/// 1. App in background for >=30s
-/// 2. App in foreground with no user interaction for >=30s
-/// 3. App just started >=30s ago with no interaction yet
+/// **nextEligibleAt policy (fix: not advanced before execution)**
+/// - Successful observation: advance by full [intervalMinutes].
+/// - Core / profile / group temporarily unavailable: short retry (1–5 min).
+/// - Already running: short retry (1 min).
 ///
-/// When the environment is not available (core not running, no network),
-/// records `skippedEnvironment` -- does NOT count as node failure.
+/// **Health result persistence**
+/// Results from app-level observations are written to [MediaCheckCache]
+/// via [MediaCheckCacheStore], the same store used by the page-level UI.
+/// This ensures historical-stable-node calculations reflect both sources.
 
 abstract class _$HealthObservationScheduler
     extends $Notifier<HealthObservationSchedulerState> {

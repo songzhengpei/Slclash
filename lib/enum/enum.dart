@@ -71,7 +71,8 @@ extension GroupTypeExtension on GroupType {
       GroupType.values.map((e) => e.toString().split('.').last).toList();
 
   bool get isComputedSelected {
-    return [GroupType.URLTest, GroupType.Fallback].contains(this);
+    return [GroupType.URLTest, GroupType.Fallback, GroupType.LoadBalance]
+        .contains(this);
   }
 
   static GroupType? getGroupType(String value) {

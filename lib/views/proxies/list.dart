@@ -531,14 +531,35 @@ class _ListHeaderState extends State<ListHeader> {
                                     String displayLabel;
                                     if (nestedGroup != null) {
                                       // Resolve to leaf node
-                                      String leafName = nestedGroup.realNow;
+                                      String leafName;
+                                      if (nestedGroup.type.isComputedSelected) {
+                                        final computedMap = ref.read(
+                                          computedSelectedMapProvider,
+                                        );
+                                        leafName = nestedGroup
+                                            .getCurrentSelectedName(
+                                              '',
+                                              cachedComputedNow:
+                                                  computedMap[proxyName],
+                                            );
+                                      } else {
+                                        leafName = nestedGroup.realNow;
+                                      }
                                       int depth = 0;
                                       while (leafName.isNotEmpty &&
                                           groups.getGroup(leafName) != null &&
                                           depth < 4) {
-                                        leafName = groups
-                                            .getGroup(leafName)!
-                                            .realNow;
+                                        final nextGroup = groups.getGroup(
+                                          leafName,
+                                        )!;
+                                        leafName = nextGroup
+                                            .getCurrentSelectedName(
+                                              '',
+                                              cachedComputedNow: ref
+                                                  .read(
+                                                    computedSelectedMapProvider,
+                                                  )[leafName],
+                                            );
                                         depth++;
                                       }
                                       displayLabel = leafName.isNotEmpty
