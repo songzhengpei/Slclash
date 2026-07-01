@@ -388,7 +388,9 @@ String? selectedProxyName(Ref ref, String groupName) {
   final group = ref.watch(
     groupsProvider.select((state) => state.getGroup(groupName)),
   );
-  return group?.getCurrentSelectedName(proxyName ?? '');
+  if (group == null) return null;
+  final cachedNow = ref.watch(computedSelectedCacheProvider).getCachedNow(groupName);
+  return group.getCurrentSelectedName(proxyName ?? '', cachedComputedNow: cachedNow);
 }
 
 @riverpod

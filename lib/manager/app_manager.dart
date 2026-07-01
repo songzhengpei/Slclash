@@ -94,7 +94,14 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
           isAndroid: system.isAndroid,
           isRunning: ref.read(isStartProvider),
         )) {
-          container.read(coreActionProvider.notifier).tryStartCore();
+          final isStart = container.read(isStartProvider);
+          final hasGroups = container.read(groupsProvider).isNotEmpty;
+          // Only restart core when proxy is running or groups are empty
+          // (initial load). Avoid resetting computed group selections
+          // when the app just returns to foreground while proxy is off.
+          if (isStart || !hasGroups) {
+            container.read(coreActionProvider.notifier).tryStartCore();
+          }
         }
       });
     } else if (state == AppLifecycleState.inactive ||
