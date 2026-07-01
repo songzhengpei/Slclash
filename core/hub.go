@@ -37,6 +37,11 @@ var (
 	proxiesCacheValid bool
 )
 
+const (
+	logEventBatchInterval = time.Second
+	logEventBatchMaxSize  = 100
+)
+
 func handleInitClash(paramsString string) bool {
 	runLock.Lock()
 	defer runLock.Unlock()
@@ -558,16 +563,41 @@ func handleStartLog() {
 		logSubscriber = nil
 	}
 	logSubscriber = log.Subscribe()
+	subscriber := logSubscriber
 	go func() {
-		for logData := range logSubscriber {
-			if logData.LogLevel < log.Level() {
-				continue
+		ticker := time.NewTicker(logEventBatchInterval)
+		defer ticker.Stop()
+
+		batch := make([]log.Event, 0, logEventBatchMaxSize)
+		flush := func() {
+			if len(batch) == 0 {
+				return
 			}
 			message := &Message{
 				Type: LogMessage,
-				Data: logData,
+				Data: batch,
 			}
 			sendMessage(*message)
+			batch = make([]log.Event, 0, logEventBatchMaxSize)
+		}
+
+		for {
+			select {
+			case logData, ok := <-subscriber:
+				if !ok {
+					flush()
+					return
+				}
+				if logData.LogLevel < log.Level() {
+					continue
+				}
+				batch = append(batch, logData)
+				if len(batch) >= logEventBatchMaxSize {
+					flush()
+				}
+			case <-ticker.C:
+				flush()
+			}
 		}
 	}()
 }
