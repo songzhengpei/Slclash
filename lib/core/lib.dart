@@ -19,7 +19,7 @@ class CoreLib extends CoreHandlerInterface {
   @override
   Future<String> preload() async {
     if (_connectedCompleter.isCompleted) {
-      return 'core is connected';
+      return '';
     }
     final res = await service?.init();
     if (res?.isEmpty != true) {

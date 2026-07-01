@@ -655,7 +655,12 @@ class SetupAction extends _$SetupAction {
     );
     if (shouldFullSetup) {
       final coreAction = ref.read(coreActionProvider.notifier);
-      await coreAction.connectCore();
+      final connected = await coreAction.connectCore();
+      if (!connected) {
+        startTime = null;
+        ref.read(runTimeProvider.notifier).value = null;
+        return;
+      }
       await coreAction.initCore();
       await updateStatus(true, isInit: true);
     } else {
@@ -994,7 +999,7 @@ class CoreAction extends _$CoreAction {
     }
   }
 
-  Future<void> connectCore() async {
+  Future<bool> connectCore() async {
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connecting;
     final result = await Future.wait([
       coreController.preload(),
@@ -1004,9 +1009,10 @@ class CoreAction extends _$CoreAction {
     if (message.isNotEmpty) {
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       globalState.showNotifier(message);
-      return;
+      return false;
     }
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+    return true;
   }
 
   Future<Result<bool>> requestAdmin(bool enableTun) async {
@@ -1028,12 +1034,13 @@ class CoreAction extends _$CoreAction {
     return Result.success(enableTun);
   }
 
-  Future<void> restartCore([bool start = false]) async {
+  Future<bool> restartCore([bool start = false]) async {
     final isDisconnected =
         ref.read(coreStatusProvider) == CoreStatus.disconnected;
     ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
     await coreController.shutdown(!isDisconnected);
-    await connectCore();
+    final connected = await connectCore();
+    if (!connected) return false;
     await initCore();
     if (start || ref.read(isStartProvider)) {
       await ref
@@ -1042,6 +1049,7 @@ class CoreAction extends _$CoreAction {
     } else {
       await ref.read(setupActionProvider.notifier).applyProfile(force: true);
     }
+    return true;
   }
 
   Future<bool> tryStartCore([bool start = false]) async {
