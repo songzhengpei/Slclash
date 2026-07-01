@@ -87,6 +87,9 @@ docs/images/*
 /plugins/rust_api/.claude/
 devtools_options.yaml
 
+# Local performance captures
+.perf-captures/
+
 # FVM Version Cache
 .fvm/
 .fvmrc
