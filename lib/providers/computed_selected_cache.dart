@@ -1,3 +1,4 @@
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,28 +21,52 @@ final computedSelectedCacheProvider =
 
 class ComputedSelectedCache extends Notifier<Map<String, String>> {
   /// Fallback placeholder values that MUST NOT be cached.
-  static const _fallbackNames = <String>{'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS'};
+  static const _fallbackNames = <String>{
+    'DIRECT',
+    'REJECT',
+    'REJECT-DROP',
+    'PASS',
+  };
 
   @override
   Map<String, String> build() => {};
 
-  /// Sync the cache from the current list of groups.
+  /// Incrementally sync the cache from the current list of groups.
   ///
-  /// Only caches a group's `now` when ALL of these hold:
-  /// 1. group.type.isComputedSelected == true
-  /// 2. group.now is non-empty
-  /// 3. group.now is not a fallback placeholder
-  /// 4. group.now exists in group.all
+  /// Rules:
+  /// - If [groups] is empty, return without clearing cache (protect against
+  ///   transient empty states during core restart).
+  /// - When a computed group has a real (non-fallback) [now] that exists in
+  ///   [group.all], update the cache entry.
+  /// - When [now] is a fallback placeholder, do NOT overwrite — keep the
+  ///   previous stable cache intact.
+  /// - If a previously cached node no longer exists in [group.all], remove
+  ///   that group's cache entry (stale node eviction).
+  /// - Groups that are not [isComputedSelected] are ignored.
   void syncFromGroups(List<Group> groups) {
-    final cache = <String, String>{};
-    for (final group in groups) {
-      if (!group.type.isComputedSelected) continue;
+    if (groups.isEmpty) return;
+
+    final cache = Map<String, String>.from(state);
+    final computedGroups =
+        groups.where((g) => g.type.isComputedSelected).toList();
+    final computedGroupNames = computedGroups.map((g) => g.name).toSet();
+
+    // Evict groups that no longer exist or whose cached node is gone
+    cache.removeWhere((groupName, cachedNode) {
+      if (!computedGroupNames.contains(groupName)) return true;
+      final group = computedGroups.firstWhere((g) => g.name == groupName);
+      return !group.all.any((p) => p.name == cachedNode);
+    });
+
+    // Update cache for groups that have a real stable now
+    for (final group in computedGroups) {
       final now = group.now;
       if (now == null || now.isEmpty) continue;
       if (_fallbackNames.contains(now.toUpperCase())) continue;
       if (!group.all.any((p) => p.name == now)) continue;
       cache[group.name] = now;
     }
+
     state = cache;
   }
 
