@@ -92,6 +92,31 @@ void main() {
     });
   });
 
+  group('filterProxiesByName', () {
+    test('returns matching proxies', () {
+      final proxies = [
+        const Proxy(name: 'hk-fast', type: 'ss'),
+        const Proxy(name: 'sg-stable', type: 'ss'),
+      ];
+
+      final result = filterProxiesByName(proxies, 'FAST');
+
+      expect(result.map((proxy) => proxy.name), ['hk-fast']);
+    });
+
+    test('reuses matched proxy instances', () {
+      const matchedProxy = Proxy(name: 'hk-fast', type: 'ss');
+      final proxies = [
+        matchedProxy,
+        const Proxy(name: 'sg-stable', type: 'ss'),
+      ];
+
+      final result = filterProxiesByName(proxies, 'hk');
+
+      expect(result.single, same(matchedProxy));
+    });
+  });
+
   group('computeRealSelectedProxyState', () {
     test('returns state unchanged when proxyName is empty', () {
       final state = computeRealSelectedProxyState(

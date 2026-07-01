@@ -247,12 +247,11 @@ ProxyGroupSelectorState proxyGroupSelectorState(
   );
   final sortNum = ref.watch(sortNumProvider);
   final columns = ref.watch(proxiesColumnsProvider);
-  final lowQuery = query.toLowerCase();
-  final proxies =
-      group?.all.where((item) {
-        return item.name.toLowerCase().contains(lowQuery);
-      }).toList() ??
-      [];
+  final proxies = group == null
+      ? <Proxy>[]
+      : query.isEmpty
+          ? group.all
+          : filterProxiesByName(group.all, query);
   return ProxyGroupSelectorState(
     testUrl: group?.testUrl,
     proxiesSortType: proxiesStyle.sortType,

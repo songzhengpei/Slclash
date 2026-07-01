@@ -92,20 +92,29 @@ List<Group> filterGroupsByProxyName(List<Group> groups, String query) {
   final lowQuery = query.toLowerCase();
   final nextGroups = <Group>[];
   for (final group in groups) {
-    List<Proxy>? matchedProxies;
-    for (final proxy in group.all) {
-      if (!proxy.name.toLowerCase().contains(lowQuery)) {
-        continue;
-      }
-      matchedProxies ??= <Proxy>[];
-      matchedProxies.add(proxy);
-    }
+    final matchedProxies = _filterProxiesByLowerName(group.all, lowQuery);
     if (matchedProxies == null) {
       continue;
     }
     nextGroups.add(group.copyWith(all: matchedProxies));
   }
   return nextGroups;
+}
+
+List<Proxy> filterProxiesByName(List<Proxy> proxies, String query) {
+  return _filterProxiesByLowerName(proxies, query.toLowerCase()) ?? [];
+}
+
+List<Proxy>? _filterProxiesByLowerName(List<Proxy> proxies, String lowQuery) {
+  List<Proxy>? matchedProxies;
+  for (final proxy in proxies) {
+    if (!proxy.name.toLowerCase().contains(lowQuery)) {
+      continue;
+    }
+    matchedProxies ??= <Proxy>[];
+    matchedProxies.add(proxy);
+  }
+  return matchedProxies;
 }
 
 SelectedProxyState getRealSelectedProxyState(
