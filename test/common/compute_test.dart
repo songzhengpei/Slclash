@@ -4,6 +4,49 @@ import 'package:fl_clash/models/models.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('stripRuntimeNowFromGroups', () {
+    test('reuses unchanged groups and proxies', () {
+      final groups = [
+        const Group(
+          name: 'selector',
+          type: GroupType.Selector,
+          now: '',
+          all: [
+            Proxy(name: 'proxy-a', type: 'ss'),
+            Proxy(name: 'proxy-b', type: 'ss', now: ''),
+          ],
+        ),
+      ];
+
+      final result = stripRuntimeNowFromGroups(groups);
+
+      expect(result, same(groups));
+      expect(result.first, same(groups.first));
+    });
+
+    test('clears runtime now while reusing unaffected proxies', () {
+      const activeProxy = Proxy(name: 'proxy-a', type: 'ss', now: 'proxy-a');
+      const idleProxy = Proxy(name: 'proxy-b', type: 'ss');
+      final groups = [
+        const Group(
+          name: 'auto',
+          type: GroupType.URLTest,
+          now: 'proxy-a',
+          all: [activeProxy, idleProxy],
+        ),
+      ];
+
+      final result = stripRuntimeNowFromGroups(groups);
+
+      expect(result, isNot(same(groups)));
+      expect(result.first, isNot(same(groups.first)));
+      expect(result.first.now, '');
+      expect(result.first.all.first, isNot(same(activeProxy)));
+      expect(result.first.all.first.now, '');
+      expect(result.first.all.last, same(idleProxy));
+    });
+  });
+
   group('computeRealSelectedProxyState', () {
     test('returns state unchanged when proxyName is empty', () {
       final state = computeRealSelectedProxyState(

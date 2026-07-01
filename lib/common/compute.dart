@@ -56,6 +56,38 @@ List<Group> computeSort({
   }).toList();
 }
 
+List<Group> stripRuntimeNowFromGroups(List<Group> groups) {
+  var hasChanges = false;
+  final nextGroups = <Group>[];
+  for (final group in groups) {
+    final proxies = group.all;
+    final nextProxies = _stripRuntimeNowFromProxies(proxies);
+    final shouldClearGroupNow = group.now?.isNotEmpty == true;
+    final shouldCopyGroup =
+        shouldClearGroupNow || !identical(nextProxies, proxies);
+    if (!shouldCopyGroup) {
+      nextGroups.add(group);
+      continue;
+    }
+    hasChanges = true;
+    nextGroups.add(group.copyWith(now: '', all: nextProxies));
+  }
+  return hasChanges ? nextGroups : groups;
+}
+
+List<Proxy> _stripRuntimeNowFromProxies(List<Proxy> proxies) {
+  List<Proxy>? nextProxies;
+  for (var i = 0; i < proxies.length; i++) {
+    final proxy = proxies[i];
+    if (proxy.now?.isNotEmpty != true) {
+      continue;
+    }
+    nextProxies ??= List<Proxy>.of(proxies);
+    nextProxies[i] = proxy.copyWith(now: '');
+  }
+  return nextProxies ?? proxies;
+}
+
 SelectedProxyState getRealSelectedProxyState(
   SelectedProxyState state, {
   required List<Group> groups,
