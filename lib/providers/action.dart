@@ -1261,6 +1261,7 @@ class ProxiesAction extends _$ProxiesAction {
   Future<void> updateGroups() async {
     try {
       commonPrint.log('updateGroups');
+<<<<<<< HEAD
       if (!coreController.isCompleted) {
         final connected = await ref
             .read(coreActionProvider.notifier)
@@ -1308,15 +1309,16 @@ class ProxiesAction extends _$ProxiesAction {
         groups = await loadGroups();
       }
       ref.read(groupsProvider.notifier).value = groups;
+      // Sync computed group cache from fresh data.
+      // Run only after a successful retry; the catch path must NOT
+      // call syncFromGroups, otherwise an empty-list fallback would
+      // clear the UI-only cache and defeat the lifecycle fix.
+      ref.read(computedSelectedCacheProvider.notifier)
+          .syncFromGroups(groups);
     } catch (e) {
       commonPrint.log('updateGroups error: $e');
       ref.read(groupsProvider.notifier).value = [];
     }
-    // Sync computed group cache from the updated groups list.
-    // This ensures the UI-only cache reflects the latest runtime state,
-    // including after core restarts that reset computed group `now`.
-    ref.read(computedSelectedCacheProvider.notifier)
-        .syncFromGroups(ref.read(groupsProvider));
   }
 
   Future<void> preheatComputedGroups() async {

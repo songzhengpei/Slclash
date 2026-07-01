@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'app.dart';
+import 'computed_selected_cache.dart';
 import 'config.dart';
 import 'database.dart';
 
@@ -389,7 +390,9 @@ String? selectedProxyName(Ref ref, String groupName) {
     groupsProvider.select((state) => state.getGroup(groupName)),
   );
   if (group == null) return null;
-  final cachedNow = ref.watch(computedSelectedCacheProvider).getCachedNow(groupName);
+  final cachedNow = ref.watch(
+    computedSelectedCacheProvider.select((state) => state[groupName]),
+  );
   return group.getCurrentSelectedName(proxyName ?? '', cachedComputedNow: cachedNow);
 }
 
