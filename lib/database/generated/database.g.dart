@@ -124,12 +124,13 @@ class $ProfilesTable extends Profiles
   ).withConverter<Map<String, String>>($ProfilesTable.$converterselectedMap);
   @override
   late final GeneratedColumnWithTypeConverter<Map<String, String>, String>
-      computedSelectedMap = GeneratedColumn<String>(
+  computedSelectedMap =
+      GeneratedColumn<String>(
         'computed_selected_map',
         aliasedName,
         false,
         type: DriftSqlType.string,
-        requiredDuringInsert: true,
+        requiredDuringInsert: false,
         defaultValue: const Constant('{}'),
       ).withConverter<Map<String, String>>(
         $ProfilesTable.$convertercomputedSelectedMap,
@@ -340,8 +341,8 @@ class $ProfilesTable extends Profiles
       const SubscriptionInfoConverter();
   static TypeConverter<Map<String, String>, String> $converterselectedMap =
       const StringMapConverter();
-  static TypeConverter<Map<String, String>, String> $convertercomputedSelectedMap =
-      const StringMapConverter();
+  static TypeConverter<Map<String, String>, String>
+  $convertercomputedSelectedMap = const StringMapConverter();
   static TypeConverter<Set<String>, String> $converterunfoldSet =
       const StringSetConverter();
 }
@@ -691,7 +692,7 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
     this.subscriptionInfo = const Value.absent(),
     required bool autoUpdate,
     required Map<String, String> selectedMap,
-    required Map<String, String> computedSelectedMap,
+    this.computedSelectedMap = const Value.absent(),
     required Set<String> unfoldSet,
     this.order = const Value.absent(),
   }) : label = Value(label),
@@ -700,7 +701,6 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
        autoUpdateDurationMillis = Value(autoUpdateDurationMillis),
        autoUpdate = Value(autoUpdate),
        selectedMap = Value(selectedMap),
-       computedSelectedMap = Value(computedSelectedMap),
        unfoldSet = Value(unfoldSet);
   static Insertable<RawProfile> custom({
     Expression<int>? id,
@@ -731,7 +731,8 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
       if (subscriptionInfo != null) 'subscription_info': subscriptionInfo,
       if (autoUpdate != null) 'auto_update': autoUpdate,
       if (selectedMap != null) 'selected_map': selectedMap,
-      if (computedSelectedMap != null) 'computed_selected_map': computedSelectedMap,
+      if (computedSelectedMap != null)
+        'computed_selected_map': computedSelectedMap,
       if (unfoldSet != null) 'unfold_set': unfoldSet,
       if (order != null) 'order': order,
     });
@@ -818,7 +819,9 @@ class ProfilesCompanion extends UpdateCompanion<RawProfile> {
     }
     if (computedSelectedMap.present) {
       map['computed_selected_map'] = Variable<String>(
-        $ProfilesTable.$convertercomputedSelectedMap.toSql(computedSelectedMap.value),
+        $ProfilesTable.$convertercomputedSelectedMap.toSql(
+          computedSelectedMap.value,
+        ),
       );
     }
     if (unfoldSet.present) {
@@ -3535,6 +3538,7 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       Value<SubscriptionInfo?> subscriptionInfo,
       required bool autoUpdate,
       required Map<String, String> selectedMap,
+      Value<Map<String, String>> computedSelectedMap,
       required Set<String> unfoldSet,
       Value<int?> order,
     });
@@ -3551,6 +3555,7 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<SubscriptionInfo?> subscriptionInfo,
       Value<bool> autoUpdate,
       Value<Map<String, String>> selectedMap,
+      Value<Map<String, String>> computedSelectedMap,
       Value<Set<String>> unfoldSet,
       Value<int?> order,
     });
@@ -3669,6 +3674,16 @@ class $$ProfilesTableFilterComposer
   >
   get selectedMap => $composableBuilder(
     column: $table.selectedMap,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    Map<String, String>,
+    Map<String, String>,
+    String
+  >
+  get computedSelectedMap => $composableBuilder(
+    column: $table.computedSelectedMap,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
@@ -3798,6 +3813,11 @@ class $$ProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get computedSelectedMap => $composableBuilder(
+    column: $table.computedSelectedMap,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get unfoldSet => $composableBuilder(
     column: $table.unfoldSet,
     builder: (column) => ColumnOrderings(column),
@@ -3865,6 +3885,12 @@ class $$ProfilesTableAnnotationComposer
   GeneratedColumnWithTypeConverter<Map<String, String>, String>
   get selectedMap => $composableBuilder(
     column: $table.selectedMap,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<Map<String, String>, String>
+  get computedSelectedMap => $composableBuilder(
+    column: $table.computedSelectedMap,
     builder: (column) => column,
   );
 
@@ -3968,6 +3994,8 @@ class $$ProfilesTableTableManager
                     const Value.absent(),
                 Value<bool> autoUpdate = const Value.absent(),
                 Value<Map<String, String>> selectedMap = const Value.absent(),
+                Value<Map<String, String>> computedSelectedMap =
+                    const Value.absent(),
                 Value<Set<String>> unfoldSet = const Value.absent(),
                 Value<int?> order = const Value.absent(),
               }) => ProfilesCompanion(
@@ -3982,6 +4010,7 @@ class $$ProfilesTableTableManager
                 subscriptionInfo: subscriptionInfo,
                 autoUpdate: autoUpdate,
                 selectedMap: selectedMap,
+                computedSelectedMap: computedSelectedMap,
                 unfoldSet: unfoldSet,
                 order: order,
               ),
@@ -3999,6 +4028,8 @@ class $$ProfilesTableTableManager
                     const Value.absent(),
                 required bool autoUpdate,
                 required Map<String, String> selectedMap,
+                Value<Map<String, String>> computedSelectedMap =
+                    const Value.absent(),
                 required Set<String> unfoldSet,
                 Value<int?> order = const Value.absent(),
               }) => ProfilesCompanion.insert(
@@ -4013,6 +4044,7 @@ class $$ProfilesTableTableManager
                 subscriptionInfo: subscriptionInfo,
                 autoUpdate: autoUpdate,
                 selectedMap: selectedMap,
+                computedSelectedMap: computedSelectedMap,
                 unfoldSet: unfoldSet,
                 order: order,
               ),

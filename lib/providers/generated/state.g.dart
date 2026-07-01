@@ -1129,7 +1129,8 @@ final class ComputedSelectedMapProvider
   }
 }
 
-String _$computedSelectedMapHash() => r'6a08cc8c7d5f4a5b3e2d1f9c8b7a6e5d4c3b2a1f';
+String _$computedSelectedMapHash() =>
+    r'4fef47742f90e661de211e936f097ebdf3e2f0fa';
 
 @ProviderFor(unfoldSet)
 final unfoldSetProvider = UnfoldSetProvider._();
@@ -1549,7 +1550,7 @@ final class SelectedProxyNameProvider
   }
 }
 
-String _$selectedProxyNameHash() => r'417c99385108d630b7cc8aaa3e94abd7011cbc58';
+String _$selectedProxyNameHash() => r'f4b7c3cf1d7a51af550f6d83056f9fe1d435cab2';
 
 final class SelectedProxyNameFamily extends $Family
     with $FunctionalFamilyOverride<String?, String> {
