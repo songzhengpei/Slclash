@@ -23,6 +23,34 @@ Future<Map<String, dynamic>> _defaultMediaCheckConfigLoader(int profileId) {
   return coreController.getConfig(profileId);
 }
 
+Duration? mediaCheckObservationDelay({
+  required MediaCheckObserveSettings settings,
+  required DateTime now,
+  required DateTime lastInteractionAt,
+  required bool loading,
+  required bool checking,
+  required bool hasTargets,
+  Duration idleDelay = _observeIdleDelay,
+  Duration checkingRetryDelay = const Duration(minutes: 1),
+}) {
+  if (!settings.enabled || loading || !hasTargets) {
+    return null;
+  }
+  if (checking) {
+    return checkingRetryDelay;
+  }
+
+  final idleAt = lastInteractionAt.add(idleDelay);
+  final dueAt = settings.lastRunAt <= 0
+      ? now
+      : DateTime.fromMillisecondsSinceEpoch(
+          settings.lastRunAt,
+        ).add(Duration(minutes: settings.intervalMinutes));
+  final nextAt = dueAt.isAfter(idleAt) ? dueAt : idleAt;
+  final delay = nextAt.difference(now);
+  return delay.isNegative ? Duration.zero : delay;
+}
+
 // ── UI color extensions (SurgeTheme-dependent, kept in view layer) ────────
 
 extension MediaCheckItemColors on MediaCheckItem {
@@ -144,7 +172,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Always try to run observation on lifecycle changes —
     // paused state no longer blocks health checks.
-    _maybeRunObservation();
+    _maybeRunObservationOrSchedule();
   }
 
   Future<void> _restoreObserveSettings() async {
@@ -195,7 +223,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
       _loading = false;
       _cancelRequested = false;
     });
-    _maybeRunObservation();
+    _maybeRunObservationOrSchedule();
   }
 
   Future<List<Proxy>> _loadRuntimeLeafProxies() async {
@@ -382,7 +410,7 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _markInteraction();
     _setObserveSettings(_observeSettings.copyWith(enabled: value));
     if (value) {
-      _maybeRunObservation();
+      _maybeRunObservationOrSchedule();
     }
   }
 
@@ -402,18 +430,30 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
   void _markInteraction() {
     _lastInteractionAt = DateTime.now();
+    _scheduleObservation();
   }
 
   void _scheduleObservation() {
     _observeTimer?.cancel();
-    if (!_observeSettings.enabled) return;
-    _observeTimer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => _maybeRunObservation(),
+    final delay = mediaCheckObservationDelay(
+      settings: _observeSettings,
+      now: DateTime.now(),
+      lastInteractionAt: _lastInteractionAt,
+      loading: _loading,
+      checking: _checking,
+      hasTargets: _targets.isNotEmpty,
     );
+    if (delay == null) return;
+    _observeTimer = Timer(delay, () async {
+      _observeTimer = null;
+      final started = await _maybeRunObservation();
+      if (mounted && !started) {
+        _scheduleObservation();
+      }
+    });
   }
 
-  Future<void> _maybeRunObservation() async {
+  Future<bool> _maybeRunObservation() async {
     final idleEnough =
         DateTime.now().difference(_lastInteractionAt) >= _observeIdleDelay;
     if (!mounted ||
@@ -423,9 +463,17 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         _targets.isEmpty ||
         !idleEnough ||
         !_observeSettings.isDue) {
-      return;
+      return false;
     }
     await _start(mode: _MediaCheckFilter.green, automatic: true);
+    return true;
+  }
+
+  Future<void> _maybeRunObservationOrSchedule() async {
+    final started = await _maybeRunObservation();
+    if (mounted && !started) {
+      _scheduleObservation();
+    }
   }
 
   void _changeProfile(Profile profile) {
