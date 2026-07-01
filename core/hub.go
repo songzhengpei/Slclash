@@ -266,6 +266,7 @@ func handleChangeProxy(data string, fn func(string string)) {
 			fn(err.Error())
 			return
 		}
+		invalidateProxiesCacheLocked()
 
 		fn("")
 		return
