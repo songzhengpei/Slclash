@@ -47,6 +47,51 @@ void main() {
     });
   });
 
+  group('filterGroupsByProxyName', () {
+    test('filters proxies and drops empty groups', () {
+      final groups = [
+        const Group(
+          name: 'auto',
+          type: GroupType.URLTest,
+          all: [
+            Proxy(name: 'hk-fast', type: 'ss'),
+            Proxy(name: 'sg-fast', type: 'ss'),
+          ],
+        ),
+        const Group(
+          name: 'fallback',
+          type: GroupType.Selector,
+          all: [Proxy(name: 'us-stable', type: 'ss')],
+        ),
+      ];
+
+      final result = filterGroupsByProxyName(groups, 'fast');
+
+      expect(result.map((group) => group.name), ['auto']);
+      expect(result.first.all.map((proxy) => proxy.name), [
+        'hk-fast',
+        'sg-fast',
+      ]);
+    });
+
+    test('reuses matched proxy instances', () {
+      const matchedProxy = Proxy(name: 'hk-fast', type: 'ss');
+      const droppedProxy = Proxy(name: 'sg-stable', type: 'ss');
+      final groups = [
+        const Group(
+          name: 'auto',
+          type: GroupType.URLTest,
+          all: [matchedProxy, droppedProxy],
+        ),
+      ];
+
+      final result = filterGroupsByProxyName(groups, 'hk');
+
+      expect(result.first, isNot(same(groups.first)));
+      expect(result.first.all.single, same(matchedProxy));
+    });
+  });
+
   group('computeRealSelectedProxyState', () {
     test('returns state unchanged when proxyName is empty', () {
       final state = computeRealSelectedProxyState(

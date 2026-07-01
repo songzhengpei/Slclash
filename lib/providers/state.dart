@@ -175,17 +175,7 @@ GroupsState filterGroupsState(Ref ref, String query) {
   if (query.isEmpty) {
     return currentGroups;
   }
-  final lowQuery = query.toLowerCase();
-  final groups = currentGroups.value
-      .map((group) {
-        return group.copyWith(
-          all: group.all
-              .where((proxy) => proxy.name.toLowerCase().contains(lowQuery))
-              .toList(),
-        );
-      })
-      .where((group) => group.all.isNotEmpty)
-      .toList();
+  final groups = filterGroupsByProxyName(currentGroups.value, query);
   return currentGroups.copyWith(value: groups);
 }
 

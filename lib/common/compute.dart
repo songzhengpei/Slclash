@@ -88,6 +88,26 @@ List<Proxy> _stripRuntimeNowFromProxies(List<Proxy> proxies) {
   return nextProxies ?? proxies;
 }
 
+List<Group> filterGroupsByProxyName(List<Group> groups, String query) {
+  final lowQuery = query.toLowerCase();
+  final nextGroups = <Group>[];
+  for (final group in groups) {
+    List<Proxy>? matchedProxies;
+    for (final proxy in group.all) {
+      if (!proxy.name.toLowerCase().contains(lowQuery)) {
+        continue;
+      }
+      matchedProxies ??= <Proxy>[];
+      matchedProxies.add(proxy);
+    }
+    if (matchedProxies == null) {
+      continue;
+    }
+    nextGroups.add(group.copyWith(all: matchedProxies));
+  }
+  return nextGroups;
+}
+
 SelectedProxyState getRealSelectedProxyState(
   SelectedProxyState state, {
   required List<Group> groups,
