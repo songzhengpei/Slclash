@@ -1084,6 +1084,53 @@ final class SelectedMapProvider
 
 String _$selectedMapHash() => r'd4438d8d87d0c7ec7d9c5d02f577cdba6ba2a785';
 
+@ProviderFor(computedSelectedMap)
+final computedSelectedMapProvider = ComputedSelectedMapProvider._();
+
+final class ComputedSelectedMapProvider
+    extends
+        $FunctionalProvider<
+          Map<String, String>,
+          Map<String, String>,
+          Map<String, String>
+        >
+    with $Provider<Map<String, String>> {
+  ComputedSelectedMapProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'computedSelectedMapProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$computedSelectedMapHash();
+
+  @$internal
+  @override
+  $ProviderElement<Map<String, String>> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  Map<String, String> create(Ref ref) {
+    return computedSelectedMap(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Map<String, String> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Map<String, String>>(value),
+    );
+  }
+}
+
+String _$computedSelectedMapHash() => r'6a08cc8c7d5f4a5b3e2d1f9c8b7a6e5d4c3b2a1f';
+
 @ProviderFor(unfoldSet)
 final unfoldSetProvider = UnfoldSetProvider._();
 

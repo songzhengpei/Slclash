@@ -28,6 +28,9 @@ class Profiles extends Table {
 
   TextColumn get selectedMap => text().map(const StringMapConverter())();
 
+  TextColumn get computedSelectedMap =>
+      text().map(const StringMapConverter()).withDefault(const Constant('{}'))();
+
   TextColumn get unfoldSet => text().map(const StringSetConverter())();
 
   IntColumn get order => integer().nullable()();
@@ -116,6 +119,7 @@ extension RawProfilExt on RawProfile {
       subscriptionInfo: subscriptionInfo,
       autoUpdate: autoUpdate,
       selectedMap: selectedMap,
+      computedSelectedMap: computedSelectedMap,
       unfoldSet: unfoldSet,
       overwriteType: overwriteType,
       scriptId: scriptId,
@@ -136,6 +140,7 @@ extension ProfilesCompanionExt on Profile {
       subscriptionInfo: Value(subscriptionInfo),
       autoUpdate: autoUpdate,
       selectedMap: selectedMap,
+      computedSelectedMap: computedSelectedMap,
       unfoldSet: unfoldSet,
       overwriteType: overwriteType,
       scriptId: Value(scriptId),
