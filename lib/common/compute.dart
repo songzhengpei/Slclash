@@ -121,6 +121,7 @@ SelectedProxyState getRealSelectedProxyState(
   SelectedProxyState state, {
   required List<Group> groups,
   required Map<String, String> selectedMap,
+  Map<String, String>? computedSelectedMap,
 }) {
   if (state.proxyName.isEmpty) return state;
   final index = groups.indexWhere((element) => element.name == state.proxyName);
@@ -129,6 +130,7 @@ SelectedProxyState getRealSelectedProxyState(
   final group = groups[index];
   final currentSelectedName = group.getCurrentSelectedName(
     selectedMap[newState.proxyName] ?? '',
+    cachedComputedNow: computedSelectedMap?[newState.proxyName],
   );
   if (currentSelectedName.isEmpty) {
     return newState;
@@ -137,6 +139,7 @@ SelectedProxyState getRealSelectedProxyState(
     newState.copyWith(proxyName: currentSelectedName, testUrl: group.testUrl),
     groups: groups,
     selectedMap: selectedMap,
+    computedSelectedMap: computedSelectedMap,
   );
 }
 
@@ -144,11 +147,13 @@ SelectedProxyState computeRealSelectedProxyState(
   String proxyName, {
   required List<Group> groups,
   required Map<String, String> selectedMap,
+  Map<String, String>? computedSelectedMap,
 }) {
   return getRealSelectedProxyState(
     SelectedProxyState(proxyName: proxyName),
     groups: groups,
     selectedMap: selectedMap,
+    computedSelectedMap: computedSelectedMap,
   );
 }
 
@@ -158,11 +163,13 @@ DelayState computeProxyDelayState({
   required List<Group> groups,
   required Map<String, String> selectedMap,
   required DelayMap delayMap,
+  Map<String, String>? computedSelectedMap,
 }) {
   final state = computeRealSelectedProxyState(
     proxyName,
     groups: groups,
     selectedMap: selectedMap,
+    computedSelectedMap: computedSelectedMap,
   );
   final currentDelayMap =
       delayMap[state.testUrl.takeFirstValid([testUrl])] ?? {};

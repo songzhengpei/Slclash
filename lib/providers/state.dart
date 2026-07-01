@@ -375,10 +375,12 @@ int proxiesColumns(Ref ref) {
 SelectedProxyState realSelectedProxyState(Ref ref, String proxyName) {
   final groups = ref.watch(groupsProvider);
   final selectedMap = ref.watch(selectedMapProvider);
+  final computedSelectedMap = ref.watch(computedSelectedMapProvider);
   return computeRealSelectedProxyState(
     proxyName,
     groups: groups,
     selectedMap: selectedMap,
+    computedSelectedMap: computedSelectedMap,
   );
 }
 
