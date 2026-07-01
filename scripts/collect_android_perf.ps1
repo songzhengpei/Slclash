@@ -1,6 +1,6 @@
 param(
     [string]$AdbPath = "D:\Code\Tools\Android\Sdk\platform-tools\adb.exe",
-    [string]$Package = "com.follow.clash",
+    [string]$Package = "com.slclash.app.dev",
     [string]$OutDir = ".perf-captures",
     [switch]$ResetBatteryStats,
     [switch]$SkipBatteryStats,
@@ -40,7 +40,7 @@ $remotePackage = "$Package`:remote"
 
 Set-Content -LiteralPath $summaryPath -Value "SlClash Android perf capture $timestamp"
 Write-Section $summaryPath "adb devices" (Invoke-AdbText devices -l)
-Write-Section $summaryPath "process list" (Invoke-AdbText shell "ps -A | grep follow.clash || true")
+Write-Section $summaryPath "process list" (Invoke-AdbText shell "ps -A | grep '$Package' || true")
 
 $mainPid = (Invoke-AdbText shell "pidof $mainPackage || true").Trim()
 $remotePid = (Invoke-AdbText shell "pidof '$remotePackage' || true").Trim()
