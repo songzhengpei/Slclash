@@ -715,3 +715,95 @@ func handleSetupConfig(bytes []byte) string {
 	}
 	return ""
 }
+
+type materializeProfileSnapshotParams struct {
+	ProfilePath    string            `json:"profilePath"`
+	SelectedMap    map[string]string `json:"selectedMap"`
+	DefaultTestUrl string            `json:"defaultTestUrl"`
+}
+
+func handleMaterializeProfileSnapshot(paramsString string) (ProxiesData, string) {
+	var params materializeProfileSnapshotParams
+	if err := json.Unmarshal([]byte(paramsString), &params); err != nil {
+		return ProxiesData{}, err.Error()
+	}
+
+	if params.ProfilePath == "" {
+		return ProxiesData{}, "profilePath is empty"
+	}
+
+	buf, err := readFile(params.ProfilePath)
+	if err != nil {
+		return ProxiesData{}, err.Error()
+	}
+
+	// 解析 raw config 获取 proxy group names
+	rawCfg, err := config.UnmarshalRawConfig(buf)
+	if err != nil {
+		return ProxiesData{}, err.Error()
+	}
+
+	// 解析完整 config（包含 provider 展开），但不 ApplyConfig
+	cfg, err := config.Parse(buf)
+	if err != nil {
+		return ProxiesData{}, err.Error()
+	}
+
+	// 从 raw config 提取 proxy group names
+	nameList := make([]string, 0, len(rawCfg.ProxyGroup))
+	for _, mapping := range rawCfg.ProxyGroup {
+		name, ok := mapping["name"].(string)
+		if !ok || name == "" {
+			continue
+		}
+		nameList = append(nameList, name)
+	}
+
+	// 构建 proxies map：合并 direct proxies + provider proxies
+	proxies := make(map[string]constant.Proxy, len(cfg.Proxies))
+	for name, proxy := range cfg.Proxies {
+		if !isFrontendVisibleProxy(proxy) {
+			continue
+		}
+		proxies[name] = proxy
+	}
+	for _, p := range cfg.Providers {
+		for _, proxy := range p.Proxies() {
+			if !isFrontendVisibleProxy(proxy) {
+				continue
+			}
+			proxies[proxy.Name()] = proxy
+		}
+	}
+
+	// 构建 allNames：只包含 group 类型的 proxy
+	hasGlobal := false
+	allNames := make([]string, 0, len(nameList)+1)
+	for _, name := range nameList {
+		if name == "GLOBAL" {
+			hasGlobal = true
+		}
+		p, ok := proxies[name]
+		if !ok || p == nil {
+			continue
+		}
+		switch p.Type() {
+		case constant.Selector, constant.URLTest, constant.Fallback, constant.Relay, constant.LoadBalance:
+			allNames = append(allNames, name)
+		}
+	}
+	if !hasGlobal {
+		if p, ok := proxies["GLOBAL"]; ok && p != nil {
+			allNames = append([]string{"GLOBAL"}, allNames...)
+		}
+	}
+
+	if len(allNames) == 0 || len(proxies) == 0 {
+		return ProxiesData{}, "materialized proxies empty"
+	}
+
+	return ProxiesData{
+		All:     allNames,
+		Proxies: proxies,
+	}, ""
+}

@@ -88,6 +88,7 @@ const (
 	validateConfigMethod           Method = "validateConfig"
 	updateConfigMethod             Method = "updateConfig"
 	getProxiesMethod               Method = "getProxies"
+	materializeProfileSnapshotMethod Method = "materializeProfileSnapshot"
 	changeProxyMethod              Method = "changeProxy"
 	getTrafficMethod               Method = "getTraffic"
 	getTotalTrafficMethod          Method = "getTotalTraffic"

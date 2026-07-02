@@ -147,6 +147,29 @@ class CoreController {
     );
   }
 
+  Future<List<Group>> materializeProfileSnapshotGroups({
+    required String profilePath,
+    required Map<String, String> selectedMap,
+    required ProxiesSortType sortType,
+    required DelayMap delayMap,
+    required String defaultTestUrl,
+  }) async {
+    final proxiesData = await _interface.materializeProfileSnapshot(
+      profilePath: profilePath,
+      selectedMap: selectedMap,
+      defaultTestUrl: defaultTestUrl,
+    );
+    return toGroupsTask(
+      ComputeGroupsState(
+        proxiesData: proxiesData,
+        sortType: sortType,
+        delayMap: delayMap,
+        selectedMap: selectedMap,
+        defaultTestUrl: defaultTestUrl,
+      ),
+    );
+  }
+
   Future<ProxiesData> getProxiesData() {
     return _interface.getProxies();
   }

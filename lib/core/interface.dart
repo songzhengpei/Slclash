@@ -36,6 +36,12 @@ mixin CoreInterface {
 
   Future<ProxiesData> getProxies();
 
+  Future<ProxiesData> materializeProfileSnapshot({
+    required String profilePath,
+    required Map<String, String> selectedMap,
+    required String defaultTestUrl,
+  });
+
   Future<String> changeProxy(ChangeProxyParams changeProxyParams);
 
   Future<bool> startListener();
@@ -209,6 +215,27 @@ abstract class CoreHandlerInterface with CoreInterface {
   Future<ProxiesData> getProxies() async {
     final data = await _invoke<Map<String, dynamic>>(
       method: ActionMethod.getProxies,
+    );
+    return data != null
+        ? ProxiesData.fromJson(data)
+        : const ProxiesData(proxies: {}, all: []);
+  }
+
+  @override
+  Future<ProxiesData> materializeProfileSnapshot({
+    required String profilePath,
+    required Map<String, String> selectedMap,
+    required String defaultTestUrl,
+  }) async {
+    final params = json.encode({
+      'profilePath': profilePath,
+      'selectedMap': selectedMap,
+      'defaultTestUrl': defaultTestUrl,
+    });
+    final data = await _invoke<Map<String, dynamic>>(
+      method: ActionMethod.materializeProfileSnapshot,
+      data: params,
+      timeout: const Duration(seconds: 30),
     );
     return data != null
         ? ProxiesData.fromJson(data)

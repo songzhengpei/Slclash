@@ -214,6 +214,7 @@ enum ActionMethod {
   updateConfig,
   getConfig,
   getProxies,
+  materializeProfileSnapshot,
   changeProxy,
   getTraffic,
   getTotalTraffic,

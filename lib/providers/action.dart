@@ -1551,13 +1551,52 @@ class ProxiesAction extends _$ProxiesAction {
   Future<void> prefetchSnapshotForProfile(Profile profile) async {
     if (!_prefetchingProfileIds.add(profile.id)) return;
     try {
-      // 禁止对非活跃 profile 写 snapshot：当前 runtime groups 属于当前 profile，
-      // 不能写入目标 profile 的 snapshot。
-      // 待 Go core materializeProfileSnapshot 实现后替换为离线 materialize。
-      commonPrint.log(
-        'prefetchSnapshotForProfile skipped: '
-        'materializeProfileSnapshot not yet implemented (profileId=${profile.id})',
+      final fingerprint = await _computeProfileFingerprint(profile);
+      if (fingerprint == null) return;
+
+      final sortType = ref.read(
+        proxiesStyleSettingProvider.select((state) => state.sortType),
       );
+      final delayMap = ref.read(delayDataSourceProvider);
+      final testUrl = ref.read(
+        appSettingProvider.select((state) => state.testUrl),
+      );
+
+      final profilePath = await appPath.getProfilePath(profile.id.toString());
+
+      final groups = await coreController.materializeProfileSnapshotGroups(
+        profilePath: profilePath,
+        selectedMap: profile.selectedMap,
+        sortType: sortType,
+        delayMap: delayMap,
+        defaultTestUrl: testUrl,
+      );
+
+      if (!_isSnapshotWritableGroups(groups)) return;
+
+      final latestProfile = _findProfileById(profile.id);
+      if (latestProfile == null) return;
+
+      final latestFingerprint = await _computeProfileFingerprint(latestProfile);
+      if (fingerprint != latestFingerprint) {
+        commonPrint.log(
+          'prefetchSnapshotForProfile skipped: fingerprint changed '
+          'profileId=${profile.id}',
+        );
+        return;
+      }
+
+      await _putProxyGroupsSnapshot(
+        profile: latestProfile,
+        groups: groups,
+      );
+
+      commonPrint.log(
+        'prefetchSnapshotForProfile success: '
+        'profileId=${profile.id}, groups=${groups.length}',
+      );
+    } catch (e) {
+      commonPrint.log('prefetchSnapshotForProfile failed: $e');
     } finally {
       _prefetchingProfileIds.remove(profile.id);
     }

@@ -77,6 +77,15 @@ func handleAction(action *Action, result ActionResult) {
 	case getProxiesMethod:
 		result.success(handleGetProxies())
 		return
+	case materializeProfileSnapshotMethod:
+		data := action.Data.(string)
+		proxiesData, err := handleMaterializeProfileSnapshot(data)
+		if err != "" {
+			result.error(err)
+			return
+		}
+		result.success(proxiesData)
+		return
 	case changeProxyMethod:
 		data := action.Data.(string)
 		handleChangeProxy(data, func(value string) {
