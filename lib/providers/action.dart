@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
@@ -1294,43 +1297,47 @@ class ProxiesAction extends _$ProxiesAction {
     }, args: [groupName, proxyName]);
   }
 
-  String? _computeProfileFingerprint(Profile? profile) {
+  Future<String?> _computeProfileFingerprint(Profile? profile) async {
     if (profile == null) return null;
-    final parts = <Object?>[
-      profile.id,
-      profile.overwriteType.index,
-      profile.scriptId ?? 0,
-      profile.lastUpdateDate?.millisecondsSinceEpoch ?? 0,
-      profile.selectedMap.keys.join(','),
-      profile.selectedMap.values.join(','),
-    ];
-    return parts.join('|');
-  }
 
-  Future<String?> _computeProfileFingerprintAsync(Profile? profile) async {
-    if (profile == null) return null;
-    // 读取 config 文件内容 hash 作为主依据
-    int fileHash = 0;
+    // 读取 profile config 文件 SHA-256 作为主依据
+    String profileFileSha256 = '';
     try {
       final path = await appPath.getProfilePath(profile.id.toString());
       final file = File(path);
       if (await file.exists()) {
-        final content = await file.readAsString();
-        fileHash = content.hashCode;
+        final bytes = await file.readAsBytes();
+        profileFileSha256 = sha256.convert(bytes).toString();
       }
-    } catch (_) {
-      // 文件不存在或读取失败，跳过 fileHash
+    } catch (e) {
+      commonPrint.log('compute profile file sha256 failed: $e');
     }
+
+    // selectedMap 稳定排序后计算 SHA-256
+    final selectedEntries = profile.selectedMap.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final selectedMapStableJson = jsonEncode(Map.fromEntries(selectedEntries));
+    final selectedMapSha256 =
+        sha256.convert(utf8.encode(selectedMapStableJson)).toString();
+
     final parts = <Object?>[
+      'snapshot_v$kProxyGroupsSnapshotVersion',
       profile.id,
-      fileHash,
+      profileFileSha256,
       profile.overwriteType.index,
       profile.scriptId ?? 0,
       profile.lastUpdateDate?.millisecondsSinceEpoch ?? 0,
-      profile.selectedMap.keys.join(','),
-      profile.selectedMap.values.join(','),
+      selectedMapSha256,
     ];
-    return parts.join('|');
+
+    return sha256.convert(utf8.encode(parts.join('|'))).toString();
+  }
+
+  Profile? _findProfileById(int profileId) {
+    for (final profile in ref.read(profilesProvider)) {
+      if (profile.id == profileId) return profile;
+    }
+    return null;
   }
 
   Future<bool> hydrateProxyGroupsSnapshot({int? profileId}) async {
@@ -1364,6 +1371,21 @@ class ProxiesAction extends _$ProxiesAction {
         return false;
       }
 
+      // fingerprint 校验：不匹配则丢弃 snapshot
+      final profile = _findProfileById(targetProfileId);
+      if (profile == null) {
+        ref.read(proxyGroupsSnapshotProvider.notifier).none();
+        return false;
+      }
+      final currentFingerprint = await _computeProfileFingerprint(profile);
+      if (snapshot.profileFingerprint == null ||
+          snapshot.profileFingerprint != currentFingerprint) {
+        commonPrint.log(
+          'snapshot fingerprint mismatch, discarding: profileId=$targetProfileId',
+        );
+        return false;
+      }
+
       ref.read(groupsProvider.notifier).value = snapshot.groups;
       ref.read(groupsOwnerProfileIdProvider.notifier).set(targetProfileId);
       ref.read(proxyGroupsSnapshotProvider.notifier).stale(
@@ -1379,6 +1401,20 @@ class ProxiesAction extends _$ProxiesAction {
 
   bool _isSnapshotWritableGroups(List<Group> groups) {
     return groups.isNotEmpty && groups.every((g) => g.all.isNotEmpty);
+  }
+
+  Future<void> _putProxyGroupsSnapshot({
+    required Profile profile,
+    required List<Group> groups,
+  }) async {
+    if (!_isSnapshotWritableGroups(groups)) return;
+    final fingerprint = await _computeProfileFingerprint(profile);
+    if (fingerprint == null) return;
+    await database.proxyGroupsSnapshotsDao.putSnapshot(
+      profileId: profile.id,
+      groups: groups,
+      profileFingerprint: fingerprint,
+    );
   }
 
   Future<void> updateGroups() async {
@@ -1483,14 +1519,12 @@ class ProxiesAction extends _$ProxiesAction {
       ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
       ref.read(lastGroupsRefreshAtProvider.notifier).update();
 
-      // Save snapshot (only complete data)
-      if (groups.isNotEmpty && groups.every((g) => g.all.isNotEmpty)) {
-        await database.proxyGroupsSnapshotsDao.putSnapshot(
-          profileId: profileId!,
+      // Save snapshot
+      final currentProfile = ref.read(currentProfileProvider);
+      if (currentProfile != null) {
+        await _putProxyGroupsSnapshot(
+          profile: currentProfile,
           groups: groups,
-          profileFingerprint: _computeProfileFingerprint(
-            ref.read(currentProfileProvider),
-          ),
         );
       }
 
@@ -1517,53 +1551,13 @@ class ProxiesAction extends _$ProxiesAction {
   Future<void> prefetchSnapshotForProfile(Profile profile) async {
     if (!_prefetchingProfileIds.add(profile.id)) return;
     try {
-      final fingerprint = await _computeProfileFingerprintAsync(profile);
-
-      // TODO: 替换为 Go core materializeProfileSnapshot
-      // 当前暂用 getProxiesGroups 作为临时方案
-      final sortType = ref.read(
-        proxiesStyleSettingProvider.select((state) => state.sortType),
+      // 禁止对非活跃 profile 写 snapshot：当前 runtime groups 属于当前 profile，
+      // 不能写入目标 profile 的 snapshot。
+      // 待 Go core materializeProfileSnapshot 实现后替换为离线 materialize。
+      commonPrint.log(
+        'prefetchSnapshotForProfile skipped: '
+        'materializeProfileSnapshot not yet implemented (profileId=${profile.id})',
       );
-      final delayMap = ref.read(delayDataSourceProvider);
-      final testUrl = ref.read(
-        appSettingProvider.select((state) => state.testUrl),
-      );
-      final selectedMap = profile.selectedMap;
-
-      List<Group> groups;
-      try {
-        groups = await coreController.getProxiesGroups(
-          selectedMap: selectedMap,
-          sortType: sortType,
-          delayMap: delayMap,
-          defaultTestUrl: testUrl,
-        );
-      } catch (_) {
-        return;
-      }
-
-      if (groups.isEmpty || groups.any((g) => g.all.isEmpty)) return;
-
-      // 写入前二次校验 fingerprint
-      Profile? latestProfile;
-      for (final p in ref.read(profilesProvider)) {
-        if (p.id == profile.id) {
-          latestProfile = p;
-          break;
-        }
-      }
-      if (latestProfile == null) return;
-      final latestFingerprint =
-          await _computeProfileFingerprintAsync(latestProfile);
-      if (fingerprint != latestFingerprint) return;
-
-      await database.proxyGroupsSnapshotsDao.putSnapshot(
-        profileId: profile.id,
-        groups: groups,
-        profileFingerprint: fingerprint,
-      );
-    } catch (e) {
-      commonPrint.log('prefetchSnapshotForProfile failed: $e');
     } finally {
       _prefetchingProfileIds.remove(profile.id);
     }
