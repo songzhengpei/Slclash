@@ -1,0 +1,280 @@
+name: SlClash Android Beta
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Beta tag, for example 2025.07.02-beta"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-beta:
+    name: Build Android arm64-v8a Beta APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Fetch submodule tags
+        shell: bash
+        run: |
+          git -C core/Clash.Meta remote add metacubex https://github.com/MetaCubeX/mihomo.git 2>/dev/null || \
+            git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
+          git -C core/Clash.Meta fetch --tags --force origin 2>/dev/null || true
+          git -C core/Clash.Meta fetch --tags --force metacubex 2>/dev/null || true
+
+      - name: Resolve beta tag
+        id: vars
+        shell: bash
+        run: |
+          TAG_NAME="${{ inputs.tag }}"
+
+          if [ -z "$TAG_NAME" ]; then
+            echo "TAG_NAME is empty"
+            exit 1
+          fi
+
+          if ! [[ "$TAG_NAME" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}-beta$ ]]; then
+            echo "Tag must look like 2025.07.02-beta"
+            exit 1
+          fi
+
+          VERSION_NAME="${TAG_NAME}"
+          BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "apk_name=SlClash-${TAG_NAME}-beta-arm64-v8a.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.vars.outputs.tag_name }}"
+
+          git fetch --tags
+
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists locally."
+          elif git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists on origin."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG_NAME" "$GITHUB_SHA"
+            git push origin "$TAG_NAME"
+          fi
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: |
+            core/go.sum
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.9
+          cache: true
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Setup NDK
+        id: setup_ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r28c
+          add-to-path: true
+          link-to-sdk: true
+
+      - name: Prepare Android signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.KEYSTORE }}
+          ANDROID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "KEYSTORE secret is missing."
+            exit 1
+          fi
+
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+
+          cat > android/local.properties <<EOF
+          sdk.dir=$ANDROID_HOME
+          storeFile=keystore.jks
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+          sed -i 's/^[[:space:]]*//' android/local.properties
+
+          echo "Android signing files prepared."
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Verify Go modules are tidy
+        shell: bash
+        run: |
+          cd core
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Build Go core
+        shell: bash
+        env:
+          ANDROID_NDK: ${{ steps.setup_ndk.outputs.ndk-path }}
+          APP_ENV: beta
+          PROJECT_DIR: ${{ github.workspace }}
+        run: |
+          bash plugins/setup/buildkit/run_build_tool.sh android --arch arm64
+
+      - name: Resolve core metadata
+        id: core
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CORE_LIB="libclash/android/arm64-v8a/libclash.so"
+
+          if [ ! -f "$CORE_LIB" ]; then
+            echo "Expected core library not found: $CORE_LIB"
+            find libclash android/core/src/main/jniLibs -type f || true
+            exit 1
+          fi
+
+          CORE_SHA256="$(sha256sum "$CORE_LIB" | awk '{print $1}')"
+          MIHOMO_VERSION="$(git -C core/Clash.Meta describe --tags --abbrev=0 2>/dev/null || true)"
+          MIHOMO_COMMIT="$(git -C core/Clash.Meta rev-parse --short=12 HEAD)"
+          CORE_BUILD_TIME="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          if [ -z "$MIHOMO_VERSION" ]; then
+            echo "Could not resolve Mihomo version from git tag."
+            exit 1
+          fi
+
+          MIHOMO_TAG="$MIHOMO_VERSION"
+          if ! [[ "$MIHOMO_TAG" =~ ^v ]]; then
+            MIHOMO_TAG="v$MIHOMO_TAG"
+          fi
+          MIHOMO_RELEASE_DATE="$(gh api "repos/MetaCubeX/mihomo/releases/tags/$MIHOMO_TAG" --jq '.published_at' 2>/dev/null || true)"
+          if [ -z "$MIHOMO_RELEASE_DATE" ]; then
+            MIHOMO_RELEASE_DATE="$CORE_BUILD_TIME"
+          fi
+
+          echo "core_sha256=$CORE_SHA256" >> "$GITHUB_OUTPUT"
+          echo "mihomo_version=$MIHOMO_VERSION" >> "$GITHUB_OUTPUT"
+          echo "mihomo_commit=$MIHOMO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "mihomo_release_date=$MIHOMO_RELEASE_DATE" >> "$GITHUB_OUTPUT"
+          echo "core_build_time=$CORE_BUILD_TIME" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Core metadata"
+            echo "- Mihomo version: $MIHOMO_VERSION"
+            echo "- Mihomo commit: $MIHOMO_COMMIT"
+            echo "- Mihomo release date: $MIHOMO_RELEASE_DATE"
+            echo "- Core SHA256: $CORE_SHA256"
+            echo "- Build time: $CORE_BUILD_TIME"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve release notes
+        id: notes
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.vars.outputs.tag_name }}"
+          RELEASE_REASON="Android arm64-v8a beta build."
+
+          NOTES_FILE="$GITHUB_WORKSPACE/build/release-notes.md"
+          mkdir -p "$(dirname "$NOTES_FILE")"
+
+          cat > "$NOTES_FILE" <<EOF
+          $RELEASE_REASON
+
+          Mihomo core: ${{ steps.core.outputs.mihomo_version }} (${{ steps.core.outputs.mihomo_commit }})
+          Mihomo release date: ${{ steps.core.outputs.mihomo_release_date }}
+          Core build time: ${{ steps.core.outputs.core_build_time }}
+          Core SHA256: ${{ steps.core.outputs.core_sha256 }}
+          EOF
+
+          sed -i 's/^[[:space:]]*//' "$NOTES_FILE"
+          echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Build APK
+        env:
+          SLCLASH_SKIP_GO_CORE_BUILD: "true"
+        run: |
+          flutter build apk --release --split-per-abi --target-platform android-arm64 \
+            --android-project-arg=slclashSkipAbiFilters=true \
+            --android-project-arg=slclashSkipGoCoreBuild=true \
+            --build-name "${{ steps.vars.outputs.version_name }}" \
+            --build-number "${{ steps.vars.outputs.build_number }}" \
+            --dart-define=APP_ENV=beta \
+            --dart-define=CORE_SHA256="${{ steps.core.outputs.core_sha256 }}" \
+            --dart-define=MIHOMO_VERSION="${{ steps.core.outputs.mihomo_version }}" \
+            --dart-define=MIHOMO_COMMIT="${{ steps.core.outputs.mihomo_commit }}" \
+            --dart-define=MIHOMO_RELEASE_DATE="${{ steps.core.outputs.mihomo_release_date }}" \
+            --dart-define=CORE_BUILD_TIME="${{ steps.core.outputs.core_build_time }}"
+
+      - name: Rename arm64 APK
+        shell: bash
+        run: |
+          SRC="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          DEST="${{ steps.vars.outputs.apk_name }}"
+
+          if [ ! -f "$SRC" ]; then
+            echo "Expected APK not found: $SRC"
+            echo "Available files:"
+            find build/app/outputs -type f || true
+            exit 1
+          fi
+
+          cp "$SRC" "$DEST"
+          ls -lh "$DEST"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.apk_name }}
+          path: ${{ steps.vars.outputs.apk_name }}
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="${{ steps.vars.outputs.tag_name }}"
+          APK_NAME="${{ steps.vars.outputs.apk_name }}"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists. Refusing to overwrite existing release."
+            exit 1
+          fi
+
+          echo "Creating pre-release $TAG_NAME..."
+          gh release create "$TAG_NAME" "$APK_NAME" \
+            --title "SlClash ${{ steps.vars.outputs.version_name }} Beta" \
+            --notes-file "${{ steps.notes.outputs.file }}" \
+            --prerelease
