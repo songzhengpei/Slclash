@@ -300,15 +300,6 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           trackVisibility: true,
           child: Stack(
             children: [
-              if (snapshotState.freshness == ProxyGroupsFreshnessState.stale ||
-                  snapshotState.freshness ==
-                      ProxyGroupsFreshnessState.refreshing)
-                const Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
               Positioned.fill(
                 child: ScrollConfiguration(
                   behavior: HiddenBarScrollBehavior(),
