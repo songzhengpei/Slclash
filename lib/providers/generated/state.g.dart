@@ -49,7 +49,7 @@ final class CurrentGroupsStateProvider
 }
 
 String _$currentGroupsStateHash() =>
-    r'dbf8f02606a31486c99d7b89d19914cd5a1fc496';
+    r'f33d1558b3b76b03d7e1a54f9e8f442930e1e84b';
 
 @ProviderFor(navigationItemsState)
 final navigationItemsStateProvider = NavigationItemsStateProvider._();
@@ -500,7 +500,7 @@ final class FilterGroupsStateProvider
   }
 }
 
-String _$filterGroupsStateHash() => r'7de7a4603ca5ed7c39a00351af43144eb6c21404';
+String _$filterGroupsStateHash() => r'e1758eff0cec5d8c8ef151617009928796b6c0f1';
 
 final class FilterGroupsStateFamily extends $Family
     with $FunctionalFamilyOverride<GroupsState, String> {
@@ -761,7 +761,7 @@ final class ProxyGroupSelectorStateProvider
 }
 
 String _$proxyGroupSelectorStateHash() =>
-    r'd393702a1fea16f8ab0362c2888b70300795e829';
+    r'02252b7c3b258d371014c9683e796ca68fbdcdb5';
 
 final class ProxyGroupSelectorStateFamily extends $Family
     with $FunctionalFamilyOverride<ProxyGroupSelectorState, (String, String)> {
@@ -1396,7 +1396,7 @@ final class RealSelectedProxyStateProvider
 }
 
 String _$realSelectedProxyStateHash() =>
-    r'42fa131419f0a26e30c4f5269bf020893b7f828c';
+    r'80ba8664fc454aa7cddedc0bd5d09d977497e47b';
 
 final class RealSelectedProxyStateFamily extends $Family
     with $FunctionalFamilyOverride<SelectedProxyState, String> {
@@ -2963,3 +2963,58 @@ final class SuspendProvider extends $FunctionalProvider<bool, bool, bool>
 }
 
 String _$suspendHash() => r'a8274b8067f0898213b003074cdd41cc59c7b332';
+
+@ProviderFor(ProxyGroupsSnapshot)
+final proxyGroupsSnapshotProvider = ProxyGroupsSnapshotProvider._();
+
+final class ProxyGroupsSnapshotProvider
+    extends $NotifierProvider<ProxyGroupsSnapshot, ProxyGroupsSnapshotState> {
+  ProxyGroupsSnapshotProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'proxyGroupsSnapshotProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$proxyGroupsSnapshotHash();
+
+  @$internal
+  @override
+  ProxyGroupsSnapshot create() => ProxyGroupsSnapshot();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ProxyGroupsSnapshotState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ProxyGroupsSnapshotState>(value),
+    );
+  }
+}
+
+String _$proxyGroupsSnapshotHash() =>
+    r'bcafcb4501865073cdfc41894bd84d557870b6fc';
+
+abstract class _$ProxyGroupsSnapshot
+    extends $Notifier<ProxyGroupsSnapshotState> {
+  ProxyGroupsSnapshotState build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref =
+        this.ref as $Ref<ProxyGroupsSnapshotState, ProxyGroupsSnapshotState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<ProxyGroupsSnapshotState, ProxyGroupsSnapshotState>,
+              ProxyGroupsSnapshotState,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}

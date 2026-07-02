@@ -276,8 +276,10 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     return Consumer(
       builder: (_, ref, _) {
         final state = ref.watch(proxiesListStateProvider);
+        final snapshotState = ref.watch(proxyGroupsSnapshotProvider);
         ref.watch(themeSettingProvider.select((state) => state.textScale));
-        if (state.groups.isEmpty) {
+        if (state.groups.isEmpty &&
+            snapshotState.freshness == ProxyGroupsFreshnessState.none) {
           return ProxiesEmptyState(
             label: appLocalizations.nullTip(appLocalizations.proxies),
           );
@@ -295,6 +297,15 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           trackVisibility: true,
           child: Stack(
             children: [
+              if (snapshotState.freshness == ProxyGroupsFreshnessState.stale ||
+                  snapshotState.freshness ==
+                      ProxyGroupsFreshnessState.refreshing)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
               Positioned.fill(
                 child: ScrollConfiguration(
                   behavior: HiddenBarScrollBehavior(),

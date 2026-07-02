@@ -1259,8 +1259,62 @@ class ProxiesAction extends _$ProxiesAction {
     }, args: [groupName, proxyName]);
   }
 
-  Future<void> updateGroups() async {
+  String? _computeProfileFingerprint(Profile? profile) {
+    if (profile == null) return null;
+    final parts = [
+      profile.id,
+      profile.url,
+      profile.lastUpdateDate?.millisecondsSinceEpoch ?? 0,
+      profile.scriptId ?? 0,
+      profile.overwriteType.index,
+      profile.selectedMap.keys.join(','),
+      profile.selectedMap.values.join(','),
+    ];
+    return parts.join('|');
+  }
+
+  Future<void> hydrateProxyGroupsSnapshot() async {
+    final profile = ref.read(currentProfileProvider);
+    if (profile == null) {
+      ref.read(proxyGroupsSnapshotProvider.notifier).none();
+      return;
+    }
+
     try {
+      final snapshot = await database.proxyGroupsSnapshotsDao
+          .getSnapshot(profile.id);
+
+      if (snapshot == null || snapshot.groups.isEmpty) {
+        ref.read(proxyGroupsSnapshotProvider.notifier).none();
+        return;
+      }
+
+      // profileId guard
+      if (ref.read(currentProfileProvider)?.id != profile.id) return;
+
+      // version compatibility check
+      if (snapshot.snapshotVersion > kProxyGroupsSnapshotVersion) {
+        commonPrint.log('snapshot version incompatible, discarding');
+        ref.read(proxyGroupsSnapshotProvider.notifier).none();
+        return;
+      }
+
+      ref.read(groupsProvider.notifier).value = snapshot.groups;
+      ref.read(proxyGroupsSnapshotProvider.notifier).stale(
+        updatedAt: snapshot.updatedAt,
+      );
+    } catch (e) {
+      commonPrint.log('hydrateProxyGroupsSnapshot failed: $e');
+      ref.read(proxyGroupsSnapshotProvider.notifier).none();
+    }
+  }
+
+  Future<void> updateGroups() async {
+    final profileId = ref.read(currentProfileProvider)?.id;
+
+    try {
+      ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
+
       commonPrint.log('updateGroups');
       if (!coreController.isCompleted) {
         final connected = await ref
@@ -1308,11 +1362,25 @@ class ProxiesAction extends _$ProxiesAction {
         await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
         groups = await loadGroups();
       }
+
+      // profileId guard: user may have switched profile during async refresh
+      if (ref.read(currentProfileProvider)?.id != profileId) return;
+
       ref.read(groupsProvider.notifier).value = groups;
+      ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
+
+      // Save snapshot (only complete data)
+      if (groups.isNotEmpty && groups.every((g) => g.all.isNotEmpty)) {
+        await database.proxyGroupsSnapshotsDao.putSnapshot(
+          profileId: profileId!,
+          groups: groups,
+          profileFingerprint: _computeProfileFingerprint(
+            ref.read(currentProfileProvider),
+          ),
+        );
+      }
+
       // Sync computed group cache from fresh data and persist it.
-      // Run only after a successful retry; the catch path must NOT
-      // call syncFromGroups, otherwise an empty-list fallback would
-      // clear the UI-only cache and defeat the lifecycle fix.
       final baseComputedSelectedMap =
           ref.read(currentProfileProvider)?.computedSelectedMap ?? {};
       final computedSelectedMap = ref
@@ -1326,7 +1394,20 @@ class ProxiesAction extends _$ProxiesAction {
           .updateCurrentComputedSelectedMap(computedSelectedMap);
     } catch (e) {
       commonPrint.log('updateGroups error: $e');
+
+      // If we have visible groups and were refreshing, keep stale snapshot
+      final hasVisibleGroups = ref.read(groupsProvider).isNotEmpty;
+      final isRefreshing =
+          ref.read(proxyGroupsSnapshotProvider).freshness ==
+              ProxyGroupsFreshnessState.refreshing;
+      if (hasVisibleGroups && isRefreshing) {
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+        return;
+      }
+
+      // No old groups — clear
       ref.read(groupsProvider.notifier).value = [];
+      ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
     }
   }
 

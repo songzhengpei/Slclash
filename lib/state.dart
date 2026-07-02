@@ -381,6 +381,10 @@ class GlobalState {
     autoLaunch?.updateStatus(container.read(appSettingProvider).autoLaunch);
     await _handleFailedPreference();
     await _handlerDisclaimer();
+    // Hydrate proxy groups snapshot before core init for instant first paint
+    await container
+        .read(proxiesActionProvider.notifier)
+        .hydrateProxyGroupsSnapshot();
     await container.read(setupActionProvider.notifier).initStatus();
     container.read(initProvider.notifier).value = true;
   }

@@ -769,3 +769,36 @@ class RuleProvider extends _$RuleProvider with AutoDisposeNotifierMixin {
 bool suspend(Ref ref) {
   return false;
 }
+
+@riverpod
+class ProxyGroupsSnapshot extends _$ProxyGroupsSnapshot {
+  @override
+  ProxyGroupsSnapshotState build() => const ProxyGroupsSnapshotState();
+
+  void none() => state = const ProxyGroupsSnapshotState();
+
+  void stale({DateTime? updatedAt}) => state = ProxyGroupsSnapshotState(
+    freshness: ProxyGroupsFreshnessState.stale,
+    updatedAt: updatedAt,
+    hydrated: true,
+  );
+
+  void refreshing() => state = ProxyGroupsSnapshotState(
+    freshness: ProxyGroupsFreshnessState.refreshing,
+    updatedAt: state.updatedAt,
+    hydrated: state.hydrated,
+  );
+
+  void fresh() => state = ProxyGroupsSnapshotState(
+    freshness: ProxyGroupsFreshnessState.fresh,
+    updatedAt: DateTime.now(),
+    hydrated: true,
+  );
+
+  void failed(Object error) => state = ProxyGroupsSnapshotState(
+    freshness: ProxyGroupsFreshnessState.failed,
+    updatedAt: state.updatedAt,
+    error: error,
+    hydrated: state.hydrated,
+  );
+}
