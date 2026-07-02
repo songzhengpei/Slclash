@@ -278,8 +278,11 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         final state = ref.watch(proxiesListStateProvider);
         final snapshotState = ref.watch(proxyGroupsSnapshotProvider);
         ref.watch(themeSettingProvider.select((state) => state.textScale));
-        if (state.groups.isEmpty &&
-            snapshotState.freshness == ProxyGroupsFreshnessState.none) {
+        final hasGroups = state.groups.isNotEmpty;
+        final freshness = snapshotState.freshness;
+        if (!hasGroups &&
+            (freshness == ProxyGroupsFreshnessState.none ||
+             freshness == ProxyGroupsFreshnessState.failed)) {
           return ProxiesEmptyState(
             label: appLocalizations.nullTip(appLocalizations.proxies),
           );

@@ -1321,7 +1321,13 @@ class ProxiesAction extends _$ProxiesAction {
             .read(coreActionProvider.notifier)
             .connectCore();
         if (!connected) {
-          ref.read(groupsProvider.notifier).value = [];
+          final hasVisibleGroups = ref.read(groupsProvider).isNotEmpty;
+          if (hasVisibleGroups) {
+            ref.read(proxyGroupsSnapshotProvider.notifier).failed('connectCore failed');
+          } else {
+            ref.read(groupsProvider.notifier).value = [];
+            ref.read(proxyGroupsSnapshotProvider.notifier).failed('connectCore failed');
+          }
           return;
         }
         final isInit = await coreController.isInit;
