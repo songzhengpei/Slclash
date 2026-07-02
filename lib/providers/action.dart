@@ -1245,6 +1245,41 @@ class ProxiesAction extends _$ProxiesAction {
   @override
   void build() {}
 
+  bool _groupsEqual(List<Group> a, List<Group> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final ga = a[i];
+      final gb = b[i];
+      if (ga.name != gb.name ||
+          ga.type != gb.type ||
+          ga.now != gb.now ||
+          ga.hidden != gb.hidden ||
+          ga.testUrl != gb.testUrl ||
+          ga.icon != gb.icon ||
+          ga.all.length != gb.all.length) {
+        return false;
+      }
+      for (var j = 0; j < ga.all.length; j++) {
+        if (ga.all[j].name != gb.all[j].name ||
+            ga.all[j].type != gb.all[j].type) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  void _syncComputedSelectedMap(List<Group> groups) {
+    final base =
+        ref.read(currentProfileProvider)?.computedSelectedMap ?? {};
+    final map = ref
+        .read(computedSelectedCacheProvider.notifier)
+        .syncFromGroups(groups, base: base);
+    ref
+        .read(profilesActionProvider.notifier)
+        .updateCurrentComputedSelectedMap(map);
+  }
+
   void updateGroupsDebounce([Duration? duration]) {
     debouncer.call(FunctionTag.updateGroups, updateGroups, duration: duration);
   }
@@ -1372,8 +1407,18 @@ class ProxiesAction extends _$ProxiesAction {
       // profileId guard: user may have switched profile during async refresh
       if (ref.read(currentProfileProvider)?.id != profileId) return;
 
+      // Equality check: skip UI rebuild + snapshot save if groups unchanged
+      final oldGroups = ref.read(groupsProvider);
+      if (_groupsEqual(oldGroups, groups)) {
+        ref.read(lastGroupsRefreshAtProvider.notifier).update();
+        ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
+        _syncComputedSelectedMap(groups);
+        return;
+      }
+
       ref.read(groupsProvider.notifier).value = groups;
       ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
+      ref.read(lastGroupsRefreshAtProvider.notifier).update();
 
       // Save snapshot (only complete data)
       if (groups.isNotEmpty && groups.every((g) => g.all.isNotEmpty)) {
@@ -1386,18 +1431,7 @@ class ProxiesAction extends _$ProxiesAction {
         );
       }
 
-      // Sync computed group cache from fresh data and persist it.
-      final baseComputedSelectedMap =
-          ref.read(currentProfileProvider)?.computedSelectedMap ?? {};
-      final computedSelectedMap = ref
-          .read(computedSelectedCacheProvider.notifier)
-          .syncFromGroups(
-            groups,
-            base: baseComputedSelectedMap,
-          );
-      ref
-          .read(profilesActionProvider.notifier)
-          .updateCurrentComputedSelectedMap(computedSelectedMap);
+      _syncComputedSelectedMap(groups);
     } catch (e) {
       commonPrint.log('updateGroups error: $e');
 

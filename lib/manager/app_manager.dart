@@ -38,10 +38,26 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       }
     });
     ref.listenManual(needUpdateGroupsProvider, (prev, next) {
-      if (prev != next) {
-        globalState.container
-            .read(proxiesActionProvider.notifier)
-            .updateGroupsDebounce();
+      if (prev == next) return;
+
+      final enteredProxies = prev?.a == false && next.a == true;
+      final sortChanged =
+          prev != null && next.a && (prev.b != next.b || prev.c != next.c);
+
+      if (sortChanged) {
+        ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+        return;
+      }
+
+      if (enteredProxies) {
+        final groupsEmpty = ref.read(groupsProvider).isEmpty;
+        final lastRefresh = ref.read(lastGroupsRefreshAtProvider);
+        final expired = lastRefresh == null ||
+            DateTime.now().difference(lastRefresh) >
+                const Duration(seconds: 30);
+        if (groupsEmpty || expired) {
+          ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+        }
       }
     });
     // Initialize smart auto stop manager (keepAlive, starts listening once)

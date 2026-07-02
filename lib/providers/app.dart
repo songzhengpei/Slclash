@@ -630,3 +630,10 @@ List<Override> buildAppStateOverrides(AppState appState) {
     coreStatusProvider.overrideWithBuild((_, _) => appState.coreStatus),
   ];
 }
+
+@Riverpod(keepAlive: true)
+class LastGroupsRefreshAt extends _$LastGroupsRefreshAt {
+  @override
+  DateTime? build() => null;
+  void update() => state = DateTime.now();
+}

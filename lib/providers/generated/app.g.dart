@@ -2078,3 +2078,56 @@ abstract class _$NetworkDetection extends $Notifier<NetworkDetectionState> {
     element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(LastGroupsRefreshAt)
+final lastGroupsRefreshAtProvider = LastGroupsRefreshAtProvider._();
+
+final class LastGroupsRefreshAtProvider
+    extends $NotifierProvider<LastGroupsRefreshAt, DateTime?> {
+  LastGroupsRefreshAtProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'lastGroupsRefreshAtProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$lastGroupsRefreshAtHash();
+
+  @$internal
+  @override
+  LastGroupsRefreshAt create() => LastGroupsRefreshAt();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DateTime? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DateTime?>(value),
+    );
+  }
+}
+
+String _$lastGroupsRefreshAtHash() =>
+    r'317f997cc2a44f2cb6509f30cb29c1d92a54d6bf';
+
+abstract class _$LastGroupsRefreshAt extends $Notifier<DateTime?> {
+  DateTime? build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<DateTime?, DateTime?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<DateTime?, DateTime?>,
+              DateTime?,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
