@@ -1296,52 +1296,89 @@ class ProxiesAction extends _$ProxiesAction {
 
   String? _computeProfileFingerprint(Profile? profile) {
     if (profile == null) return null;
-    final parts = [
+    final parts = <Object?>[
       profile.id,
-      profile.url,
-      profile.lastUpdateDate?.millisecondsSinceEpoch ?? 0,
-      profile.scriptId ?? 0,
       profile.overwriteType.index,
+      profile.scriptId ?? 0,
+      profile.lastUpdateDate?.millisecondsSinceEpoch ?? 0,
       profile.selectedMap.keys.join(','),
       profile.selectedMap.values.join(','),
     ];
     return parts.join('|');
   }
 
-  Future<void> hydrateProxyGroupsSnapshot() async {
-    final profile = ref.read(currentProfileProvider);
-    if (profile == null) {
+  Future<String?> _computeProfileFingerprintAsync(Profile? profile) async {
+    if (profile == null) return null;
+    // 读取 config 文件内容 hash 作为主依据
+    int fileHash = 0;
+    try {
+      final path = await appPath.getProfilePath(profile.id.toString());
+      final file = File(path);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        fileHash = content.hashCode;
+      }
+    } catch (_) {
+      // 文件不存在或读取失败，跳过 fileHash
+    }
+    final parts = <Object?>[
+      profile.id,
+      fileHash,
+      profile.overwriteType.index,
+      profile.scriptId ?? 0,
+      profile.lastUpdateDate?.millisecondsSinceEpoch ?? 0,
+      profile.selectedMap.keys.join(','),
+      profile.selectedMap.values.join(','),
+    ];
+    return parts.join('|');
+  }
+
+  Future<bool> hydrateProxyGroupsSnapshot({int? profileId}) async {
+    final targetProfileId = profileId ?? ref.read(currentProfileIdProvider);
+    if (targetProfileId == null) {
       ref.read(proxyGroupsSnapshotProvider.notifier).none();
-      return;
+      return false;
     }
 
     try {
       final snapshot = await database.proxyGroupsSnapshotsDao
-          .getSnapshot(profile.id);
+          .getSnapshot(targetProfileId);
 
       if (snapshot == null || snapshot.groups.isEmpty) {
-        ref.read(proxyGroupsSnapshotProvider.notifier).none();
-        return;
+        if (profileId == null) {
+          ref.read(proxyGroupsSnapshotProvider.notifier).none();
+        }
+        return false;
       }
 
-      // profileId guard
-      if (ref.read(currentProfileProvider)?.id != profile.id) return;
+      // profileId guard（只在无参调用时校验）
+      if (profileId == null &&
+          ref.read(currentProfileProvider)?.id != targetProfileId) {
+        return false;
+      }
 
       // version compatibility check
       if (snapshot.snapshotVersion > kProxyGroupsSnapshotVersion) {
         commonPrint.log('snapshot version incompatible, discarding');
         ref.read(proxyGroupsSnapshotProvider.notifier).none();
-        return;
+        return false;
       }
 
       ref.read(groupsProvider.notifier).value = snapshot.groups;
+      ref.read(groupsOwnerProfileIdProvider.notifier).set(targetProfileId);
       ref.read(proxyGroupsSnapshotProvider.notifier).stale(
         updatedAt: snapshot.updatedAt,
       );
+      return true;
     } catch (e) {
       commonPrint.log('hydrateProxyGroupsSnapshot failed: $e');
       ref.read(proxyGroupsSnapshotProvider.notifier).none();
+      return false;
     }
+  }
+
+  bool _isSnapshotWritableGroups(List<Group> groups) {
+    return groups.isNotEmpty && groups.every((g) => g.all.isNotEmpty);
   }
 
   Future<void> updateGroups() async {
@@ -1356,11 +1393,14 @@ class ProxiesAction extends _$ProxiesAction {
             .read(coreActionProvider.notifier)
             .connectCore();
         if (!connected) {
-          final hasVisibleGroups = ref.read(groupsProvider).isNotEmpty;
-          if (hasVisibleGroups) {
+          final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+          final hasSameProfileOldGroups =
+              ownerProfileId == profileId && ref.read(groupsProvider).isNotEmpty;
+          if (hasSameProfileOldGroups) {
             ref.read(proxyGroupsSnapshotProvider.notifier).failed('connectCore failed');
           } else {
             ref.read(groupsProvider.notifier).value = [];
+            ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
             ref.read(proxyGroupsSnapshotProvider.notifier).failed('connectCore failed');
           }
           return;
@@ -1399,9 +1439,30 @@ class ProxiesAction extends _$ProxiesAction {
       }
 
       var groups = await loadGroups();
-      if (groups.isEmpty || groups.any((g) => g.all.isEmpty)) {
+      if (!_isSnapshotWritableGroups(groups)) {
         await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
         groups = await loadGroups();
+      }
+
+      if (!_isSnapshotWritableGroups(groups)) {
+        final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+        final oldGroups = ref.read(groupsProvider);
+
+        // 同 profile 旧数据有效，保留并标记失败
+        if (ownerProfileId == profileId && oldGroups.isNotEmpty) {
+          ref.read(proxyGroupsSnapshotProvider.notifier).failed('groups empty');
+          return;
+        }
+
+        // 尝试从 DB 加载该 profile 的快照
+        final hydrated =
+            await hydrateProxyGroupsSnapshot(profileId: profileId);
+        if (hydrated) return;
+
+        ref.read(groupsProvider.notifier).value = [];
+        ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed('groups empty');
+        return;
       }
 
       // profileId guard: user may have switched profile during async refresh
@@ -1411,12 +1472,14 @@ class ProxiesAction extends _$ProxiesAction {
       final oldGroups = ref.read(groupsProvider);
       if (_groupsEqual(oldGroups, groups)) {
         ref.read(lastGroupsRefreshAtProvider.notifier).update();
+        ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
         ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
         _syncComputedSelectedMap(groups);
         return;
       }
 
       ref.read(groupsProvider.notifier).value = groups;
+      ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
       ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
       ref.read(lastGroupsRefreshAtProvider.notifier).update();
 
@@ -1435,19 +1498,74 @@ class ProxiesAction extends _$ProxiesAction {
     } catch (e) {
       commonPrint.log('updateGroups error: $e');
 
-      // If we have visible groups and were refreshing, keep stale snapshot
-      final hasVisibleGroups = ref.read(groupsProvider).isNotEmpty;
-      final isRefreshing =
-          ref.read(proxyGroupsSnapshotProvider).freshness ==
-              ProxyGroupsFreshnessState.refreshing;
-      if (hasVisibleGroups && isRefreshing) {
+      final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+      final hasSameProfileOldGroups =
+          ownerProfileId == profileId && ref.read(groupsProvider).isNotEmpty;
+
+      if (hasSameProfileOldGroups) {
         ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+      } else {
+        ref.read(groupsProvider.notifier).value = [];
+        ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+      }
+    }
+  }
+
+  final _prefetchingProfileIds = <int>{};
+
+  Future<void> prefetchSnapshotForProfile(Profile profile) async {
+    if (!_prefetchingProfileIds.add(profile.id)) return;
+    try {
+      final fingerprint = await _computeProfileFingerprintAsync(profile);
+
+      // TODO: 替换为 Go core materializeProfileSnapshot
+      // 当前暂用 getProxiesGroups 作为临时方案
+      final sortType = ref.read(
+        proxiesStyleSettingProvider.select((state) => state.sortType),
+      );
+      final delayMap = ref.read(delayDataSourceProvider);
+      final testUrl = ref.read(
+        appSettingProvider.select((state) => state.testUrl),
+      );
+      final selectedMap = profile.selectedMap;
+
+      List<Group> groups;
+      try {
+        groups = await coreController.getProxiesGroups(
+          selectedMap: selectedMap,
+          sortType: sortType,
+          delayMap: delayMap,
+          defaultTestUrl: testUrl,
+        );
+      } catch (_) {
         return;
       }
 
-      // No old groups — clear
-      ref.read(groupsProvider.notifier).value = [];
-      ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+      if (groups.isEmpty || groups.any((g) => g.all.isEmpty)) return;
+
+      // 写入前二次校验 fingerprint
+      Profile? latestProfile;
+      for (final p in ref.read(profilesProvider)) {
+        if (p.id == profile.id) {
+          latestProfile = p;
+          break;
+        }
+      }
+      if (latestProfile == null) return;
+      final latestFingerprint =
+          await _computeProfileFingerprintAsync(latestProfile);
+      if (fingerprint != latestFingerprint) return;
+
+      await database.proxyGroupsSnapshotsDao.putSnapshot(
+        profileId: profile.id,
+        groups: groups,
+        profileFingerprint: fingerprint,
+      );
+    } catch (e) {
+      commonPrint.log('prefetchSnapshotForProfile failed: $e');
+    } finally {
+      _prefetchingProfileIds.remove(profile.id);
     }
   }
 
@@ -1627,10 +1745,17 @@ class ProfilesAction extends _$ProfilesAction {
       ref.read(profilesProvider.notifier).put(profile);
       final newProfile = await profile.update();
       ref.read(profilesProvider.notifier).put(newProfile);
-      if (profile.id == ref.read(currentProfileIdProvider)) {
+      if (newProfile.id == ref.read(currentProfileIdProvider)) {
         ref
             .read(setupActionProvider.notifier)
             .applyProfileDebounce(silence: true);
+      } else {
+        // 非活跃 profile：异步预热快照
+        unawaited(
+          ref
+              .read(proxiesActionProvider.notifier)
+              .prefetchSnapshotForProfile(newProfile),
+        );
       }
     } finally {
       ref.read(isUpdatingProvider(profile.updatingKey).notifier).value = false;

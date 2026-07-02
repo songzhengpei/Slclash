@@ -60,15 +60,23 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       ref.read(proxiesStyleSettingProvider.notifier).update((state) {
         return state.copyWith(type: ProxiesType.list);
       });
-      // Soft refresh: only if groups empty or last refresh > 30s ago
-      final groupsEmpty = ref.read(groupsProvider).isEmpty;
+
+      await ref
+          .read(proxiesActionProvider.notifier)
+          .hydrateProxyGroupsSnapshot();
+
+      final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+      final currentProfileId = ref.read(currentProfileIdProvider);
+      final groupsEmpty = ownerProfileId != currentProfileId ||
+          ref.read(groupsProvider).isEmpty;
       final lastRefresh = ref.read(lastGroupsRefreshAtProvider);
       final expired = lastRefresh == null ||
           DateTime.now().difference(lastRefresh) > const Duration(seconds: 30);
+
       if (groupsEmpty || expired) {
         ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
       }

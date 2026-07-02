@@ -49,7 +49,7 @@ final class CurrentGroupsStateProvider
 }
 
 String _$currentGroupsStateHash() =>
-    r'f33d1558b3b76b03d7e1a54f9e8f442930e1e84b';
+    r'4ae9be4505a5e5aecc16a9f0f1a9724ef4f3f14e';
 
 @ProviderFor(navigationItemsState)
 final navigationItemsStateProvider = NavigationItemsStateProvider._();
@@ -3012,6 +3012,59 @@ abstract class _$ProxyGroupsSnapshot
             as $ClassProviderElement<
               AnyNotifier<ProxyGroupsSnapshotState, ProxyGroupsSnapshotState>,
               ProxyGroupsSnapshotState,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(GroupsOwnerProfileId)
+final groupsOwnerProfileIdProvider = GroupsOwnerProfileIdProvider._();
+
+final class GroupsOwnerProfileIdProvider
+    extends $NotifierProvider<GroupsOwnerProfileId, int?> {
+  GroupsOwnerProfileIdProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'groupsOwnerProfileIdProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$groupsOwnerProfileIdHash();
+
+  @$internal
+  @override
+  GroupsOwnerProfileId create() => GroupsOwnerProfileId();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(int? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int?>(value),
+    );
+  }
+}
+
+String _$groupsOwnerProfileIdHash() =>
+    r'645913055d6ebe3a50872ca28c8301288388dd12';
+
+abstract class _$GroupsOwnerProfileId extends $Notifier<int?> {
+  int? build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int?, int?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int?, int?>,
+              int?,
               Object?,
               Object?
             >;

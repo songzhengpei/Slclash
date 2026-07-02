@@ -81,7 +81,10 @@ class _CoreContainerState extends ConsumerState<CoreManager>
     coreEventManager.addListener(this);
     ref.listenManual(currentProfileIdProvider, (prev, next) {
       if (prev != next) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await ref
+              .read(proxiesActionProvider.notifier)
+              .hydrateProxyGroupsSnapshot();
           ref.read(setupActionProvider.notifier).fullSetup();
         });
       }

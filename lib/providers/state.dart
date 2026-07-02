@@ -17,6 +17,12 @@ part 'generated/state.g.dart';
 
 @riverpod
 GroupsState currentGroupsState(Ref ref) {
+  final ownerProfileId = ref.watch(groupsOwnerProfileIdProvider);
+  final currentProfileId = ref.watch(currentProfileIdProvider);
+  if (ownerProfileId != currentProfileId) {
+    return const GroupsState(value: []);
+  }
+
   final mode = ref.watch(
     patchClashConfigProvider.select((state) => state.mode),
   );
@@ -801,4 +807,12 @@ class ProxyGroupsSnapshot extends _$ProxyGroupsSnapshot {
     error: error,
     hydrated: state.hydrated,
   );
+}
+
+@Riverpod(keepAlive: true)
+class GroupsOwnerProfileId extends _$GroupsOwnerProfileId {
+  @override
+  int? build() => null;
+
+  void set(int? profileId) => state = profileId;
 }
