@@ -90,18 +90,14 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setupAction.resumeUiStatsTimerIfNeeded();
         setupAction.tryCheckIp();
+        final isStart = container.read(isStartProvider);
+        final hasGroups = container.read(groupsProvider).isNotEmpty;
         if (shouldReconnectCoreOnResume(
           isAndroid: system.isAndroid,
-          isRunning: ref.read(isStartProvider),
+          isRunning: isStart,
+          hasGroups: hasGroups,
         )) {
-          final isStart = container.read(isStartProvider);
-          final hasGroups = container.read(groupsProvider).isNotEmpty;
-          // Only restart core when proxy is running or groups are empty
-          // (initial load). Avoid resetting computed group selections
-          // when the app just returns to foreground while proxy is off.
-          if (isStart || !hasGroups) {
-            container.read(coreActionProvider.notifier).tryStartCore();
-          }
+          container.read(coreActionProvider.notifier).tryStartCore();
         }
       });
     } else if (state == AppLifecycleState.inactive ||

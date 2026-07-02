@@ -28,8 +28,9 @@ bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
 bool shouldReconnectCoreOnResume({
   required bool isAndroid,
   required bool isRunning,
+  required bool hasGroups,
 }) {
-  return isAndroid && isRunning;
+  return isAndroid && (isRunning || !hasGroups);
 }
 
 @Riverpod(keepAlive: true)
@@ -1261,7 +1262,6 @@ class ProxiesAction extends _$ProxiesAction {
   Future<void> updateGroups() async {
     try {
       commonPrint.log('updateGroups');
-<<<<<<< HEAD
       if (!coreController.isCompleted) {
         final connected = await ref
             .read(coreActionProvider.notifier)

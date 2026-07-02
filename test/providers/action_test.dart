@@ -27,23 +27,30 @@ void main() {
   });
 
   group('shouldReconnectCoreOnResume', () {
-    test('does not reconnect core on Android when VPN is stopped', () {
+    test('does not reconnect core on Android when VPN is stopped and groups exist', () {
       expect(
-        shouldReconnectCoreOnResume(isAndroid: true, isRunning: false),
+        shouldReconnectCoreOnResume(isAndroid: true, isRunning: false, hasGroups: true),
         isFalse,
+      );
+    });
+
+    test('reconnects core on Android when VPN is stopped but groups are empty (initial load)', () {
+      expect(
+        shouldReconnectCoreOnResume(isAndroid: true, isRunning: false, hasGroups: false),
+        isTrue,
       );
     });
 
     test('reconnects core on Android when VPN is running', () {
       expect(
-        shouldReconnectCoreOnResume(isAndroid: true, isRunning: true),
+        shouldReconnectCoreOnResume(isAndroid: true, isRunning: true, hasGroups: true),
         isTrue,
       );
     });
 
     test('does not reconnect core on non-Android platforms', () {
       expect(
-        shouldReconnectCoreOnResume(isAndroid: false, isRunning: true),
+        shouldReconnectCoreOnResume(isAndroid: false, isRunning: true, hasGroups: true),
         isFalse,
       );
     });
