@@ -80,8 +80,17 @@ class VpnService : SystemVpnService(), IBaseService,
         target: InetSocketAddress,
         uid: Int,
     ): String {
-        val nextUid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            connectivity?.getConnectionOwnerUid(protocol, source, target) ?: -1
+        val nextUid = if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            source.address != null &&
+            target.address != null
+        ) {
+            runCatching {
+                connectivity?.getConnectionOwnerUid(protocol, source, target) ?: -1
+            }.getOrElse {
+                GlobalState.log("Resolve process fallback: ${it.message}")
+                uid
+            }
         } else {
             uid
         }
@@ -257,7 +266,8 @@ class VpnService : SystemVpnService(), IBaseService,
             State.options?.let {
                 handleStart(it)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            GlobalState.log("VpnService start failed: ${e.message}")
             stop()
         }
     }
