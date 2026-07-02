@@ -35,7 +35,7 @@ abstract class AppState with _$AppState {
     @Default(false) bool realTunEnable,
     @Default(false) bool loading,
     required SystemUiOverlayStyle systemUiOverlayStyle,
-    @Default(CoreStatus.connecting) CoreStatus coreStatus,
+    @Default(CoreStatus.disconnected) CoreStatus coreStatus,
   }) = _AppState;
 }
 

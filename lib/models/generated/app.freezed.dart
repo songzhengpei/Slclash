@@ -237,7 +237,7 @@ return $default(_that.isInit,_that.backBlock,_that.pageLabel,_that.packages,_tha
 
 
 class _AppState implements AppState {
-  const _AppState({this.isInit = false, this.backBlock = false, this.pageLabel = PageLabel.dashboard, final  List<Package> packages = const [], this.sortNum = 0, required this.viewSize, this.sideWidth = 0, final  DelayMap delayMap = const {}, final  List<Group> groups = const [], this.checkIpNum = 0, required this.brightness, this.runTime, final  List<ExternalProvider> providers = const [], this.localIp, required this.requests, required this.version, required this.logs, required this.traffics, required this.totalTraffic, this.realTunEnable = false, this.loading = false, required this.systemUiOverlayStyle, this.coreStatus = CoreStatus.connecting}): _packages = packages,_delayMap = delayMap,_groups = groups,_providers = providers;
+  const _AppState({this.isInit = false, this.backBlock = false, this.pageLabel = PageLabel.dashboard, final  List<Package> packages = const [], this.sortNum = 0, required this.viewSize, this.sideWidth = 0, final  DelayMap delayMap = const {}, final  List<Group> groups = const [], this.checkIpNum = 0, required this.brightness, this.runTime, final  List<ExternalProvider> providers = const [], this.localIp, required this.requests, required this.version, required this.logs, required this.traffics, required this.totalTraffic, this.realTunEnable = false, this.loading = false, required this.systemUiOverlayStyle, this.coreStatus = CoreStatus.disconnected}): _packages = packages,_delayMap = delayMap,_groups = groups,_providers = providers;
   
 
 @override@JsonKey() final  bool isInit;

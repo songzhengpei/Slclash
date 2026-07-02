@@ -666,6 +666,7 @@ class SetupAction extends _$SetupAction {
     } else {
       globalState.needInitStatus = false;
       ref.read(runTimeProvider.notifier).value = null;
+      ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       commonPrint.log('init status skip full setup');
     }
   }
@@ -774,6 +775,19 @@ class SetupAction extends _$SetupAction {
     );
   }
 
+  Future<void> applyProfileForDisplay({bool silence = true}) async {
+    final patchConfig = ref
+        .read(patchClashConfigProvider)
+        .copyWith
+        .tun(enable: false);
+    await _setupConfig(
+      force: true,
+      silence: silence,
+      patchConfigOverride: patchConfig,
+      requestAdmin: false,
+    );
+  }
+
   Future<VM2<String, String>> getProfile({
     required SetupState setupState,
     required PatchClashConfig patchConfig,
@@ -866,6 +880,8 @@ class SetupAction extends _$SetupAction {
     bool silence = false,
     VoidCallback? preloadInvoke,
     FutureOr Function()? onUpdated,
+    PatchClashConfig? patchConfigOverride,
+    bool requestAdmin = true,
   }) async {
     var profile = ref.read(currentProfileProvider);
     final nextProfile = await profile?.checkAndUpdateAndCopy();
@@ -874,10 +890,16 @@ class SetupAction extends _$SetupAction {
       ref.read(profilesProvider.notifier).put(nextProfile);
     }
     commonPrint.log('setup ===> ${profile?.id}');
-    final patchConfig = ref.read(patchClashConfigProvider);
-    final res = await _requestAdmin(patchConfig.tun.enable);
-    if (res.isError) return;
-    final realTunEnable = ref.read(realTunEnableProvider);
+    final PatchClashConfig patchConfig =
+        patchConfigOverride ?? ref.read(patchClashConfigProvider);
+    late final bool realTunEnable;
+    if (requestAdmin) {
+      final res = await _requestAdmin(patchConfig.tun.enable);
+      if (res.isError) return;
+      realTunEnable = ref.read(realTunEnableProvider);
+    } else {
+      realTunEnable = false;
+    }
     final realPatchConfig = patchConfig.copyWith.tun(enable: realTunEnable);
     final setupState = await ref.read(setupStateProvider(profile?.id).future);
     if (system.isAndroid) {
@@ -1054,8 +1076,7 @@ class CoreAction extends _$CoreAction {
 
   Future<bool> tryStartCore([bool start = false]) async {
     if (coreController.isCompleted) return false;
-    await restartCore(start);
-    return true;
+    return restartCore(start);
   }
 
   void handleCoreDisconnected() {
@@ -1240,27 +1261,53 @@ class ProxiesAction extends _$ProxiesAction {
   Future<void> updateGroups() async {
     try {
       commonPrint.log('updateGroups');
-      ref.read(groupsProvider.notifier).value = await retry(
-        task: () async {
-          final sortType = ref.read(
-            proxiesStyleSettingProvider.select((state) => state.sortType),
-          );
-          final delayMap = ref.read(delayDataSourceProvider);
-          final testUrl = ref.read(
-            appSettingProvider.select((state) => state.testUrl),
-          );
-          final selectedMap = ref.read(
-            currentProfileProvider.select((state) => state?.selectedMap ?? {}),
-          );
-          return coreController.getProxiesGroups(
-            selectedMap: selectedMap,
-            sortType: sortType,
-            delayMap: delayMap,
-            defaultTestUrl: testUrl,
-          );
-        },
-        retryIf: (res) => res.isEmpty || res.any((g) => g.all.isEmpty),
-      );
+      if (!coreController.isCompleted) {
+        final connected = await ref
+            .read(coreActionProvider.notifier)
+            .connectCore();
+        if (!connected) {
+          ref.read(groupsProvider.notifier).value = [];
+          return;
+        }
+        final isInit = await coreController.isInit;
+        if (!isInit) {
+          final version = ref.read(versionProvider);
+          final res = await coreController.init(version);
+          commonPrint.log('init result: $res');
+        }
+      }
+      Future<List<Group>> loadGroups() {
+        return retry(
+          task: () async {
+            final sortType = ref.read(
+              proxiesStyleSettingProvider.select((state) => state.sortType),
+            );
+            final delayMap = ref.read(delayDataSourceProvider);
+            final testUrl = ref.read(
+              appSettingProvider.select((state) => state.testUrl),
+            );
+            final selectedMap = ref.read(
+              currentProfileProvider.select(
+                (state) => state?.selectedMap ?? {},
+              ),
+            );
+            return coreController.getProxiesGroups(
+              selectedMap: selectedMap,
+              sortType: sortType,
+              delayMap: delayMap,
+              defaultTestUrl: testUrl,
+            );
+          },
+          retryIf: (res) => res.isEmpty || res.any((g) => g.all.isEmpty),
+        );
+      }
+
+      var groups = await loadGroups();
+      if (groups.isEmpty || groups.any((g) => g.all.isEmpty)) {
+        await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
+        groups = await loadGroups();
+      }
+      ref.read(groupsProvider.notifier).value = groups;
     } catch (e) {
       commonPrint.log('updateGroups error: $e');
       ref.read(groupsProvider.notifier).value = [];

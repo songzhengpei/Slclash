@@ -64,6 +64,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       ref.read(proxiesStyleSettingProvider.notifier).update((state) {
         return state.copyWith(type: ProxiesType.list);
       });
+      ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
     });
   }
 

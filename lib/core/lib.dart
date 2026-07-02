@@ -21,7 +21,11 @@ class CoreLib extends CoreHandlerInterface {
     if (_connectedCompleter.isCompleted) {
       return '';
     }
-    final res = await service?.init();
+    final res = await service?.init().withTimeout(
+      timeout: const Duration(seconds: 8),
+      tag: 'service init',
+      onTimeout: () => 'service init timeout',
+    );
     if (res?.isEmpty != true) {
       return res ?? '';
     }
