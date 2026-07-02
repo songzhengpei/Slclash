@@ -64,7 +64,14 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       ref.read(proxiesStyleSettingProvider.notifier).update((state) {
         return state.copyWith(type: ProxiesType.list);
       });
-      ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+      // Soft refresh: only if groups empty or last refresh > 30s ago
+      final groupsEmpty = ref.read(groupsProvider).isEmpty;
+      final lastRefresh = ref.read(lastGroupsRefreshAtProvider);
+      final expired = lastRefresh == null ||
+          DateTime.now().difference(lastRefresh) > const Duration(seconds: 30);
+      if (groupsEmpty || expired) {
+        ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+      }
     });
   }
 

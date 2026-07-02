@@ -1451,6 +1451,8 @@ class ProxiesAction extends _$ProxiesAction {
     }
   }
 
+  DateTime? _lastPreheatGroupsRefreshAt;
+
   Future<void> preheatComputedGroups() async {
     final groups = ref.read(groupsProvider);
     if (groups.isEmpty) return;
@@ -1464,6 +1466,14 @@ class ProxiesAction extends _$ProxiesAction {
         delayLoader: coreController.getDelay,
         onDelay: setDelay,
       );
+      // Throttle: skip if last refresh was < 5s ago
+      final now = DateTime.now();
+      if (_lastPreheatGroupsRefreshAt != null &&
+          now.difference(_lastPreheatGroupsRefreshAt!) <
+              const Duration(seconds: 5)) {
+        return;
+      }
+      _lastPreheatGroupsRefreshAt = now;
       updateGroupsDebounce();
     } catch (e) {
       commonPrint.log('preheatComputedGroups error: $e');
