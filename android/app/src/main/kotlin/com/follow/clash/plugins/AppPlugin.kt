@@ -360,30 +360,6 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         }
     }
 
-    fun requestNotificationsPermission(callBack: () -> Unit) {
-        requestNotificationCallback = callBack
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val permission = ContextCompat.checkSelfPermission(
-                GlobalState.application, Manifest.permission.POST_NOTIFICATIONS
-            )
-            if (permission == PackageManager.PERMISSION_GRANTED || isBlockNotification) {
-                invokeRequestNotificationCallback()
-                return
-            }
-            activityRef?.get()?.let {
-                ActivityCompat.requestPermissions(
-                    it,
-                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                    NOTIFICATION_PERMISSION_REQUEST_CODE
-                )
-            }
-            return
-        } else {
-            invokeRequestNotificationCallback()
-        }
-
-    }
-
     fun invokeRequestNotificationCallback() {
         requestNotificationCallback?.invoke()
         requestNotificationCallback = null
