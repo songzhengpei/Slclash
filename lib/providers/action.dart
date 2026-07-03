@@ -24,6 +24,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 part 'generated/action.g.dart';
 
+/// Real-time traffic speed for speed text display.
+/// Updated every 1s. Separate from [trafficsProvider] (chart data, 2-3s).
+final currentSpeedNotifier = ValueNotifier<Traffic>(const Traffic());
+
 bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
   return isRunning || autoRun;
 }
@@ -504,13 +508,17 @@ class _UpdateChangeItem extends StatelessWidget {
 
 @Riverpod(keepAlive: true)
 class SetupAction extends _$SetupAction {
-  static const _dashboardStatsInterval = Duration(seconds: 1);
-  static const _backgroundPageStatsInterval = Duration(seconds: 3);
+  static const _tickInterval = Duration(seconds: 1);
+  static const _chartUpdateInterval = Duration(seconds: 2);
+  static const _totalTrafficUpdateInterval = Duration(seconds: 5);
+  static const _runtimeUpdateInterval = Duration(seconds: 5);
 
   Timer? _updateTimer;
   DateTime? startTime;
   bool _isUpdatingUiStats = false;
-  DateTime? _lastRuntimeUpdate;
+  DateTime? _lastChartUpdateAt;
+  DateTime? _lastTotalTrafficUpdateAt;
+  DateTime? _lastRuntimeUpdateAt;
 
   bool get isStart => startTime != null && startTime!.isBeforeNow;
 
@@ -532,6 +540,14 @@ class SetupAction extends _$SetupAction {
       _updateTimer?.cancel();
       _updateTimer = null;
     });
+  }
+
+  bool get _isDashboardActive {
+    return ref.read(currentPageLabelProvider) == PageLabel.dashboard;
+  }
+
+  static bool _shouldRun(DateTime now, DateTime? lastAt, Duration interval) {
+    return lastAt == null || now.difference(lastAt) >= interval;
   }
 
   SetupParams get _setupParams {
@@ -566,24 +582,54 @@ class SetupAction extends _$SetupAction {
     _startUiStatsTimer();
   }
 
-  Duration get _uiStatsInterval {
-    final isDashboard =
-        ref.read(currentPageLabelProvider) == PageLabel.dashboard;
-    return isDashboard ? _dashboardStatsInterval : _backgroundPageStatsInterval;
-  }
-
+  /// Full chain: fetch snapshot, update speed (1s), chart (2s), total (5s), runtime (5s).
   Future<void> _updateUiStats() async {
-    // Throttle runtime updates to 5s to reduce provider rebuilds
-    final now = DateTime.now();
-    if (_lastRuntimeUpdate == null ||
-        now.difference(_lastRuntimeUpdate!) >= const Duration(seconds: 5)) {
-      ref.read(commonActionProvider.notifier).updateRunTime();
-      _lastRuntimeUpdate = now;
+    // Visibility gate: only non-dashboard pages → skip everything except runtime at 5s
+    if (!_isDashboardActive) {
+      final now = DateTime.now();
+      if (_shouldRun(now, _lastRuntimeUpdateAt, _runtimeUpdateInterval)) {
+        ref.read(commonActionProvider.notifier).updateRunTime();
+        _lastRuntimeUpdateAt = now;
+      }
+      return;
     }
     if (_isUpdatingUiStats) return;
     _isUpdatingUiStats = true;
     try {
-      await ref.read(commonActionProvider.notifier).updateTraffic();
+      final now = DateTime.now();
+
+      // Fetch snapshot once per tick (FFI call)
+      final onlyStatisticsProxy = ref.read(
+        appSettingProvider.select((state) => state.onlyStatisticsProxy),
+      );
+      final snapshot = await coreController.getTrafficSnapshot(
+        onlyStatisticsProxy,
+      );
+
+      // 1. Speed text: every tick (1s) — lightweight ValueNotifier, no Provider rebuild
+      currentSpeedNotifier.value = snapshot.traffic;
+
+      // 2. Chart points: throttle to 2s
+      if (_shouldRun(now, _lastChartUpdateAt, _chartUpdateInterval)) {
+        ref.read(trafficsProvider.notifier).addTraffic(snapshot.traffic);
+        _lastChartUpdateAt = now;
+      }
+
+      // 3. Total traffic: throttle to 5s + diff check
+      if (_shouldRun(now, _lastTotalTrafficUpdateAt, _totalTrafficUpdateInterval)) {
+        final currentTotal = ref.read(totalTrafficProvider);
+        if (snapshot.totalTraffic.up != currentTotal.up ||
+            snapshot.totalTraffic.down != currentTotal.down) {
+          ref.read(totalTrafficProvider.notifier).value = snapshot.totalTraffic;
+        }
+        _lastTotalTrafficUpdateAt = now;
+      }
+
+      // 4. Runtime: throttle to 5s
+      if (_shouldRun(now, _lastRuntimeUpdateAt, _runtimeUpdateInterval)) {
+        ref.read(commonActionProvider.notifier).updateRunTime();
+        _lastRuntimeUpdateAt = now;
+      }
     } catch (e) {
       commonPrint.log('update ui stats failed: $e', logLevel: LogLevel.warning);
     } finally {
@@ -593,7 +639,7 @@ class SetupAction extends _$SetupAction {
 
   void _startUiStatsTimer() {
     _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(_uiStatsInterval, (_) {
+    _updateTimer = Timer.periodic(_tickInterval, (_) {
       unawaited(_updateUiStats());
     });
   }
@@ -612,6 +658,9 @@ class SetupAction extends _$SetupAction {
   void cancelUiStatsTimer() {
     _updateTimer?.cancel();
     _updateTimer = null;
+    _lastChartUpdateAt = null;
+    _lastTotalTrafficUpdateAt = null;
+    _lastRuntimeUpdateAt = null;
   }
 
   /// Resume the UI stats timer when app returns to foreground.

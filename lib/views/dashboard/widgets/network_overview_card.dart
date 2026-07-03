@@ -607,7 +607,6 @@ class _SurgeNetworkOverviewCardState
     final totalTraffic = ref.watch(totalTrafficProvider);
     final networkDetection = ref.watch(networkDetectionProvider);
     final isStart = ref.watch(isStartProvider);
-    final lastTraffic = traffics.isEmpty ? const Traffic() : traffics.last;
     final hasLiveTraffic = traffics.any(
       (traffic) => traffic.up > 0 || traffic.down > 0,
     );
@@ -701,11 +700,16 @@ class _SurgeNetworkOverviewCardState
                     ),
                   ),
                   const SizedBox(width: 12),
-                  _LiveSpeedBadge(
-                    up: lastTraffic.up,
-                    down: lastTraffic.down,
-                    upColor: uploadColor,
-                    downColor: downloadColor,
+                  ValueListenableBuilder<Traffic>(
+                    valueListenable: currentSpeedNotifier,
+                    builder: (_, speed, _) {
+                      return _LiveSpeedBadge(
+                        up: speed.up,
+                        down: speed.down,
+                        upColor: uploadColor,
+                        downColor: downloadColor,
+                      );
+                    },
                   ),
                 ],
               ),

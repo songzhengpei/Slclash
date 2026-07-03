@@ -1,6 +1,6 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
-import 'package:fl_clash/providers/app.dart';
+import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -29,11 +29,6 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
     return points;
   }
 
-  Traffic _getLastTraffic(List<Traffic> traffics) {
-    if (traffics.isEmpty) return const Traffic();
-    return traffics.last;
-  }
-
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
@@ -50,15 +45,20 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
               subtitle: 'Speed',
               icon: Icons.speed_rounded,
               height: height,
-              trailing: Text(
-                _getLastTraffic(traffics).speedText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.textTheme.labelSmall?.copyWith(
-                  color: surge.textSecondary,
-                  fontSize: 11,
-                  letterSpacing: 0,
-                ),
+              trailing: ValueListenableBuilder<Traffic>(
+                valueListenable: currentSpeedNotifier,
+                builder: (_, speed, _) {
+                  return Text(
+                    speed.speedText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: surge.textSecondary,
+                      fontSize: 11,
+                      letterSpacing: 0,
+                    ),
+                  );
+                },
               ),
               child: Padding(
                 padding: const EdgeInsets.only(top: 0, bottom: 5),
