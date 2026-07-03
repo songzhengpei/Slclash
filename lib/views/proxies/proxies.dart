@@ -24,13 +24,6 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       providersProvider.select((state) => state.isNotEmpty),
     );
     return [
-      _ProxiesActionButton(
-        tooltip: '刷新代理组',
-        icon: Icons.refresh_rounded,
-        onPressed: () {
-          ref.read(proxiesActionProvider.notifier).updateGroups();
-        },
-      ),
       if (hasProviders)
         _ProxiesActionButton(
           tooltip: appLocalizations.providers,
