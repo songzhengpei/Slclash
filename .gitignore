@@ -14,6 +14,7 @@ migrate_working_dir/
 
 # Dev tools cache (local, do not commit)
 .dev-tools/
+.mimocode/
 
 # IntelliJ related
 *.iml
