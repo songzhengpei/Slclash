@@ -260,15 +260,17 @@ class VpnService : SystemVpnService(), IBaseService,
         )
     }
 
-    override fun start() {
-        try {
+    override fun start(): Boolean {
+        return try {
             loader.load()
-            State.options?.let {
-                handleStart(it)
-            }
+            val options = State.options
+                ?: throw IllegalStateException("VPN options is null")
+            handleStart(options)
+            true
         } catch (e: Exception) {
             GlobalState.log("VpnService start failed: ${e.message}")
             stop()
+            false
         }
     }
 
@@ -284,9 +286,15 @@ class VpnService : SystemVpnService(), IBaseService,
         Core.stopTun()
     }
 
-    override fun smartResume() {
-        State.options?.let {
-            handleStart(it)
+    override fun smartResume(): Boolean {
+        return try {
+            State.options?.let {
+                handleStart(it)
+                true
+            } ?: false
+        } catch (e: Exception) {
+            GlobalState.log("VpnService smartResume failed: ${e.message}")
+            false
         }
     }
 

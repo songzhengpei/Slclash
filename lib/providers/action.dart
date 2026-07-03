@@ -546,11 +546,16 @@ class SetupAction extends _$SetupAction {
 
   Future<void> _handleStart() async {
     startTime ??= DateTime.now();
-    //The local status must be updated when performing the run task
-    unawaited(_updateUiStats());
     if (!ref.read(suspendProvider)) {
-      await coreController.startListener();
+      final started = await coreController.startListener();
+      if (!started) {
+        startTime = null;
+        ref.read(runTimeProvider.notifier).value = null;
+        ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+        return;
+      }
     }
+    unawaited(_updateUiStats());
     _startUiStatsTimer();
   }
 

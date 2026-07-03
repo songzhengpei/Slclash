@@ -42,7 +42,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import java.io.File
 import java.lang.ref.WeakReference
 import java.util.zip.ZipFile
@@ -60,7 +62,7 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private lateinit var scope: CoroutineScope
 
-    private var vpnPrepareCallback: (suspend () -> Unit)? = null
+    private var vpnPrepareCallback: (suspend (Boolean) -> Unit)? = null
 
     private var requestNotificationCallback: (() -> Unit)? = null
 
@@ -387,26 +389,41 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         requestNotificationCallback = null
     }
 
-    fun prepare(needPrepare: Boolean, callBack: (suspend () -> Unit)) {
+    fun prepare(needPrepare: Boolean, callBack: (suspend (Boolean) -> Unit)) {
         vpnPrepareCallback = callBack
         if (!needPrepare) {
-            invokeVpnPrepareCallback()
+            invokeVpnPrepareCallback(true)
             return
         }
         val intent = VpnService.prepare(GlobalState.application)
         if (intent != null) {
             activityRef?.get()?.startActivityForResult(intent, VPN_PERMISSION_REQUEST_CODE)
+                ?: invokeVpnPrepareCallback(false)
             return
         }
-        invokeVpnPrepareCallback()
+        invokeVpnPrepareCallback(true)
     }
 
-    fun invokeVpnPrepareCallback() {
+    fun invokeVpnPrepareCallback(success: Boolean = true) {
         GlobalState.launch {
-            vpnPrepareCallback?.invoke()
+            vpnPrepareCallback?.invoke(success)
             vpnPrepareCallback = null
         }
     }
+
+    suspend fun prepareVpnAwait(needPrepare: Boolean): Boolean =
+        suspendCancellableCoroutine { cont ->
+            prepare(needPrepare) { success ->
+                if (cont.isActive) cont.resume(success)
+            }
+        }
+
+    suspend fun requestNotificationsPermissionAwait(): Boolean =
+        suspendCancellableCoroutine { cont ->
+            requestNotificationsPermission {
+                if (cont.isActive) cont.resume(true)
+            }
+        }
 
 
     @Suppress("DEPRECATION")
@@ -503,9 +520,7 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode == VPN_PERMISSION_REQUEST_CODE) {
-            if (resultCode == FlutterActivity.RESULT_OK) {
-                invokeVpnPrepareCallback()
-            }
+            invokeVpnPrepareCallback(resultCode == FlutterActivity.RESULT_OK)
         }
         return true
     }

@@ -49,11 +49,14 @@ class CommonService : Service(), IBaseService,
         return binder
     }
 
-    override fun start() {
-        try {
+    override fun start(): Boolean {
+        return try {
             loader.load()
-        } catch (_: Exception) {
+            true
+        } catch (e: Exception) {
+            GlobalState.log("CommonService start failed: ${e.message}")
             stop()
+            false
         }
     }
 
