@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.VpnService
 import android.os.Build
 import android.os.PowerManager
@@ -173,6 +175,14 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(isPowerSaveMode())
             }
 
+            "isActiveNetworkMetered" -> {
+                result.success(isActiveNetworkMetered())
+            }
+
+            "isActiveNetworkCellular" -> {
+                result.success(isActiveNetworkCellular())
+            }
+
             "installApk" -> {
                 result.success(installApk(call.argument<String>("path")))
             }
@@ -226,6 +236,29 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun isPowerSaveMode(): Boolean {
         return powerManager()?.isPowerSaveMode ?: false
+    }
+
+    private fun connectivityManager(): ConnectivityManager? {
+        return getSystemService(GlobalState.application, ConnectivityManager::class.java)
+    }
+
+    private fun isActiveNetworkMetered(): Boolean {
+        return try {
+            connectivityManager()?.isActiveNetworkMetered ?: true
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun isActiveNetworkCellular(): Boolean {
+        return try {
+            val cm = connectivityManager() ?: return true
+            val network = cm.activeNetwork ?: return true
+            val caps = cm.getNetworkCapabilities(network) ?: return true
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+        } catch (_: Exception) {
+            true
+        }
     }
 
     private fun openAppSettings(): Boolean {

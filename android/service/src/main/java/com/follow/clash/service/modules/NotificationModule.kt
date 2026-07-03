@@ -111,6 +111,7 @@ class NotificationModule(private val service: Service) : Module() {
         lastParams = params
 
         val notification = with(notificationBuilder) {
+            setPriority(resolvePriority(forceForeground))
             setContentTitle(params.title)
             setContentText(params.contentText)
             clearActions()

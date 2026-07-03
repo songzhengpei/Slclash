@@ -9,13 +9,22 @@ abstract class Module {
 
     fun install() {
         if (installed) return
-        installed = true
-        onInstall()
+        try {
+            onInstall()
+            installed = true
+        } catch (t: Throwable) {
+            runCatching { onUninstall() }
+            installed = false
+            throw t
+        }
     }
 
     fun uninstall() {
         if (!installed) return
-        onUninstall()
-        installed = false
+        try {
+            onUninstall()
+        } finally {
+            installed = false
+        }
     }
 }

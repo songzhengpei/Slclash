@@ -72,6 +72,12 @@ class Logs extends _$Logs with AutoDisposeNotifierMixin {
 
   int get droppedLogs => _droppedLogs;
 
+  void flushNow() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _flushLogs();
+  }
+
   Future<bool> exportLogs() async {
     _flushTimer?.cancel();
     _flushLogs();
@@ -135,6 +141,12 @@ class Requests extends _$Requests with AutoDisposeNotifierMixin {
   }
 
   int get droppedRequests => _droppedRequests;
+
+  void flushNow() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _flushRequests();
+  }
 }
 
 @Riverpod(keepAlive: true)

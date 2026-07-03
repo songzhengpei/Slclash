@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -25,6 +26,7 @@ fun CoroutineScope.moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): Mo
 
     return object : ModuleLoader {
         override fun load() {
+            if (job?.isActive == true) return
             job = launch(Dispatchers.IO) {
                 mutex.withLock {
                     if (loaded) return@withLock
@@ -50,11 +52,14 @@ fun CoroutineScope.moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): Mo
 
         override fun cancel() {
             launch(Dispatchers.IO) {
-                job?.cancel()
+                job?.cancelAndJoin()
                 mutex.withLock {
-                    modules.asReversed().forEach { it.uninstall() }
+                    modules.asReversed().forEach { module ->
+                        runCatching { module.uninstall() }
+                    }
                     modules.clear()
                     loaded = false
+                    job = null
                 }
             }
         }

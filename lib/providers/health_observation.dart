@@ -125,9 +125,10 @@ int healthObservationWorkerCount({
   bool cellular = false,
   bool screenOn = true,
   bool powerSaveMode = false,
+  bool networkPowerLimited = false,
 }) {
   if (eligibleProxyCount <= 0 || powerSaveMode) return 0;
-  if (!screenOn || cellular) return 1;
+  if (!screenOn || cellular || networkPowerLimited) return 1;
   final maxWorkers = appForeground ? 5 : 2;
   return math.min(maxWorkers, eligibleProxyCount);
 }
@@ -169,6 +170,14 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   DateTime? _appStartedAt;
   DateTime? _lastLifecycleChangeAt;
   bool _engineReady = false;
+
+  /// Whether the scheduler appears stuck (isObserving for > 10 min).
+  bool get _looksStuck {
+    final lastAttempt = state.lastAttemptAt;
+    if (!state.isObserving || lastAttempt == null) return false;
+    return DateTime.now().difference(lastAttempt) >
+        const Duration(minutes: 10);
+  }
   final _cacheStore = MediaCheckCacheStore();
 
   @override
@@ -274,6 +283,19 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       return;
     }
 
+    if (_looksStuck) {
+      commonPrint.log(
+        'health observation watchdog reset',
+        logLevel: LogLevel.warning,
+      );
+      state = state.copyWith(
+        isObserving: false,
+        lastSkippedReason: 'watchdogReset',
+      );
+      _scheduleNext(retryDelay: const Duration(minutes: 2));
+      return;
+    }
+
     _triggerObservation();
   }
 
@@ -326,7 +348,25 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       clearSkipReason: true,
     );
 
-    _performObservation();
+    _performObservationGuarded();
+  }
+
+  /// Guarded wrapper that ensures isObserving is always cleaned up.
+  Future<void> _performObservationGuarded() async {
+    try {
+      await _performObservation();
+    } catch (e, s) {
+      commonPrint.log(
+        'health observation fatal: \$e
+\$s',
+        logLevel: LogLevel.warning,
+      );
+      if (state.isObserving) {
+        _completeObservation(skipReason: 'fatalError');
+      } else {
+        _scheduleNext(retryDelay: const Duration(minutes: 2));
+      }
+    }
   }
 
   /// Execute the health observation batch.
@@ -396,14 +436,26 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       return;
     }
     final powerState = await _readPowerState();
+    final connectivityPlusCellular = healthObservationIsCellular(
+      ref.read(connectivityResultsProvider),
+    );
+    final appPlugin = app;
+    final isMeteredByNative = appPlugin != null
+        ? await appPlugin.isActiveNetworkMetered()
+        : false;
+    final isCellularByNative = appPlugin != null
+        ? await appPlugin.isActiveNetworkCellular()
+        : false;
+    final networkPowerLimited =
+        connectivityPlusCellular || isMeteredByNative || isCellularByNative;
+
     final workerCount = healthObservationWorkerCount(
       eligibleProxyCount: eligibleProxies.length,
       appForeground: ref.read(appForegroundProvider),
-      cellular: healthObservationIsCellular(
-        ref.read(connectivityResultsProvider),
-      ),
+      cellular: connectivityPlusCellular,
       screenOn: powerState.screenOn,
       powerSaveMode: powerState.powerSaveMode,
+      networkPowerLimited: networkPowerLimited,
     );
 
     if (workerCount <= 0) {
@@ -554,7 +606,9 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       'coreUnavailable' => _retryCoreUnavailable,
       'noSelectedProfile' => _retryNoProfile,
       'noProxies' => _retryNoProxies,
-      _ => _retryNoNetwork, // fallback
+      'fatalError' => const Duration(minutes: 2),
+      'observationPaused' => const Duration(minutes: 5),
+      _ => _retryNoNetwork,
     };
   }
 
