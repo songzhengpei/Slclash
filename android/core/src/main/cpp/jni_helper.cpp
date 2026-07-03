@@ -28,6 +28,7 @@ char *jni_get_string(JNIEnv *env, jstring str) {
     const auto content = static_cast<char *>(malloc(length + 1));
     env->GetByteArrayRegion(array, 0, length, reinterpret_cast<jbyte *>(content));
     content[length] = 0;
+    env->DeleteLocalRef(array);
     return content;
 }
 
@@ -35,7 +36,9 @@ jstring jni_new_string(JNIEnv *env, const char *str) {
     const auto length = static_cast<int>(strlen(str));
     const auto array = env->NewByteArray(length);
     env->SetByteArrayRegion(array, 0, length, reinterpret_cast<const jbyte *>(str));
-    return reinterpret_cast<jstring>(env->NewObject(c_string, m_new_string, array));
+    const auto result = reinterpret_cast<jstring>(env->NewObject(c_string, m_new_string, array));
+    env->DeleteLocalRef(array);
+    return result;
 }
 
 int jni_catch_exception(JNIEnv *env) {

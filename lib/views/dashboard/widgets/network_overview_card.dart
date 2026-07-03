@@ -605,9 +605,28 @@ class _SurgeNetworkOverviewCardState
     final appLocalizations = context.appLocalizations;
     final traffics = ref.watch(trafficsProvider).list;
     final totalTraffic = ref.watch(totalTrafficProvider);
-    final networkDetection = ref.watch(networkDetectionProvider);
+    final countryCode = ref.watch(
+      networkDetectionProvider.select((s) => s.ipInfo?.countryCode),
+    );
+    final networkIpInfo = ref.watch(
+      networkDetectionProvider.select((s) => s.ipInfo),
+    );
+    final networkIsLoading = ref.watch(
+      networkDetectionProvider.select((s) => s.isLoading),
+    );
+    final networkHasChecked = ref.watch(
+      networkDetectionProvider.select((s) => s.hasChecked),
+    );
+    final isForeground = ref.watch(appForegroundProvider);
+    final isDashboardActive = ref.watch(
+      currentPageLabelProvider.select((l) => l == PageLabel.dashboard),
+    );
+    final shouldAnimateLoading =
+        isForeground && isDashboardActive && networkIsLoading;
+    final hasPendingLatency = _latencyResults.values.any((r) => r.pending);
+    final shouldAnimatePending =
+        isForeground && isDashboardActive && hasPendingLatency;
     final isStart = ref.watch(isStartProvider);
-    final lastTraffic = traffics.isEmpty ? const Traffic() : traffics.last;
     final hasLiveTraffic = traffics.any(
       (traffic) => traffic.up > 0 || traffic.down > 0,
     );
@@ -701,11 +720,16 @@ class _SurgeNetworkOverviewCardState
                     ),
                   ),
                   const SizedBox(width: 12),
-                  _LiveSpeedBadge(
-                    up: lastTraffic.up,
-                    down: lastTraffic.down,
-                    upColor: uploadColor,
-                    downColor: downloadColor,
+                  ValueListenableBuilder<Traffic>(
+                    valueListenable: currentSpeedNotifier,
+                    builder: (_, speed, _) {
+                      return _LiveSpeedBadge(
+                        up: speed.up,
+                        down: speed.down,
+                        upColor: uploadColor,
+                        downColor: downloadColor,
+                      );
+                    },
                   ),
                 ],
               ),
@@ -846,7 +870,7 @@ class _SurgeNetworkOverviewCardState
                           targets: _latencyTargets,
                           results: _latencyResults,
                           fallbackCountryCode:
-                              networkDetection.ipInfo?.countryCode,
+                              countryCode,
                           activeColor: dashboardDynamicActiveFill,
                           fillColor: surge.fill,
                           textColor: surge.textPrimary,
@@ -855,6 +879,7 @@ class _SurgeNetworkOverviewCardState
                           onRetest: () {
                             unawaited(_testLatencies(force: true));
                           },
+                          shouldAnimatePending: shouldAnimatePending,
                           rowGap: _scaled(12),
                           layoutScale: widget.layoutScale,
                         ),
@@ -870,7 +895,10 @@ class _SurgeNetworkOverviewCardState
                 height: layout.detectionSlotHeight,
                 child: Center(
                   child: _NetworkDetectionBar(
-                    networkDetection: networkDetection,
+                    ipInfo: networkIpInfo,
+                    isLoading: networkIsLoading,
+                    hasChecked: networkHasChecked,
+                    shouldAnimate: shouldAnimateLoading,
                     primaryColor: surge.primary,
                     textColor: surge.textPrimary,
                     secondaryTextColor: surge.textSecondary,
@@ -958,7 +986,10 @@ class _LiveSpeedLine extends StatelessWidget {
 
 class _NetworkDetectionBar extends StatelessWidget {
   const _NetworkDetectionBar({
-    required this.networkDetection,
+    required this.ipInfo,
+    required this.isLoading,
+    required this.hasChecked,
+    required this.shouldAnimate,
     required this.primaryColor,
     required this.textColor,
     required this.secondaryTextColor,
@@ -970,7 +1001,10 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   final double layoutScale;
 
-  final NetworkDetectionState networkDetection;
+  final IpInfo? ipInfo;
+  final bool isLoading;
+  final bool hasChecked;
+  final bool shouldAnimate;
   final Color primaryColor;
   final Color textColor;
   final Color secondaryTextColor;
@@ -990,14 +1024,15 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ipInfo = networkDetection.ipInfo;
-    final isLoading = networkDetection.isLoading;
     final height = NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
       layoutScale,
     );
+    // Local variables for type promotion (fields can't be promoted by null check)
+    final localIpInfo = ipInfo;
+    final localIsLoading = isLoading;
 
     Widget valueWidget;
-    if (ipInfo != null) {
+    if (localIpInfo != null) {
       valueWidget = Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1008,7 +1043,7 @@ class _NetworkDetectionBar extends StatelessWidget {
               child: Transform.translate(
                 offset: const Offset(0, _flagVerticalOffset),
                 child: Text(
-                  _countryCodeToEmoji(ipInfo.countryCode),
+                  _countryCodeToEmoji(localIpInfo.countryCode),
                   maxLines: 1,
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -1025,7 +1060,7 @@ class _NetworkDetectionBar extends StatelessWidget {
           Flexible(
             child: TooltipText(
               text: Text(
-                ipInfo.ip,
+                localIpInfo.ip,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
@@ -1042,25 +1077,19 @@ class _NetworkDetectionBar extends StatelessWidget {
           ),
         ],
       );
-    } else if (isLoading == false) {
-      valueWidget = Text(
-        'Timeout',
-        maxLines: 1,
-        style: TextStyle(
-          color: dangerColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          height: 1.0,
-        ),
-      );
-    } else {
+    } else if (localIsLoading) {
       valueWidget = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CommonCircleLoading(color: primaryColor),
+          RepaintBoundary(
+            child: SizedBox(
+              width: 12,
+              height: 12,
+              child: CommonCircleLoading(
+                color: primaryColor,
+                active: shouldAnimate,
+              ),
+            ),
           ),
           const SizedBox(width: 6),
           Text(
@@ -1075,6 +1104,19 @@ class _NetworkDetectionBar extends StatelessWidget {
           ),
         ],
       );
+    } else if (hasChecked) {
+      valueWidget = Text(
+        'Timeout',
+        maxLines: 1,
+        style: TextStyle(
+          color: dangerColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          height: 1.0,
+        ),
+      );
+    } else {
+      valueWidget = const SizedBox.shrink();
     }
 
     return Container(
@@ -1230,6 +1272,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
     required this.secondaryTextColor,
     required this.dangerColor,
     required this.onRetest,
+    required this.shouldAnimatePending,
     required this.rowGap,
     this.layoutScale = 1.0,
   });
@@ -1243,6 +1286,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
   final Color secondaryTextColor;
   final Color dangerColor;
   final VoidCallback onRetest;
+  final bool shouldAnimatePending;
   final double rowGap;
   final double layoutScale;
 
@@ -1269,10 +1313,15 @@ class _PlatformLatencyPanel extends StatelessWidget {
 
   Widget _value(BuildContext context, _LatencyResult? result) {
     if (result?.pending == true) {
-      return SizedBox(
-        width: 12,
-        height: 12,
-        child: CommonCircleLoading(color: activeColor),
+      return RepaintBoundary(
+        child: SizedBox(
+          width: 12,
+          height: 12,
+          child: CommonCircleLoading(
+            color: activeColor,
+            active: shouldAnimatePending,
+          ),
+        ),
       );
     }
     if (result?.timeout == true) {
@@ -1333,6 +1382,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
             secondaryTextColor: secondaryTextColor,
             trailing: _value(context, results[target.name]),
             onRetest: onRetest,
+            active: results[target.name]?.pending == true,
             layoutScale: layoutScale,
           ),
           if (target != targets.last) SizedBox(height: rowGap),
@@ -1353,6 +1403,7 @@ class _PlatformLatencyRow extends StatelessWidget {
     required this.secondaryTextColor,
     required this.trailing,
     required this.onRetest,
+    this.active = false,
     this.layoutScale = 1.0,
   });
 
@@ -1365,6 +1416,7 @@ class _PlatformLatencyRow extends StatelessWidget {
   final Color secondaryTextColor;
   final Widget trailing;
   final VoidCallback onRetest;
+  final bool active;
   final double layoutScale;
 
   @override
@@ -1387,6 +1439,7 @@ class _PlatformLatencyRow extends StatelessWidget {
                 trackColor: trackColor,
                 flowColor: flowColor,
                 layoutScale: layoutScale,
+                active: active,
               ),
             ),
           ),
@@ -1522,12 +1575,14 @@ class _FlowingLatencyBar extends StatefulWidget {
     required this.trackColor,
     required this.flowColor,
     this.layoutScale = 1.0,
+    this.active = false,
   });
 
   final double widthFactor;
   final Color trackColor;
   final Color flowColor;
   final double layoutScale;
+  final bool active;
 
   @override
   State<_FlowingLatencyBar> createState() => _FlowingLatencyBarState();
@@ -1543,7 +1598,20 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1300),
-    )..repeat();
+    );
+    if (widget.active) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _FlowingLatencyBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.active && _controller.isAnimating) {
+      _controller.stop();
+    }
   }
 
   @override
@@ -1554,39 +1622,41 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        height: 8 * widget.layoutScale,
-        child: Stack(
-          children: [
-            Positioned.fill(child: ColoredBox(color: widget.trackColor)),
-            FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: widget.widthFactor,
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) {
-                  final sweep = _controller.value;
-                  return DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment(-1.8 + 3.6 * sweep, 0),
-                        end: Alignment(-0.2 + 3.6 * sweep, 0),
-                        colors: [
-                          widget.flowColor.withValues(alpha: 0.70),
-                          widget.flowColor,
-                          widget.flowColor.withValues(alpha: 0.74),
-                        ],
-                        stops: const [0, 0.48, 1],
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          height: 8 * widget.layoutScale,
+          child: Stack(
+            children: [
+              Positioned.fill(child: ColoredBox(color: widget.trackColor)),
+              FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: widget.widthFactor,
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    final sweep = _controller.value;
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment(-1.8 + 3.6 * sweep, 0),
+                          end: Alignment(-0.2 + 3.6 * sweep, 0),
+                          colors: [
+                            widget.flowColor.withValues(alpha: 0.70),
+                            widget.flowColor,
+                            widget.flowColor.withValues(alpha: 0.74),
+                          ],
+                          stops: const [0, 0.48, 1],
+                        ),
                       ),
-                    ),
-                    child: const SizedBox.expand(),
-                  );
-                },
+                      child: const SizedBox.expand(),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

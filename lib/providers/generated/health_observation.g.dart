@@ -11,7 +11,7 @@ part of '../health_observation.dart';
 /// App-level health observation scheduler.
 ///
 /// Runs independently of widget lifecycle, page visibility, and VPN state.
-/// Uses a lightweight 15-second tick timer only for condition checking.
+/// Uses a one-shot timer scheduled to the next eligible observation time.
 /// Actual observation interval is user-configured (default 10 min).
 ///
 /// **nextEligibleAt policy (fix: not advanced before execution)**
@@ -31,7 +31,7 @@ final healthObservationSchedulerProvider =
 /// App-level health observation scheduler.
 ///
 /// Runs independently of widget lifecycle, page visibility, and VPN state.
-/// Uses a lightweight 15-second tick timer only for condition checking.
+/// Uses a one-shot timer scheduled to the next eligible observation time.
 /// Actual observation interval is user-configured (default 10 min).
 ///
 /// **nextEligibleAt policy (fix: not advanced before execution)**
@@ -52,7 +52,7 @@ final class HealthObservationSchedulerProvider
   /// App-level health observation scheduler.
   ///
   /// Runs independently of widget lifecycle, page visibility, and VPN state.
-  /// Uses a lightweight 15-second tick timer only for condition checking.
+  /// Uses a one-shot timer scheduled to the next eligible observation time.
   /// Actual observation interval is user-configured (default 10 min).
   ///
   /// **nextEligibleAt policy (fix: not advanced before execution)**
@@ -94,12 +94,12 @@ final class HealthObservationSchedulerProvider
 }
 
 String _$healthObservationSchedulerHash() =>
-    r'090cc3ea6cc88858058545d9a87b3db4786de0ae';
+    r'7ba607a7d5594af617d53d4ccac94ee17c837370';
 
 /// App-level health observation scheduler.
 ///
 /// Runs independently of widget lifecycle, page visibility, and VPN state.
-/// Uses a lightweight 15-second tick timer only for condition checking.
+/// Uses a one-shot timer scheduled to the next eligible observation time.
 /// Actual observation interval is user-configured (default 10 min).
 ///
 /// **nextEligibleAt policy (fix: not advanced before execution)**

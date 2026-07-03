@@ -209,6 +209,31 @@ void main() {
       expect(result.down, 0);
     });
 
+    test('getTrafficSnapshot parses speed and total traffic', () async {
+      when(() => mock.getTrafficSnapshot(false)).thenAnswer(
+        (_) async => json.encode({
+          'up': 10,
+          'down': 20,
+          'totalUp': 100,
+          'totalDown': 200,
+        }),
+      );
+      final result = await controller.getTrafficSnapshot(false);
+      expect(result.traffic.up, 10);
+      expect(result.traffic.down, 20);
+      expect(result.totalTraffic.up, 100);
+      expect(result.totalTraffic.down, 200);
+    });
+
+    test('getTrafficSnapshot handles empty string', () async {
+      when(() => mock.getTrafficSnapshot(false)).thenAnswer((_) async => '');
+      final result = await controller.getTrafficSnapshot(false);
+      expect(result.traffic.up, 0);
+      expect(result.traffic.down, 0);
+      expect(result.totalTraffic.up, 0);
+      expect(result.totalTraffic.down, 0);
+    });
+
     test('getMemory handles empty string', () async {
       when(() => mock.getMemory()).thenAnswer((_) async => '');
       final result = await controller.getMemory();

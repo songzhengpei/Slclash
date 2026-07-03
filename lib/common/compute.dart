@@ -56,6 +56,67 @@ List<Group> computeSort({
   }).toList();
 }
 
+List<Group> stripRuntimeNowFromGroups(List<Group> groups) {
+  var hasChanges = false;
+  final nextGroups = <Group>[];
+  for (final group in groups) {
+    final proxies = group.all;
+    final nextProxies = _stripRuntimeNowFromProxies(proxies);
+    final shouldClearGroupNow = group.now?.isNotEmpty == true;
+    final shouldCopyGroup =
+        shouldClearGroupNow || !identical(nextProxies, proxies);
+    if (!shouldCopyGroup) {
+      nextGroups.add(group);
+      continue;
+    }
+    hasChanges = true;
+    nextGroups.add(group.copyWith(now: '', all: nextProxies));
+  }
+  return hasChanges ? nextGroups : groups;
+}
+
+List<Proxy> _stripRuntimeNowFromProxies(List<Proxy> proxies) {
+  List<Proxy>? nextProxies;
+  for (var i = 0; i < proxies.length; i++) {
+    final proxy = proxies[i];
+    if (proxy.now?.isNotEmpty != true) {
+      continue;
+    }
+    nextProxies ??= List<Proxy>.of(proxies);
+    nextProxies[i] = proxy.copyWith(now: '');
+  }
+  return nextProxies ?? proxies;
+}
+
+List<Group> filterGroupsByProxyName(List<Group> groups, String query) {
+  final lowQuery = query.toLowerCase();
+  final nextGroups = <Group>[];
+  for (final group in groups) {
+    final matchedProxies = _filterProxiesByLowerName(group.all, lowQuery);
+    if (matchedProxies == null) {
+      continue;
+    }
+    nextGroups.add(group.copyWith(all: matchedProxies));
+  }
+  return nextGroups;
+}
+
+List<Proxy> filterProxiesByName(List<Proxy> proxies, String query) {
+  return _filterProxiesByLowerName(proxies, query.toLowerCase()) ?? [];
+}
+
+List<Proxy>? _filterProxiesByLowerName(List<Proxy> proxies, String lowQuery) {
+  List<Proxy>? matchedProxies;
+  for (final proxy in proxies) {
+    if (!proxy.name.toLowerCase().contains(lowQuery)) {
+      continue;
+    }
+    matchedProxies ??= <Proxy>[];
+    matchedProxies.add(proxy);
+  }
+  return matchedProxies;
+}
+
 SelectedProxyState getRealSelectedProxyState(
   SelectedProxyState state, {
   required List<Group> groups,

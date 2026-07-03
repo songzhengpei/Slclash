@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
@@ -22,19 +23,64 @@ class RealTunEnable extends _$RealTunEnable with AutoDisposeNotifierMixin {
 
 @Riverpod(keepAlive: true)
 class Logs extends _$Logs with AutoDisposeNotifierMixin {
+  static const _batchInterval = Duration(seconds: 1);
+  static const _maxBatchSize = 100;
+
+  final List<Log> _pendingLogs = [];
+  Timer? _flushTimer;
+  int _droppedLogs = 0;
+
   @override
   FixedList<Log> build() {
+    ref.onDispose(() {
+      _flushTimer?.cancel();
+      _flushTimer = null;
+      _pendingLogs.clear();
+    });
     return FixedList(0);
   }
 
   void add(Log value) {
+    addAll([value]);
+  }
+
+  void addAll(Iterable<Log> values) {
     if (!ref.mounted) {
       return;
     }
-    this.value = state.copyWith()..add(value);
+    for (final value in values) {
+      if (_pendingLogs.length >= _maxBatchSize) {
+        _droppedLogs++;
+        continue;
+      }
+      _pendingLogs.add(value);
+    }
+    if (_pendingLogs.isNotEmpty) {
+      _flushTimer ??= Timer(_batchInterval, _flushLogs);
+    }
+  }
+
+  void _flushLogs() {
+    _flushTimer = null;
+    if (_pendingLogs.isEmpty || !ref.mounted) {
+      return;
+    }
+    final batch = List<Log>.of(_pendingLogs);
+    _pendingLogs.clear();
+    value = state.copyWith()..addAll(batch);
+  }
+
+  int get droppedLogs => _droppedLogs;
+
+  void flushNow() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _flushLogs();
   }
 
   Future<bool> exportLogs() async {
+    _flushTimer?.cancel();
+    _flushLogs();
     final logString = await encodeLogsTask(value.list);
     final tempFilePath = await appPath.tempFilePath;
     final file = File(tempFilePath);
@@ -47,13 +93,59 @@ class Logs extends _$Logs with AutoDisposeNotifierMixin {
 
 @Riverpod(keepAlive: true)
 class Requests extends _$Requests with AutoDisposeNotifierMixin {
+  static const _batchInterval = Duration(seconds: 1);
+  static const _maxBatchSize = 50;
+
+  final List<TrackerInfo> _pendingRequests = [];
+  Timer? _flushTimer;
+  int _droppedRequests = 0;
+
   @override
   FixedList<TrackerInfo> build() {
+    ref.onDispose(() {
+      _flushTimer?.cancel();
+      _flushTimer = null;
+      _pendingRequests.clear();
+    });
     return FixedList(0);
   }
 
   void addRequest(TrackerInfo value) {
-    this.value = state.copyWith()..add(value);
+    addRequests([value]);
+  }
+
+  void addRequests(Iterable<TrackerInfo> values) {
+    if (!ref.mounted) {
+      return;
+    }
+    for (final value in values) {
+      if (_pendingRequests.length >= _maxBatchSize) {
+        _droppedRequests++;
+        continue;
+      }
+      _pendingRequests.add(value);
+    }
+    if (_pendingRequests.isNotEmpty) {
+      _flushTimer ??= Timer(_batchInterval, _flushRequests);
+    }
+  }
+
+  void _flushRequests() {
+    _flushTimer = null;
+    if (_pendingRequests.isEmpty || !ref.mounted) {
+      return;
+    }
+    final batch = List<TrackerInfo>.of(_pendingRequests);
+    _pendingRequests.clear();
+    value = state.copyWith()..addAll(batch);
+  }
+
+  int get droppedRequests => _droppedRequests;
+
+  void flushNow() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _flushRequests();
   }
 }
 
@@ -106,7 +198,7 @@ class Traffics extends _$Traffics with AutoDisposeNotifierMixin {
   }
 
   void clear() {
-    value = state.copyWith()..clear();
+    value = FixedList(state.maxLength);
   }
 }
 
@@ -287,6 +379,18 @@ class AppForeground extends _$AppForeground with AutoDisposeNotifierMixin {
   void set(bool value) => state = value;
 }
 
+/// Last connectivity results reported by connectivity_plus.
+@Riverpod(keepAlive: true)
+class ConnectivityResults extends _$ConnectivityResults
+    with AutoDisposeNotifierMixin {
+  @override
+  List<ConnectivityResult> build() => const [];
+
+  void set(List<ConnectivityResult> value) {
+    state = List.unmodifiable(value);
+  }
+}
+
 /// Tracks the last time the user interacted with the app (touch/mouse).
 @Riverpod(keepAlive: true)
 class LastUserInteractionAt extends _$LastUserInteractionAt
@@ -336,9 +440,35 @@ class MediaCheckSelectedProfileId extends _$MediaCheckSelectedProfileId
 
 @riverpod
 class Query extends _$Query with AutoDisposeNotifierMixin {
+  static const _proxyDebounceDuration = Duration(milliseconds: 200);
+
+  late QueryTag _tag;
+  Timer? _debounceTimer;
+
   @override
   String build(QueryTag tag) {
+    _tag = tag;
+    ref.onDispose(() {
+      _debounceTimer?.cancel();
+      _debounceTimer = null;
+    });
     return '';
+  }
+
+  @override
+  set value(String value) {
+    if (_tag != QueryTag.proxies || value.isEmpty) {
+      _debounceTimer?.cancel();
+      _debounceTimer = null;
+      super.value = value;
+      return;
+    }
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_proxyDebounceDuration, () {
+      if (!ref.mounted) return;
+      super.value = value;
+      _debounceTimer = null;
+    });
   }
 }
 
@@ -408,10 +538,12 @@ class IsUpdating extends _$IsUpdating with AutoDisposeNotifierMixin {
 class NetworkDetection extends _$NetworkDetection
     with AutoDisposeNotifierMixin {
   static const _timeoutDisplayDelay = Duration(seconds: 2);
+  static const _hardTimeout = Duration(seconds: 13);
 
   bool? _preIsStart;
   CancelToken? _cancelToken;
   Timer? _timeoutTimer;
+  Timer? _loadingWatchdog;
   int _checkVersion = 0;
 
   @override
@@ -419,7 +551,11 @@ class NetworkDetection extends _$NetworkDetection
     ref.onDispose(() {
       _resetCheckSession(null);
     });
-    return const NetworkDetectionState(isLoading: true, ipInfo: null);
+    return const NetworkDetectionState(
+      isLoading: false,
+      ipInfo: null,
+      hasChecked: false,
+    );
   }
 
   void startCheck() {
@@ -440,26 +576,42 @@ class NetworkDetection extends _$NetworkDetection
     final cancelToken = CancelToken();
     final version = _resetCheckSession(cancelToken);
     commonPrint.log('checkIp start');
-    state = state.copyWith(isLoading: true, ipInfo: null);
+    state = state.copyWith(isLoading: true, ipInfo: null, hasChecked: false);
     _preIsStart = isStart;
-    final res = await request.checkIp(cancelToken: cancelToken);
-    commonPrint.log('checkIp res: $res');
+    _startLoadingWatchdog(version, cancelToken);
+    try {
+      final res = await request.checkIp(cancelToken: cancelToken);
+      commonPrint.log('checkIp res: $res');
 
-    if (!ref.mounted ||
-        version != _checkVersion ||
-        cancelToken != _cancelToken) {
-      return;
-    }
-    final ipInfo = res.data;
-    if (ipInfo == null) {
+      if (!ref.mounted ||
+          version != _checkVersion ||
+          cancelToken != _cancelToken) {
+        return;
+      }
+      final ipInfo = res.data;
+      if (ipInfo == null) {
+        _delayTimeoutDisplay(version);
+        return;
+      }
+      _stopLoadingWatchdog();
+      state = state.copyWith(
+        isLoading: false,
+        ipInfo: ipInfo,
+        hasChecked: true,
+      );
+    } catch (e) {
+      if (!ref.mounted ||
+          version != _checkVersion ||
+          cancelToken != _cancelToken) {
+        return;
+      }
       _delayTimeoutDisplay(version);
-      return;
     }
-    state = state.copyWith(isLoading: false, ipInfo: ipInfo);
   }
 
   int _resetCheckSession(CancelToken? cancelToken) {
     _cancelTimeoutTimer();
+    _stopLoadingWatchdog();
     final version = ++_checkVersion;
     final previousCancelToken = _cancelToken;
     _cancelToken = cancelToken;
@@ -467,14 +619,36 @@ class NetworkDetection extends _$NetworkDetection
     return version;
   }
 
+  void _startLoadingWatchdog(int version, CancelToken cancelToken) {
+    _stopLoadingWatchdog();
+    _loadingWatchdog = Timer(_hardTimeout, () {
+      _loadingWatchdog = null;
+      if (!ref.mounted || version != _checkVersion) return;
+      commonPrint.log('checkIp watchdog: hard timeout reached');
+      cancelToken.cancel('network detection hard timeout');
+      _cancelTimeoutTimer();
+      state = state.copyWith(
+        isLoading: false,
+        ipInfo: null,
+        hasChecked: true,
+      );
+    });
+  }
+
+  void _stopLoadingWatchdog() {
+    _loadingWatchdog?.cancel();
+    _loadingWatchdog = null;
+  }
+
   void _delayTimeoutDisplay(int version) {
+    _stopLoadingWatchdog();
     _cancelTimeoutTimer();
     _timeoutTimer = Timer(_timeoutDisplayDelay, () {
       _timeoutTimer = null;
       if (!ref.mounted || version != _checkVersion || state.ipInfo != null) {
         return;
       }
-      state = state.copyWith(isLoading: false, ipInfo: null);
+      state = state.copyWith(isLoading: false, ipInfo: null, hasChecked: true);
     });
   }
 
@@ -511,4 +685,11 @@ List<Override> buildAppStateOverrides(AppState appState) {
     ),
     coreStatusProvider.overrideWithBuild((_, _) => appState.coreStatus),
   ];
+}
+
+@Riverpod(keepAlive: true)
+class LastGroupsRefreshAt extends _$LastGroupsRefreshAt {
+  @override
+  DateTime? build() => null;
+  void update() => state = DateTime.now();
 }

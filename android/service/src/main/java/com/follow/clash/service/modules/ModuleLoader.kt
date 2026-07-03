@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -21,11 +22,14 @@ private val mutex = Mutex()
 fun CoroutineScope.moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): ModuleLoader {
     val modules = mutableListOf<Module>()
     var job: Job? = null
+    var loaded = false
 
     return object : ModuleLoader {
         override fun load() {
+            if (job?.isActive == true) return
             job = launch(Dispatchers.IO) {
                 mutex.withLock {
+                    if (loaded) return@withLock
                     val scope = object : ModuleLoaderScope {
                         override fun <T : Module> install(module: T): T {
                             modules.add(module)
@@ -33,17 +37,29 @@ fun CoroutineScope.moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): Mo
                             return module
                         }
                     }
-                    scope.block()
+                    try {
+                        scope.block()
+                        loaded = true
+                    } catch (e: Throwable) {
+                        modules.asReversed().forEach { it.uninstall() }
+                        modules.clear()
+                        loaded = false
+                        throw e
+                    }
                 }
             }
         }
 
         override fun cancel() {
             launch(Dispatchers.IO) {
-                job?.cancel()
+                job?.cancelAndJoin()
                 mutex.withLock {
-                    modules.asReversed().forEach { it.uninstall() }
+                    modules.asReversed().forEach { module ->
+                        runCatching { module.uninstall() }
+                    }
                     modules.clear()
+                    loaded = false
+                    job = null
                 }
             }
         }

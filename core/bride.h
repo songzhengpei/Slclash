@@ -2,6 +2,10 @@
 
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void (*release_object_func)(void *obj);
 
 extern void (*free_string_func)(char *data);
@@ -21,3 +25,7 @@ extern void release_object(void *obj);
 extern void free_string(char *data);
 
 extern void result(void *invoke_Interface,  const char *data);
+
+#ifdef __cplusplus
+}
+#endif

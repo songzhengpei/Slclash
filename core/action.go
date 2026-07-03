@@ -77,6 +77,15 @@ func handleAction(action *Action, result ActionResult) {
 	case getProxiesMethod:
 		result.success(handleGetProxies())
 		return
+	case materializeProfileSnapshotMethod:
+		data := action.Data.(string)
+		proxiesData, err := handleMaterializeProfileSnapshot(data)
+		if err != "" {
+			result.error(err)
+			return
+		}
+		result.success(proxiesData)
+		return
 	case changeProxyMethod:
 		data := action.Data.(string)
 		handleChangeProxy(data, func(value string) {
@@ -90,6 +99,10 @@ func handleAction(action *Action, result ActionResult) {
 	case getTotalTrafficMethod:
 		data := action.Data.(bool)
 		result.success(handleGetTotalTraffic(data))
+		return
+	case getTrafficSnapshotMethod:
+		data := action.Data.(bool)
+		result.success(handleGetTrafficSnapshot(data))
 		return
 	case resetTrafficMethod:
 		handleResetTraffic()

@@ -73,9 +73,15 @@ class IsSmartResuming extends _$IsSmartResuming {
 class SmartAutoStopManager extends _$SmartAutoStopManager {
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   Timer? _debounceTimer;
+  Timer? _guardTimer;
   bool _checking = false;
   bool _manualResumeInProgress = false;
   bool _pendingManualResume = false;
+  DateTime? _vpnStartedAt;
+
+  /// Grace period after VPN startup before allowing smart auto stop.
+  /// Prevents race condition where smartStop fires before service is ready.
+  static const _startGuardDuration = Duration(seconds: 8);
 
   @override
   bool build() {
@@ -83,6 +89,15 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
 
     // Listen to connectivity changes
     _startListening();
+
+    // Track VPN start time for startup guard
+    ref.listen(isStartProvider, (prev, next) {
+      if (prev == false && next == true) {
+        _vpnStartedAt = DateTime.now();
+      } else if (next == false) {
+        _vpnStartedAt = null;
+      }
+    });
 
     // Listen to smart auto stop config changes — trigger check when
     // smartAutoStop toggled or smartAutoStopNetworks modified.
@@ -187,6 +202,13 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
       // On trusted network, VPN running, not yet smart-stopped, and user
       // hasn't manually resumed this session → auto smart-stop.
       if (isOnTrusted && isRunning && !isSmartStopped && !manualOverride) {
+        // Startup guard: VPN service may not be fully ready yet.
+        // Defer smart stop and re-check after guard expires.
+        if (_vpnStartedAt != null &&
+            DateTime.now().difference(_vpnStartedAt!) < _startGuardDuration) {
+          _scheduleCheckAfterGuard();
+          return;
+        }
         await _smartStop();
       }
     } finally {
@@ -199,8 +221,9 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
     }
   }
 
-  /// Stop VPN via native smartStop (suspend TUN only, keep service alive),
-  /// falling back to full stop/start if native call fails.
+  /// Stop VPN via native smartStop (suspend TUN only, keep service alive).
+  /// On failure, defers instead of full-stopping to avoid killing a
+  /// service that is still starting up.
   Future<void> _smartStop() async {
     final setupAction = ref.read(setupActionProvider.notifier);
     final s = service;
@@ -217,11 +240,11 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
           return;
         }
       } catch (_) {}
-      // Native failed — fall through to phase 1 fallback
     }
-    // Fallback: full stop via setupAction
-    await setupAction.updateStatus(false);
-    ref.read(isSmartStoppedProvider.notifier).set(true);
+    // Native smartStop failed — defer rather than full stop.
+    // Scheduling a re-check lets the next attempt succeed once the
+    // service is fully ready.
+    _debouncedCheck();
   }
 
   /// Resume VPN via native smartResume (resume TUN only, no service restart),
@@ -248,6 +271,19 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
     // Fallback: full start via setupAction
     await setupAction.updateStatus(true);
     ref.read(isSmartStoppedProvider.notifier).set(false);
+  }
+
+  /// Schedule a check after the startup guard expires.
+  /// This ensures smart stop will eventually fire even if no new
+  /// connectivity change occurs during the guard window.
+  void _scheduleCheckAfterGuard() {
+    _guardTimer?.cancel();
+    final elapsed = DateTime.now().difference(_vpnStartedAt ?? DateTime.now());
+    final remaining = _startGuardDuration - elapsed;
+    if (remaining.isNegative) return;
+    _guardTimer = Timer(remaining, () {
+      _debouncedCheck();
+    });
   }
 
   /// Resume from smart stop triggered by config change (disable or empty rules).
@@ -353,5 +389,7 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
     _subscription = null;
     _debounceTimer?.cancel();
     _debounceTimer = null;
+    _guardTimer?.cancel();
+    _guardTimer = null;
   }
 }

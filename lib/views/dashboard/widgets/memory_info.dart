@@ -38,7 +38,8 @@ class _MemoryInfoState extends State<MemoryInfo> {
       } else {
         _memoryStateNotifier.value = rss;
       }
-      timer = Timer(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      timer = Timer(const Duration(seconds: 10), () async {
         _updateMemory();
       });
     });

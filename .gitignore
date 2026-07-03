@@ -14,6 +14,7 @@ migrate_working_dir/
 
 # Dev tools cache (local, do not commit)
 .dev-tools/
+.mimocode/
 
 # IntelliJ related
 *.iml
@@ -86,6 +87,9 @@ docs/images/*
 /core/*.exe
 /plugins/rust_api/.claude/
 devtools_options.yaml
+
+# Local performance captures
+.perf-captures/
 
 # FVM Version Cache
 .fvm/

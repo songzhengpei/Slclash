@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'generated/health_observation.g.dart';
@@ -78,6 +81,7 @@ class HealthObservationSchedulerState {
     int? successfulObservations,
     int? skippedObservations,
     bool clearSkipReason = false,
+    bool clearNextEligibleAt = false,
   }) {
     return HealthObservationSchedulerState(
       lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
@@ -88,7 +92,9 @@ class HealthObservationSchedulerState {
       isObserving: isObserving ?? this.isObserving,
       enabled: enabled ?? this.enabled,
       intervalMinutes: intervalMinutes ?? this.intervalMinutes,
-      nextEligibleAt: nextEligibleAt ?? this.nextEligibleAt,
+      nextEligibleAt: clearNextEligibleAt
+          ? null
+          : (nextEligibleAt ?? this.nextEligibleAt),
       triggerGeneration: triggerGeneration ?? this.triggerGeneration,
       totalObservations: totalObservations ?? this.totalObservations,
       successfulObservations:
@@ -98,10 +104,54 @@ class HealthObservationSchedulerState {
   }
 }
 
+@visibleForTesting
+Duration? healthObservationOneShotDelay({
+  required bool enabled,
+  required DateTime now,
+  DateTime? nextEligibleAt,
+  Duration? retryDelay,
+}) {
+  if (!enabled) return null;
+  if (retryDelay != null) return retryDelay;
+  final next = nextEligibleAt;
+  if (next == null || !next.isAfter(now)) return Duration.zero;
+  return next.difference(now);
+}
+
+@visibleForTesting
+int healthObservationWorkerCount({
+  required int eligibleProxyCount,
+  required bool appForeground,
+  bool cellular = false,
+  bool screenOn = true,
+  bool powerSaveMode = false,
+  bool networkPowerLimited = false,
+}) {
+  if (eligibleProxyCount <= 0 || powerSaveMode) return 0;
+  if (!screenOn || cellular || networkPowerLimited) return 1;
+  final maxWorkers = appForeground ? 5 : 2;
+  return math.min(maxWorkers, eligibleProxyCount);
+}
+
+@visibleForTesting
+bool healthObservationIsCellular(Iterable<ConnectivityResult> results) {
+  return results.contains(ConnectivityResult.mobile);
+}
+
+@visibleForTesting
+bool healthObservationLooksStuck({
+  required bool isObserving,
+  required DateTime? lastAttemptAt,
+  required DateTime now,
+}) {
+  if (!isObserving || lastAttemptAt == null) return false;
+  return now.difference(lastAttemptAt) > const Duration(minutes: 10);
+}
+
 /// App-level health observation scheduler.
 ///
 /// Runs independently of widget lifecycle, page visibility, and VPN state.
-/// Uses a lightweight 15-second tick timer only for condition checking.
+/// Uses a one-shot timer scheduled to the next eligible observation time.
 /// Actual observation interval is user-configured (default 10 min).
 ///
 /// **nextEligibleAt policy (fix: not advanced before execution)**
@@ -115,11 +165,10 @@ class HealthObservationSchedulerState {
 /// This ensures historical-stable-node calculations reflect both sources.
 @Riverpod(keepAlive: true)
 class HealthObservationScheduler extends _$HealthObservationScheduler {
-  static const _tickInterval = Duration(seconds: 15);
   static const _idleDelay = Duration(seconds: 30);
+  static const _idleRetryDelay = Duration(seconds: 30);
   static const _mediaCheckTimeout = Duration(seconds: 15);
   static const _observeSettingsKey = 'media-check-observe-settings-v1';
-  static const _workerCount = 5;
 
   // ── Retry intervals for different skip reasons ─────────────────────────
   static const _retryCoreUnavailable = Duration(minutes: 2);
@@ -127,10 +176,18 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _retryNoProxies = Duration(minutes: 5);
   static const _retryNoNetwork = Duration(minutes: 2);
 
-  Timer? _tickTimer;
+  Timer? _timer;
   DateTime? _appStartedAt;
   DateTime? _lastLifecycleChangeAt;
   bool _engineReady = false;
+
+  /// Whether the scheduler appears stuck (isObserving for > 10 min).
+  bool get _looksStuck {
+    final lastAttempt = state.lastAttemptAt;
+    if (!state.isObserving || lastAttempt == null) return false;
+    return DateTime.now().difference(lastAttempt) >
+        const Duration(minutes: 10);
+  }
   final _cacheStore = MediaCheckCacheStore();
 
   @override
@@ -139,12 +196,11 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     _lastLifecycleChangeAt ??= DateTime.now();
 
     ref.onDispose(() {
-      _tickTimer?.cancel();
-      _tickTimer = null;
+      _timer?.cancel();
+      _timer = null;
     });
 
     _loadSettings();
-    _startTickTimer();
 
     // ── Reactive triggers ──────────────────────────────────────────────
 
@@ -175,16 +231,34 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     return const HealthObservationSchedulerState();
   }
 
-  void _startTickTimer() {
-    _tickTimer?.cancel();
-    _tickTimer = Timer.periodic(_tickInterval, (_) => _onTick());
+  void _cancelTimer() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void _scheduleNext({Duration? retryDelay}) {
+    _cancelTimer();
+    if (!_engineReady || state.isObserving) {
+      return;
+    }
+    final delay = healthObservationOneShotDelay(
+      enabled: state.enabled,
+      now: DateTime.now(),
+      nextEligibleAt: state.nextEligibleAt,
+      retryDelay: retryDelay,
+    );
+    if (delay == null) return;
+    _timer = Timer(delay, _onTick);
   }
 
   /// Reload scheduler settings from preferences (enabled, intervalMinutes).
   Future<void> _loadSettings() async {
     try {
       final raw = await preferences.getString(_observeSettingsKey);
-      if (raw == null || raw.isEmpty) return;
+      if (raw == null || raw.isEmpty) {
+        _scheduleNext();
+        return;
+      }
       final settings = MediaCheckObserveSettings.fromJson(
         jsonDecode(raw) as Map<String, dynamic>,
       );
@@ -195,20 +269,43 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
           intervalMinutes: settings.intervalMinutes,
         );
       }
+      _scheduleNext();
     } catch (_) {
       // Ignore parse errors — keep current settings
+      _scheduleNext();
     }
   }
 
-  /// Called every 15 seconds to check if observation should run.
+  /// Called by the one-shot timer when the scheduler should check whether an
+  /// observation can run.
   void _onTick() {
+    _timer = null;
     if (!_engineReady) return;
-    _loadSettings();
+
+    if (_looksStuck) {
+      commonPrint.log(
+        'health observation watchdog reset',
+        logLevel: LogLevel.warning,
+      );
+      state = state.copyWith(
+        isObserving: false,
+        lastSkippedReason: 'watchdogReset',
+      );
+      _scheduleNext(retryDelay: const Duration(minutes: 2));
+      return;
+    }
+
     final s = state;
     if (!s.enabled) return;
     if (s.isObserving) return;
-    if (!s.isDue) return;
-    if (!_isIdle()) return;
+    if (!s.isDue) {
+      _scheduleNext();
+      return;
+    }
+    if (!_isIdle()) {
+      _scheduleNext(retryDelay: _idleRetryDelay);
+      return;
+    }
 
     _triggerObservation();
   }
@@ -262,7 +359,24 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       clearSkipReason: true,
     );
 
-    _performObservation();
+    _performObservationGuarded();
+  }
+
+  /// Guarded wrapper that ensures isObserving is always cleaned up.
+  Future<void> _performObservationGuarded() async {
+    try {
+      await _performObservation();
+    } catch (e, s) {
+      commonPrint.log(
+        'health observation fatal: $e\n$s',
+        logLevel: LogLevel.warning,
+      );
+      if (state.isObserving) {
+        _completeObservation(skipReason: 'fatalError');
+      } else {
+        _scheduleNext(retryDelay: const Duration(minutes: 2));
+      }
+    }
   }
 
   /// Execute the health observation batch.
@@ -331,6 +445,33 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       _completeObservation(success: true);
       return;
     }
+    final powerState = await _readPowerState();
+    final connectivityPlusCellular = healthObservationIsCellular(
+      ref.read(connectivityResultsProvider),
+    );
+    final appPlugin = app;
+    final isMeteredByNative = appPlugin != null
+        ? await appPlugin.isActiveNetworkMetered()
+        : false;
+    final isCellularByNative = appPlugin != null
+        ? await appPlugin.isActiveNetworkCellular()
+        : false;
+    final networkPowerLimited =
+        connectivityPlusCellular || isMeteredByNative || isCellularByNative;
+
+    final workerCount = healthObservationWorkerCount(
+      eligibleProxyCount: eligibleProxies.length,
+      appForeground: ref.read(appForegroundProvider),
+      cellular: connectivityPlusCellular,
+      screenOn: powerState.screenOn,
+      powerSaveMode: powerState.powerSaveMode,
+      networkPowerLimited: networkPowerLimited,
+    );
+
+    if (workerCount <= 0) {
+      _completeObservation(skipReason: 'observationPaused');
+      return;
+    }
 
     // ── Test all eligible proxies with bounded concurrency ──────────────
     var observedCount = 0;
@@ -394,12 +535,7 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       }
     }
 
-    await Future.wait(
-      List.generate(
-        math.min(_workerCount, eligibleProxies.length),
-        (_) => worker(),
-      ),
-    );
+    await Future.wait(List.generate(workerCount, (_) => worker()));
 
     // ── Persist updated cache ───────────────────────────────────────────
     if (observedCount > 0) {
@@ -412,6 +548,21 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
     }
 
     _completeObservation(success: observedCount > 0);
+  }
+
+  Future<({bool screenOn, bool powerSaveMode})> _readPowerState() async {
+    final appPlugin = app;
+    if (appPlugin == null) {
+      return (screenOn: true, powerSaveMode: false);
+    }
+    try {
+      return (
+        screenOn: await appPlugin.isScreenOn(),
+        powerSaveMode: await appPlugin.isPowerSaveMode(),
+      );
+    } catch (_) {
+      return (screenOn: true, powerSaveMode: false);
+    }
   }
 
   /// Find a [Profile] by [id] from the profiles provider.
@@ -456,6 +607,7 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
         nextEligibleAt: now.add(_retryNoNetwork),
       );
     }
+    _scheduleNext();
   }
 
   /// Map a skip reason to its retry duration.
@@ -464,7 +616,9 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       'coreUnavailable' => _retryCoreUnavailable,
       'noSelectedProfile' => _retryNoProfile,
       'noProxies' => _retryNoProxies,
-      _ => _retryNoNetwork, // fallback
+      'fatalError' => const Duration(minutes: 2),
+      'observationPaused' => const Duration(minutes: 5),
+      _ => _retryNoNetwork,
     };
   }
 
@@ -473,16 +627,19 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// Must be called once the app has fully initialized.
   void markEngineReady() {
     _engineReady = true;
+    _scheduleNext();
   }
 
   /// Update the enabled flag.
   void setEnabled(bool value) {
     state = state.copyWith(enabled: value);
+    _scheduleNext();
   }
 
   /// Update the observation interval (minutes).
   void setIntervalMinutes(int minutes) {
     state = state.copyWith(intervalMinutes: minutes);
+    _scheduleNext();
   }
 
   /// Called by AppStateManager on lifecycle change to track background time.
@@ -498,12 +655,14 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// - Network changes and observation is overdue.
   void requestSoon() {
     state = state.copyWith(nextEligibleAt: DateTime.now());
+    _scheduleNext();
   }
 
   /// Make the next observation eligible immediately (stronger signal).
   /// Sets nextEligibleAt to null so isDue returns true unconditionally.
   void markDue() {
-    state = state.copyWith(nextEligibleAt: null);
+    state = state.copyWith(clearNextEligibleAt: true);
+    _scheduleNext();
   }
 
   /// Whether the scheduler's last successful observation is overdue

@@ -56,7 +56,7 @@ jobs:
           fi
 
           VERSION_NAME="${TAG_NAME#v}"
-          BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          BUILD_NUMBER="$(date -u +%s)"
 
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
@@ -270,6 +270,46 @@ jobs:
 
           cp "$SRC" "$DEST"
           ls -lh "$DEST"
+
+      - name: Verify APK manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="${{ steps.vars.outputs.apk_name }}"
+          echo "=== APK Manifest Verification ==="
+
+          # Locate aapt2 from Android SDK build-tools
+          AAPT2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | head -1)"
+          if [ -z "$AAPT2" ]; then
+            echo "Error: aapt2 not found in Android SDK"
+            exit 1
+          fi
+
+          # 1. Verify packageName
+          PACKAGE="$($AAPT2 dump packagename "$APK")"
+          echo "packageName: $PACKAGE"
+          if [ "$PACKAGE" != "com.slclash.app" ]; then
+            echo "FAIL: packageName mismatch (expected com.slclash.app)"
+            exit 1
+          fi
+          echo "PASS: packageName OK"
+
+          # 2. Verify versionCode > pubspec current build number
+          PUBSPEC_BUILD="$(grep '^version: ' pubspec.yaml | sed 's/.*+//')"
+          VERSION_CODE="$($AAPT2 dump badging "$APK" 2>/dev/null | grep -o "versionCode='[0-9]*'" | cut -d"'" -f2)"
+          echo "versionCode: $VERSION_CODE (pubspec build: $PUBSPEC_BUILD)"
+          if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" -le "$PUBSPEC_BUILD" ]; then
+            echo "FAIL: versionCode ($VERSION_CODE) not higher than pubspec build number ($PUBSPEC_BUILD)"
+            exit 1
+          fi
+          echo "PASS: versionCode incremented"
+
+          # 3. Verify release signature
+          jarsigner -verify -certs "$APK" 2>&1 | head -5
+          echo "PASS: APK signature verified"
+
+          echo "=== All manifest checks passed ==="
+
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4

@@ -17,18 +17,17 @@ part 'generated/state.g.dart';
 
 @riverpod
 GroupsState currentGroupsState(Ref ref) {
+  final ownerProfileId = ref.watch(groupsOwnerProfileIdProvider);
+  final currentProfileId = ref.watch(currentProfileIdProvider);
+  if (ownerProfileId != currentProfileId) {
+    return const GroupsState(value: []);
+  }
+
   final mode = ref.watch(
     patchClashConfigProvider.select((state) => state.mode),
   );
   final groups = ref.watch(
-    groupsProvider.select(
-      (state) => state.map((item) {
-        return item.copyWith(
-          now: '',
-          all: item.all.map((proxy) => proxy.copyWith(now: '')).toList(),
-        );
-      }),
-    ),
+    groupsProvider.select(stripRuntimeNowFromGroups),
   );
   return GroupsState(
     value: switch (mode) {
@@ -182,17 +181,7 @@ GroupsState filterGroupsState(Ref ref, String query) {
   if (query.isEmpty) {
     return currentGroups;
   }
-  final lowQuery = query.toLowerCase();
-  final groups = currentGroups.value
-      .map((group) {
-        return group.copyWith(
-          all: group.all
-              .where((proxy) => proxy.name.toLowerCase().contains(lowQuery))
-              .toList(),
-        );
-      })
-      .where((group) => group.all.isNotEmpty)
-      .toList();
+  final groups = filterGroupsByProxyName(currentGroups.value, query);
   return currentGroups.copyWith(value: groups);
 }
 
@@ -264,12 +253,11 @@ ProxyGroupSelectorState proxyGroupSelectorState(
   );
   final sortNum = ref.watch(sortNumProvider);
   final columns = ref.watch(proxiesColumnsProvider);
-  final lowQuery = query.toLowerCase();
-  final proxies =
-      group?.all.where((item) {
-        return item.name.toLowerCase().contains(lowQuery);
-      }).toList() ??
-      [];
+  final proxies = group == null
+      ? <Proxy>[]
+      : query.isEmpty
+          ? group.all
+          : filterProxiesByName(group.all, query);
   return ProxyGroupSelectorState(
     testUrl: group?.testUrl,
     proxiesSortType: proxiesStyle.sortType,
@@ -786,4 +774,45 @@ class RuleProvider extends _$RuleProvider with AutoDisposeNotifierMixin {
 @riverpod
 bool suspend(Ref ref) {
   return false;
+}
+
+@riverpod
+class ProxyGroupsSnapshot extends _$ProxyGroupsSnapshot {
+  @override
+  ProxyGroupsSnapshotState build() => const ProxyGroupsSnapshotState();
+
+  void none() => state = const ProxyGroupsSnapshotState();
+
+  void stale({DateTime? updatedAt}) => state = ProxyGroupsSnapshotState(
+    freshness: ProxyGroupsFreshnessState.stale,
+    updatedAt: updatedAt,
+    hydrated: true,
+  );
+
+  void refreshing() => state = ProxyGroupsSnapshotState(
+    freshness: ProxyGroupsFreshnessState.refreshing,
+    updatedAt: state.updatedAt,
+    hydrated: state.hydrated,
+  );
+
+  void fresh() => state = ProxyGroupsSnapshotState(
+    freshness: ProxyGroupsFreshnessState.fresh,
+    updatedAt: DateTime.now(),
+    hydrated: true,
+  );
+
+  void failed(Object error) => state = ProxyGroupsSnapshotState(
+    freshness: ProxyGroupsFreshnessState.failed,
+    updatedAt: state.updatedAt,
+    error: error,
+    hydrated: state.hydrated,
+  );
+}
+
+@Riverpod(keepAlive: true)
+class GroupsOwnerProfileId extends _$GroupsOwnerProfileId {
+  @override
+  int? build() => null;
+
+  void set(int? profileId) => state = profileId;
 }

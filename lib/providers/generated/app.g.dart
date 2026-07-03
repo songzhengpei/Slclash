@@ -92,7 +92,7 @@ final class LogsProvider extends $NotifierProvider<Logs, FixedList<Log>> {
   }
 }
 
-String _$logsHash() => r'2f10830d8a103688a59afce45ab6c52a82f38ca2';
+String _$logsHash() => r'ad5fc2147c45fa3cacfd177a21a851617145a5b5';
 
 abstract class _$Logs extends $Notifier<FixedList<Log>> {
   FixedList<Log> build();
@@ -144,7 +144,7 @@ final class RequestsProvider
   }
 }
 
-String _$requestsHash() => r'32e4f0141a66b27732f8156a55a6fb23d74cfc07';
+String _$requestsHash() => r'811ac4f4bd62278373c31efd9b8ef8da0d13b03a';
 
 abstract class _$Requests extends $Notifier<FixedList<TrackerInfo>> {
   FixedList<TrackerInfo> build();
@@ -354,7 +354,7 @@ final class TrafficsProvider
   }
 }
 
-String _$trafficsHash() => r'00b83d393175b51abcef277417fb3d9b70cc247f';
+String _$trafficsHash() => r'5087fcbb7f68c356c745580f3db01667dc7274cb';
 
 abstract class _$Traffics extends $Notifier<FixedList<Traffic>> {
   FixedList<Traffic> build();
@@ -1326,6 +1326,67 @@ abstract class _$AppForeground extends $Notifier<bool> {
   }
 }
 
+/// Last connectivity results reported by connectivity_plus.
+
+@ProviderFor(ConnectivityResults)
+final connectivityResultsProvider = ConnectivityResultsProvider._();
+
+/// Last connectivity results reported by connectivity_plus.
+final class ConnectivityResultsProvider
+    extends $NotifierProvider<ConnectivityResults, List<ConnectivityResult>> {
+  /// Last connectivity results reported by connectivity_plus.
+  ConnectivityResultsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'connectivityResultsProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$connectivityResultsHash();
+
+  @$internal
+  @override
+  ConnectivityResults create() => ConnectivityResults();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(List<ConnectivityResult> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<List<ConnectivityResult>>(value),
+    );
+  }
+}
+
+String _$connectivityResultsHash() =>
+    r'fcc7ac5bb04be9eb7c0f022b7e964af98a20c251';
+
+/// Last connectivity results reported by connectivity_plus.
+
+abstract class _$ConnectivityResults
+    extends $Notifier<List<ConnectivityResult>> {
+  List<ConnectivityResult> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref =
+        this.ref as $Ref<List<ConnectivityResult>, List<ConnectivityResult>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<List<ConnectivityResult>, List<ConnectivityResult>>,
+              List<ConnectivityResult>,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
 /// Tracks the last time the user interacted with the app (touch/mouse).
 
 @ProviderFor(LastUserInteractionAt)
@@ -1564,7 +1625,7 @@ final class QueryProvider extends $NotifierProvider<Query, String> {
   }
 }
 
-String _$queryHash() => r'b6be53823f3351ee2bf1c0d147c0ccf5f31bb8b5';
+String _$queryHash() => r'a5cba684124823a265fecd68e0b3aa3793881953';
 
 final class QueryFamily extends $Family
     with $ClassFamilyOverride<Query, String, String, String, QueryTag> {
@@ -1998,7 +2059,7 @@ final class NetworkDetectionProvider
   }
 }
 
-String _$networkDetectionHash() => r'1cab20d67ec54321b4dbba9d971cd80e98542e23';
+String _$networkDetectionHash() => r'3e59dd98e2b4264a1cf2a82e1e4079b38109fe99';
 
 abstract class _$NetworkDetection extends $Notifier<NetworkDetectionState> {
   NetworkDetectionState build();
@@ -2011,6 +2072,59 @@ abstract class _$NetworkDetection extends $Notifier<NetworkDetectionState> {
             as $ClassProviderElement<
               AnyNotifier<NetworkDetectionState, NetworkDetectionState>,
               NetworkDetectionState,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(LastGroupsRefreshAt)
+final lastGroupsRefreshAtProvider = LastGroupsRefreshAtProvider._();
+
+final class LastGroupsRefreshAtProvider
+    extends $NotifierProvider<LastGroupsRefreshAt, DateTime?> {
+  LastGroupsRefreshAtProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'lastGroupsRefreshAtProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$lastGroupsRefreshAtHash();
+
+  @$internal
+  @override
+  LastGroupsRefreshAt create() => LastGroupsRefreshAt();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DateTime? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DateTime?>(value),
+    );
+  }
+}
+
+String _$lastGroupsRefreshAtHash() =>
+    r'317f997cc2a44f2cb6509f30cb29c1d92a54d6bf';
+
+abstract class _$LastGroupsRefreshAt extends $Notifier<DateTime?> {
+  DateTime? build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<DateTime?, DateTime?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<DateTime?, DateTime?>,
+              DateTime?,
               Object?,
               Object?
             >;

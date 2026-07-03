@@ -4,6 +4,119 @@ import 'package:fl_clash/models/models.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('stripRuntimeNowFromGroups', () {
+    test('reuses unchanged groups and proxies', () {
+      final groups = [
+        const Group(
+          name: 'selector',
+          type: GroupType.Selector,
+          now: '',
+          all: [
+            Proxy(name: 'proxy-a', type: 'ss'),
+            Proxy(name: 'proxy-b', type: 'ss', now: ''),
+          ],
+        ),
+      ];
+
+      final result = stripRuntimeNowFromGroups(groups);
+
+      expect(result, same(groups));
+      expect(result.first, same(groups.first));
+    });
+
+    test('clears runtime now while reusing unaffected proxies', () {
+      const activeProxy = Proxy(name: 'proxy-a', type: 'ss', now: 'proxy-a');
+      const idleProxy = Proxy(name: 'proxy-b', type: 'ss');
+      final groups = [
+        const Group(
+          name: 'auto',
+          type: GroupType.URLTest,
+          now: 'proxy-a',
+          all: [activeProxy, idleProxy],
+        ),
+      ];
+
+      final result = stripRuntimeNowFromGroups(groups);
+
+      expect(result, isNot(same(groups)));
+      expect(result.first, isNot(same(groups.first)));
+      expect(result.first.now, '');
+      expect(result.first.all.first, isNot(same(activeProxy)));
+      expect(result.first.all.first.now, '');
+      expect(result.first.all.last, same(idleProxy));
+    });
+  });
+
+  group('filterGroupsByProxyName', () {
+    test('filters proxies and drops empty groups', () {
+      final groups = [
+        const Group(
+          name: 'auto',
+          type: GroupType.URLTest,
+          all: [
+            Proxy(name: 'hk-fast', type: 'ss'),
+            Proxy(name: 'sg-fast', type: 'ss'),
+          ],
+        ),
+        const Group(
+          name: 'fallback',
+          type: GroupType.Selector,
+          all: [Proxy(name: 'us-stable', type: 'ss')],
+        ),
+      ];
+
+      final result = filterGroupsByProxyName(groups, 'fast');
+
+      expect(result.map((group) => group.name), ['auto']);
+      expect(result.first.all.map((proxy) => proxy.name), [
+        'hk-fast',
+        'sg-fast',
+      ]);
+    });
+
+    test('reuses matched proxy instances', () {
+      const matchedProxy = Proxy(name: 'hk-fast', type: 'ss');
+      const droppedProxy = Proxy(name: 'sg-stable', type: 'ss');
+      final groups = [
+        const Group(
+          name: 'auto',
+          type: GroupType.URLTest,
+          all: [matchedProxy, droppedProxy],
+        ),
+      ];
+
+      final result = filterGroupsByProxyName(groups, 'hk');
+
+      expect(result.first, isNot(same(groups.first)));
+      expect(result.first.all.single, same(matchedProxy));
+    });
+  });
+
+  group('filterProxiesByName', () {
+    test('returns matching proxies', () {
+      final proxies = [
+        const Proxy(name: 'hk-fast', type: 'ss'),
+        const Proxy(name: 'sg-stable', type: 'ss'),
+      ];
+
+      final result = filterProxiesByName(proxies, 'FAST');
+
+      expect(result.map((proxy) => proxy.name), ['hk-fast']);
+    });
+
+    test('reuses matched proxy instances', () {
+      const matchedProxy = Proxy(name: 'hk-fast', type: 'ss');
+      final proxies = [
+        matchedProxy,
+        const Proxy(name: 'sg-stable', type: 'ss'),
+      ];
+
+      final result = filterProxiesByName(proxies, 'hk');
+
+      expect(result.single, same(matchedProxy));
+    });
+  });
+
   group('computeRealSelectedProxyState', () {
     test('returns state unchanged when proxyName is empty', () {
       final state = computeRealSelectedProxyState(

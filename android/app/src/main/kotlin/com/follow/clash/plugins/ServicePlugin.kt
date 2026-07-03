@@ -103,8 +103,10 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     }
 
     private fun handleStart(result: MethodChannel.Result) {
-        State.handleStartService()
-        result.success(true)
+        launch {
+            val success = State.handleStartService()
+            result.success(success)
+        }
     }
 
     private fun handleStop(result: MethodChannel.Result) {

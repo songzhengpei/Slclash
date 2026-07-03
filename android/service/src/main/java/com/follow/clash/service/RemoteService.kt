@@ -62,9 +62,23 @@ class RemoteService : Service(),
                     intent = nextIntent
                     delegate?.bind()
                 }
+
+                var success = false
                 delegate?.useService { service ->
-                    service.start()
+                    success = service.start()
                 }
+
+                if (!success) {
+                    GlobalState.log("Start service failed")
+                    State.runTime = 0L
+                    delegate?.useService { it.stop() }
+                    delegate?.unbind()
+                    delegate = null
+                    intent = null
+                    result.onResult(0L)
+                    return@withLock
+                }
+
                 State.runTime = when (runTime != 0L) {
                     true -> runTime
                     false -> System.currentTimeMillis()
@@ -225,8 +239,7 @@ class RemoteService : Service(),
                     }
                     var success = false
                     d.useService { service ->
-                        service.smartResume()
-                        success = true
+                        success = service.smartResume()
                     }
                     if (success) {
                         State.runTime = System.currentTimeMillis()

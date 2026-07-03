@@ -1,6 +1,7 @@
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/config.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
@@ -18,7 +19,7 @@ void main() {
   group('AppSetting provider', () {
     test('default value is defaultAppSettingProps', () {
       final value = container.read(appSettingProvider);
-      expect(value.onlyStatisticsProxy, false);
+      expect(value.onlyStatisticsProxy, true);
       expect(value.autoLaunch, false);
       expect(value.closeConnections, true);
       expect(value.isAnimateToPage, true);
@@ -81,9 +82,11 @@ void main() {
   });
 
   group('ThemeSetting provider', () {
-    test('default value is dark mode', () {
+    test('default value uses dynamic system theme', () {
       final value = container.read(themeSettingProvider);
       expect(value.primaryColor, null);
+      expect(value.themeMode, ThemeMode.system);
+      expect(value.dynamicColor, true);
     });
 
     test('can update state', () {
@@ -150,7 +153,7 @@ void main() {
   group('configProvider (composite)', () {
     test('composes all sub-providers with defaults', () {
       final config = container.read(configProvider);
-      expect(config.appSettingProps.onlyStatisticsProxy, false);
+      expect(config.appSettingProps.onlyStatisticsProxy, true);
       expect(config.windowProps.width, 0);
       expect(config.vpnProps.enable, true);
       expect(config.networkProps.systemProxy, true);
@@ -191,7 +194,7 @@ void main() {
       );
       expect(
         overrideContainer.read(appSettingProvider).onlyStatisticsProxy,
-        false,
+        true,
       );
     });
   });

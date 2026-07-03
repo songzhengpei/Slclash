@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fl_clash/common/constant.dart';
+import 'package:fl_clash/common/fixed.dart';
 import 'package:fl_clash/common/request.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -30,6 +31,23 @@ void main() {
     test('can update to true', () {
       container.read(realTunEnableProvider.notifier).update((_) => true);
       expect(container.read(realTunEnableProvider), true);
+    });
+  });
+
+  group('Logs provider', () {
+    test('batches log writes', () async {
+      final notifier = container.read(logsProvider.notifier);
+      notifier.value = FixedList(500);
+
+      notifier.add(Log.app('first'));
+      notifier.add(Log.app('second'));
+
+      expect(container.read(logsProvider).list, isEmpty);
+
+      await Future.delayed(const Duration(milliseconds: 1100));
+
+      final logs = container.read(logsProvider).list;
+      expect(logs.map((log) => log.payload), ['first', 'second']);
     });
   });
 
@@ -221,6 +239,54 @@ void main() {
   group('CoreStatus provider', () {
     test('default is disconnected', () {
       expect(container.read(coreStatusProvider), CoreStatus.disconnected);
+    });
+  });
+
+  group('Query provider', () {
+    test('debounces non-empty proxy search query', () async {
+      final subscription = container.listen(
+        queryProvider(QueryTag.proxies),
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      final notifier = container.read(queryProvider(QueryTag.proxies).notifier);
+
+      notifier.value = 'h';
+      notifier.value = 'hk';
+
+      expect(container.read(queryProvider(QueryTag.proxies)), '');
+
+      await Future.delayed(const Duration(milliseconds: 240));
+
+      expect(container.read(queryProvider(QueryTag.proxies)), 'hk');
+    });
+
+    test('clears proxy search query immediately', () async {
+      final subscription = container.listen(
+        queryProvider(QueryTag.proxies),
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      final notifier = container.read(queryProvider(QueryTag.proxies).notifier);
+
+      notifier.value = 'hk';
+      await Future.delayed(const Duration(milliseconds: 240));
+      notifier.value = '';
+
+      expect(container.read(queryProvider(QueryTag.proxies)), '');
+    });
+
+    test('keeps non-proxy query updates synchronous', () {
+      final subscription = container.listen(
+        queryProvider(QueryTag.access),
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      final notifier = container.read(queryProvider(QueryTag.access).notifier);
+
+      notifier.value = 'browser';
+
+      expect(container.read(queryProvider(QueryTag.access)), 'browser');
     });
   });
 

@@ -11,6 +11,72 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  group('mediaCheckObservationDelay', () {
+    final now = DateTime(2026, 1, 1, 12);
+
+    test('returns null when observation is disabled', () {
+      expect(
+        mediaCheckObservationDelay(
+          settings: const MediaCheckObserveSettings(enabled: false),
+          now: now,
+          lastInteractionAt: now.subtract(const Duration(minutes: 10)),
+          loading: false,
+          checking: false,
+          hasTargets: true,
+        ),
+        isNull,
+      );
+    });
+
+    test('returns null while targets are unavailable', () {
+      expect(
+        mediaCheckObservationDelay(
+          settings: const MediaCheckObserveSettings(enabled: true),
+          now: now,
+          lastInteractionAt: now.subtract(const Duration(minutes: 10)),
+          loading: false,
+          checking: false,
+          hasTargets: false,
+        ),
+        isNull,
+      );
+    });
+
+    test('waits until both idle and interval are due', () {
+      expect(
+        mediaCheckObservationDelay(
+          settings: MediaCheckObserveSettings(
+            enabled: true,
+            intervalMinutes: 20,
+            lastRunAt: now
+                .subtract(const Duration(minutes: 10))
+                .millisecondsSinceEpoch,
+          ),
+          now: now,
+          lastInteractionAt: now.subtract(const Duration(seconds: 10)),
+          loading: false,
+          checking: false,
+          hasTargets: true,
+        ),
+        const Duration(minutes: 10),
+      );
+    });
+
+    test('retries later while a check is already running', () {
+      expect(
+        mediaCheckObservationDelay(
+          settings: const MediaCheckObserveSettings(enabled: true),
+          now: now,
+          lastInteractionAt: now.subtract(const Duration(minutes: 10)),
+          loading: false,
+          checking: true,
+          hasTargets: true,
+        ),
+        const Duration(minutes: 1),
+      );
+    });
+  });
+
   group('MediaCheckCache', () {
     test('health-only samples keep full unlock result and update HTTPS', () {
       final now = DateTime.now().millisecondsSinceEpoch;

@@ -42,6 +42,7 @@ class _LineChartState extends State<LineChart>
 
   List<Point> _prevRenderPoints = [];
   List<Point> _currentRenderPoints = [];
+  bool _hasAnimatedOnce = false;
 
   @override
   void initState() {
@@ -61,8 +62,25 @@ class _LineChartState extends State<LineChart>
       _points = widget.points;
       _prevRenderPoints = _currentRenderPoints;
       _currentRenderPoints = _getRenderPoints(_points);
-      _controller.forward(from: 0);
+      if (!_hasAnimatedOnce || _isSignificantChange(oldWidget)) {
+        _controller.forward(from: 0);
+        _hasAnimatedOnce = true;
+      } else {
+        _controller.value = 1.0;
+      }
     }
+  }
+
+  bool _isSignificantChange(LineChart oldWidget) {
+    final oldLen = oldWidget.points.length;
+    final newLen = widget.points.length;
+    if (oldLen != newLen) return newLen <= 1 || oldLen <= 1;
+    if (widget.points.isEmpty || oldWidget.points.isEmpty) return true;
+    final oldMax = oldWidget.points.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+    final newMax = widget.points.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+    if (oldMax <= 0 && newMax <= 0) return false;
+    final ratio = oldMax > 0 ? newMax / oldMax : newMax;
+    return ratio > 1.5 || ratio < 0.5;
   }
 
   @override
@@ -96,29 +114,31 @@ class _LineChartState extends State<LineChart>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (_, container) {
-        return AnimatedBuilder(
-          animation: _controller.view,
-          builder: (_, _) {
-            return CustomPaint(
-              painter: LineChartPainter(
-                prevRenderPoints: _prevRenderPoints,
-                currentRenderPoints: _currentRenderPoints,
-                progress: _controller.value,
-                gradient: widget.gradient,
-                color: widget.color,
-                gradientStartAlpha: widget.gradientStartAlpha,
-                gradientEndAlpha: widget.gradientEndAlpha,
-              ),
-              child: SizedBox(
-                height: container.maxHeight,
-                width: container.maxWidth,
-              ),
-            );
-          },
-        );
-      },
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (_, container) {
+          return AnimatedBuilder(
+            animation: _controller.view,
+            builder: (_, _) {
+              return CustomPaint(
+                painter: LineChartPainter(
+                  prevRenderPoints: _prevRenderPoints,
+                  currentRenderPoints: _currentRenderPoints,
+                  progress: _controller.value,
+                  gradient: widget.gradient,
+                  color: widget.color,
+                  gradientStartAlpha: widget.gradientStartAlpha,
+                  gradientEndAlpha: widget.gradientEndAlpha,
+                ),
+                child: SizedBox(
+                  height: container.maxHeight,
+                  width: container.maxWidth,
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

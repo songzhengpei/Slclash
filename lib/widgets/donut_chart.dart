@@ -48,6 +48,7 @@ class _DonutChartState extends State<DonutChart>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late List<DonutChartData> _oldData;
+  bool _hasAnimatedOnce = false;
 
   @override
   void initState() {
@@ -64,8 +65,24 @@ class _DonutChartState extends State<DonutChart>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       _oldData = oldWidget.data;
-      _animationController.forward(from: 0);
+      if (!_hasAnimatedOnce || _isSignificantChange(oldWidget.data, widget.data)) {
+        _animationController.forward(from: 0);
+        _hasAnimatedOnce = true;
+      } else {
+        _animationController.value = 1.0;
+      }
     }
+  }
+
+  bool _isSignificantChange(List<DonutChartData> oldData, List<DonutChartData> newData) {
+    if (oldData.length != newData.length) return true;
+    for (var i = 0; i < oldData.length; i++) {
+      final total = oldData[i].value + newData[i].value;
+      if (total <= 0) continue;
+      final diff = (newData[i].value - oldData[i].value).abs() / total;
+      if (diff > 0.03) return true;
+    }
+    return false;
   }
 
   @override
@@ -76,17 +93,19 @@ class _DonutChartState extends State<DonutChart>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: DonutChartPainter(
-            _oldData,
-            widget.data,
-            _animationController.value,
-          ),
-        );
-      },
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return CustomPaint(
+            painter: DonutChartPainter(
+              _oldData,
+              widget.data,
+              _animationController.value,
+            ),
+          );
+        },
+      ),
     );
   }
 }

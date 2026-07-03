@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'iterable.dart';
 
 typedef ValueCallback<T> = T Function();
@@ -14,11 +16,17 @@ class FixedList<T> {
     _list.truncate(maxLength);
   }
 
+  void addAll(Iterable<T> items) {
+    for (final item in items) {
+      add(item);
+    }
+  }
+
   void clear() {
     _list.clear();
   }
 
-  List<T> get list => List.unmodifiable(_list);
+  List<T> get list => UnmodifiableListView(_list);
 
   int get length => _list.length;
 

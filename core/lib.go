@@ -234,16 +234,17 @@ func setEventListener(listener unsafe.Pointer) {
 
 //export getTotalTraffic
 func getTotalTraffic(onlyStatisticsProxy bool) *C.char {
-	data := C.CString(handleGetTotalTraffic(onlyStatisticsProxy))
-	defer C.free(unsafe.Pointer(data))
-	return data
+	return C.CString(handleGetTotalTraffic(onlyStatisticsProxy))
 }
 
 //export getTraffic
 func getTraffic(onlyStatisticsProxy bool) *C.char {
-	data := C.CString(handleGetTraffic(onlyStatisticsProxy))
-	defer C.free(unsafe.Pointer(data))
-	return data
+	return C.CString(handleGetTraffic(onlyStatisticsProxy))
+}
+
+//export getTrafficSnapshot
+func getTrafficSnapshot(onlyStatisticsProxy bool) *C.char {
+	return C.CString(handleGetTrafficSnapshot(onlyStatisticsProxy))
 }
 
 func sendMessage(message Message) {

@@ -7,8 +7,11 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.VpnService
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -39,7 +42,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import java.io.File
 import java.lang.ref.WeakReference
 import java.util.zip.ZipFile
@@ -57,7 +62,7 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private lateinit var scope: CoroutineScope
 
-    private var vpnPrepareCallback: (suspend () -> Unit)? = null
+    private var vpnPrepareCallback: (suspend (Boolean) -> Unit)? = null
 
     private var requestNotificationCallback: (() -> Unit)? = null
 
@@ -164,6 +169,22 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(openAppSettings())
             }
 
+            "isScreenOn" -> {
+                result.success(isScreenOn())
+            }
+
+            "isPowerSaveMode" -> {
+                result.success(isPowerSaveMode())
+            }
+
+            "isActiveNetworkMetered" -> {
+                result.success(isActiveNetworkMetered())
+            }
+
+            "isActiveNetworkCellular" -> {
+                result.success(isActiveNetworkCellular())
+            }
+
             "installApk" -> {
                 result.success(installApk(call.argument<String>("path")))
             }
@@ -205,6 +226,41 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun tip(message: String?) {
         GlobalState.application.showToast(message)
+    }
+
+    private fun powerManager(): PowerManager? {
+        return getSystemService(GlobalState.application, PowerManager::class.java)
+    }
+
+    private fun isScreenOn(): Boolean {
+        return powerManager()?.isInteractive ?: true
+    }
+
+    private fun isPowerSaveMode(): Boolean {
+        return powerManager()?.isPowerSaveMode ?: false
+    }
+
+    private fun connectivityManager(): ConnectivityManager? {
+        return getSystemService(GlobalState.application, ConnectivityManager::class.java)
+    }
+
+    private fun isActiveNetworkMetered(): Boolean {
+        return try {
+            connectivityManager()?.isActiveNetworkMetered ?: true
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun isActiveNetworkCellular(): Boolean {
+        return try {
+            val cm = connectivityManager() ?: return true
+            val network = cm.activeNetwork ?: return true
+            val caps = cm.getNetworkCapabilities(network) ?: return true
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+        } catch (_: Exception) {
+            true
+        }
     }
 
     private fun openAppSettings(): Boolean {
@@ -304,6 +360,47 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         }
     }
 
+    fun invokeRequestNotificationCallback() {
+        requestNotificationCallback?.invoke()
+        requestNotificationCallback = null
+    }
+
+    fun prepare(needPrepare: Boolean, callBack: (suspend (Boolean) -> Unit)) {
+        vpnPrepareCallback = callBack
+        if (!needPrepare) {
+            invokeVpnPrepareCallback(true)
+            return
+        }
+        val intent = VpnService.prepare(GlobalState.application)
+        if (intent != null) {
+            activityRef?.get()?.startActivityForResult(intent, VPN_PERMISSION_REQUEST_CODE)
+                ?: invokeVpnPrepareCallback(false)
+            return
+        }
+        invokeVpnPrepareCallback(true)
+    }
+
+    fun invokeVpnPrepareCallback(success: Boolean = true) {
+        GlobalState.launch {
+            vpnPrepareCallback?.invoke(success)
+            vpnPrepareCallback = null
+        }
+    }
+
+    suspend fun prepareVpnAwait(needPrepare: Boolean): Boolean =
+        suspendCancellableCoroutine { cont ->
+            prepare(needPrepare) { success ->
+                if (cont.isActive) cont.resume(success)
+            }
+        }
+
+    suspend fun requestNotificationsPermissionAwait(): Boolean =
+        suspendCancellableCoroutine { cont ->
+            requestNotificationsPermission {
+                if (cont.isActive) cont.resume(true)
+            }
+        }
+
     fun requestNotificationsPermission(callBack: () -> Unit) {
         requestNotificationCallback = callBack
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -314,46 +411,21 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 invokeRequestNotificationCallback()
                 return
             }
-            activityRef?.get()?.let {
-                ActivityCompat.requestPermissions(
-                    it,
-                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                    NOTIFICATION_PERMISSION_REQUEST_CODE
-                )
+            val activity = activityRef?.get()
+            if (activity == null) {
+                invokeRequestNotificationCallback()
+                return
             }
+            ActivityCompat.requestPermissions(
+                activity,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                NOTIFICATION_PERMISSION_REQUEST_CODE
+            )
             return
         } else {
             invokeRequestNotificationCallback()
         }
-
     }
-
-    fun invokeRequestNotificationCallback() {
-        requestNotificationCallback?.invoke()
-        requestNotificationCallback = null
-    }
-
-    fun prepare(needPrepare: Boolean, callBack: (suspend () -> Unit)) {
-        vpnPrepareCallback = callBack
-        if (!needPrepare) {
-            invokeVpnPrepareCallback()
-            return
-        }
-        val intent = VpnService.prepare(GlobalState.application)
-        if (intent != null) {
-            activityRef?.get()?.startActivityForResult(intent, VPN_PERMISSION_REQUEST_CODE)
-            return
-        }
-        invokeVpnPrepareCallback()
-    }
-
-    fun invokeVpnPrepareCallback() {
-        GlobalState.launch {
-            vpnPrepareCallback?.invoke()
-            vpnPrepareCallback = null
-        }
-    }
-
 
     @Suppress("DEPRECATION")
     private fun isChinaPackage(packageName: String): Boolean {
@@ -449,9 +521,7 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode == VPN_PERMISSION_REQUEST_CODE) {
-            if (resultCode == FlutterActivity.RESULT_OK) {
-                invokeVpnPrepareCallback()
-            }
+            invokeVpnPrepareCallback(resultCode == FlutterActivity.RESULT_OK)
         }
         return true
     }

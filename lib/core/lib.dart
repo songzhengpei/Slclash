@@ -19,9 +19,13 @@ class CoreLib extends CoreHandlerInterface {
   @override
   Future<String> preload() async {
     if (_connectedCompleter.isCompleted) {
-      return 'core is connected';
+      return '';
     }
-    final res = await service?.init();
+    final res = await service?.init().withTimeout(
+      timeout: const Duration(seconds: 8),
+      tag: 'service init',
+      onTimeout: () => 'service init timeout',
+    );
     if (res?.isEmpty != true) {
       return res ?? '';
     }
@@ -53,8 +57,14 @@ class CoreLib extends CoreHandlerInterface {
 
   @override
   Future<bool> startListener() async {
-    await super.startListener();
-    await service?.start();
+    final coreStarted = await super.startListener();
+    if (!coreStarted) return false;
+    final serviceStarted = await service?.start() ?? false;
+    if (!serviceStarted) {
+      await super.stopListener();
+      await service?.stop();
+      return false;
+    }
     return true;
   }
 

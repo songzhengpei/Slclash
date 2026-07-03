@@ -15,7 +15,7 @@ interface IBaseService {
         BroadcastAction.SERVICE_DESTROYED.sendBroadcast()
     }
 
-    fun start()
+    fun start(): Boolean
 
     fun stop()
 
@@ -23,7 +23,7 @@ interface IBaseService {
         // Default no-op for services without TUN (e.g. CommonService)
     }
 
-    fun smartResume() {
-        // Default no-op for services without TUN (e.g. CommonService)
+    fun smartResume(): Boolean {
+        return true
     }
 }

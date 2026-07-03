@@ -24,7 +24,7 @@ void main() {
         () => props.toJson(),
         AppSettingProps.fromJson,
       );
-      expect(restored.onlyStatisticsProxy, false);
+      expect(restored.onlyStatisticsProxy, true);
       expect(restored.autoLaunch, false);
       expect(restored.silentLaunch, false);
       expect(restored.autoRun, false);
@@ -60,7 +60,7 @@ void main() {
     test('safeFromJson returns default on null', () {
       final result = AppSettingProps.safeFromJson(null);
       expect(result, isA<AppSettingProps>());
-      expect(result.onlyStatisticsProxy, false);
+      expect(result.onlyStatisticsProxy, true);
     });
 
     test('safeFromJson returns default on invalid JSON', () {
@@ -189,15 +189,15 @@ void main() {
       const props = ThemeProps();
       expect(props.primaryColor, null);
       expect(props.primaryColors, defaultPrimaryColors);
-      expect(props.themeMode, ThemeMode.dark);
-      expect(props.dynamicColor, false);
+      expect(props.themeMode, ThemeMode.system);
+      expect(props.dynamicColor, true);
       expect(props.pureBlack, false);
       expect(props.textScale.scale, 1.0);
     });
 
     test('safeFromJson returns default on null', () {
       final result = ThemeProps.safeFromJson(null);
-      expect(result.themeMode, ThemeMode.dark);
+      expect(result.themeMode, ThemeMode.system);
     });
 
     test('round-trip with custom values', () {
@@ -252,7 +252,7 @@ void main() {
 
     test('realFromJson handles null', () {
       final result = Config.realFromJson(null);
-      expect(result.appSettingProps.onlyStatisticsProxy, false);
+      expect(result.appSettingProps.onlyStatisticsProxy, true);
     });
 
     test('full config round-trip', () {

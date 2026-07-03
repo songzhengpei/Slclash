@@ -41,3 +41,22 @@ class StringSetConverter extends TypeConverter<Set<String>, String> {
     return json.encode(value.toList());
   }
 }
+
+const int kProxyGroupsSnapshotVersion = 1;
+
+class GroupsConverter extends TypeConverter<List<Group>, String> {
+  const GroupsConverter();
+
+  @override
+  List<Group> fromSql(String fromDb) {
+    final list = json.decode(fromDb) as List;
+    return list
+        .map((e) => Group.fromJson(e as Map<String, Object?>))
+        .toList();
+  }
+
+  @override
+  String toSql(List<Group> value) {
+    return json.encode(value.map((e) => e.toJson()).toList());
+  }
+}

@@ -36,6 +36,12 @@ mixin CoreInterface {
 
   Future<ProxiesData> getProxies();
 
+  Future<ProxiesData> materializeProfileSnapshot({
+    required String profilePath,
+    required Map<String, String> selectedMap,
+    required String defaultTestUrl,
+  });
+
   Future<String> changeProxy(ChangeProxyParams changeProxyParams);
 
   Future<bool> startListener();
@@ -58,6 +64,8 @@ mixin CoreInterface {
   FutureOr<String> getTraffic(bool onlyStatisticsProxy);
 
   FutureOr<String> getTotalTraffic(bool onlyStatisticsProxy);
+
+  FutureOr<String> getTrafficSnapshot(bool onlyStatisticsProxy);
 
   FutureOr<String> getCountryCode(String ip);
 
@@ -87,6 +95,17 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   FutureOr<bool> destroy();
 
+  bool _shouldLogInvoke(ActionMethod method) {
+    return switch (method) {
+      ActionMethod.getTraffic ||
+      ActionMethod.getTotalTraffic ||
+      ActionMethod.getTrafficSnapshot ||
+      ActionMethod.getMemory ||
+      ActionMethod.getConnections => false,
+      _ => true,
+    };
+  }
+
   Future<T?> _invoke<T>({
     required ActionMethod method,
     dynamic data,
@@ -101,15 +120,20 @@ abstract class CoreHandlerInterface with CoreInterface {
       );
       return null;
     }
+    final shouldLog = _shouldLogInvoke(method);
     return await utils.handleWatch(
       onStart: () {
-        commonPrint.log('Invoke ${method.name} ${DateTime.now()} $data');
+        if (shouldLog) {
+          commonPrint.log('Invoke ${method.name} ${DateTime.now()} $data');
+        }
       },
       function: () async {
         return invoke<T>(method: method, data: data, timeout: timeout);
       },
       onEnd: (data, elapsedMilliseconds) {
-        commonPrint.log('Invoke ${method.name} ${elapsedMilliseconds}ms');
+        if (shouldLog) {
+          commonPrint.log('Invoke ${method.name} ${elapsedMilliseconds}ms');
+        }
       },
     );
   }
@@ -191,6 +215,27 @@ abstract class CoreHandlerInterface with CoreInterface {
   Future<ProxiesData> getProxies() async {
     final data = await _invoke<Map<String, dynamic>>(
       method: ActionMethod.getProxies,
+    );
+    return data != null
+        ? ProxiesData.fromJson(data)
+        : const ProxiesData(proxies: {}, all: []);
+  }
+
+  @override
+  Future<ProxiesData> materializeProfileSnapshot({
+    required String profilePath,
+    required Map<String, String> selectedMap,
+    required String defaultTestUrl,
+  }) async {
+    final params = json.encode({
+      'profilePath': profilePath,
+      'selectedMap': selectedMap,
+      'defaultTestUrl': defaultTestUrl,
+    });
+    final data = await _invoke<Map<String, dynamic>>(
+      method: ActionMethod.materializeProfileSnapshot,
+      data: params,
+      timeout: const Duration(seconds: 30),
     );
     return data != null
         ? ProxiesData.fromJson(data)
@@ -288,6 +333,15 @@ abstract class CoreHandlerInterface with CoreInterface {
   Future<String> getTraffic(bool onlyStatisticsProxy) async {
     return await _invoke<String>(
           method: ActionMethod.getTraffic,
+          data: onlyStatisticsProxy,
+        ) ??
+        '';
+  }
+
+  @override
+  Future<String> getTrafficSnapshot(bool onlyStatisticsProxy) async {
+    return await _invoke<String>(
+          method: ActionMethod.getTrafficSnapshot,
           data: onlyStatisticsProxy,
         ) ??
         '';

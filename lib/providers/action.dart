@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
@@ -20,6 +23,22 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 part 'generated/action.g.dart';
+
+/// Real-time traffic speed for speed text display.
+/// Updated every 1s. Separate from [trafficsProvider] (chart data, 2-3s).
+final currentSpeedNotifier = ValueNotifier<Traffic>(const Traffic());
+
+bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
+  return isRunning || autoRun;
+}
+
+bool shouldReconnectCoreOnResume({
+  required bool isAndroid,
+  required bool isRunning,
+  required bool hasGroups,
+}) {
+  return isAndroid && (isRunning || !hasGroups);
+}
 
 @Riverpod(keepAlive: true)
 class CommonAction extends _$CommonAction {
@@ -62,10 +81,16 @@ class CommonAction extends _$CommonAction {
     final onlyStatisticsProxy = ref.read(
       appSettingProvider.select((state) => state.onlyStatisticsProxy),
     );
-    final traffic = await coreController.getTraffic(onlyStatisticsProxy);
-    ref.read(trafficsProvider.notifier).addTraffic(traffic);
-    ref.read(totalTrafficProvider.notifier).value = await coreController
-        .getTotalTraffic(onlyStatisticsProxy);
+    final snapshot = await coreController.getTrafficSnapshot(
+      onlyStatisticsProxy,
+    );
+    ref.read(trafficsProvider.notifier).addTraffic(snapshot.traffic);
+    // Diff check: only update totalTraffic if value actually changed
+    final currentTotal = ref.read(totalTrafficProvider);
+    if (snapshot.totalTraffic.up != currentTotal.up ||
+        snapshot.totalTraffic.down != currentTotal.down) {
+      ref.read(totalTrafficProvider.notifier).value = snapshot.totalTraffic;
+    }
   }
 
   Future<void> autoCheckUpdate() async {
@@ -483,12 +508,17 @@ class _UpdateChangeItem extends StatelessWidget {
 
 @Riverpod(keepAlive: true)
 class SetupAction extends _$SetupAction {
-  static const _dashboardStatsInterval = Duration(seconds: 1);
-  static const _backgroundPageStatsInterval = Duration(seconds: 3);
+  static const _tickInterval = Duration(seconds: 1);
+  static const _chartUpdateInterval = Duration(seconds: 2);
+  static const _totalTrafficUpdateInterval = Duration(seconds: 5);
+  static const _runtimeUpdateInterval = Duration(seconds: 5);
 
   Timer? _updateTimer;
   DateTime? startTime;
   bool _isUpdatingUiStats = false;
+  DateTime? _lastChartUpdateAt;
+  DateTime? _lastTotalTrafficUpdateAt;
+  DateTime? _lastRuntimeUpdateAt;
 
   bool get isStart => startTime != null && startTime!.isBeforeNow;
 
@@ -512,6 +542,14 @@ class SetupAction extends _$SetupAction {
     });
   }
 
+  bool get _isDashboardActive {
+    return ref.read(currentPageLabelProvider) == PageLabel.dashboard;
+  }
+
+  static bool _shouldRun(DateTime now, DateTime? lastAt, Duration interval) {
+    return lastAt == null || now.difference(lastAt) >= interval;
+  }
+
   SetupParams get _setupParams {
     final selectedMap = ref.read(selectedMapProvider);
     final testUrl = ref.read(
@@ -528,28 +566,74 @@ class SetupAction extends _$SetupAction {
     ref.read(requestsProvider.notifier).value = FixedList(500);
   }
 
-  Future<void> _handleStart() async {
-    startTime ??= DateTime.now();
-    //The local status must be updated when performing the run task
-    unawaited(_updateUiStats());
+  Future<bool> _handleStart() async {
     if (!ref.read(suspendProvider)) {
-      await coreController.startListener();
+      final started = await coreController.startListener();
+      if (!started) {
+        startTime = null;
+        ref.read(runTimeProvider.notifier).value = null;
+        ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+        ref.read(realTunEnableProvider.notifier).value = false;
+        return false;
+      }
     }
+    unawaited(_updateUiStats());
     _startUiStatsTimer();
+    return true;
   }
 
-  Duration get _uiStatsInterval {
-    final isDashboard =
-        ref.read(currentPageLabelProvider) == PageLabel.dashboard;
-    return isDashboard ? _dashboardStatsInterval : _backgroundPageStatsInterval;
-  }
-
+  /// Full chain: fetch snapshot, update speed (1s), chart (2s), total (5s), runtime (5s).
   Future<void> _updateUiStats() async {
-    ref.read(commonActionProvider.notifier).updateRunTime();
+    // Visibility gate: only non-dashboard pages → skip everything except runtime at 5s
+    if (!_isDashboardActive) {
+      final now = DateTime.now();
+      if (_shouldRun(now, _lastRuntimeUpdateAt, _runtimeUpdateInterval)) {
+        ref.read(commonActionProvider.notifier).updateRunTime();
+        _lastRuntimeUpdateAt = now;
+      }
+      return;
+    }
     if (_isUpdatingUiStats) return;
     _isUpdatingUiStats = true;
     try {
-      await ref.read(commonActionProvider.notifier).updateTraffic();
+      final now = DateTime.now();
+
+      // Fetch snapshot once per tick (FFI call)
+      final onlyStatisticsProxy = ref.read(
+        appSettingProvider.select((state) => state.onlyStatisticsProxy),
+      );
+      final snapshot = await coreController.getTrafficSnapshot(
+        onlyStatisticsProxy,
+      );
+
+      // 1. Speed text: every tick (1s) — lightweight ValueNotifier, no Provider rebuild
+      currentSpeedNotifier.value = snapshot.traffic;
+
+      // 2. Chart points: throttle to 2s
+      if (_shouldRun(now, _lastChartUpdateAt, _chartUpdateInterval)) {
+        ref.read(trafficsProvider.notifier).addTraffic(snapshot.traffic);
+        _lastChartUpdateAt = now;
+      }
+
+      // 3. Total traffic: throttle to 5s + diff check
+      if (_shouldRun(
+        now,
+        _lastTotalTrafficUpdateAt,
+        _totalTrafficUpdateInterval,
+      )) {
+        final currentTotal = ref.read(totalTrafficProvider);
+        if (snapshot.totalTraffic.up != currentTotal.up ||
+            snapshot.totalTraffic.down != currentTotal.down) {
+          ref.read(totalTrafficProvider.notifier).value = snapshot.totalTraffic;
+        }
+        _lastTotalTrafficUpdateAt = now;
+      }
+
+      // 4. Runtime: throttle to 5s
+      if (_shouldRun(now, _lastRuntimeUpdateAt, _runtimeUpdateInterval)) {
+        ref.read(commonActionProvider.notifier).updateRunTime();
+        _lastRuntimeUpdateAt = now;
+      }
     } catch (e) {
       commonPrint.log('update ui stats failed: $e', logLevel: LogLevel.warning);
     } finally {
@@ -559,7 +643,7 @@ class SetupAction extends _$SetupAction {
 
   void _startUiStatsTimer() {
     _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(_uiStatsInterval, (_) {
+    _updateTimer = Timer.periodic(_tickInterval, (_) {
       unawaited(_updateUiStats());
     });
   }
@@ -578,6 +662,9 @@ class SetupAction extends _$SetupAction {
   void cancelUiStatsTimer() {
     _updateTimer?.cancel();
     _updateTimer = null;
+    _lastChartUpdateAt = null;
+    _lastTotalTrafficUpdateAt = null;
+    _lastRuntimeUpdateAt = null;
   }
 
   /// Resume the UI stats timer when app returns to foreground.
@@ -637,13 +724,25 @@ class SetupAction extends _$SetupAction {
     if (system.isAndroid) {
       await _updateStartTime();
     }
-    final status = isStart == true
-        ? true
-        : ref.read(appSettingProvider).autoRun;
-    if (status == true) {
+    final shouldFullSetup = shouldFullSetupOnInit(
+      isRunning: isStart,
+      autoRun: ref.read(appSettingProvider).autoRun,
+    );
+    if (shouldFullSetup) {
+      final coreAction = ref.read(coreActionProvider.notifier);
+      final connected = await coreAction.connectCore();
+      if (!connected) {
+        startTime = null;
+        ref.read(runTimeProvider.notifier).value = null;
+        return;
+      }
+      await coreAction.initCore();
       await updateStatus(true, isInit: true);
     } else {
-      await applyProfile(force: true);
+      globalState.needInitStatus = false;
+      ref.read(runTimeProvider.notifier).value = null;
+      ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+      commonPrint.log('init status skip full setup');
     }
   }
 
@@ -655,19 +754,43 @@ class SetupAction extends _$SetupAction {
             .tryStartCore(true);
         if (res) return;
         if (!ref.read(initProvider)) return;
-        await _handleStart();
-        applyProfileDebounce(force: true, silence: true);
+
+        final started = await _handleStart();
+        if (!started) return;
+
+        final applied = await applyProfile(force: true, silence: true);
+        if (!applied) {
+          await handleStop();
+          startTime = null;
+          ref.read(runTimeProvider.notifier).value = null;
+          return;
+        }
+
+        startTime ??= DateTime.now();
+        ref.read(commonActionProvider.notifier).updateRunTime();
       } else {
         globalState.needInitStatus = false;
-        ref.read(runTimeProvider.notifier).value = 0;
         try {
-          await applyProfile(
+          var started = true;
+
+          final applied = await applyProfile(
             force: true,
             preloadInvoke: () async {
-              await _handleStart();
+              started = await _handleStart();
             },
           );
+
+          if (!started || !applied) {
+            startTime = null;
+            ref.read(runTimeProvider.notifier).value = null;
+            return;
+          }
+
+          startTime ??= DateTime.now();
+          ref.read(runTimeProvider.notifier).value = 0;
+          ref.read(commonActionProvider.notifier).updateRunTime();
         } catch (_) {
+          startTime = null;
           ref.read(runTimeProvider.notifier).value = null;
         }
       }
@@ -700,12 +823,15 @@ class SetupAction extends _$SetupAction {
   }
 
   void tryCheckIp() {
-    final isTimeout = ref.read(
+    final shouldRetry = ref.read(
       networkDetectionProvider.select(
-        (state) => state.ipInfo == null && state.isLoading == false,
+        (state) =>
+            state.hasChecked &&
+            state.ipInfo == null &&
+            state.isLoading == false,
       ),
     );
-    if (!isTimeout) return;
+    if (!shouldRetry) return;
     ref.read(checkIpNumProvider.notifier).add();
   }
 
@@ -733,12 +859,12 @@ class SetupAction extends _$SetupAction {
     });
   }
 
-  Future<void> applyProfile({
+  Future<bool> applyProfile({
     bool silence = false,
     bool force = false,
-    VoidCallback? preloadInvoke,
+    FutureOr<void> Function()? preloadInvoke,
   }) async {
-    await _setupConfig(
+    return _setupConfig(
       force: force,
       silence: silence,
       preloadInvoke: preloadInvoke,
@@ -748,6 +874,19 @@ class SetupAction extends _$SetupAction {
         unawaited(proxiesAction.preheatComputedGroups());
         await ref.read(providersProvider.notifier).syncProviders();
       },
+    );
+  }
+
+  Future<void> applyProfileForDisplay({bool silence = true}) async {
+    final patchConfig = ref
+        .read(patchClashConfigProvider)
+        .copyWith
+        .tun(enable: false);
+    await _setupConfig(
+      force: true,
+      silence: silence,
+      patchConfigOverride: patchConfig,
+      requestAdmin: false,
     );
   }
 
@@ -838,11 +977,13 @@ class SetupAction extends _$SetupAction {
     return Result.success(enableTun);
   }
 
-  Future<void> _setupConfig({
+  Future<bool> _setupConfig({
     bool force = false,
     bool silence = false,
-    VoidCallback? preloadInvoke,
+    FutureOr<void> Function()? preloadInvoke,
     FutureOr Function()? onUpdated,
+    PatchClashConfig? patchConfigOverride,
+    bool requestAdmin = true,
   }) async {
     var profile = ref.read(currentProfileProvider);
     final nextProfile = await profile?.checkAndUpdateAndCopy();
@@ -851,10 +992,16 @@ class SetupAction extends _$SetupAction {
       ref.read(profilesProvider.notifier).put(nextProfile);
     }
     commonPrint.log('setup ===> ${profile?.id}');
-    final patchConfig = ref.read(patchClashConfigProvider);
-    final res = await _requestAdmin(patchConfig.tun.enable);
-    if (res.isError) return;
-    final realTunEnable = ref.read(realTunEnableProvider);
+    final PatchClashConfig patchConfig =
+        patchConfigOverride ?? ref.read(patchClashConfigProvider);
+    late final bool realTunEnable;
+    if (requestAdmin) {
+      final res = await _requestAdmin(patchConfig.tun.enable);
+      if (res.isError) return false;
+      realTunEnable = ref.read(realTunEnableProvider);
+    } else {
+      realTunEnable = false;
+    }
     final realPatchConfig = patchConfig.copyWith.tun(enable: realTunEnable);
     final setupState = await ref.read(setupStateProvider(profile?.id).future);
     if (system.isAndroid) {
@@ -868,26 +1015,42 @@ class SetupAction extends _$SetupAction {
     );
     final yamlString = vm2.a;
     final yamlMd5 = vm2.b;
-    if (yamlMd5 == globalState.lastConfigMd5 && force == false) return;
+    if (yamlMd5 == globalState.lastConfigMd5 && force == false) return true;
+    var success = false;
     await globalState.loadingRun(
       () async {
         final configFilePath = await appPath.configFilePath;
         await File(configFilePath).safeWriteAsString(yamlString);
-        globalState.lastConfigMd5 = yamlMd5;
         final message = await coreController.setupConfig(
           setupState: setupState,
           params: _setupParams,
           preloadInvoke: preloadInvoke,
         );
-        if (message.isNotEmpty && !message.endsWith('is empty')) {
+
+        if (message.isNotEmpty) {
+          commonPrint.log(
+            'setupConfig failed: profileId=${setupState.profileId}, '
+            'message="$message", ignoredIsEmpty=${message.endsWith('is empty')}',
+            logLevel: LogLevel.warning,
+          );
+
+          if (message.endsWith('is empty')) {
+            success = false;
+            return;
+          }
+
           throw message;
         }
+
+        globalState.lastConfigMd5 = yamlMd5;
         ref.read(checkIpNumProvider.notifier).add();
         await onUpdated?.call();
+        success = true;
       },
       silence: true,
       tag: !silence ? LoadingTag.proxies : null,
     );
+    return success;
   }
 }
 
@@ -976,7 +1139,7 @@ class CoreAction extends _$CoreAction {
     }
   }
 
-  Future<void> connectCore() async {
+  Future<bool> connectCore() async {
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connecting;
     final result = await Future.wait([
       coreController.preload(),
@@ -986,9 +1149,10 @@ class CoreAction extends _$CoreAction {
     if (message.isNotEmpty) {
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       globalState.showNotifier(message);
-      return;
+      return false;
     }
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+    return true;
   }
 
   Future<Result<bool>> requestAdmin(bool enableTun) async {
@@ -1010,12 +1174,13 @@ class CoreAction extends _$CoreAction {
     return Result.success(enableTun);
   }
 
-  Future<void> restartCore([bool start = false]) async {
+  Future<bool> restartCore([bool start = false]) async {
     final isDisconnected =
         ref.read(coreStatusProvider) == CoreStatus.disconnected;
     ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
     await coreController.shutdown(!isDisconnected);
-    await connectCore();
+    final connected = await connectCore();
+    if (!connected) return false;
     await initCore();
     if (start || ref.read(isStartProvider)) {
       await ref
@@ -1024,12 +1189,12 @@ class CoreAction extends _$CoreAction {
     } else {
       await ref.read(setupActionProvider.notifier).applyProfile(force: true);
     }
+    return true;
   }
 
   Future<bool> tryStartCore([bool start = false]) async {
     if (coreController.isCompleted) return false;
-    await restartCore(start);
-    return true;
+    return restartCore(start);
   }
 
   void handleCoreDisconnected() {
@@ -1197,6 +1362,40 @@ class ProxiesAction extends _$ProxiesAction {
   @override
   void build() {}
 
+  bool _groupsEqual(List<Group> a, List<Group> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final ga = a[i];
+      final gb = b[i];
+      if (ga.name != gb.name ||
+          ga.type != gb.type ||
+          ga.now != gb.now ||
+          ga.hidden != gb.hidden ||
+          ga.testUrl != gb.testUrl ||
+          ga.icon != gb.icon ||
+          ga.all.length != gb.all.length) {
+        return false;
+      }
+      for (var j = 0; j < ga.all.length; j++) {
+        if (ga.all[j].name != gb.all[j].name ||
+            ga.all[j].type != gb.all[j].type) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  void _syncComputedSelectedMap(List<Group> groups) {
+    final base = ref.read(currentProfileProvider)?.computedSelectedMap ?? {};
+    final map = ref
+        .read(computedSelectedCacheProvider.notifier)
+        .syncFromGroups(groups, base: base);
+    ref
+        .read(profilesActionProvider.notifier)
+        .updateCurrentComputedSelectedMap(map);
+  }
+
   void updateGroupsDebounce([Duration? duration]) {
     debouncer.call(FunctionTag.updateGroups, updateGroups, duration: duration);
   }
@@ -1211,51 +1410,384 @@ class ProxiesAction extends _$ProxiesAction {
     }, args: [groupName, proxyName]);
   }
 
-  Future<void> updateGroups() async {
+  Future<String?> _computeProfileFingerprint(Profile? profile) async {
+    if (profile == null) return null;
+
+    // 读取 profile config 文件 SHA-256 作为主依据
+    String profileFileSha256 = '';
     try {
-      commonPrint.log('updateGroups');
-      final groups = await retry(
-        task: () async {
-          final sortType = ref.read(
-            proxiesStyleSettingProvider.select((state) => state.sortType),
-          );
-          final delayMap = ref.read(delayDataSourceProvider);
-          final testUrl = ref.read(
-            appSettingProvider.select((state) => state.testUrl),
-          );
-          final selectedMap = ref.read(
-            currentProfileProvider.select((state) => state?.selectedMap ?? {}),
-          );
-          return coreController.getProxiesGroups(
-            selectedMap: selectedMap,
-            sortType: sortType,
-            delayMap: delayMap,
-            defaultTestUrl: testUrl,
-          );
-        },
-        retryIf: (res) => res.isEmpty || res.any((g) => g.all.isEmpty),
-      );
-      ref.read(groupsProvider.notifier).value = groups;
-      // Sync computed group cache from fresh data and persist it.
-      // Run only after a successful retry; the catch path must NOT
-      // call syncFromGroups, otherwise an empty-list fallback would
-      // clear the UI-only cache and defeat the lifecycle fix.
-      final baseComputedSelectedMap =
-          ref.read(currentProfileProvider)?.computedSelectedMap ?? {};
-      final computedSelectedMap = ref
-          .read(computedSelectedCacheProvider.notifier)
-          .syncFromGroups(
-            groups,
-            base: baseComputedSelectedMap,
-          );
-      ref
-          .read(profilesActionProvider.notifier)
-          .updateCurrentComputedSelectedMap(computedSelectedMap);
+      final path = await appPath.getProfilePath(profile.id.toString());
+      final file = File(path);
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        profileFileSha256 = sha256.convert(bytes).toString();
+      }
     } catch (e) {
-      commonPrint.log('updateGroups error: $e');
-      ref.read(groupsProvider.notifier).value = [];
+      commonPrint.log('compute profile file sha256 failed: $e');
+    }
+
+    // selectedMap 稳定排序后计算 SHA-256
+    final selectedEntries = profile.selectedMap.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final selectedMapStableJson = jsonEncode(Map.fromEntries(selectedEntries));
+    final selectedMapSha256 = sha256
+        .convert(utf8.encode(selectedMapStableJson))
+        .toString();
+
+    final parts = <Object?>[
+      'snapshot_v$kProxyGroupsSnapshotVersion',
+      profile.id,
+      profileFileSha256,
+      profile.overwriteType.index,
+      profile.scriptId ?? 0,
+      profile.lastUpdateDate?.millisecondsSinceEpoch ?? 0,
+      selectedMapSha256,
+    ];
+
+    return sha256.convert(utf8.encode(parts.join('|'))).toString();
+  }
+
+  Profile? _findProfileById(int profileId) {
+    for (final profile in ref.read(profilesProvider)) {
+      if (profile.id == profileId) return profile;
+    }
+    return null;
+  }
+
+  Future<bool> hydrateProxyGroupsSnapshot({
+    int? profileId,
+    bool allowStaleOnFingerprintMismatch = false,
+  }) async {
+    final targetProfileId = profileId ?? ref.read(currentProfileIdProvider);
+    if (targetProfileId == null) {
+      ref.read(proxyGroupsSnapshotProvider.notifier).none();
+      return false;
+    }
+
+    try {
+      final snapshot = await database.proxyGroupsSnapshotsDao.getSnapshot(
+        targetProfileId,
+      );
+
+      if (snapshot == null || snapshot.groups.isEmpty) {
+        if (profileId == null) {
+          ref.read(proxyGroupsSnapshotProvider.notifier).none();
+        }
+        return false;
+      }
+
+      // profileId guard（只在无参调用时校验）
+      if (profileId == null &&
+          ref.read(currentProfileProvider)?.id != targetProfileId) {
+        return false;
+      }
+
+      // version compatibility check
+      if (snapshot.snapshotVersion > kProxyGroupsSnapshotVersion) {
+        commonPrint.log('snapshot version incompatible, discarding');
+        ref.read(proxyGroupsSnapshotProvider.notifier).none();
+        return false;
+      }
+
+      // fingerprint 校验：不匹配则丢弃 snapshot
+      final profile = _findProfileById(targetProfileId);
+      if (profile == null) {
+        ref.read(proxyGroupsSnapshotProvider.notifier).none();
+        return false;
+      }
+      final currentFingerprint = await _computeProfileFingerprint(profile);
+      if (snapshot.profileFingerprint == null ||
+          snapshot.profileFingerprint != currentFingerprint) {
+        commonPrint.log(
+          'snapshot fingerprint mismatch: profileId=$targetProfileId, '
+          'allowStale=$allowStaleOnFingerprintMismatch',
+          logLevel: allowStaleOnFingerprintMismatch
+              ? LogLevel.warning
+              : LogLevel.info,
+        );
+        if (!allowStaleOnFingerprintMismatch) {
+          return false;
+        }
+      }
+
+      ref.read(groupsProvider.notifier).value = snapshot.groups;
+      ref.read(groupsOwnerProfileIdProvider.notifier).set(targetProfileId);
+      ref
+          .read(proxyGroupsSnapshotProvider.notifier)
+          .stale(updatedAt: snapshot.updatedAt);
+      return true;
+    } catch (e) {
+      commonPrint.log('hydrateProxyGroupsSnapshot failed: $e');
+      ref.read(proxyGroupsSnapshotProvider.notifier).none();
+      return false;
     }
   }
+
+  bool _isSnapshotWritableGroups(List<Group> groups) {
+    return groups.isNotEmpty && groups.every((g) => g.all.isNotEmpty);
+  }
+
+  Future<void> _putProxyGroupsSnapshot({
+    required Profile profile,
+    required List<Group> groups,
+  }) async {
+    if (!_isSnapshotWritableGroups(groups)) return;
+    final fingerprint = await _computeProfileFingerprint(profile);
+    if (fingerprint == null) return;
+    await database.proxyGroupsSnapshotsDao.putSnapshot(
+      profileId: profile.id,
+      groups: groups,
+      profileFingerprint: fingerprint,
+    );
+  }
+
+  Future<void> updateGroups() async {
+    final profileId = ref.read(currentProfileProvider)?.id;
+
+    try {
+      ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
+
+      commonPrint.log('updateGroups');
+      if (!coreController.isCompleted) {
+        final connected = await ref
+            .read(coreActionProvider.notifier)
+            .connectCore();
+        if (!connected) {
+          final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+          final oldGroups = ref.read(groupsProvider);
+          final hasSameProfileOldGroups =
+              ownerProfileId == profileId && oldGroups.isNotEmpty;
+
+          if (hasSameProfileOldGroups) {
+            ref
+                .read(proxyGroupsSnapshotProvider.notifier)
+                .failed('connectCore failed');
+            return;
+          }
+
+          final hydrated = await hydrateProxyGroupsSnapshot(
+            profileId: profileId,
+            allowStaleOnFingerprintMismatch: true,
+          );
+
+          if (hydrated) {
+            commonPrint.log(
+              'updateGroups connectCore failed, fallback to stale snapshot: profileId=$profileId',
+              logLevel: LogLevel.warning,
+            );
+            ref
+                .read(proxyGroupsSnapshotProvider.notifier)
+                .failed('connectCore failed');
+            return;
+          }
+
+          commonPrint.log(
+            'updateGroups preserve empty fallback: profileId=$profileId, '
+            'reason=connectCore failed, ownerProfileId=$ownerProfileId, '
+            'oldGroups=${oldGroups.length}',
+            logLevel: LogLevel.warning,
+          );
+
+          ref
+              .read(proxyGroupsSnapshotProvider.notifier)
+              .failed('connectCore failed');
+          return;
+        }
+        final isInit = await coreController.isInit;
+        if (!isInit) {
+          final version = ref.read(versionProvider);
+          final res = await coreController.init(version);
+          commonPrint.log('init result: $res');
+        }
+      }
+      Future<List<Group>> loadGroups() {
+        return retry(
+          task: () async {
+            final sortType = ref.read(
+              proxiesStyleSettingProvider.select((state) => state.sortType),
+            );
+            final delayMap = ref.read(delayDataSourceProvider);
+            final testUrl = ref.read(
+              appSettingProvider.select((state) => state.testUrl),
+            );
+            final selectedMap = ref.read(
+              currentProfileProvider.select(
+                (state) => state?.selectedMap ?? {},
+              ),
+            );
+            return coreController.getProxiesGroups(
+              selectedMap: selectedMap,
+              sortType: sortType,
+              delayMap: delayMap,
+              defaultTestUrl: testUrl,
+            );
+          },
+          retryIf: (res) => res.isEmpty || res.any((g) => g.all.isEmpty),
+        );
+      }
+
+      var groups = await loadGroups();
+      if (!_isSnapshotWritableGroups(groups)) {
+        await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
+        groups = await loadGroups();
+      }
+
+      if (!_isSnapshotWritableGroups(groups)) {
+        final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+        final oldGroups = ref.read(groupsProvider);
+
+        if (ownerProfileId == profileId && oldGroups.isNotEmpty) {
+          commonPrint.log(
+            'updateGroups groups empty, preserve same-profile old groups: '
+            'profileId=$profileId, oldGroups=${oldGroups.length}',
+            logLevel: LogLevel.warning,
+          );
+          ref.read(proxyGroupsSnapshotProvider.notifier).failed('groups empty');
+          return;
+        }
+
+        final hydrated = await hydrateProxyGroupsSnapshot(
+          profileId: profileId,
+          allowStaleOnFingerprintMismatch: true,
+        );
+
+        if (hydrated) {
+          commonPrint.log(
+            'updateGroups groups empty, fallback to stale snapshot: '
+            'profileId=$profileId',
+            logLevel: LogLevel.warning,
+          );
+          ref.read(proxyGroupsSnapshotProvider.notifier).failed('groups empty');
+          return;
+        }
+
+        commonPrint.log(
+          'updateGroups groups empty, no old groups or snapshot fallback: '
+          'profileId=$profileId, ownerProfileId=$ownerProfileId, '
+          'oldGroups=${oldGroups.length}',
+          logLevel: LogLevel.error,
+        );
+
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed('groups empty');
+        return;
+      }
+
+      // profileId guard: user may have switched profile during async refresh
+      if (ref.read(currentProfileProvider)?.id != profileId) return;
+
+      // Equality check: skip UI rebuild + snapshot save if groups unchanged
+      final oldGroups = ref.read(groupsProvider);
+      if (_groupsEqual(oldGroups, groups)) {
+        ref.read(lastGroupsRefreshAtProvider.notifier).update();
+        ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
+        ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
+        _syncComputedSelectedMap(groups);
+        return;
+      }
+
+      ref.read(groupsProvider.notifier).value = groups;
+      ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
+      ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
+      ref.read(lastGroupsRefreshAtProvider.notifier).update();
+
+      // Save snapshot
+      final currentProfile = ref.read(currentProfileProvider);
+      if (currentProfile != null) {
+        await _putProxyGroupsSnapshot(profile: currentProfile, groups: groups);
+      }
+
+      _syncComputedSelectedMap(groups);
+    } catch (e) {
+      commonPrint.log('updateGroups error: $e', logLevel: LogLevel.error);
+
+      final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+      final oldGroups = ref.read(groupsProvider);
+      final hasSameProfileOldGroups =
+          ownerProfileId == profileId && oldGroups.isNotEmpty;
+
+      if (hasSameProfileOldGroups) {
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+        return;
+      }
+
+      final hydrated = await hydrateProxyGroupsSnapshot(
+        profileId: profileId,
+        allowStaleOnFingerprintMismatch: true,
+      );
+
+      if (hydrated) {
+        commonPrint.log(
+          'updateGroups error fallback to stale snapshot: profileId=$profileId, error=$e',
+          logLevel: LogLevel.warning,
+        );
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+        return;
+      }
+
+      commonPrint.log(
+        'updateGroups failed without fallback: profileId=$profileId, '
+        'ownerProfileId=$ownerProfileId, oldGroups=${oldGroups.length}, error=$e',
+        logLevel: LogLevel.error,
+      );
+
+      ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+    }
+  }
+
+  final _prefetchingProfileIds = <int>{};
+
+  Future<void> prefetchSnapshotForProfile(Profile profile) async {
+    if (!_prefetchingProfileIds.add(profile.id)) return;
+    try {
+      final fingerprint = await _computeProfileFingerprint(profile);
+      if (fingerprint == null) return;
+
+      final sortType = ref.read(
+        proxiesStyleSettingProvider.select((state) => state.sortType),
+      );
+      final delayMap = ref.read(delayDataSourceProvider);
+      final testUrl = ref.read(
+        appSettingProvider.select((state) => state.testUrl),
+      );
+
+      final profilePath = await appPath.getProfilePath(profile.id.toString());
+
+      final groups = await coreController.materializeProfileSnapshotGroups(
+        profilePath: profilePath,
+        selectedMap: profile.selectedMap,
+        sortType: sortType,
+        delayMap: delayMap,
+        defaultTestUrl: testUrl,
+      );
+
+      if (!_isSnapshotWritableGroups(groups)) return;
+
+      final latestProfile = _findProfileById(profile.id);
+      if (latestProfile == null) return;
+
+      final latestFingerprint = await _computeProfileFingerprint(latestProfile);
+      if (fingerprint != latestFingerprint) {
+        commonPrint.log(
+          'prefetchSnapshotForProfile skipped: fingerprint changed '
+          'profileId=${profile.id}',
+        );
+        return;
+      }
+
+      await _putProxyGroupsSnapshot(profile: latestProfile, groups: groups);
+
+      commonPrint.log(
+        'prefetchSnapshotForProfile success: '
+        'profileId=${profile.id}, groups=${groups.length}',
+      );
+    } catch (e) {
+      commonPrint.log('prefetchSnapshotForProfile failed: $e');
+    } finally {
+      _prefetchingProfileIds.remove(profile.id);
+    }
+  }
+
+  DateTime? _lastPreheatGroupsRefreshAt;
 
   Future<void> preheatComputedGroups() async {
     final groups = ref.read(groupsProvider);
@@ -1270,6 +1802,14 @@ class ProxiesAction extends _$ProxiesAction {
         delayLoader: coreController.getDelay,
         onDelay: setDelay,
       );
+      // Throttle: skip if last refresh was < 5s ago
+      final now = DateTime.now();
+      if (_lastPreheatGroupsRefreshAt != null &&
+          now.difference(_lastPreheatGroupsRefreshAt!) <
+              const Duration(seconds: 5)) {
+        return;
+      }
+      _lastPreheatGroupsRefreshAt = now;
       updateGroupsDebounce();
     } catch (e) {
       commonPrint.log('preheatComputedGroups error: $e');
@@ -1352,7 +1892,8 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   void updateCurrentComputedSelectedMap(
-      Map<String, String> computedSelectedMap) {
+    Map<String, String> computedSelectedMap,
+  ) {
     final currentProfile = ref.read(currentProfileProvider);
     if (currentProfile == null) return;
     final next = Map<String, String>.from(computedSelectedMap);
@@ -1361,9 +1902,9 @@ class ProfilesAction extends _$ProfilesAction {
     final sameContent =
         sameLength && current.entries.every((e) => next[e.key] == e.value);
     if (sameContent) return;
-    ref.read(profilesProvider.notifier).put(
-          currentProfile.copyWith(computedSelectedMap: next),
-        );
+    ref
+        .read(profilesProvider.notifier)
+        .put(currentProfile.copyWith(computedSelectedMap: next));
   }
 
   Future<void> deleteProfile(int id) async {
@@ -1423,10 +1964,17 @@ class ProfilesAction extends _$ProfilesAction {
       ref.read(profilesProvider.notifier).put(profile);
       final newProfile = await profile.update();
       ref.read(profilesProvider.notifier).put(newProfile);
-      if (profile.id == ref.read(currentProfileIdProvider)) {
+      if (newProfile.id == ref.read(currentProfileIdProvider)) {
         ref
             .read(setupActionProvider.notifier)
             .applyProfileDebounce(silence: true);
+      } else {
+        // 非活跃 profile：异步预热快照
+        unawaited(
+          ref
+              .read(proxiesActionProvider.notifier)
+              .prefetchSnapshotForProfile(newProfile),
+        );
       }
     } finally {
       ref.read(isUpdatingProvider(profile.updatingKey).notifier).value = false;

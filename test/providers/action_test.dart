@@ -6,6 +6,56 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  group('shouldFullSetupOnInit', () {
+    test(
+      'skips full setup when VPN is not running and auto run is disabled',
+      () {
+        expect(
+          shouldFullSetupOnInit(isRunning: false, autoRun: false),
+          isFalse,
+        );
+      },
+    );
+
+    test('runs full setup when VPN is already running', () {
+      expect(shouldFullSetupOnInit(isRunning: true, autoRun: false), isTrue);
+    });
+
+    test('runs full setup when auto run is enabled', () {
+      expect(shouldFullSetupOnInit(isRunning: false, autoRun: true), isTrue);
+    });
+  });
+
+  group('shouldReconnectCoreOnResume', () {
+    test('does not reconnect core on Android when VPN is stopped and groups exist', () {
+      expect(
+        shouldReconnectCoreOnResume(isAndroid: true, isRunning: false, hasGroups: true),
+        isFalse,
+      );
+    });
+
+    test('reconnects core on Android when VPN is stopped but groups are empty (initial load)', () {
+      expect(
+        shouldReconnectCoreOnResume(isAndroid: true, isRunning: false, hasGroups: false),
+        isTrue,
+      );
+    });
+
+    test('reconnects core on Android when VPN is running', () {
+      expect(
+        shouldReconnectCoreOnResume(isAndroid: true, isRunning: true, hasGroups: true),
+        isTrue,
+      );
+    });
+
+    test('does not reconnect core on non-Android platforms', () {
+      expect(
+        shouldReconnectCoreOnResume(isAndroid: false, isRunning: true, hasGroups: true),
+        isFalse,
+      );
+    });
+  });
+
   group('ProfilesAction', () {
     test('keeps edited profile data when remote update fails', () async {
       final original = Profile.normal(label: 'old label', url: 'bad-url');

@@ -3451,6 +3451,384 @@ class IconRecordsCompanion extends UpdateCompanion<IconRecord> {
   }
 }
 
+class $ProxyGroupsSnapshotsTable extends ProxyGroupsSnapshots
+    with TableInfo<$ProxyGroupsSnapshotsTable, RawProxyGroupsSnapshot> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProxyGroupsSnapshotsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES profiles (id) ON DELETE CASCADE',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<List<Group>, String> groups =
+      GeneratedColumn<String>(
+        'groups',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<List<Group>>($ProxyGroupsSnapshotsTable.$convertergroups);
+  static const VerificationMeta _profileFingerprintMeta =
+      const VerificationMeta('profileFingerprint');
+  @override
+  late final GeneratedColumn<String> profileFingerprint =
+      GeneratedColumn<String>(
+        'profile_fingerprint',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _snapshotVersionMeta = const VerificationMeta(
+    'snapshotVersion',
+  );
+  @override
+  late final GeneratedColumn<int> snapshotVersion = GeneratedColumn<int>(
+    'snapshot_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kProxyGroupsSnapshotVersion),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    profileId,
+    groups,
+    profileFingerprint,
+    snapshotVersion,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'proxy_groups_snapshots';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RawProxyGroupsSnapshot> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    }
+    if (data.containsKey('profile_fingerprint')) {
+      context.handle(
+        _profileFingerprintMeta,
+        profileFingerprint.isAcceptableOrUnknown(
+          data['profile_fingerprint']!,
+          _profileFingerprintMeta,
+        ),
+      );
+    }
+    if (data.containsKey('snapshot_version')) {
+      context.handle(
+        _snapshotVersionMeta,
+        snapshotVersion.isAcceptableOrUnknown(
+          data['snapshot_version']!,
+          _snapshotVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {profileId};
+  @override
+  RawProxyGroupsSnapshot map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RawProxyGroupsSnapshot(
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      groups: $ProxyGroupsSnapshotsTable.$convertergroups.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}groups'],
+        )!,
+      ),
+      profileFingerprint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_fingerprint'],
+      ),
+      snapshotVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}snapshot_version'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ProxyGroupsSnapshotsTable createAlias(String alias) {
+    return $ProxyGroupsSnapshotsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<List<Group>, String> $convertergroups =
+      const GroupsConverter();
+}
+
+class RawProxyGroupsSnapshot extends DataClass
+    implements Insertable<RawProxyGroupsSnapshot> {
+  final int profileId;
+  final List<Group> groups;
+  final String? profileFingerprint;
+  final int snapshotVersion;
+  final DateTime updatedAt;
+  const RawProxyGroupsSnapshot({
+    required this.profileId,
+    required this.groups,
+    this.profileFingerprint,
+    required this.snapshotVersion,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['profile_id'] = Variable<int>(profileId);
+    {
+      map['groups'] = Variable<String>(
+        $ProxyGroupsSnapshotsTable.$convertergroups.toSql(groups),
+      );
+    }
+    if (!nullToAbsent || profileFingerprint != null) {
+      map['profile_fingerprint'] = Variable<String>(profileFingerprint);
+    }
+    map['snapshot_version'] = Variable<int>(snapshotVersion);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ProxyGroupsSnapshotsCompanion toCompanion(bool nullToAbsent) {
+    return ProxyGroupsSnapshotsCompanion(
+      profileId: Value(profileId),
+      groups: Value(groups),
+      profileFingerprint: profileFingerprint == null && nullToAbsent
+          ? const Value.absent()
+          : Value(profileFingerprint),
+      snapshotVersion: Value(snapshotVersion),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory RawProxyGroupsSnapshot.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RawProxyGroupsSnapshot(
+      profileId: serializer.fromJson<int>(json['profileId']),
+      groups: serializer.fromJson<List<Group>>(json['groups']),
+      profileFingerprint: serializer.fromJson<String?>(
+        json['profileFingerprint'],
+      ),
+      snapshotVersion: serializer.fromJson<int>(json['snapshotVersion']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'profileId': serializer.toJson<int>(profileId),
+      'groups': serializer.toJson<List<Group>>(groups),
+      'profileFingerprint': serializer.toJson<String?>(profileFingerprint),
+      'snapshotVersion': serializer.toJson<int>(snapshotVersion),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  RawProxyGroupsSnapshot copyWith({
+    int? profileId,
+    List<Group>? groups,
+    Value<String?> profileFingerprint = const Value.absent(),
+    int? snapshotVersion,
+    DateTime? updatedAt,
+  }) => RawProxyGroupsSnapshot(
+    profileId: profileId ?? this.profileId,
+    groups: groups ?? this.groups,
+    profileFingerprint: profileFingerprint.present
+        ? profileFingerprint.value
+        : this.profileFingerprint,
+    snapshotVersion: snapshotVersion ?? this.snapshotVersion,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  RawProxyGroupsSnapshot copyWithCompanion(ProxyGroupsSnapshotsCompanion data) {
+    return RawProxyGroupsSnapshot(
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      groups: data.groups.present ? data.groups.value : this.groups,
+      profileFingerprint: data.profileFingerprint.present
+          ? data.profileFingerprint.value
+          : this.profileFingerprint,
+      snapshotVersion: data.snapshotVersion.present
+          ? data.snapshotVersion.value
+          : this.snapshotVersion,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RawProxyGroupsSnapshot(')
+          ..write('profileId: $profileId, ')
+          ..write('groups: $groups, ')
+          ..write('profileFingerprint: $profileFingerprint, ')
+          ..write('snapshotVersion: $snapshotVersion, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    profileId,
+    groups,
+    profileFingerprint,
+    snapshotVersion,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RawProxyGroupsSnapshot &&
+          other.profileId == this.profileId &&
+          other.groups == this.groups &&
+          other.profileFingerprint == this.profileFingerprint &&
+          other.snapshotVersion == this.snapshotVersion &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ProxyGroupsSnapshotsCompanion
+    extends UpdateCompanion<RawProxyGroupsSnapshot> {
+  final Value<int> profileId;
+  final Value<List<Group>> groups;
+  final Value<String?> profileFingerprint;
+  final Value<int> snapshotVersion;
+  final Value<DateTime> updatedAt;
+  const ProxyGroupsSnapshotsCompanion({
+    this.profileId = const Value.absent(),
+    this.groups = const Value.absent(),
+    this.profileFingerprint = const Value.absent(),
+    this.snapshotVersion = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  ProxyGroupsSnapshotsCompanion.insert({
+    this.profileId = const Value.absent(),
+    required List<Group> groups,
+    this.profileFingerprint = const Value.absent(),
+    this.snapshotVersion = const Value.absent(),
+    required DateTime updatedAt,
+  }) : groups = Value(groups),
+       updatedAt = Value(updatedAt);
+  static Insertable<RawProxyGroupsSnapshot> custom({
+    Expression<int>? profileId,
+    Expression<String>? groups,
+    Expression<String>? profileFingerprint,
+    Expression<int>? snapshotVersion,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (profileId != null) 'profile_id': profileId,
+      if (groups != null) 'groups': groups,
+      if (profileFingerprint != null) 'profile_fingerprint': profileFingerprint,
+      if (snapshotVersion != null) 'snapshot_version': snapshotVersion,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  ProxyGroupsSnapshotsCompanion copyWith({
+    Value<int>? profileId,
+    Value<List<Group>>? groups,
+    Value<String?>? profileFingerprint,
+    Value<int>? snapshotVersion,
+    Value<DateTime>? updatedAt,
+  }) {
+    return ProxyGroupsSnapshotsCompanion(
+      profileId: profileId ?? this.profileId,
+      groups: groups ?? this.groups,
+      profileFingerprint: profileFingerprint ?? this.profileFingerprint,
+      snapshotVersion: snapshotVersion ?? this.snapshotVersion,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
+    if (groups.present) {
+      map['groups'] = Variable<String>(
+        $ProxyGroupsSnapshotsTable.$convertergroups.toSql(groups.value),
+      );
+    }
+    if (profileFingerprint.present) {
+      map['profile_fingerprint'] = Variable<String>(profileFingerprint.value);
+    }
+    if (snapshotVersion.present) {
+      map['snapshot_version'] = Variable<int>(snapshotVersion.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProxyGroupsSnapshotsCompanion(')
+          ..write('profileId: $profileId, ')
+          ..write('groups: $groups, ')
+          ..write('profileFingerprint: $profileFingerprint, ')
+          ..write('snapshotVersion: $snapshotVersion, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$Database extends GeneratedDatabase {
   _$Database(QueryExecutor e) : super(e);
   $DatabaseManager get managers => $DatabaseManager(this);
@@ -3462,6 +3840,8 @@ abstract class _$Database extends GeneratedDatabase {
   );
   late final $ProxyGroupsTable proxyGroups = $ProxyGroupsTable(this);
   late final $IconRecordsTable iconRecords = $IconRecordsTable(this);
+  late final $ProxyGroupsSnapshotsTable proxyGroupsSnapshots =
+      $ProxyGroupsSnapshotsTable(this);
   late final Index idxRuleTarget = Index(
     'idx_rule_target',
     'CREATE INDEX idx_rule_target ON rules (rule_target)',
@@ -3483,6 +3863,8 @@ abstract class _$Database extends GeneratedDatabase {
   late final RulesDao rulesDao = RulesDao(this as Database);
   late final ProxyGroupsDao proxyGroupsDao = ProxyGroupsDao(this as Database);
   late final IconRecordsDao iconRecordsDao = IconRecordsDao(this as Database);
+  late final ProxyGroupsSnapshotsDao proxyGroupsSnapshotsDao =
+      ProxyGroupsSnapshotsDao(this as Database);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3494,6 +3876,7 @@ abstract class _$Database extends GeneratedDatabase {
     profileRuleLinks,
     proxyGroups,
     iconRecords,
+    proxyGroupsSnapshots,
     idxRuleTarget,
     idxProfileSceneOrder,
     idxProfileNameOrder,
@@ -3521,6 +3904,13 @@ abstract class _$Database extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('proxy_groups', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'profiles',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('proxy_groups_snapshots', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -3600,6 +3990,34 @@ final class $$ProfilesTableReferences
     ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_proxyGroupsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ProxyGroupsSnapshotsTable,
+    List<RawProxyGroupsSnapshot>
+  >
+  _proxyGroupsSnapshotsRefsTable(_$Database db) =>
+      MultiTypedResultKey.fromTable(
+        db.proxyGroupsSnapshots,
+        aliasName: $_aliasNameGenerator(
+          db.profiles.id,
+          db.proxyGroupsSnapshots.profileId,
+        ),
+      );
+
+  $$ProxyGroupsSnapshotsTableProcessedTableManager
+  get proxyGroupsSnapshotsRefs {
+    final manager = $$ProxyGroupsSnapshotsTableTableManager(
+      $_db,
+      $_db.proxyGroupsSnapshots,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _proxyGroupsSnapshotsRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -3739,6 +4157,31 @@ class $$ProfilesTableFilterComposer
           }) => $$ProxyGroupsTableFilterComposer(
             $db: $db,
             $table: $db.proxyGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> proxyGroupsSnapshotsRefs(
+    Expression<bool> Function($$ProxyGroupsSnapshotsTableFilterComposer f) f,
+  ) {
+    final $$ProxyGroupsSnapshotsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.proxyGroupsSnapshots,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProxyGroupsSnapshotsTableFilterComposer(
+            $db: $db,
+            $table: $db.proxyGroupsSnapshots,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3949,6 +4392,32 @@ class $$ProfilesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> proxyGroupsSnapshotsRefs<T extends Object>(
+    Expression<T> Function($$ProxyGroupsSnapshotsTableAnnotationComposer a) f,
+  ) {
+    final $$ProxyGroupsSnapshotsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.proxyGroupsSnapshots,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ProxyGroupsSnapshotsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.proxyGroupsSnapshots,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$ProfilesTableTableManager
@@ -3967,6 +4436,7 @@ class $$ProfilesTableTableManager
           PrefetchHooks Function({
             bool profileRuleLinksRefs,
             bool proxyGroupsRefs,
+            bool proxyGroupsSnapshotsRefs,
           })
         > {
   $$ProfilesTableTableManager(_$Database db, $ProfilesTable table)
@@ -4057,12 +4527,17 @@ class $$ProfilesTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({profileRuleLinksRefs = false, proxyGroupsRefs = false}) {
+              ({
+                profileRuleLinksRefs = false,
+                proxyGroupsRefs = false,
+                proxyGroupsSnapshotsRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (profileRuleLinksRefs) db.profileRuleLinks,
                     if (proxyGroupsRefs) db.proxyGroups,
+                    if (proxyGroupsSnapshotsRefs) db.proxyGroupsSnapshots,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -4109,6 +4584,27 @@ class $$ProfilesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (proxyGroupsSnapshotsRefs)
+                        await $_getPrefetchedData<
+                          RawProfile,
+                          $ProfilesTable,
+                          RawProxyGroupsSnapshot
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ProfilesTableReferences
+                              ._proxyGroupsSnapshotsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).proxyGroupsSnapshotsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4129,7 +4625,11 @@ typedef $$ProfilesTableProcessedTableManager =
       $$ProfilesTableUpdateCompanionBuilder,
       (RawProfile, $$ProfilesTableReferences),
       RawProfile,
-      PrefetchHooks Function({bool profileRuleLinksRefs, bool proxyGroupsRefs})
+      PrefetchHooks Function({
+        bool profileRuleLinksRefs,
+        bool proxyGroupsRefs,
+        bool proxyGroupsSnapshotsRefs,
+      })
     >;
 typedef $$ScriptsTableCreateCompanionBuilder =
     ScriptsCompanion Function({
@@ -5854,6 +6354,343 @@ typedef $$IconRecordsTableProcessedTableManager =
       IconRecord,
       PrefetchHooks Function()
     >;
+typedef $$ProxyGroupsSnapshotsTableCreateCompanionBuilder =
+    ProxyGroupsSnapshotsCompanion Function({
+      Value<int> profileId,
+      required List<Group> groups,
+      Value<String?> profileFingerprint,
+      Value<int> snapshotVersion,
+      required DateTime updatedAt,
+    });
+typedef $$ProxyGroupsSnapshotsTableUpdateCompanionBuilder =
+    ProxyGroupsSnapshotsCompanion Function({
+      Value<int> profileId,
+      Value<List<Group>> groups,
+      Value<String?> profileFingerprint,
+      Value<int> snapshotVersion,
+      Value<DateTime> updatedAt,
+    });
+
+final class $$ProxyGroupsSnapshotsTableReferences
+    extends
+        BaseReferences<
+          _$Database,
+          $ProxyGroupsSnapshotsTable,
+          RawProxyGroupsSnapshot
+        > {
+  $$ProxyGroupsSnapshotsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ProfilesTable _profileIdTable(_$Database db) =>
+      db.profiles.createAlias(
+        $_aliasNameGenerator(db.proxyGroupsSnapshots.profileId, db.profiles.id),
+      );
+
+  $$ProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<int>('profile_id')!;
+
+    final manager = $$ProfilesTableTableManager(
+      $_db,
+      $_db.profiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ProxyGroupsSnapshotsTableFilterComposer
+    extends Composer<_$Database, $ProxyGroupsSnapshotsTable> {
+  $$ProxyGroupsSnapshotsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnWithTypeConverterFilters<List<Group>, List<Group>, String> get groups =>
+      $composableBuilder(
+        column: $table.groups,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get profileFingerprint => $composableBuilder(
+    column: $table.profileFingerprint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get snapshotVersion => $composableBuilder(
+    column: $table.snapshotVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ProfilesTableFilterComposer get profileId {
+    final $$ProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.profiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.profiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProxyGroupsSnapshotsTableOrderingComposer
+    extends Composer<_$Database, $ProxyGroupsSnapshotsTable> {
+  $$ProxyGroupsSnapshotsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get groups => $composableBuilder(
+    column: $table.groups,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get profileFingerprint => $composableBuilder(
+    column: $table.profileFingerprint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get snapshotVersion => $composableBuilder(
+    column: $table.snapshotVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ProfilesTableOrderingComposer get profileId {
+    final $$ProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.profiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.profiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProxyGroupsSnapshotsTableAnnotationComposer
+    extends Composer<_$Database, $ProxyGroupsSnapshotsTable> {
+  $$ProxyGroupsSnapshotsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumnWithTypeConverter<List<Group>, String> get groups =>
+      $composableBuilder(column: $table.groups, builder: (column) => column);
+
+  GeneratedColumn<String> get profileFingerprint => $composableBuilder(
+    column: $table.profileFingerprint,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get snapshotVersion => $composableBuilder(
+    column: $table.snapshotVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$ProfilesTableAnnotationComposer get profileId {
+    final $$ProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.profiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.profiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProxyGroupsSnapshotsTableTableManager
+    extends
+        RootTableManager<
+          _$Database,
+          $ProxyGroupsSnapshotsTable,
+          RawProxyGroupsSnapshot,
+          $$ProxyGroupsSnapshotsTableFilterComposer,
+          $$ProxyGroupsSnapshotsTableOrderingComposer,
+          $$ProxyGroupsSnapshotsTableAnnotationComposer,
+          $$ProxyGroupsSnapshotsTableCreateCompanionBuilder,
+          $$ProxyGroupsSnapshotsTableUpdateCompanionBuilder,
+          (RawProxyGroupsSnapshot, $$ProxyGroupsSnapshotsTableReferences),
+          RawProxyGroupsSnapshot,
+          PrefetchHooks Function({bool profileId})
+        > {
+  $$ProxyGroupsSnapshotsTableTableManager(
+    _$Database db,
+    $ProxyGroupsSnapshotsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProxyGroupsSnapshotsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProxyGroupsSnapshotsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ProxyGroupsSnapshotsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> profileId = const Value.absent(),
+                Value<List<Group>> groups = const Value.absent(),
+                Value<String?> profileFingerprint = const Value.absent(),
+                Value<int> snapshotVersion = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => ProxyGroupsSnapshotsCompanion(
+                profileId: profileId,
+                groups: groups,
+                profileFingerprint: profileFingerprint,
+                snapshotVersion: snapshotVersion,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> profileId = const Value.absent(),
+                required List<Group> groups,
+                Value<String?> profileFingerprint = const Value.absent(),
+                Value<int> snapshotVersion = const Value.absent(),
+                required DateTime updatedAt,
+              }) => ProxyGroupsSnapshotsCompanion.insert(
+                profileId: profileId,
+                groups: groups,
+                profileFingerprint: profileFingerprint,
+                snapshotVersion: snapshotVersion,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ProxyGroupsSnapshotsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$ProxyGroupsSnapshotsTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$ProxyGroupsSnapshotsTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ProxyGroupsSnapshotsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$Database,
+      $ProxyGroupsSnapshotsTable,
+      RawProxyGroupsSnapshot,
+      $$ProxyGroupsSnapshotsTableFilterComposer,
+      $$ProxyGroupsSnapshotsTableOrderingComposer,
+      $$ProxyGroupsSnapshotsTableAnnotationComposer,
+      $$ProxyGroupsSnapshotsTableCreateCompanionBuilder,
+      $$ProxyGroupsSnapshotsTableUpdateCompanionBuilder,
+      (RawProxyGroupsSnapshot, $$ProxyGroupsSnapshotsTableReferences),
+      RawProxyGroupsSnapshot,
+      PrefetchHooks Function({bool profileId})
+    >;
 
 class $DatabaseManager {
   final _$Database _db;
@@ -5870,6 +6707,8 @@ class $DatabaseManager {
       $$ProxyGroupsTableTableManager(_db, _db.proxyGroups);
   $$IconRecordsTableTableManager get iconRecords =>
       $$IconRecordsTableTableManager(_db, _db.iconRecords);
+  $$ProxyGroupsSnapshotsTableTableManager get proxyGroupsSnapshots =>
+      $$ProxyGroupsSnapshotsTableTableManager(_db, _db.proxyGroupsSnapshots);
 }
 
 mixin _$ProfilesDaoMixin on DatabaseAccessor<Database> {
@@ -5943,4 +6782,24 @@ class IconRecordsDaoManager {
   IconRecordsDaoManager(this._db);
   $$IconRecordsTableTableManager get iconRecords =>
       $$IconRecordsTableTableManager(_db.attachedDatabase, _db.iconRecords);
+}
+
+mixin _$ProxyGroupsSnapshotsDaoMixin on DatabaseAccessor<Database> {
+  $ProfilesTable get profiles => attachedDatabase.profiles;
+  $ProxyGroupsSnapshotsTable get proxyGroupsSnapshots =>
+      attachedDatabase.proxyGroupsSnapshots;
+  ProxyGroupsSnapshotsDaoManager get managers =>
+      ProxyGroupsSnapshotsDaoManager(this);
+}
+
+class ProxyGroupsSnapshotsDaoManager {
+  final _$ProxyGroupsSnapshotsDaoMixin _db;
+  ProxyGroupsSnapshotsDaoManager(this._db);
+  $$ProfilesTableTableManager get profiles =>
+      $$ProfilesTableTableManager(_db.attachedDatabase, _db.profiles);
+  $$ProxyGroupsSnapshotsTableTableManager get proxyGroupsSnapshots =>
+      $$ProxyGroupsSnapshotsTableTableManager(
+        _db.attachedDatabase,
+        _db.proxyGroupsSnapshots,
+      );
 }

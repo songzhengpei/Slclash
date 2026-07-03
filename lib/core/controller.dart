@@ -11,6 +11,29 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart';
 
+class TrafficSnapshot {
+  const TrafficSnapshot({
+    this.traffic = const Traffic(),
+    this.totalTraffic = const Traffic(),
+  });
+
+  final Traffic traffic;
+  final Traffic totalTraffic;
+
+  factory TrafficSnapshot.fromJson(Map<String, dynamic> json) {
+    return TrafficSnapshot(
+      traffic: Traffic(
+        up: json['up'] as num? ?? 0,
+        down: json['down'] as num? ?? 0,
+      ),
+      totalTraffic: Traffic(
+        up: json['totalUp'] as num? ?? 0,
+        down: json['totalDown'] as num? ?? 0,
+      ),
+    );
+  }
+}
+
 class CoreController {
   static CoreController? _instance;
   late CoreHandlerInterface _interface;
@@ -99,10 +122,10 @@ class CoreController {
   Future<String> setupConfig({
     required SetupParams params,
     required SetupState setupState,
-    VoidCallback? preloadInvoke,
+    FutureOr<void> Function()? preloadInvoke,
   }) async {
     final message = await _interface.setupConfig(params);
-    preloadInvoke?.call();
+    await preloadInvoke?.call();
     return message;
   }
 
@@ -113,6 +136,29 @@ class CoreController {
     required String defaultTestUrl,
   }) async {
     final proxiesData = await _interface.getProxies();
+    return toGroupsTask(
+      ComputeGroupsState(
+        proxiesData: proxiesData,
+        sortType: sortType,
+        delayMap: delayMap,
+        selectedMap: selectedMap,
+        defaultTestUrl: defaultTestUrl,
+      ),
+    );
+  }
+
+  Future<List<Group>> materializeProfileSnapshotGroups({
+    required String profilePath,
+    required Map<String, String> selectedMap,
+    required ProxiesSortType sortType,
+    required DelayMap delayMap,
+    required String defaultTestUrl,
+  }) async {
+    final proxiesData = await _interface.materializeProfileSnapshot(
+      profilePath: profilePath,
+      selectedMap: selectedMap,
+      defaultTestUrl: defaultTestUrl,
+    );
     return toGroupsTask(
       ComputeGroupsState(
         proxiesData: proxiesData,
@@ -264,6 +310,16 @@ class CoreController {
       return const Traffic();
     }
     return Traffic.fromJson(json.decode(totalTrafficString));
+  }
+
+  Future<TrafficSnapshot> getTrafficSnapshot(bool onlyStatisticsProxy) async {
+    final trafficSnapshotString = await _interface.getTrafficSnapshot(
+      onlyStatisticsProxy,
+    );
+    if (trafficSnapshotString.isEmpty) {
+      return const TrafficSnapshot();
+    }
+    return TrafficSnapshot.fromJson(json.decode(trafficSnapshotString));
   }
 
   Future<int> getMemory() async {

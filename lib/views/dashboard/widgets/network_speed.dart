@@ -1,6 +1,6 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
-import 'package:fl_clash/providers/app.dart';
+import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -19,24 +19,14 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
   List<Point> initPoints = const [Point(0, 0), Point(1, 0)];
 
   List<Point> _getPoints(List<Traffic> traffics) {
-    final List<Point> trafficPoints = traffics
-        .toList()
-        .asMap()
-        .map(
-          (index, e) => MapEntry(
-            index,
-            Point((index + initPoints.length).toDouble(), e.speed.toDouble()),
-          ),
-        )
-        .values
-        .toList();
-
-    return [...initPoints, ...trafficPoints];
-  }
-
-  Traffic _getLastTraffic(List<Traffic> traffics) {
-    if (traffics.isEmpty) return const Traffic();
-    return traffics.last;
+    final points = List<Point>.of(initPoints, growable: true);
+    for (var i = 0; i < traffics.length; i++) {
+      final traffic = traffics[i];
+      points.add(
+        Point((i + initPoints.length).toDouble(), traffic.speed.toDouble()),
+      );
+    }
+    return points;
   }
 
   @override
@@ -55,15 +45,20 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
               subtitle: 'Speed',
               icon: Icons.speed_rounded,
               height: height,
-              trailing: Text(
-                _getLastTraffic(traffics).speedText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.textTheme.labelSmall?.copyWith(
-                  color: surge.textSecondary,
-                  fontSize: 11,
-                  letterSpacing: 0,
-                ),
+              trailing: ValueListenableBuilder<Traffic>(
+                valueListenable: currentSpeedNotifier,
+                builder: (_, speed, _) {
+                  return Text(
+                    speed.speedText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: surge.textSecondary,
+                      fontSize: 11,
+                      letterSpacing: 0,
+                    ),
+                  );
+                },
               ),
               child: Padding(
                 padding: const EdgeInsets.only(top: 0, bottom: 5),

@@ -23,6 +23,7 @@ import com.follow.clash.service.modules.SuspendModule
 import com.follow.clash.service.modules.moduleLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import java.util.LinkedHashMap
 import java.net.InetSocketAddress
 import android.net.VpnService as SystemVpnService
 
@@ -45,13 +46,33 @@ class VpnService : SystemVpnService(), IBaseService,
 
     override fun onDestroy() {
         handleDestroy()
+        clearResolverCache()
         super.onDestroy()
     }
 
     private val connectivity by lazy {
         getSystemService<ConnectivityManager>()
     }
-    private val uidPageNameMap = mutableMapOf<Int, String>()
+    private val uidPageNameMap = object : LinkedHashMap<Int, String>(128, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, String>?): Boolean {
+            return size > 256
+        }
+    }
+
+    private fun clearResolverCache() {
+        synchronized(uidPageNameMap) {
+            uidPageNameMap.clear()
+        }
+    }
+
+    private fun getPackageNameForUid(uid: Int): String {
+        synchronized(uidPageNameMap) {
+            uidPageNameMap[uid]?.let { return it }
+            val packageName = this.packageManager?.getPackagesForUid(uid)?.first() ?: ""
+            uidPageNameMap[uid] = packageName
+            return packageName
+        }
+    }
 
     private fun resolverProcess(
         protocol: Int,
@@ -59,18 +80,24 @@ class VpnService : SystemVpnService(), IBaseService,
         target: InetSocketAddress,
         uid: Int,
     ): String {
-        val nextUid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            connectivity?.getConnectionOwnerUid(protocol, source, target) ?: -1
+        val nextUid = if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            source.address != null &&
+            target.address != null
+        ) {
+            runCatching {
+                connectivity?.getConnectionOwnerUid(protocol, source, target) ?: -1
+            }.getOrElse {
+                GlobalState.log("Resolve process fallback: ${it.message}")
+                uid
+            }
         } else {
             uid
         }
         if (nextUid == -1) {
             return ""
         }
-        if (!uidPageNameMap.containsKey(nextUid)) {
-            uidPageNameMap[nextUid] = this.packageManager?.getPackagesForUid(nextUid)?.first() ?: ""
-        }
-        return uidPageNameMap[nextUid] ?: ""
+        return getPackageNameForUid(nextUid)
     }
 
     val VpnOptions.address
@@ -233,30 +260,41 @@ class VpnService : SystemVpnService(), IBaseService,
         )
     }
 
-    override fun start() {
-        try {
+    override fun start(): Boolean {
+        return try {
             loader.load()
-            State.options?.let {
-                handleStart(it)
-            }
-        } catch (_: Exception) {
+            val options = State.options
+                ?: throw IllegalStateException("VPN options is null")
+            handleStart(options)
+            true
+        } catch (e: Exception) {
+            GlobalState.log("VpnService start failed: ${e.message}")
             stop()
+            false
         }
     }
 
     override fun stop() {
         loader.cancel()
+        clearResolverCache()
         Core.stopTun()
         stopSelf()
     }
 
     override fun smartStop() {
+        clearResolverCache()
         Core.stopTun()
     }
 
-    override fun smartResume() {
-        State.options?.let {
-            handleStart(it)
+    override fun smartResume(): Boolean {
+        return try {
+            State.options?.let {
+                handleStart(it)
+                true
+            } ?: false
+        } catch (e: Exception) {
+            GlobalState.log("VpnService smartResume failed: ${e.message}")
+            false
         }
     }
 

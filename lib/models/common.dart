@@ -621,3 +621,25 @@ abstract class IconButtonData with _$IconButtonData {
     required VoidCallback onPressed,
   }) = _IconButtonData;
 }
+
+enum ProxyGroupsFreshnessState {
+  none,
+  stale,
+  refreshing,
+  fresh,
+  failed,
+}
+
+class ProxyGroupsSnapshotState {
+  final ProxyGroupsFreshnessState freshness;
+  final DateTime? updatedAt;
+  final Object? error;
+  final bool hydrated;
+
+  const ProxyGroupsSnapshotState({
+    this.freshness = ProxyGroupsFreshnessState.none,
+    this.updatedAt,
+    this.error,
+    this.hydrated = false,
+  });
+}

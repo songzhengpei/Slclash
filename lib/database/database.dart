@@ -15,6 +15,7 @@ part 'groups.dart';
 part 'icons.dart';
 part 'links.dart';
 part 'profiles.dart';
+part 'proxy_groups_snapshot.dart';
 part 'rules.dart';
 part 'scripts.dart';
 
@@ -26,14 +27,22 @@ part 'scripts.dart';
     ProfileRuleLinks,
     ProxyGroups,
     IconRecords,
+    ProxyGroupsSnapshots,
   ],
-  daos: [ProfilesDao, ScriptsDao, RulesDao, ProxyGroupsDao, IconRecordsDao],
+  daos: [
+    ProfilesDao,
+    ScriptsDao,
+    RulesDao,
+    ProxyGroupsDao,
+    IconRecordsDao,
+    ProxyGroupsSnapshotsDao,
+  ],
 )
 class Database extends _$Database {
   Database([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   static LazyDatabase _openConnection() {
     return LazyDatabase(() async {
@@ -54,6 +63,9 @@ class Database extends _$Database {
         }
         if (from < 3) {
           await m.addColumn(profiles, profiles.computedSelectedMap);
+        }
+        if (from < 4) {
+          await m.createTable(proxyGroupsSnapshots);
         }
       },
       beforeOpen: (details) async {

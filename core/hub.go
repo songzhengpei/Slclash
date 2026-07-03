@@ -28,10 +28,24 @@ import (
 )
 
 var (
-	isInit            = false
-	externalProviders = map[string]cp.Provider{}
-	logSubscriber     observable.Subscription[log.Event]
+	isInit                  = false
+	externalProviders       = map[string]cp.Provider{}
+	logSubscriber           observable.Subscription[log.Event]
+	proxiesCache            ProxiesData
+	proxiesCacheRawCount    int
+	proxiesCacheProviders   map[string]providerCacheVersion
+	proxiesCacheDirty       = true
 )
+
+const (
+	logEventBatchInterval = time.Second
+	logEventBatchMaxSize  = 100
+)
+
+type providerCacheVersion struct {
+	version int
+	count   int
+}
 
 func handleInitClash(paramsString string) bool {
 	runLock.Lock()
@@ -80,6 +94,7 @@ func handleForceGC() {
 func handleShutdown() bool {
 	stopListeners()
 	executor.Shutdown()
+	invalidateProxiesCache()
 	handleForceGC()
 	isInit = false
 	return true
@@ -99,9 +114,13 @@ func handleGetProxies() ProxiesData {
 	defer runLock.Unlock()
 
 	nameList := getProxyNameList()
+	rawProxies := tunnel.Proxies()
+	providers := tunnel.Providers()
+	if !proxiesCacheDirty && !proxiesCacheSourcesChanged(rawProxies, providers) {
+		return proxiesCache
+	}
 
 	// Merge direct proxies and provider proxies into a single flat map.
-	rawProxies := tunnel.Proxies()
 	proxies := make(map[string]constant.Proxy, len(rawProxies))
 	for name, proxy := range rawProxies {
 		if !isFrontendVisibleProxy(proxy) {
@@ -109,7 +128,7 @@ func handleGetProxies() ProxiesData {
 		}
 		proxies[name] = proxy
 	}
-	for _, p := range tunnel.Providers() {
+	for _, p := range providers {
 		for _, proxy := range p.Proxies() {
 			if !isFrontendVisibleProxy(proxy) {
 				continue
@@ -144,10 +163,14 @@ func handleGetProxies() ProxiesData {
 		}
 	}
 
-	return ProxiesData{
+	proxiesCache = ProxiesData{
 		All:     allNames,
 		Proxies: proxies,
 	}
+	proxiesCacheRawCount = len(rawProxies)
+	proxiesCacheProviders = snapshotProviderCacheVersions(providers)
+	proxiesCacheDirty = false
+	return proxiesCache
 }
 
 func isFrontendVisibleProxy(proxy constant.Proxy) bool {
@@ -160,6 +183,54 @@ func isFrontendVisibleProxy(proxy constant.Proxy) bool {
 	default:
 		return true
 	}
+}
+
+func proxiesCacheSourcesChanged(rawProxies map[string]constant.Proxy, providers map[string]cp.ProxyProvider) bool {
+	if proxiesCacheRawCount != len(rawProxies) {
+		return true
+	}
+	if len(proxiesCacheProviders) != len(providers) {
+		return true
+	}
+	for name, provider := range providers {
+		current := providerCacheVersion{}
+		if provider != nil {
+			current.version = int(provider.Version())
+			current.count = provider.Count()
+		}
+		if proxiesCacheProviders[name] != current {
+			return true
+		}
+	}
+	return false
+}
+
+func snapshotProviderCacheVersions(providers map[string]cp.ProxyProvider) map[string]providerCacheVersion {
+	versions := make(map[string]providerCacheVersion, len(providers))
+	for name, provider := range providers {
+		if provider == nil {
+			versions[name] = providerCacheVersion{}
+			continue
+		}
+		versions[name] = providerCacheVersion{
+			version: int(provider.Version()),
+			count:   provider.Count(),
+		}
+	}
+	return versions
+}
+
+func invalidateProxiesCache() {
+	runLock.Lock()
+	defer runLock.Unlock()
+	invalidateProxiesCacheLocked()
+}
+
+func invalidateProxiesCacheLocked() {
+	proxiesCache = ProxiesData{}
+	proxiesCacheRawCount = 0
+	proxiesCacheProviders = nil
+	proxiesCacheDirty = true
 }
 
 func handleChangeProxy(data string, fn func(string string)) {
@@ -195,6 +266,7 @@ func handleChangeProxy(data string, fn func(string string)) {
 			fn(err.Error())
 			return
 		}
+		invalidateProxiesCacheLocked()
 
 		fn("")
 		return
@@ -222,6 +294,24 @@ func handleGetTotalTraffic(onlyStatisticsProxy bool) string {
 	traffic := map[string]int64{
 		"up":   up,
 		"down": down,
+	}
+	data, err := json.Marshal(traffic)
+	if err != nil {
+		logError("Error: %s", err)
+		return ""
+	}
+	return string(data)
+}
+
+func handleGetTrafficSnapshot(onlyStatisticsProxy bool) string {
+	_ = onlyStatisticsProxy
+	up, down := statistic.DefaultManager.Now()
+	totalUp, totalDown := statistic.DefaultManager.Total()
+	traffic := map[string]int64{
+		"up":        up,
+		"down":      down,
+		"totalUp":   totalUp,
+		"totalDown": totalDown,
 	}
 	data, err := json.Marshal(traffic)
 	if err != nil {
@@ -451,6 +541,7 @@ func handleUpdateExternalProvider(providerName string, fn func(value string)) {
 			fn(err.Error())
 			return
 		}
+		invalidateProxiesCache()
 		fn("")
 	}()
 }
@@ -469,6 +560,7 @@ func handleSideLoadExternalProvider(providerName string, data []byte, fn func(va
 			fn(err.Error())
 			return
 		}
+		invalidateProxiesCacheLocked()
 		fn("")
 	}()
 }
@@ -488,16 +580,41 @@ func handleStartLog() {
 		logSubscriber = nil
 	}
 	logSubscriber = log.Subscribe()
+	subscriber := logSubscriber
 	go func() {
-		for logData := range logSubscriber {
-			if logData.LogLevel < log.Level() {
-				continue
+		ticker := time.NewTicker(logEventBatchInterval)
+		defer ticker.Stop()
+
+		batch := make([]log.Event, 0, logEventBatchMaxSize)
+		flush := func() {
+			if len(batch) == 0 {
+				return
 			}
 			message := &Message{
 				Type: LogMessage,
-				Data: logData,
+				Data: batch,
 			}
 			sendMessage(*message)
+			batch = make([]log.Event, 0, logEventBatchMaxSize)
+		}
+
+		for {
+			select {
+			case logData, ok := <-subscriber:
+				if !ok {
+					flush()
+					return
+				}
+				if logData.LogLevel < log.Level() {
+					continue
+				}
+				batch = append(batch, logData)
+				if len(batch) >= logEventBatchMaxSize {
+					flush()
+				}
+			case <-ticker.C:
+				flush()
+			}
 		}
 	}()
 }
@@ -597,4 +714,96 @@ func handleSetupConfig(bytes []byte) string {
 		return err.Error()
 	}
 	return ""
+}
+
+type materializeProfileSnapshotParams struct {
+	ProfilePath    string            `json:"profilePath"`
+	SelectedMap    map[string]string `json:"selectedMap"`
+	DefaultTestUrl string            `json:"defaultTestUrl"`
+}
+
+func handleMaterializeProfileSnapshot(paramsString string) (ProxiesData, string) {
+	var params materializeProfileSnapshotParams
+	if err := json.Unmarshal([]byte(paramsString), &params); err != nil {
+		return ProxiesData{}, err.Error()
+	}
+
+	if params.ProfilePath == "" {
+		return ProxiesData{}, "profilePath is empty"
+	}
+
+	buf, err := readFile(params.ProfilePath)
+	if err != nil {
+		return ProxiesData{}, err.Error()
+	}
+
+	// 解析 raw config 获取 proxy group names
+	rawCfg, err := config.UnmarshalRawConfig(buf)
+	if err != nil {
+		return ProxiesData{}, err.Error()
+	}
+
+	// 解析完整 config（包含 provider 展开），但不 ApplyConfig
+	cfg, err := config.Parse(buf)
+	if err != nil {
+		return ProxiesData{}, err.Error()
+	}
+
+	// 从 raw config 提取 proxy group names
+	nameList := make([]string, 0, len(rawCfg.ProxyGroup))
+	for _, mapping := range rawCfg.ProxyGroup {
+		name, ok := mapping["name"].(string)
+		if !ok || name == "" {
+			continue
+		}
+		nameList = append(nameList, name)
+	}
+
+	// 构建 proxies map：合并 direct proxies + provider proxies
+	proxies := make(map[string]constant.Proxy, len(cfg.Proxies))
+	for name, proxy := range cfg.Proxies {
+		if !isFrontendVisibleProxy(proxy) {
+			continue
+		}
+		proxies[name] = proxy
+	}
+	for _, p := range cfg.Providers {
+		for _, proxy := range p.Proxies() {
+			if !isFrontendVisibleProxy(proxy) {
+				continue
+			}
+			proxies[proxy.Name()] = proxy
+		}
+	}
+
+	// 构建 allNames：只包含 group 类型的 proxy
+	hasGlobal := false
+	allNames := make([]string, 0, len(nameList)+1)
+	for _, name := range nameList {
+		if name == "GLOBAL" {
+			hasGlobal = true
+		}
+		p, ok := proxies[name]
+		if !ok || p == nil {
+			continue
+		}
+		switch p.Type() {
+		case constant.Selector, constant.URLTest, constant.Fallback, constant.Relay, constant.LoadBalance:
+			allNames = append(allNames, name)
+		}
+	}
+	if !hasGlobal {
+		if p, ok := proxies["GLOBAL"]; ok && p != nil {
+			allNames = append([]string{"GLOBAL"}, allNames...)
+		}
+	}
+
+	if len(allNames) == 0 || len(proxies) == 0 {
+		return ProxiesData{}, "materialized proxies empty"
+	}
+
+	return ProxiesData{
+		All:     allNames,
+		Proxies: proxies,
+	}, ""
 }

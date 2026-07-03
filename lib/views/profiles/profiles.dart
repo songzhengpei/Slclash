@@ -808,11 +808,11 @@ class _CurrentProfileSummary extends StatefulWidget {
 }
 
 class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
-  late Future<List<Proxy>> _proxiesFuture;
+  Future<List<Proxy>>? _proxiesFuture;
   void Function()? _removeGroupsListener;
 
   void _refreshProxies() {
-    if (mounted) {
+    if (mounted && _proxiesFuture != null) {
       setState(() {
         _proxiesFuture = _loadProfileProxies();
       });
@@ -822,7 +822,9 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   @override
   void initState() {
     super.initState();
-    _proxiesFuture = _loadProfileProxies();
+    if (widget.expanded) {
+      _proxiesFuture = _loadProfileProxies();
+    }
     final sub = globalState.container.listen(
       groupsProvider,
       (_, _) => _refreshProxies(),
@@ -840,6 +842,10 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   void didUpdateWidget(covariant _CurrentProfileSummary oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.profile.id != widget.profile.id) {
+      _proxiesFuture = widget.expanded ? _loadProfileProxies() : null;
+      return;
+    }
+    if (!oldWidget.expanded && widget.expanded && _proxiesFuture == null) {
       _proxiesFuture = _loadProfileProxies();
     }
   }
@@ -859,11 +865,15 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final proxiesFuture = _proxiesFuture;
     return FutureBuilder<List<Proxy>>(
-      future: _proxiesFuture,
+      future: proxiesFuture,
       builder: (_, snapshot) {
         final proxies = snapshot.data ?? const <Proxy>[];
-        final isLoading = snapshot.connectionState != ConnectionState.done;
+        final isLoading =
+            widget.expanded &&
+            proxiesFuture != null &&
+            snapshot.connectionState != ConnectionState.done;
         return SurgeCard(
           shadow: true,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
