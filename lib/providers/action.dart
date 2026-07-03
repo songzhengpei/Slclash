@@ -766,7 +766,6 @@ class SetupAction extends _$SetupAction {
         ref.read(commonActionProvider.notifier).updateRunTime();
       } else {
         globalState.needInitStatus = false;
-        ref.read(runTimeProvider.notifier).value = 0;
         try {
           var started = true;
 
@@ -784,6 +783,7 @@ class SetupAction extends _$SetupAction {
           }
 
           startTime ??= DateTime.now();
+          ref.read(runTimeProvider.notifier).value = 0;
           ref.read(commonActionProvider.notifier).updateRunTime();
         } catch (_) {
           startTime = null;
