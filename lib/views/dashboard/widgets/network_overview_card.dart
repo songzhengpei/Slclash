@@ -605,7 +605,15 @@ class _SurgeNetworkOverviewCardState
     final appLocalizations = context.appLocalizations;
     final traffics = ref.watch(trafficsProvider).list;
     final totalTraffic = ref.watch(totalTrafficProvider);
-    final networkDetection = ref.watch(networkDetectionProvider);
+    final countryCode = ref.watch(
+      networkDetectionProvider.select((s) => s.ipInfo?.countryCode),
+    );
+    final networkIpInfo = ref.watch(
+      networkDetectionProvider.select((s) => s.ipInfo),
+    );
+    final networkIsLoading = ref.watch(
+      networkDetectionProvider.select((s) => s.isLoading),
+    );
     final isStart = ref.watch(isStartProvider);
     final hasLiveTraffic = traffics.any(
       (traffic) => traffic.up > 0 || traffic.down > 0,
@@ -850,7 +858,7 @@ class _SurgeNetworkOverviewCardState
                           targets: _latencyTargets,
                           results: _latencyResults,
                           fallbackCountryCode:
-                              networkDetection.ipInfo?.countryCode,
+                              countryCode,
                           activeColor: dashboardDynamicActiveFill,
                           fillColor: surge.fill,
                           textColor: surge.textPrimary,
@@ -874,7 +882,8 @@ class _SurgeNetworkOverviewCardState
                 height: layout.detectionSlotHeight,
                 child: Center(
                   child: _NetworkDetectionBar(
-                    networkDetection: networkDetection,
+                    ipInfo: networkIpInfo,
+                    isLoading: networkIsLoading,
                     primaryColor: surge.primary,
                     textColor: surge.textPrimary,
                     secondaryTextColor: surge.textSecondary,
@@ -962,7 +971,8 @@ class _LiveSpeedLine extends StatelessWidget {
 
 class _NetworkDetectionBar extends StatelessWidget {
   const _NetworkDetectionBar({
-    required this.networkDetection,
+    required this.ipInfo,
+    required this.isLoading,
     required this.primaryColor,
     required this.textColor,
     required this.secondaryTextColor,
@@ -974,7 +984,8 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   final double layoutScale;
 
-  final NetworkDetectionState networkDetection;
+  final IpInfo? ipInfo;
+  final bool isLoading;
   final Color primaryColor;
   final Color textColor;
   final Color secondaryTextColor;
@@ -994,14 +1005,15 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ipInfo = networkDetection.ipInfo;
-    final isLoading = networkDetection.isLoading;
     final height = NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
       layoutScale,
     );
+    // Local variables for type promotion (fields can't be promoted by null check)
+    final localIpInfo = ipInfo;
+    final localIsLoading = isLoading;
 
     Widget valueWidget;
-    if (ipInfo != null) {
+    if (localIpInfo != null) {
       valueWidget = Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1012,7 +1024,7 @@ class _NetworkDetectionBar extends StatelessWidget {
               child: Transform.translate(
                 offset: const Offset(0, _flagVerticalOffset),
                 child: Text(
-                  _countryCodeToEmoji(ipInfo.countryCode),
+                  _countryCodeToEmoji(localIpInfo.countryCode),
                   maxLines: 1,
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -1029,7 +1041,7 @@ class _NetworkDetectionBar extends StatelessWidget {
           Flexible(
             child: TooltipText(
               text: Text(
-                ipInfo.ip,
+                localIpInfo.ip,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
@@ -1046,7 +1058,7 @@ class _NetworkDetectionBar extends StatelessWidget {
           ),
         ],
       );
-    } else if (isLoading == false) {
+    } else if (localIsLoading == false) {
       valueWidget = Text(
         'Timeout',
         maxLines: 1,
@@ -1061,10 +1073,15 @@ class _NetworkDetectionBar extends StatelessWidget {
       valueWidget = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CommonCircleLoading(color: primaryColor),
+          RepaintBoundary(
+            child: SizedBox(
+              width: 12,
+              height: 12,
+              child: CommonCircleLoading(
+                color: primaryColor,
+                active: true,
+              ),
+            ),
           ),
           const SizedBox(width: 6),
           Text(
@@ -1273,10 +1290,15 @@ class _PlatformLatencyPanel extends StatelessWidget {
 
   Widget _value(BuildContext context, _LatencyResult? result) {
     if (result?.pending == true) {
-      return SizedBox(
-        width: 12,
-        height: 12,
-        child: CommonCircleLoading(color: activeColor),
+      return RepaintBoundary(
+        child: SizedBox(
+          width: 12,
+          height: 12,
+          child: CommonCircleLoading(
+            color: activeColor,
+            active: true,
+          ),
+        ),
       );
     }
     if (result?.timeout == true) {

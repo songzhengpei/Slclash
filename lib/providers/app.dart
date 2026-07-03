@@ -538,10 +538,12 @@ class IsUpdating extends _$IsUpdating with AutoDisposeNotifierMixin {
 class NetworkDetection extends _$NetworkDetection
     with AutoDisposeNotifierMixin {
   static const _timeoutDisplayDelay = Duration(seconds: 2);
+  static const _hardTimeout = Duration(seconds: 13);
 
   bool? _preIsStart;
   CancelToken? _cancelToken;
   Timer? _timeoutTimer;
+  Timer? _loadingWatchdog;
   int _checkVersion = 0;
 
   @override
@@ -549,7 +551,7 @@ class NetworkDetection extends _$NetworkDetection
     ref.onDispose(() {
       _resetCheckSession(null);
     });
-    return const NetworkDetectionState(isLoading: true, ipInfo: null);
+    return const NetworkDetectionState(isLoading: false, ipInfo: null);
   }
 
   void startCheck() {
@@ -572,24 +574,36 @@ class NetworkDetection extends _$NetworkDetection
     commonPrint.log('checkIp start');
     state = state.copyWith(isLoading: true, ipInfo: null);
     _preIsStart = isStart;
-    final res = await request.checkIp(cancelToken: cancelToken);
-    commonPrint.log('checkIp res: $res');
+    _startLoadingWatchdog(version);
+    try {
+      final res = await request.checkIp(cancelToken: cancelToken);
+      commonPrint.log('checkIp res: $res');
 
-    if (!ref.mounted ||
-        version != _checkVersion ||
-        cancelToken != _cancelToken) {
-      return;
-    }
-    final ipInfo = res.data;
-    if (ipInfo == null) {
+      if (!ref.mounted ||
+          version != _checkVersion ||
+          cancelToken != _cancelToken) {
+        return;
+      }
+      final ipInfo = res.data;
+      if (ipInfo == null) {
+        _delayTimeoutDisplay(version);
+        return;
+      }
+      _stopLoadingWatchdog();
+      state = state.copyWith(isLoading: false, ipInfo: ipInfo);
+    } catch (e) {
+      if (!ref.mounted ||
+          version != _checkVersion ||
+          cancelToken != _cancelToken) {
+        return;
+      }
       _delayTimeoutDisplay(version);
-      return;
     }
-    state = state.copyWith(isLoading: false, ipInfo: ipInfo);
   }
 
   int _resetCheckSession(CancelToken? cancelToken) {
     _cancelTimeoutTimer();
+    _stopLoadingWatchdog();
     final version = ++_checkVersion;
     final previousCancelToken = _cancelToken;
     _cancelToken = cancelToken;
@@ -597,7 +611,23 @@ class NetworkDetection extends _$NetworkDetection
     return version;
   }
 
+  void _startLoadingWatchdog(int version) {
+    _stopLoadingWatchdog();
+    _loadingWatchdog = Timer(_hardTimeout, () {
+      _loadingWatchdog = null;
+      if (!ref.mounted || version != _checkVersion) return;
+      commonPrint.log('checkIp watchdog: hard timeout reached');
+      _delayTimeoutDisplay(version);
+    });
+  }
+
+  void _stopLoadingWatchdog() {
+    _loadingWatchdog?.cancel();
+    _loadingWatchdog = null;
+  }
+
   void _delayTimeoutDisplay(int version) {
+    _stopLoadingWatchdog();
     _cancelTimeoutTimer();
     _timeoutTimer = Timer(_timeoutDisplayDelay, () {
       _timeoutTimer = null;

@@ -31,9 +31,12 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final surge = SurgeTheme.of(context);
-    final networkDetection = ref.watch(networkDetectionProvider);
-    final ipInfo = networkDetection.ipInfo;
-    final isLoading = networkDetection.isLoading;
+    final ipInfo = ref.watch(
+      networkDetectionProvider.select((s) => s.ipInfo),
+    );
+    final isLoading = ref.watch(
+      networkDetectionProvider.select((s) => s.isLoading),
+    );
     final emojiTextStyle = context.textTheme.titleMedium?.copyWith(
       fontFamily: FontFamily.twEmoji.value,
       fontSize: 18,
@@ -104,30 +107,38 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                     letterSpacing: 0,
                   ),
                 )
-              : Align(
-                  key: const ValueKey('network-loading'),
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    children: [
-                      SizedBox.square(
-                        dimension: 14,
-                        child: CommonCircleLoading(color: surge.primary),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          appLocalizations.loading,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.textTheme.titleSmall?.copyWith(
-                            color: surge.textSecondary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0,
+              : TickerMode(
+                  enabled: true,
+                  child: RepaintBoundary(
+                    child: Align(
+                      key: const ValueKey('network-loading'),
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        children: [
+                          SizedBox.square(
+                            dimension: 14,
+                            child: CommonCircleLoading(
+                              color: surge.primary,
+                              active: true,
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              appLocalizations.loading,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.textTheme.titleSmall?.copyWith(
+                                color: surge.textSecondary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
         ),

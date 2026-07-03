@@ -4,8 +4,13 @@ class CommonCircleLoading extends StatefulWidget {
   static const double defaultDimension = 32;
 
   final Color? color;
+  final bool active;
 
-  const CommonCircleLoading({super.key, this.color});
+  const CommonCircleLoading({
+    super.key,
+    this.color,
+    this.active = true,
+  });
 
   @override
   State<CommonCircleLoading> createState() => _CommonCircleLoadingState();
@@ -23,16 +28,33 @@ class _CommonCircleLoadingState extends State<CommonCircleLoading>
     _rotateController = AnimationController(
       duration: const Duration(seconds: 3),
       vsync: this,
-    )..repeat();
+    );
 
     _pointsController = AnimationController(
       duration: const Duration(seconds: 1),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _pointsAnimation = Tween<double>(begin: 3.0, end: 9.0).animate(
       CurvedAnimation(parent: _pointsController, curve: Curves.easeInOut),
     );
+
+    if (widget.active) {
+      _rotateController.repeat();
+      _pointsController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant CommonCircleLoading oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !_rotateController.isAnimating) {
+      _rotateController.repeat();
+      _pointsController.repeat(reverse: true);
+    } else if (!widget.active && _rotateController.isAnimating) {
+      _rotateController.stop();
+      _pointsController.stop();
+    }
   }
 
   @override
