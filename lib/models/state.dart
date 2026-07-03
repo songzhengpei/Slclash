@@ -104,6 +104,7 @@ abstract class NetworkDetectionState with _$NetworkDetectionState {
   const factory NetworkDetectionState({
     required bool isLoading,
     required IpInfo? ipInfo,
+    @Default(false) bool hasChecked,
   }) = _NetworkDetectionState;
 }
 

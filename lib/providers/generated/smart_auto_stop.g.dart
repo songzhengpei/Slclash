@@ -285,7 +285,7 @@ final class SmartAutoStopManagerProvider
 }
 
 String _$smartAutoStopManagerHash() =>
-    r'bbfe469a93785443bd216d09a84c570b05e6996f';
+    r'b59df1a1cf537edb08aba9d4f7c9691a77d160e3';
 
 /// Manages the smart auto stop lifecycle.
 ///

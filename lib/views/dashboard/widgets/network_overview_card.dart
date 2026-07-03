@@ -614,6 +614,18 @@ class _SurgeNetworkOverviewCardState
     final networkIsLoading = ref.watch(
       networkDetectionProvider.select((s) => s.isLoading),
     );
+    final networkHasChecked = ref.watch(
+      networkDetectionProvider.select((s) => s.hasChecked),
+    );
+    final isForeground = ref.watch(appForegroundProvider);
+    final isDashboardActive = ref.watch(
+      currentPageLabelProvider.select((l) => l == PageLabel.dashboard),
+    );
+    final shouldAnimateLoading =
+        isForeground && isDashboardActive && networkIsLoading;
+    final hasPendingLatency = _latencyResults.values.any((r) => r.pending);
+    final shouldAnimatePending =
+        isForeground && isDashboardActive && hasPendingLatency;
     final isStart = ref.watch(isStartProvider);
     final hasLiveTraffic = traffics.any(
       (traffic) => traffic.up > 0 || traffic.down > 0,
@@ -867,6 +879,7 @@ class _SurgeNetworkOverviewCardState
                           onRetest: () {
                             unawaited(_testLatencies(force: true));
                           },
+                          shouldAnimatePending: shouldAnimatePending,
                           rowGap: _scaled(12),
                           layoutScale: widget.layoutScale,
                         ),
@@ -884,6 +897,8 @@ class _SurgeNetworkOverviewCardState
                   child: _NetworkDetectionBar(
                     ipInfo: networkIpInfo,
                     isLoading: networkIsLoading,
+                    hasChecked: networkHasChecked,
+                    shouldAnimate: shouldAnimateLoading,
                     primaryColor: surge.primary,
                     textColor: surge.textPrimary,
                     secondaryTextColor: surge.textSecondary,
@@ -973,6 +988,8 @@ class _NetworkDetectionBar extends StatelessWidget {
   const _NetworkDetectionBar({
     required this.ipInfo,
     required this.isLoading,
+    required this.hasChecked,
+    required this.shouldAnimate,
     required this.primaryColor,
     required this.textColor,
     required this.secondaryTextColor,
@@ -986,6 +1003,8 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   final IpInfo? ipInfo;
   final bool isLoading;
+  final bool hasChecked;
+  final bool shouldAnimate;
   final Color primaryColor;
   final Color textColor;
   final Color secondaryTextColor;
@@ -1058,18 +1077,7 @@ class _NetworkDetectionBar extends StatelessWidget {
           ),
         ],
       );
-    } else if (localIsLoading == false) {
-      valueWidget = Text(
-        'Timeout',
-        maxLines: 1,
-        style: TextStyle(
-          color: dangerColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          height: 1.0,
-        ),
-      );
-    } else {
+    } else if (localIsLoading) {
       valueWidget = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1079,7 +1087,7 @@ class _NetworkDetectionBar extends StatelessWidget {
               height: 12,
               child: CommonCircleLoading(
                 color: primaryColor,
-                active: true,
+                active: shouldAnimate,
               ),
             ),
           ),
@@ -1096,6 +1104,19 @@ class _NetworkDetectionBar extends StatelessWidget {
           ),
         ],
       );
+    } else if (hasChecked) {
+      valueWidget = Text(
+        'Timeout',
+        maxLines: 1,
+        style: TextStyle(
+          color: dangerColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          height: 1.0,
+        ),
+      );
+    } else {
+      valueWidget = const SizedBox.shrink();
     }
 
     return Container(
@@ -1251,6 +1272,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
     required this.secondaryTextColor,
     required this.dangerColor,
     required this.onRetest,
+    required this.shouldAnimatePending,
     required this.rowGap,
     this.layoutScale = 1.0,
   });
@@ -1264,6 +1286,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
   final Color secondaryTextColor;
   final Color dangerColor;
   final VoidCallback onRetest;
+  final bool shouldAnimatePending;
   final double rowGap;
   final double layoutScale;
 
@@ -1296,7 +1319,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
           height: 12,
           child: CommonCircleLoading(
             color: activeColor,
-            active: true,
+            active: shouldAnimatePending,
           ),
         ),
       );

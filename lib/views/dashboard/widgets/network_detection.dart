@@ -37,6 +37,14 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
     final isLoading = ref.watch(
       networkDetectionProvider.select((s) => s.isLoading),
     );
+    final hasChecked = ref.watch(
+      networkDetectionProvider.select((s) => s.hasChecked),
+    );
+    final isForeground = ref.watch(appForegroundProvider);
+    final isDashboardActive = ref.watch(
+      currentPageLabelProvider.select((l) => l == PageLabel.dashboard),
+    );
+    final shouldAnimate = isForeground && isDashboardActive && isLoading;
     final emojiTextStyle = context.textTheme.titleMedium?.copyWith(
       fontFamily: FontFamily.twEmoji.value,
       fontSize: 18,
@@ -94,21 +102,9 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                     ),
                   ],
                 )
-              : isLoading == false
-              ? Text(
-                  key: const ValueKey('network-timeout'),
-                  'Timeout',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.titleSmall?.copyWith(
-                    color: surge.red.withValues(alpha: 0.82),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
-                  ),
-                )
-              : TickerMode(
-                  enabled: true,
+              : isLoading
+              ? TickerMode(
+                  enabled: shouldAnimate,
                   child: RepaintBoundary(
                     child: Align(
                       key: const ValueKey('network-loading'),
@@ -119,7 +115,7 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                             dimension: 14,
                             child: CommonCircleLoading(
                               color: surge.primary,
-                              active: true,
+                              active: shouldAnimate,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -140,7 +136,21 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                       ),
                     ),
                   ),
-                ),
+                )
+              : hasChecked
+              ? Text(
+                  key: const ValueKey('network-timeout'),
+                  'Timeout',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.titleSmall?.copyWith(
+                    color: surge.red.withValues(alpha: 0.82),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                )
+              : const SizedBox.shrink(key: ValueKey('network-idle')),
         ),
       ),
     );

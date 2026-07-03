@@ -551,7 +551,11 @@ class NetworkDetection extends _$NetworkDetection
     ref.onDispose(() {
       _resetCheckSession(null);
     });
-    return const NetworkDetectionState(isLoading: false, ipInfo: null);
+    return const NetworkDetectionState(
+      isLoading: false,
+      ipInfo: null,
+      hasChecked: false,
+    );
   }
 
   void startCheck() {
@@ -572,9 +576,9 @@ class NetworkDetection extends _$NetworkDetection
     final cancelToken = CancelToken();
     final version = _resetCheckSession(cancelToken);
     commonPrint.log('checkIp start');
-    state = state.copyWith(isLoading: true, ipInfo: null);
+    state = state.copyWith(isLoading: true, ipInfo: null, hasChecked: false);
     _preIsStart = isStart;
-    _startLoadingWatchdog(version);
+    _startLoadingWatchdog(version, cancelToken);
     try {
       final res = await request.checkIp(cancelToken: cancelToken);
       commonPrint.log('checkIp res: $res');
@@ -590,7 +594,11 @@ class NetworkDetection extends _$NetworkDetection
         return;
       }
       _stopLoadingWatchdog();
-      state = state.copyWith(isLoading: false, ipInfo: ipInfo);
+      state = state.copyWith(
+        isLoading: false,
+        ipInfo: ipInfo,
+        hasChecked: true,
+      );
     } catch (e) {
       if (!ref.mounted ||
           version != _checkVersion ||
@@ -611,13 +619,19 @@ class NetworkDetection extends _$NetworkDetection
     return version;
   }
 
-  void _startLoadingWatchdog(int version) {
+  void _startLoadingWatchdog(int version, CancelToken cancelToken) {
     _stopLoadingWatchdog();
     _loadingWatchdog = Timer(_hardTimeout, () {
       _loadingWatchdog = null;
       if (!ref.mounted || version != _checkVersion) return;
       commonPrint.log('checkIp watchdog: hard timeout reached');
-      _delayTimeoutDisplay(version);
+      cancelToken.cancel('network detection hard timeout');
+      _cancelTimeoutTimer();
+      state = state.copyWith(
+        isLoading: false,
+        ipInfo: null,
+        hasChecked: true,
+      );
     });
   }
 
@@ -634,7 +648,7 @@ class NetworkDetection extends _$NetworkDetection
       if (!ref.mounted || version != _checkVersion || state.ipInfo != null) {
         return;
       }
-      state = state.copyWith(isLoading: false, ipInfo: null);
+      state = state.copyWith(isLoading: false, ipInfo: null, hasChecked: true);
     });
   }
 

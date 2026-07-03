@@ -795,12 +795,15 @@ class SetupAction extends _$SetupAction {
   }
 
   void tryCheckIp() {
-    final isTimeout = ref.read(
+    final shouldRetry = ref.read(
       networkDetectionProvider.select(
-        (state) => state.ipInfo == null && state.isLoading == false,
+        (state) =>
+            state.hasChecked &&
+            state.ipInfo == null &&
+            state.isLoading == false,
       ),
     );
-    if (!isTimeout) return;
+    if (!shouldRetry) return;
     ref.read(checkIpNumProvider.notifier).add();
   }
 
