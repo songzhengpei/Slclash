@@ -105,6 +105,15 @@ class NotificationModule(private val service: Service) : Module() {
         }
     }
 
+
+    private fun resolvePriority(forceForeground: Boolean): Int {
+        return if (forceForeground) {
+            NotificationCompat.PRIORITY_DEFAULT
+        } else {
+            NotificationCompat.PRIORITY_LOW
+        }
+    }
+
     private fun update(params: ExtendedNotificationParams, forceForeground: Boolean = false) {
         val shouldStartForeground = forceForeground || !foregroundStarted
         if (!shouldStartForeground && lastParams == params) return

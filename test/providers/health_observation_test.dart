@@ -184,4 +184,66 @@ void main() {
       );
     });
   });
+
+  group('healthObservationLooksStuck', () {
+    test('detects stuck observation after 10 minutes', () {
+      final now = DateTime(2026, 1, 1, 12);
+      expect(
+        healthObservationLooksStuck(
+          isObserving: true,
+          lastAttemptAt: now.subtract(const Duration(minutes: 11)),
+          now: now,
+        ),
+        isTrue,
+      );
+    });
+
+    test('not stuck when observing for less than 10 minutes', () {
+      final now = DateTime(2026, 1, 1, 12);
+      expect(
+        healthObservationLooksStuck(
+          isObserving: true,
+          lastAttemptAt: now.subtract(const Duration(minutes: 9)),
+          now: now,
+        ),
+        isFalse,
+      );
+    });
+
+    test('not stuck when not observing', () {
+      final now = DateTime(2026, 1, 1, 12);
+      expect(
+        healthObservationLooksStuck(
+          isObserving: false,
+          lastAttemptAt: now.subtract(const Duration(minutes: 15)),
+          now: now,
+        ),
+        isFalse,
+      );
+    });
+
+    test('not stuck when lastAttemptAt is null', () {
+      final now = DateTime(2026, 1, 1, 12);
+      expect(
+        healthObservationLooksStuck(
+          isObserving: true,
+          lastAttemptAt: null,
+          now: now,
+        ),
+        isFalse,
+      );
+    });
+
+    test('detects stuck at exactly 10 minutes + 1 second', () {
+      final now = DateTime(2026, 1, 1, 12);
+      expect(
+        healthObservationLooksStuck(
+          isObserving: true,
+          lastAttemptAt: now.subtract(const Duration(minutes: 10, seconds: 1)),
+          now: now,
+        ),
+        isTrue,
+      );
+    });
+  });
 }

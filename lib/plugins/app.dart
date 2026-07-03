@@ -109,6 +109,16 @@ class App {
     if (!Platform.isAndroid) return false;
     return await methodChannel.invokeMethod<bool>('isPowerSaveMode') ?? false;
   }
+
+  Future<bool> isActiveNetworkMetered() async {
+    if (!Platform.isAndroid) return false;
+    return await methodChannel.invokeMethod<bool>('isActiveNetworkMetered') ?? true;
+  }
+
+  Future<bool> isActiveNetworkCellular() async {
+    if (!Platform.isAndroid) return false;
+    return await methodChannel.invokeMethod<bool>('isActiveNetworkCellular') ?? true;
+  }
 }
 
 final app = system.isAndroid ? App() : null;

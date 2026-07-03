@@ -138,6 +138,16 @@ bool healthObservationIsCellular(Iterable<ConnectivityResult> results) {
   return results.contains(ConnectivityResult.mobile);
 }
 
+@visibleForTesting
+bool healthObservationLooksStuck({
+  required bool isObserving,
+  required DateTime? lastAttemptAt,
+  required DateTime now,
+}) {
+  if (!isObserving || lastAttemptAt == null) return false;
+  return now.difference(lastAttemptAt) > const Duration(minutes: 10);
+}
+
 /// App-level health observation scheduler.
 ///
 /// Runs independently of widget lifecycle, page visibility, and VPN state.
@@ -271,17 +281,6 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   void _onTick() {
     _timer = null;
     if (!_engineReady) return;
-    final s = state;
-    if (!s.enabled) return;
-    if (s.isObserving) return;
-    if (!s.isDue) {
-      _scheduleNext();
-      return;
-    }
-    if (!_isIdle()) {
-      _scheduleNext(retryDelay: _idleRetryDelay);
-      return;
-    }
 
     if (_looksStuck) {
       commonPrint.log(
@@ -293,6 +292,18 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
         lastSkippedReason: 'watchdogReset',
       );
       _scheduleNext(retryDelay: const Duration(minutes: 2));
+      return;
+    }
+
+    final s = state;
+    if (!s.enabled) return;
+    if (s.isObserving) return;
+    if (!s.isDue) {
+      _scheduleNext();
+      return;
+    }
+    if (!_isIdle()) {
+      _scheduleNext(retryDelay: _idleRetryDelay);
       return;
     }
 
@@ -357,8 +368,7 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       await _performObservation();
     } catch (e, s) {
       commonPrint.log(
-        'health observation fatal: \$e
-\$s',
+        'health observation fatal: $e\n$s',
         logLevel: LogLevel.warning,
       );
       if (state.isObserving) {
