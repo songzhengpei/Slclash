@@ -552,6 +552,7 @@ class SetupAction extends _$SetupAction {
         startTime = null;
         ref.read(runTimeProvider.notifier).value = null;
         ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+        ref.read(realTunEnableProvider.notifier).value = false;
         return;
       }
     }

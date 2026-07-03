@@ -239,8 +239,7 @@ class RemoteService : Service(),
                     }
                     var success = false
                     d.useService { service ->
-                        service.smartResume()
-                        success = true
+                        success = service.smartResume()
                     }
                     if (success) {
                         State.runTime = System.currentTimeMillis()

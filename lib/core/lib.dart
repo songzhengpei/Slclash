@@ -60,7 +60,12 @@ class CoreLib extends CoreHandlerInterface {
     final coreStarted = await super.startListener();
     if (!coreStarted) return false;
     final serviceStarted = await service?.start() ?? false;
-    return serviceStarted;
+    if (!serviceStarted) {
+      await super.stopListener();
+      await service?.stop();
+      return false;
+    }
+    return true;
   }
 
   @override
