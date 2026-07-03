@@ -127,6 +127,40 @@ void main() {
         0,
       );
     });
+
+    test('uses one worker when network is power limited', () {
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 12,
+          appForeground: true,
+          networkPowerLimited: true,
+        ),
+        1,
+      );
+    });
+
+    test('uses one worker when both cellular and networkPowerLimited', () {
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 12,
+          appForeground: true,
+          cellular: true,
+          networkPowerLimited: true,
+        ),
+        1,
+      );
+    });
+
+    test('full workers when network is not power limited', () {
+      expect(
+        healthObservationWorkerCount(
+          eligibleProxyCount: 12,
+          appForeground: true,
+          networkPowerLimited: false,
+        ),
+        5,
+      );
+    });
   });
 
   group('healthObservationIsCellular', () {
