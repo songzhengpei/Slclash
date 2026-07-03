@@ -616,7 +616,11 @@ class SetupAction extends _$SetupAction {
       }
 
       // 3. Total traffic: throttle to 5s + diff check
-      if (_shouldRun(now, _lastTotalTrafficUpdateAt, _totalTrafficUpdateInterval)) {
+      if (_shouldRun(
+        now,
+        _lastTotalTrafficUpdateAt,
+        _totalTrafficUpdateInterval,
+      )) {
         final currentTotal = ref.read(totalTrafficProvider);
         if (snapshot.totalTraffic.up != currentTotal.up ||
             snapshot.totalTraffic.down != currentTotal.down) {
@@ -1023,9 +1027,22 @@ class SetupAction extends _$SetupAction {
           params: _setupParams,
           preloadInvoke: preloadInvoke,
         );
-        if (message.isNotEmpty && !message.endsWith('is empty')) {
+
+        if (message.isNotEmpty) {
+          commonPrint.log(
+            'setupConfig failed: profileId=${setupState.profileId}, '
+            'message="$message", ignoredIsEmpty=${message.endsWith('is empty')}',
+            logLevel: LogLevel.warning,
+          );
+
+          if (message.endsWith('is empty')) {
+            success = false;
+            return;
+          }
+
           throw message;
         }
+
         ref.read(checkIpNumProvider.notifier).add();
         await onUpdated?.call();
         success = true;
@@ -1370,8 +1387,7 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   void _syncComputedSelectedMap(List<Group> groups) {
-    final base =
-        ref.read(currentProfileProvider)?.computedSelectedMap ?? {};
+    final base = ref.read(currentProfileProvider)?.computedSelectedMap ?? {};
     final map = ref
         .read(computedSelectedCacheProvider.notifier)
         .syncFromGroups(groups, base: base);
@@ -1414,8 +1430,9 @@ class ProxiesAction extends _$ProxiesAction {
     final selectedEntries = profile.selectedMap.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
     final selectedMapStableJson = jsonEncode(Map.fromEntries(selectedEntries));
-    final selectedMapSha256 =
-        sha256.convert(utf8.encode(selectedMapStableJson)).toString();
+    final selectedMapSha256 = sha256
+        .convert(utf8.encode(selectedMapStableJson))
+        .toString();
 
     final parts = <Object?>[
       'snapshot_v$kProxyGroupsSnapshotVersion',
@@ -1437,7 +1454,10 @@ class ProxiesAction extends _$ProxiesAction {
     return null;
   }
 
-  Future<bool> hydrateProxyGroupsSnapshot({int? profileId}) async {
+  Future<bool> hydrateProxyGroupsSnapshot({
+    int? profileId,
+    bool allowStaleOnFingerprintMismatch = false,
+  }) async {
     final targetProfileId = profileId ?? ref.read(currentProfileIdProvider);
     if (targetProfileId == null) {
       ref.read(proxyGroupsSnapshotProvider.notifier).none();
@@ -1445,8 +1465,9 @@ class ProxiesAction extends _$ProxiesAction {
     }
 
     try {
-      final snapshot = await database.proxyGroupsSnapshotsDao
-          .getSnapshot(targetProfileId);
+      final snapshot = await database.proxyGroupsSnapshotsDao.getSnapshot(
+        targetProfileId,
+      );
 
       if (snapshot == null || snapshot.groups.isEmpty) {
         if (profileId == null) {
@@ -1478,16 +1499,22 @@ class ProxiesAction extends _$ProxiesAction {
       if (snapshot.profileFingerprint == null ||
           snapshot.profileFingerprint != currentFingerprint) {
         commonPrint.log(
-          'snapshot fingerprint mismatch, discarding: profileId=$targetProfileId',
+          'snapshot fingerprint mismatch: profileId=$targetProfileId, '
+          'allowStale=$allowStaleOnFingerprintMismatch',
+          logLevel: allowStaleOnFingerprintMismatch
+              ? LogLevel.warning
+              : LogLevel.info,
         );
-        return false;
+        if (!allowStaleOnFingerprintMismatch) {
+          return false;
+        }
       }
 
       ref.read(groupsProvider.notifier).value = snapshot.groups;
       ref.read(groupsOwnerProfileIdProvider.notifier).set(targetProfileId);
-      ref.read(proxyGroupsSnapshotProvider.notifier).stale(
-        updatedAt: snapshot.updatedAt,
-      );
+      ref
+          .read(proxyGroupsSnapshotProvider.notifier)
+          .stale(updatedAt: snapshot.updatedAt);
       return true;
     } catch (e) {
       commonPrint.log('hydrateProxyGroupsSnapshot failed: $e');
@@ -1527,15 +1554,43 @@ class ProxiesAction extends _$ProxiesAction {
             .connectCore();
         if (!connected) {
           final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+          final oldGroups = ref.read(groupsProvider);
           final hasSameProfileOldGroups =
-              ownerProfileId == profileId && ref.read(groupsProvider).isNotEmpty;
+              ownerProfileId == profileId && oldGroups.isNotEmpty;
+
           if (hasSameProfileOldGroups) {
-            ref.read(proxyGroupsSnapshotProvider.notifier).failed('connectCore failed');
-          } else {
-            ref.read(groupsProvider.notifier).value = [];
-            ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
-            ref.read(proxyGroupsSnapshotProvider.notifier).failed('connectCore failed');
+            ref
+                .read(proxyGroupsSnapshotProvider.notifier)
+                .failed('connectCore failed');
+            return;
           }
+
+          final hydrated = await hydrateProxyGroupsSnapshot(
+            profileId: profileId,
+            allowStaleOnFingerprintMismatch: true,
+          );
+
+          if (hydrated) {
+            commonPrint.log(
+              'updateGroups connectCore failed, fallback to stale snapshot: profileId=$profileId',
+              logLevel: LogLevel.warning,
+            );
+            ref
+                .read(proxyGroupsSnapshotProvider.notifier)
+                .failed('connectCore failed');
+            return;
+          }
+
+          commonPrint.log(
+            'updateGroups preserve empty fallback: profileId=$profileId, '
+            'reason=connectCore failed, ownerProfileId=$ownerProfileId, '
+            'oldGroups=${oldGroups.length}',
+            logLevel: LogLevel.warning,
+          );
+
+          ref
+              .read(proxyGroupsSnapshotProvider.notifier)
+              .failed('connectCore failed');
           return;
         }
         final isInit = await coreController.isInit;
@@ -1581,19 +1636,38 @@ class ProxiesAction extends _$ProxiesAction {
         final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
         final oldGroups = ref.read(groupsProvider);
 
-        // 同 profile 旧数据有效，保留并标记失败
         if (ownerProfileId == profileId && oldGroups.isNotEmpty) {
+          commonPrint.log(
+            'updateGroups groups empty, preserve same-profile old groups: '
+            'profileId=$profileId, oldGroups=${oldGroups.length}',
+            logLevel: LogLevel.warning,
+          );
           ref.read(proxyGroupsSnapshotProvider.notifier).failed('groups empty');
           return;
         }
 
-        // 尝试从 DB 加载该 profile 的快照
-        final hydrated =
-            await hydrateProxyGroupsSnapshot(profileId: profileId);
-        if (hydrated) return;
+        final hydrated = await hydrateProxyGroupsSnapshot(
+          profileId: profileId,
+          allowStaleOnFingerprintMismatch: true,
+        );
 
-        ref.read(groupsProvider.notifier).value = [];
-        ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
+        if (hydrated) {
+          commonPrint.log(
+            'updateGroups groups empty, fallback to stale snapshot: '
+            'profileId=$profileId',
+            logLevel: LogLevel.warning,
+          );
+          ref.read(proxyGroupsSnapshotProvider.notifier).failed('groups empty');
+          return;
+        }
+
+        commonPrint.log(
+          'updateGroups groups empty, no old groups or snapshot fallback: '
+          'profileId=$profileId, ownerProfileId=$ownerProfileId, '
+          'oldGroups=${oldGroups.length}',
+          logLevel: LogLevel.error,
+        );
+
         ref.read(proxyGroupsSnapshotProvider.notifier).failed('groups empty');
         return;
       }
@@ -1619,27 +1693,44 @@ class ProxiesAction extends _$ProxiesAction {
       // Save snapshot
       final currentProfile = ref.read(currentProfileProvider);
       if (currentProfile != null) {
-        await _putProxyGroupsSnapshot(
-          profile: currentProfile,
-          groups: groups,
-        );
+        await _putProxyGroupsSnapshot(profile: currentProfile, groups: groups);
       }
 
       _syncComputedSelectedMap(groups);
     } catch (e) {
-      commonPrint.log('updateGroups error: $e');
+      commonPrint.log('updateGroups error: $e', logLevel: LogLevel.error);
 
       final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+      final oldGroups = ref.read(groupsProvider);
       final hasSameProfileOldGroups =
-          ownerProfileId == profileId && ref.read(groupsProvider).isNotEmpty;
+          ownerProfileId == profileId && oldGroups.isNotEmpty;
 
       if (hasSameProfileOldGroups) {
         ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
-      } else {
-        ref.read(groupsProvider.notifier).value = [];
-        ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
-        ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+        return;
       }
+
+      final hydrated = await hydrateProxyGroupsSnapshot(
+        profileId: profileId,
+        allowStaleOnFingerprintMismatch: true,
+      );
+
+      if (hydrated) {
+        commonPrint.log(
+          'updateGroups error fallback to stale snapshot: profileId=$profileId, error=$e',
+          logLevel: LogLevel.warning,
+        );
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+        return;
+      }
+
+      commonPrint.log(
+        'updateGroups failed without fallback: profileId=$profileId, '
+        'ownerProfileId=$ownerProfileId, oldGroups=${oldGroups.length}, error=$e',
+        logLevel: LogLevel.error,
+      );
+
+      ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
     }
   }
 
@@ -1683,10 +1774,7 @@ class ProxiesAction extends _$ProxiesAction {
         return;
       }
 
-      await _putProxyGroupsSnapshot(
-        profile: latestProfile,
-        groups: groups,
-      );
+      await _putProxyGroupsSnapshot(profile: latestProfile, groups: groups);
 
       commonPrint.log(
         'prefetchSnapshotForProfile success: '
@@ -1804,7 +1892,8 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   void updateCurrentComputedSelectedMap(
-      Map<String, String> computedSelectedMap) {
+    Map<String, String> computedSelectedMap,
+  ) {
     final currentProfile = ref.read(currentProfileProvider);
     if (currentProfile == null) return;
     final next = Map<String, String>.from(computedSelectedMap);
@@ -1813,9 +1902,9 @@ class ProfilesAction extends _$ProfilesAction {
     final sameContent =
         sameLength && current.entries.every((e) => next[e.key] == e.value);
     if (sameContent) return;
-    ref.read(profilesProvider.notifier).put(
-          currentProfile.copyWith(computedSelectedMap: next),
-        );
+    ref
+        .read(profilesProvider.notifier)
+        .put(currentProfile.copyWith(computedSelectedMap: next));
   }
 
   Future<void> deleteProfile(int id) async {

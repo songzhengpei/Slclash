@@ -282,9 +282,20 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         final freshness = snapshotState.freshness;
         if (!hasGroups &&
             (freshness == ProxyGroupsFreshnessState.none ||
-             freshness == ProxyGroupsFreshnessState.failed)) {
+                freshness == ProxyGroupsFreshnessState.failed)) {
+          final isFailed = freshness == ProxyGroupsFreshnessState.failed;
           return ProxiesEmptyState(
-            label: appLocalizations.nullTip(appLocalizations.proxies),
+            label: isFailed
+                ? '代理组暂不可用'
+                : appLocalizations.nullTip(appLocalizations.proxies),
+            description: isFailed
+                ? '配置已加载，但当前代理组数据为空。你可以尝试刷新代理组。'
+                : '当前配置没有可显示的代理组。',
+            actionLabel: isFailed ? '刷新代理组' : null,
+            onAction: isFailed
+                ? () => ref.read(proxiesActionProvider.notifier).updateGroups()
+                : null,
+            actionLoading: freshness == ProxyGroupsFreshnessState.refreshing,
           );
         }
         final items = _buildItems(
@@ -560,10 +571,9 @@ class _ListHeaderState extends State<ListHeader> {
                                         leafName = nextGroup
                                             .getCurrentSelectedName(
                                               '',
-                                              cachedComputedNow: ref
-                                                  .read(
-                                                    computedSelectedMapProvider,
-                                                  )[leafName],
+                                              cachedComputedNow: ref.read(
+                                                computedSelectedMapProvider,
+                                              )[leafName],
                                             );
                                         depth++;
                                       }
