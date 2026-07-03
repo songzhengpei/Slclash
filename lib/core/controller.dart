@@ -122,10 +122,10 @@ class CoreController {
   Future<String> setupConfig({
     required SetupParams params,
     required SetupState setupState,
-    VoidCallback? preloadInvoke,
+    FutureOr<void> Function()? preloadInvoke,
   }) async {
     final message = await _interface.setupConfig(params);
-    preloadInvoke?.call();
+    await preloadInvoke?.call();
     return message;
   }
 

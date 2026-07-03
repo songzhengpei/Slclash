@@ -566,8 +566,7 @@ class SetupAction extends _$SetupAction {
     ref.read(requestsProvider.notifier).value = FixedList(500);
   }
 
-  Future<void> _handleStart() async {
-    startTime ??= DateTime.now();
+  Future<bool> _handleStart() async {
     if (!ref.read(suspendProvider)) {
       final started = await coreController.startListener();
       if (!started) {
@@ -575,11 +574,12 @@ class SetupAction extends _$SetupAction {
         ref.read(runTimeProvider.notifier).value = null;
         ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
         ref.read(realTunEnableProvider.notifier).value = false;
-        return;
+        return false;
       }
     }
     unawaited(_updateUiStats());
     _startUiStatsTimer();
+    return true;
   }
 
   /// Full chain: fetch snapshot, update speed (1s), chart (2s), total (5s), runtime (5s).
@@ -750,19 +750,43 @@ class SetupAction extends _$SetupAction {
             .tryStartCore(true);
         if (res) return;
         if (!ref.read(initProvider)) return;
-        await _handleStart();
-        applyProfileDebounce(force: true, silence: true);
+
+        final started = await _handleStart();
+        if (!started) return;
+
+        final applied = await applyProfile(force: true, silence: true);
+        if (!applied) {
+          await handleStop();
+          startTime = null;
+          ref.read(runTimeProvider.notifier).value = null;
+          return;
+        }
+
+        startTime ??= DateTime.now();
+        ref.read(commonActionProvider.notifier).updateRunTime();
       } else {
         globalState.needInitStatus = false;
         ref.read(runTimeProvider.notifier).value = 0;
         try {
-          await applyProfile(
+          var started = true;
+
+          final applied = await applyProfile(
             force: true,
             preloadInvoke: () async {
-              await _handleStart();
+              started = await _handleStart();
             },
           );
+
+          if (!started || !applied) {
+            startTime = null;
+            ref.read(runTimeProvider.notifier).value = null;
+            return;
+          }
+
+          startTime ??= DateTime.now();
+          ref.read(commonActionProvider.notifier).updateRunTime();
         } catch (_) {
+          startTime = null;
           ref.read(runTimeProvider.notifier).value = null;
         }
       }
@@ -831,12 +855,12 @@ class SetupAction extends _$SetupAction {
     });
   }
 
-  Future<void> applyProfile({
+  Future<bool> applyProfile({
     bool silence = false,
     bool force = false,
-    VoidCallback? preloadInvoke,
+    FutureOr<void> Function()? preloadInvoke,
   }) async {
-    await _setupConfig(
+    return _setupConfig(
       force: force,
       silence: silence,
       preloadInvoke: preloadInvoke,
@@ -949,10 +973,10 @@ class SetupAction extends _$SetupAction {
     return Result.success(enableTun);
   }
 
-  Future<void> _setupConfig({
+  Future<bool> _setupConfig({
     bool force = false,
     bool silence = false,
-    VoidCallback? preloadInvoke,
+    FutureOr<void> Function()? preloadInvoke,
     FutureOr Function()? onUpdated,
     PatchClashConfig? patchConfigOverride,
     bool requestAdmin = true,
@@ -969,7 +993,7 @@ class SetupAction extends _$SetupAction {
     late final bool realTunEnable;
     if (requestAdmin) {
       final res = await _requestAdmin(patchConfig.tun.enable);
-      if (res.isError) return;
+      if (res.isError) return false;
       realTunEnable = ref.read(realTunEnableProvider);
     } else {
       realTunEnable = false;
@@ -987,7 +1011,8 @@ class SetupAction extends _$SetupAction {
     );
     final yamlString = vm2.a;
     final yamlMd5 = vm2.b;
-    if (yamlMd5 == globalState.lastConfigMd5 && force == false) return;
+    if (yamlMd5 == globalState.lastConfigMd5 && force == false) return true;
+    var success = false;
     await globalState.loadingRun(
       () async {
         final configFilePath = await appPath.configFilePath;
@@ -1003,10 +1028,12 @@ class SetupAction extends _$SetupAction {
         }
         ref.read(checkIpNumProvider.notifier).add();
         await onUpdated?.call();
+        success = true;
       },
       silence: true,
       tag: !silence ? LoadingTag.proxies : null,
     );
+    return success;
   }
 }
 
