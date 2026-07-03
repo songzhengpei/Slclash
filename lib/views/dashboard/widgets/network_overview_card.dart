@@ -1333,6 +1333,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
             secondaryTextColor: secondaryTextColor,
             trailing: _value(context, results[target.name]),
             onRetest: onRetest,
+            active: results[target.name]?.pending == true,
             layoutScale: layoutScale,
           ),
           if (target != targets.last) SizedBox(height: rowGap),
@@ -1353,6 +1354,7 @@ class _PlatformLatencyRow extends StatelessWidget {
     required this.secondaryTextColor,
     required this.trailing,
     required this.onRetest,
+    this.active = false,
     this.layoutScale = 1.0,
   });
 
@@ -1365,6 +1367,7 @@ class _PlatformLatencyRow extends StatelessWidget {
   final Color secondaryTextColor;
   final Widget trailing;
   final VoidCallback onRetest;
+  final bool active;
   final double layoutScale;
 
   @override
@@ -1387,6 +1390,7 @@ class _PlatformLatencyRow extends StatelessWidget {
                 trackColor: trackColor,
                 flowColor: flowColor,
                 layoutScale: layoutScale,
+                active: active,
               ),
             ),
           ),
@@ -1522,12 +1526,14 @@ class _FlowingLatencyBar extends StatefulWidget {
     required this.trackColor,
     required this.flowColor,
     this.layoutScale = 1.0,
+    this.active = false,
   });
 
   final double widthFactor;
   final Color trackColor;
   final Color flowColor;
   final double layoutScale;
+  final bool active;
 
   @override
   State<_FlowingLatencyBar> createState() => _FlowingLatencyBarState();
@@ -1543,7 +1549,20 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1300),
-    )..repeat();
+    );
+    if (widget.active) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _FlowingLatencyBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.active && _controller.isAnimating) {
+      _controller.stop();
+    }
   }
 
   @override
@@ -1554,39 +1573,41 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        height: 8 * widget.layoutScale,
-        child: Stack(
-          children: [
-            Positioned.fill(child: ColoredBox(color: widget.trackColor)),
-            FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: widget.widthFactor,
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) {
-                  final sweep = _controller.value;
-                  return DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment(-1.8 + 3.6 * sweep, 0),
-                        end: Alignment(-0.2 + 3.6 * sweep, 0),
-                        colors: [
-                          widget.flowColor.withValues(alpha: 0.70),
-                          widget.flowColor,
-                          widget.flowColor.withValues(alpha: 0.74),
-                        ],
-                        stops: const [0, 0.48, 1],
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          height: 8 * widget.layoutScale,
+          child: Stack(
+            children: [
+              Positioned.fill(child: ColoredBox(color: widget.trackColor)),
+              FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: widget.widthFactor,
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    final sweep = _controller.value;
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment(-1.8 + 3.6 * sweep, 0),
+                          end: Alignment(-0.2 + 3.6 * sweep, 0),
+                          colors: [
+                            widget.flowColor.withValues(alpha: 0.70),
+                            widget.flowColor,
+                            widget.flowColor.withValues(alpha: 0.74),
+                          ],
+                          stops: const [0, 0.48, 1],
+                        ),
                       ),
-                    ),
-                    child: const SizedBox.expand(),
-                  );
-                },
+                      child: const SizedBox.expand(),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

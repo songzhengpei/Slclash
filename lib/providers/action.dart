@@ -81,7 +81,12 @@ class CommonAction extends _$CommonAction {
       onlyStatisticsProxy,
     );
     ref.read(trafficsProvider.notifier).addTraffic(snapshot.traffic);
-    ref.read(totalTrafficProvider.notifier).value = snapshot.totalTraffic;
+    // Diff check: only update totalTraffic if value actually changed
+    final currentTotal = ref.read(totalTrafficProvider);
+    if (snapshot.totalTraffic.up != currentTotal.up ||
+        snapshot.totalTraffic.down != currentTotal.down) {
+      ref.read(totalTrafficProvider.notifier).value = snapshot.totalTraffic;
+    }
   }
 
   Future<void> autoCheckUpdate() async {
@@ -505,6 +510,7 @@ class SetupAction extends _$SetupAction {
   Timer? _updateTimer;
   DateTime? startTime;
   bool _isUpdatingUiStats = false;
+  DateTime? _lastRuntimeUpdate;
 
   bool get isStart => startTime != null && startTime!.isBeforeNow;
 
@@ -567,7 +573,13 @@ class SetupAction extends _$SetupAction {
   }
 
   Future<void> _updateUiStats() async {
-    ref.read(commonActionProvider.notifier).updateRunTime();
+    // Throttle runtime updates to 5s to reduce provider rebuilds
+    final now = DateTime.now();
+    if (_lastRuntimeUpdate == null ||
+        now.difference(_lastRuntimeUpdate!) >= const Duration(seconds: 5)) {
+      ref.read(commonActionProvider.notifier).updateRunTime();
+      _lastRuntimeUpdate = now;
+    }
     if (_isUpdatingUiStats) return;
     _isUpdatingUiStats = true;
     try {
