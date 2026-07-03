@@ -1021,7 +1021,6 @@ class SetupAction extends _$SetupAction {
       () async {
         final configFilePath = await appPath.configFilePath;
         await File(configFilePath).safeWriteAsString(yamlString);
-        globalState.lastConfigMd5 = yamlMd5;
         final message = await coreController.setupConfig(
           setupState: setupState,
           params: _setupParams,
@@ -1043,6 +1042,7 @@ class SetupAction extends _$SetupAction {
           throw message;
         }
 
+        globalState.lastConfigMd5 = yamlMd5;
         ref.read(checkIpNumProvider.notifier).add();
         await onUpdated?.call();
         success = true;

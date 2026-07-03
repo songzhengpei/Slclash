@@ -282,20 +282,26 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         final freshness = snapshotState.freshness;
         if (!hasGroups &&
             (freshness == ProxyGroupsFreshnessState.none ||
-                freshness == ProxyGroupsFreshnessState.failed)) {
+                freshness == ProxyGroupsFreshnessState.failed ||
+                freshness == ProxyGroupsFreshnessState.refreshing)) {
           final isFailed = freshness == ProxyGroupsFreshnessState.failed;
+          final isRefreshing = freshness == ProxyGroupsFreshnessState.refreshing;
           return ProxiesEmptyState(
-            label: isFailed
-                ? '代理组暂不可用'
-                : appLocalizations.nullTip(appLocalizations.proxies),
-            description: isFailed
-                ? '配置已加载，但当前代理组数据为空。你可以尝试刷新代理组。'
-                : '当前配置没有可显示的代理组。',
-            actionLabel: isFailed ? '刷新代理组' : null,
-            onAction: isFailed
+            label: isRefreshing
+                ? '正在刷新代理组'
+                : isFailed
+                    ? '代理组暂不可用'
+                    : appLocalizations.nullTip(appLocalizations.proxies),
+            description: isRefreshing
+                ? '正在重新读取当前配置的代理组。'
+                : isFailed
+                    ? '配置已加载，但当前代理组数据为空。你可以尝试刷新代理组。'
+                    : '当前配置没有可显示的代理组。',
+            actionLabel: isFailed || isRefreshing ? '刷新代理组' : null,
+            onAction: isFailed || isRefreshing
                 ? () => ref.read(proxiesActionProvider.notifier).updateGroups()
                 : null,
-            actionLoading: freshness == ProxyGroupsFreshnessState.refreshing,
+            actionLoading: isRefreshing,
           );
         }
         final items = _buildItems(
