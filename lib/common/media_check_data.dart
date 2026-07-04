@@ -12,7 +12,6 @@ import 'package:flutter/foundation.dart' show immutable, kDebugMode, debugPrint;
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const mediaCheckCacheKey = 'media-check-cache-v2';
-const mediaCheckObserveSettingsKey = 'media-check-observe-settings-v1';
 const healthyMinSamples = 3;
 const healthyMinGreenStreak = 3;
 const healthyMinGreenRate = 0.85;
@@ -117,26 +116,6 @@ class MediaCheckCacheStore {
     await preferences.setString(mediaCheckCacheKey, json.encode(cache));
   }
 
-  Future<MediaCheckObserveSettings> loadObserveSettings() async {
-    final raw = await preferences.getString(mediaCheckObserveSettingsKey);
-    if (raw == null || raw.isEmpty) {
-      return const MediaCheckObserveSettings();
-    }
-    try {
-      return MediaCheckObserveSettings.fromJson(
-        json.decode(raw) as Map<String, dynamic>,
-      );
-    } catch (_) {
-      return const MediaCheckObserveSettings();
-    }
-  }
-
-  Future<void> saveObserveSettings(MediaCheckObserveSettings settings) async {
-    await preferences.setString(
-      mediaCheckObserveSettingsKey,
-      json.encode(settings),
-    );
-  }
 }
 
 // ── MediaCheckCache ────────────────────────────────────────────────────────

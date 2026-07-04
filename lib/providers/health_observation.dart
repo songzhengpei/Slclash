@@ -68,6 +68,12 @@ class HealthObservationSchedulerState {
     return DateTime.now().isAfter(nextEligibleAt!);
   }
 
+  String get intervalLabel {
+    if (intervalMinutes < 60) return '${intervalMinutes}m';
+    final hours = intervalMinutes ~/ 60;
+    return '${hours}h';
+  }
+
   HealthObservationSchedulerState copyWith({
     DateTime? lastAttemptAt,
     DateTime? lastCompletedAt,
@@ -175,6 +181,10 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _retryNoProfile = Duration(minutes: 3);
   static const _retryNoProxies = Duration(minutes: 5);
   static const _retryNoNetwork = Duration(minutes: 2);
+
+  static List<int> get observeIntervalOptions {
+    return kDebugMode ? const [2, 20, 40, 60, 120] : const [20, 40, 60, 120];
+  }
 
   Timer? _timer;
   DateTime? _appStartedAt;

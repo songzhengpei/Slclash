@@ -10,6 +10,7 @@ import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ── YT_SORT_DIAG helpers (debug-only) ──────────────────────────────────────
 
@@ -54,7 +55,6 @@ class _SortError {
 // ── Page-local constants ──────────────────────────────────────────────────
 
 const _mediaCheckConcurrencyKey = 'media-check-concurrency-v1';
-const _observeIdleDelay = Duration(seconds: 30);
 const _resultPanelMaxHeight = 470.0;
 
 typedef MediaCheckConfigLoader =
@@ -62,34 +62,6 @@ typedef MediaCheckConfigLoader =
 
 Future<Map<String, dynamic>> _defaultMediaCheckConfigLoader(int profileId) {
   return coreController.getConfig(profileId);
-}
-
-Duration? mediaCheckObservationDelay({
-  required MediaCheckObserveSettings settings,
-  required DateTime now,
-  required DateTime lastInteractionAt,
-  required bool loading,
-  required bool checking,
-  required bool hasTargets,
-  Duration idleDelay = _observeIdleDelay,
-  Duration checkingRetryDelay = const Duration(minutes: 1),
-}) {
-  if (!settings.enabled || loading || !hasTargets) {
-    return null;
-  }
-  if (checking) {
-    return checkingRetryDelay;
-  }
-
-  final idleAt = lastInteractionAt.add(idleDelay);
-  final dueAt = settings.lastRunAt <= 0
-      ? now
-      : DateTime.fromMillisecondsSinceEpoch(
-          settings.lastRunAt,
-        ).add(Duration(minutes: settings.intervalMinutes));
-  final nextAt = dueAt.isAfter(idleAt) ? dueAt : idleAt;
-  final delay = nextAt.difference(now);
-  return delay.isNegative ? Duration.zero : delay;
 }
 
 // ── UI color extensions (SurgeTheme-dependent, kept in view layer) ────────
@@ -122,7 +94,7 @@ extension MediaHTTPSResultColors on MediaHTTPSResult {
   }
 }
 
-class ProfileMediaCheckView extends StatefulWidget {
+class ProfileMediaCheckView extends ConsumerStatefulWidget {
   const ProfileMediaCheckView({
     super.key,
     required this.profiles,
@@ -135,11 +107,10 @@ class ProfileMediaCheckView extends StatefulWidget {
   final MediaCheckConfigLoader configLoader;
 
   @override
-  State<ProfileMediaCheckView> createState() => _ProfileMediaCheckViewState();
+  ConsumerState<ProfileMediaCheckView> createState() => _ProfileMediaCheckViewState();
 }
 
-class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
-    with WidgetsBindingObserver {
+class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
   static const _defaultConcurrency = 5;
   static const _maxConcurrency = 10;
 
@@ -148,14 +119,10 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   late Profile _profile;
   final _cacheStore = MediaCheckCacheStore();
   MediaCheckCache _cache = const MediaCheckCache(entries: {});
-  MediaCheckObserveSettings _observeSettings =
-      const MediaCheckObserveSettings();
   List<_MediaCheckTarget> _targets = const [];
   final Map<String, MediaCheckResult> _results = {};
   final Set<String> _running = {};
   final Set<String> _queued = {};
-  Timer? _observeTimer;
-  DateTime _lastInteractionAt = DateTime.now();
   var _loading = true;
   var _checking = false;
   var _healthSampling = false;
@@ -170,10 +137,8 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _profile = widget.initialProfile;
     _restoreConcurrency();
-    _restoreObserveSettings();
     _loadTargets();
     // Persist the initial profile selection for background health observation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -201,28 +166,10 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _cancelRequested = true;
     _generation++;
-    _observeTimer?.cancel();
     _removeGroupsListener?.call();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Always try to run observation on lifecycle changes —
-    // paused state no longer blocks health checks.
-    _maybeRunObservationOrSchedule();
-  }
-
-  Future<void> _restoreObserveSettings() async {
-    final settings = await _cacheStore.loadObserveSettings();
-    if (!mounted) return;
-    setState(() {
-      _observeSettings = settings;
-    });
-    _scheduleObservation();
   }
 
   Future<void> _loadTargets() async {
@@ -299,7 +246,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
       'groupName': '',
       'cacheKey': '${_filter.cacheKey}',
     });
-    _maybeRunObservationOrSchedule();
   }
 
   Future<List<Proxy>> _loadRuntimeLeafProxies() async {
@@ -345,23 +291,14 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _cacheStore.save(_cache);
   }
 
-  /// Select every current-subscription target that is not in observation
-  /// cooldown. Manual checks intentionally ignore this filter.
-  List<_MediaCheckTarget> _selectAutoHealthTargets() {
-    return _targets.where((target) {
-      final entry = _cache.entries[target.key];
-      return entry == null || !entry.isObservationCoolingDown();
-    }).toList();
-  }
-
-  Future<void> _start({_MediaCheckFilter? mode, bool automatic = false}) async {
+  Future<void> _start({_MediaCheckFilter? mode}) async {
     if (kDebugMode) {
       _ytSortDiag('ui_filter_state', {
         'selectedTab': _filter.label,
         'currentFilter': '${_filter.name}',
         'defaultFilter': 'chatGPT',
         'modeFromArg': '${mode?.name ?? 'null'}',
-        'buttonSource': automatic ? 'auto_observation' : 'start_button',
+        'buttonSource': 'start_button',
         'isYoutubeSelected': _filter == _MediaCheckFilter.youTubeCN,
         'isChatGPTSelected': _filter == _MediaCheckFilter.chatGPT,
         'profileLabel': _profile.realLabel,
@@ -370,16 +307,8 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     }
     final runMode = mode ?? _filter;
     final healthOnly = runMode == _MediaCheckFilter.green;
-    final runTargets = healthOnly && automatic
-        ? _selectAutoHealthTargets()
-        : _targets;
+    final runTargets = _targets;
     if (_checking || runTargets.isEmpty) {
-      if (!_checking && healthOnly && automatic) {
-        final nextSettings = _observeSettings.copyWith(
-          lastRunAt: DateTime.now().millisecondsSinceEpoch,
-        );
-        await _setObserveSettings(nextSettings);
-      }
       return;
     }
     if (kDebugMode) {
@@ -537,12 +466,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
       _running.clear();
       _queued.clear();
     });
-    if (!_cancelRequested && healthOnly) {
-      final nextSettings = _observeSettings.copyWith(
-        lastRunAt: DateTime.now().millisecondsSinceEpoch,
-      );
-      await _setObserveSettings(nextSettings);
-    }
   }
 
   void _cancel() {
@@ -556,87 +479,8 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     });
   }
 
-  Future<void> _setObserveSettings(MediaCheckObserveSettings settings) async {
-    setState(() {
-      _observeSettings = settings;
-    });
-    await _cacheStore.saveObserveSettings(settings);
-    _scheduleObservation();
-  }
-
-  void _toggleObservation(bool value) {
-    _markInteraction();
-    _setObserveSettings(_observeSettings.copyWith(enabled: value));
-    if (value) {
-      _maybeRunObservationOrSchedule();
-    }
-  }
-
-  void _cycleObservationInterval() {
-    _markInteraction();
-    final currentIndex = MediaCheckObserveSettings.intervalOptions.indexOf(
-      _observeSettings.intervalMinutes,
-    );
-    final nextIndex =
-        (currentIndex + 1) % MediaCheckObserveSettings.intervalOptions.length;
-    _setObserveSettings(
-      _observeSettings.copyWith(
-        intervalMinutes: MediaCheckObserveSettings.intervalOptions[nextIndex],
-      ),
-    );
-  }
-
-  void _markInteraction() {
-    _lastInteractionAt = DateTime.now();
-    _scheduleObservation();
-  }
-
-  void _scheduleObservation() {
-    _observeTimer?.cancel();
-    final delay = mediaCheckObservationDelay(
-      settings: _observeSettings,
-      now: DateTime.now(),
-      lastInteractionAt: _lastInteractionAt,
-      loading: _loading,
-      checking: _checking,
-      hasTargets: _targets.isNotEmpty,
-    );
-    if (delay == null) return;
-    _observeTimer = Timer(delay, () async {
-      _observeTimer = null;
-      final started = await _maybeRunObservation();
-      if (mounted && !started) {
-        _scheduleObservation();
-      }
-    });
-  }
-
-  Future<bool> _maybeRunObservation() async {
-    final idleEnough =
-        DateTime.now().difference(_lastInteractionAt) >= _observeIdleDelay;
-    if (!mounted ||
-        !_observeSettings.enabled ||
-        _checking ||
-        _loading ||
-        _targets.isEmpty ||
-        !idleEnough ||
-        !_observeSettings.isDue) {
-      return false;
-    }
-    await _start(mode: _MediaCheckFilter.green, automatic: true);
-    return true;
-  }
-
-  Future<void> _maybeRunObservationOrSchedule() async {
-    final started = await _maybeRunObservation();
-    if (mounted && !started) {
-      _scheduleObservation();
-    }
-  }
-
   void _changeProfile(Profile profile) {
     if (_checking || profile.id == _profile.id) return;
-    _markInteraction();
     setState(() {
       _profile = profile;
     });
@@ -649,7 +493,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
   void _changeFilter(_MediaCheckFilter filter) {
     if (_checking || filter == _filter) return;
-    _markInteraction();
     setState(() {
       _filter = filter;
     });
@@ -687,7 +530,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
   Future<void> _clearCurrentModeCache() async {
     if (_checking) return;
-    _markInteraction();
     final targetKeys = _targets.map((target) => target.key).toSet();
     final nextCache = _cache.clearModeForKeys(
       keys: targetKeys,
@@ -914,63 +756,67 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     }
     final summary = _summary;
 
+    final schedulerState = ref.watch(healthObservationSchedulerProvider);
+
     return CommonScaffold(
       title: '流媒体检测',
       backgroundColor: surge.background,
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) => _markInteraction(),
-        onPointerMove: (_) => _markInteraction(),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 16,
-              bottom: 112 + MediaQuery.paddingOf(context).bottom,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _MediaCheckControlCard(
-                  profiles: widget.profiles,
-                  profile: _profile,
-                  filter: _filter,
-                  loading: _loading,
-                  checking: _checking,
-                  paused: _paused,
-                  targetCount: _targets.length,
-                  cachedCount: _cachedCountForMode,
-                  runningCount: _running.length,
-                  concurrency: _concurrency,
-                  summary: summary,
-                  observing: _observeSettings.enabled,
-                  observeIntervalLabel: _observeSettings.intervalLabel,
-                  healthSampling: _healthSampling,
-                  progress: progress,
-                  onProfileChanged: _checking ? null : _changeProfile,
-                  onFilterChanged: _checking ? null : _changeFilter,
-                  onConcurrencyChanged: _checking
-                      ? null
-                      : (value) {
-                          _markInteraction();
-                          setState(() {
-                            _concurrency = value;
-                          });
-                          preferences.setInt(_mediaCheckConcurrencyKey, value);
-                        },
-                  onStart: () {
-                    _markInteraction();
-                    _start();
-                  },
-                  onCancel: _cancel,
-                  onObservingChanged: _toggleObservation,
-                  onObserveIntervalTap: _checking
-                      ? null
-                      : _cycleObservationInterval,
-                  onSummaryFilterChanged: _checking ? null : _changeFilter,
-                ),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: 112 + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MediaCheckControlCard(
+                profiles: widget.profiles,
+                profile: _profile,
+                filter: _filter,
+                loading: _loading,
+                checking: _checking,
+                paused: _paused,
+                targetCount: _targets.length,
+                cachedCount: _cachedCountForMode,
+                runningCount: _running.length,
+                concurrency: _concurrency,
+                summary: summary,
+                observing: schedulerState.enabled,
+                observeIntervalLabel: schedulerState.intervalLabel,
+                healthSampling: _healthSampling,
+                progress: progress,
+                onProfileChanged: _checking ? null : _changeProfile,
+                onFilterChanged: _checking ? null : _changeFilter,
+                onConcurrencyChanged: _checking
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _concurrency = value;
+                        });
+                        preferences.setInt(_mediaCheckConcurrencyKey, value);
+                      },
+                onStart: () {
+                  _start();
+                },
+                onCancel: _cancel,
+                onObservingChanged: (value) {
+                  ref.read(healthObservationSchedulerProvider.notifier).setEnabled(value);
+                },
+                onObserveIntervalTap: _checking
+                    ? null
+                    : () {
+                        final currentInterval = schedulerState.intervalMinutes;
+                        final options = HealthObservationScheduler.observeIntervalOptions;
+                        final currentIndex = options.indexOf(currentInterval);
+                        final nextIndex = (currentIndex + 1) % options.length;
+                        ref.read(healthObservationSchedulerProvider.notifier).setIntervalMinutes(options[nextIndex]);
+                      },
+                onSummaryFilterChanged: _checking ? null : _changeFilter,
+              ),
                 const SizedBox(height: 12),
                 if (_loading)
                   const Center(
@@ -1004,7 +850,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
             ),
           ),
         ),
-      ),
     );
   }
 }
