@@ -26,11 +26,6 @@ SlClash 是基于 [FlClash](https://github.com/chen08209/FlClash) 和 [Mihomo](h
   <img src="docs/images/readme/media-check.jpg" width="30%" alt="流媒体检测页面">
 </p>
 
-<p align="center">
-  <img src="docs/images/readme/smart-auto-stop.png" width="30%" alt="智能暂停设置">
-  <img src="docs/images/readme/about.jpg" width="30%" alt="关于页面">
-</p>
-
 ## UI 设计
 
 SlClash 不是在原项目上简单换一套颜色，而是按 Android 手机的日常使用重新整理过的界面。

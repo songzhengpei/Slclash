@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:fl_clash/common/preferences.dart';
-import 'package:flutter/foundation.dart' show immutable, kDebugMode, debugPrint;
+import 'package:flutter/foundation.dart' show immutable, kDebugMode;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -305,19 +305,6 @@ class MediaCheckCacheEntry {
   final String observeLastReason;
 
   MediaCheckCacheEntry addModeResult(MediaCheckResult result, String mode) {
-    // ── YT_SORT_DIAG: add_mode_result_before ──────────────────────────────
-    if (kDebugMode) {
-      final prevLr = lastResult;
-      debugPrint('YT_SORT_DIAG|add_mode_result_before|${json.encode({
-        'modeToAdd': mode,
-        'lastResultExists': prevLr != null,
-        'youtubeStatus': prevLr?.youTube.status ?? 'null',
-        'youtubeRegion': prevLr?.youTube.region ?? '',
-        'youtubeIsCN': prevLr?.youTube.isYouTubeCN ?? false,
-        'httpsDelay': prevLr?.https.delay ?? -999,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      })}');
-    }
     final merged = switch (mode) {
       'gpt' => (lastResult ?? result).copyWith(
         chatGPT: result.chatGPT,
@@ -337,24 +324,10 @@ class MediaCheckCacheEntry {
       ),
       _ => result,
     };
-    final updated = copyWith(
+    return copyWith(
       lastResult: merged,
       modeTimes: {...modeTimes, mode: result.checkedAt},
     );
-    // ── YT_SORT_DIAG: add_mode_result_after ───────────────────────────────
-    if (kDebugMode) {
-      final lr = updated.lastResult;
-      debugPrint('YT_SORT_DIAG|add_mode_result_after|${json.encode({
-        'modeAdded': mode,
-        'youtubeStatus': lr?.youTube.status ?? 'null',
-        'youtubeRegion': lr?.youTube.region ?? '',
-        'youtubeIsCN': lr?.youTube.isYouTubeCN ?? false,
-        'httpsDelay': lr?.https.delay ?? -999,
-        'modeTimesKeys': updated.modeTimes.keys.toList(),
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      })}');
-    }
-    return updated;
   }
 
   MediaCheckCacheEntry addHealthResult(MediaCheckResult result) {
