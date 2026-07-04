@@ -8,7 +8,48 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+
+// ── YT_SORT_DIAG helpers (debug-only) ──────────────────────────────────────
+
+String _normalizeNodeName(String name) {
+  return name
+      .trim()
+      .replaceAll(RegExp(r'[​-‍﻿­⁠]'), '')
+      .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+int _simpleHash(String s) {
+  int hash = 0;
+  for (final c in s.codeUnits) {
+    hash = hash * 31 + c;
+  }
+  return hash;
+}
+
+String _codepoints(String s) {
+  return s.runes.map((r) => r.toRadixString(16)).join(' ');
+}
+
+void _ytSortDiag(String phase, Map<String, Object?> data) {
+  if (!kDebugMode) return;
+  data['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+  debugPrint('YT_SORT_DIAG|$phase|${json.encode(data)}');
+}
+
+int _regionPriority(String region) {
+  if (region.toUpperCase() == 'SG') return 2;
+  if (region.toUpperCase() == 'US') return 1;
+  return 0;
+}
+
+class _SortError {
+  _SortError(this.error, this.stack, this.candidateCount);
+  final Object error;
+  final StackTrace stack;
+  final int candidateCount;
+}
 
 // ── Page-local constants ──────────────────────────────────────────────────
 
@@ -214,6 +255,29 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         cachedResults[target.key] = result;
       }
     }
+    // ── YT_SORT_DIAG: cache_read ──────────────────────────────────────
+    if (kDebugMode) {
+      final ytStatusDist = <String, int>{};
+      final delayDist = <String, int>{};
+      for (final entry in cache.entries.values) {
+        final lr = entry.lastResult;
+        if (lr == null) continue;
+        final st = lr.youTube.status;
+        ytStatusDist[st] = (ytStatusDist[st] ?? 0) + 1;
+        final d = lr.https.delay.toString();
+        delayDist[d] = (delayDist[d] ?? 0) + 1;
+      }
+      _ytSortDiag('cache_read', {
+        'cacheHit': cache.entries.isNotEmpty,
+        'cacheKey': _filter.cacheKey,
+        'currentSubscriptionId': '${_profile.id}',
+        'currentFilter': '${_filter.name}',
+        'cacheEntryCount': cache.entries.length,
+        'cachedResultCount': cachedResults.length,
+        'youtubeStatusDistribution': ytStatusDist,
+        'youtubeDelayDistribution': delayDist,
+      });
+    }
     setState(() {
       _cache = cache;
       _targets = targets;
@@ -222,6 +286,18 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         ..addAll(cachedResults);
       _loading = false;
       _cancelRequested = false;
+    });
+    _ytSortDiag('context', {
+      'screen': 'streaming_check',
+      'checkType': 'youtube_send_to_cn',
+      'subscriptionId': '${_profile.id}',
+      'subscriptionName': _profile.realLabel,
+      'subscriptionUrlHash': _simpleHash(_profile.url).toString(),
+      'subscriptionUpdatedAt': _profile.lastUpdateDate?.millisecondsSinceEpoch,
+      'profileVersion': '${_profile.id}',
+      'groupId': null,
+      'groupName': '',
+      'cacheKey': '${_filter.cacheKey}',
     });
     _maybeRunObservationOrSchedule();
   }
@@ -279,6 +355,19 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   }
 
   Future<void> _start({_MediaCheckFilter? mode, bool automatic = false}) async {
+    if (kDebugMode) {
+      _ytSortDiag('ui_filter_state', {
+        'selectedTab': _filter.label,
+        'currentFilter': '${_filter.name}',
+        'defaultFilter': 'chatGPT',
+        'modeFromArg': '${mode?.name ?? 'null'}',
+        'buttonSource': automatic ? 'auto_observation' : 'start_button',
+        'isYoutubeSelected': _filter == _MediaCheckFilter.youTubeCN,
+        'isChatGPTSelected': _filter == _MediaCheckFilter.chatGPT,
+        'profileLabel': _profile.realLabel,
+        'profileId': '${_profile.id}',
+      });
+    }
     final runMode = mode ?? _filter;
     final healthOnly = runMode == _MediaCheckFilter.green;
     final runTargets = healthOnly && automatic
@@ -292,6 +381,26 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         await _setObserveSettings(nextSettings);
       }
       return;
+    }
+    if (kDebugMode) {
+      _ytSortDiag('start_entry', {
+        'filter': '${_filter.name}',
+        'runMode': '${runMode.name}',
+        'healthOnly': healthOnly,
+        'subscriptionId': '${_profile.id}',
+        'subscriptionName': _profile.realLabel,
+        'candidateCount': _targets.length,
+      });
+      final expectedYoutube = runMode == _MediaCheckFilter.youTubeCN;
+      _ytSortDiag('core_mode_resolved', {
+        'inputFilter': '${_filter.name}',
+        'inputRunMode': '${runMode.name}',
+        'resolvedCoreMode': runMode.coreMode,
+        'expectedCoreMode': 'youtube',
+        'isExpectedYoutubeMode': expectedYoutube,
+        'modeSource': mode != null ? 'arg' : '_filter',
+        'fallbackUsed': false,
+      });
     }
     final generation = ++_generation;
     setState(() {
@@ -321,6 +430,15 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
           _running.add(target.key);
         });
         try {
+          // ── YT_SORT_DIAG: core_request_payload ────────────────────────────
+          if (kDebugMode) {
+            _ytSortDiag('core_request_payload', {
+              'coreMode': runMode.coreMode,
+              'subscriptionId': '${_profile.id}',
+              'candidateName': target.proxy.name,
+              'healthOnly': healthOnly,
+            });
+          }
           final data = await coreController.mediaCheck(
             target.proxy.name,
             profileId: target.profile.id,
@@ -328,15 +446,55 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
             mode: runMode.coreMode,
           );
           if (!mounted || generation != _generation || data.isEmpty) continue;
+          // ── YT_SORT_DIAG: core_raw_response ───────────────────────────────
+          if (kDebugMode) {
+            final rawContainsYoutube = data.contains('youtube') || data.contains('youTube');
+            final rawContainsChatGPT = data.contains('chatgpt') || data.contains('chatGPT');
+            _ytSortDiag('core_raw_response', {
+              'coreMode': runMode.coreMode,
+              'rawLength': data.length,
+              'rawHash': '${_simpleHash(data)}',
+              'containsYoutubeField': rawContainsYoutube,
+              'containsChatGPTField': rawContainsChatGPT,
+              'rawYoutubeSnippet': data.length > 2000 ? data.substring(0, 2000) : data,
+            });
+          }
+          final decoded = json.decode(data) as Map<String, dynamic>;
+          // ── YT_SORT_DIAG: decoded_response_summary ────────────────────────
+          if (kDebugMode) {
+            final ytRaw = decoded['youtube'] as Map<String, dynamic>?;
+            final cgRaw = decoded['chatgpt'] as Map<String, dynamic>?;
+            _ytSortDiag('decoded_response_summary', {
+              'coreMode': runMode.coreMode,
+              'topLevelKeys': decoded.keys.toList(),
+              'youtubeExists': ytRaw != null,
+              'youtubeType': ytRaw != null ? '${ytRaw.runtimeType}' : 'null',
+              'youtubeStatus': ytRaw?['status'],
+              'youtubeRegion': ytRaw?['region'] ?? '',
+              'chatGPTExists': cgRaw != null,
+            });
+          }
           final result =
-              MediaCheckResult.fromJson(
-                json.decode(data) as Map<String, dynamic>,
-              ).copyWith(
+              MediaCheckResult.fromJson(decoded).copyWith(
                 profileId: target.profile.id,
                 profileLabel: target.profile.realLabel,
               );
           // Update in-memory cache synchronously, then update UI immediately
           _updateCacheInMemory(target, result, runMode);
+          // ── YT_SORT_DIAG: cache_write ─────────────────────────────────────
+          if (kDebugMode) {
+            final entry = _cache.entries[target.key];
+            final lr = entry?.lastResult;
+            _ytSortDiag('cache_write', {
+              'cacheKey': runMode.coreMode,
+              'mode': runMode.coreMode,
+              'subscriptionId': '${_profile.id}',
+              'youtubeStatus': lr?.youTube.status ?? 'null',
+              'youtubeRegion': lr?.youTube.region ?? '',
+              'youtubeIsCN': lr?.youTube.isYouTubeCN ?? false,
+              'httpsDelay': lr?.https.delay ?? -999,
+            });
+          }
           if (!mounted || generation != _generation) continue;
           setState(() {
             final cached = _cache.entries[target.key]?.lastResult;
@@ -568,12 +726,151 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         ),
       );
     }
-    rows.sort((a, b) {
-      final aScore = a.rankScore(_filter);
-      final bScore = b.rankScore(_filter);
-      if (aScore != bScore) return bScore.compareTo(aScore);
-      return a.delay.compareTo(b.delay);
-    });
+
+    // ── YT_SORT_DIAG: candidates_loaded ──────────────────────────────────
+    if (kDebugMode && _filter == _MediaCheckFilter.youTubeCN && rows.isNotEmpty) {
+      final candidates = rows
+          .take(20)
+          .map((r) => {
+                'index': rows.indexOf(r),
+                'nodeId': r.target.proxy.name,
+                'nodeName': r.target.proxy.name,
+                'normalizedName': _normalizeNodeName(r.target.proxy.name),
+                'nameHash': '${_simpleHash(r.target.proxy.name)}',
+                'nameCodepoints': _codepoints(r.target.proxy.name),
+              })
+          .toList();
+      _ytSortDiag('candidates_loaded', {'candidateCount': rows.length, 'candidates': candidates});
+
+      // results_loaded
+      final rc = rows.take(20).map((r) {
+        final rs = r.result;
+        return {
+          'key': r.target.key,
+          'nodeId': r.target.proxy.name,
+          'nodeName': r.target.proxy.name,
+          'normalizedName': _normalizeNodeName(r.target.proxy.name),
+          'status': rs?.youTube.status ?? 'no_result',
+          'unlock': rs?.youTube.isYouTubeCN ?? false,
+          'region': rs?.youTube.region ?? '',
+          'latency': r.delay,
+          'rank': r.rankScore(_filter),
+          'error': rs?.youTube.error ?? (rs == null ? 'missing_result' : null),
+        };
+      }).toList();
+      _ytSortDiag('results_loaded', {
+        'source': _results.isNotEmpty ? (_cache.entries.isNotEmpty ? 'cache' : 'mixed') : 'unknown',
+        'cacheHit': _cache.entries.isNotEmpty,
+        'cacheKey': _filter.cacheKey,
+        'resultCount': rc.length,
+        'resultSamples': rc,
+      });
+
+      // match_diagnosis
+      final items = rows.take(20).map((r) {
+        final rs = r.result;
+        final matched = rs != null;
+        final invalidReasons = <String>[];
+        if (!matched) invalidReasons.add('missing_result');
+        if (matched) {
+          if (r.delay <= 0) invalidReasons.add('negative_latency');
+          final rank = r.rankScore(_filter);
+          if (rank == -999999) invalidReasons.add('missing_rank');
+          if (rs.youTube.region.isEmpty) invalidReasons.add('undefined_region');
+          if (!rs.youTube.isYouTubeCN && rs.youTube.status != 'available' && rs.youTube.status != 'unknown') {
+            invalidReasons.add('unknown_unlock_status');
+          }
+        }
+        return {
+          'index': rows.indexOf(r),
+          'nodeId': r.target.proxy.name,
+          'nodeName': r.target.proxy.name,
+          'normalizedName': _normalizeNodeName(r.target.proxy.name),
+          'matched': matched,
+          'matchedBy': matched ? 'nodeId' : 'none',
+          'matchedResultKey': r.target.key,
+          'sortRank': matched ? r.rankScore(_filter) : null,
+          'sortLatency': r.delay,
+          'sortRegion': rs?.youTube.region ?? null,
+          'sortUnlock': rs?.youTube.isYouTubeCN ?? null,
+          'invalidReasons': invalidReasons,
+        };
+      }).toList();
+      final missingCount = items.where((i) => !(i['matched'] as bool)).length;
+      final invalidCount = items.where((i) => (i['invalidReasons'] as List).isNotEmpty).length;
+      _ytSortDiag('match_diagnosis', {
+        'candidateCount': rows.length,
+        'matchedCount': rows.length - missingCount,
+        'missingResultCount': missingCount,
+        'invalidSortKeyCount': invalidCount,
+        'items': items,
+      });
+    }
+
+    // ── YT_SORT_DIAG: before_sort ────────────────────────────────────────
+    if (kDebugMode && _filter == _MediaCheckFilter.youTubeCN && rows.isNotEmpty) {
+      final order = rows.map((r) => {
+        'index': rows.indexOf(r),
+        'nodeId': r.target.proxy.name,
+        'nodeName': r.target.proxy.name,
+        'sortRank': r.rankScore(_filter),
+        'sortLatency': r.delay,
+        'matched': r.result != null,
+      }).toList();
+      _ytSortDiag('before_sort', {'order': order});
+    }
+
+    // ── Sort with error capture ───────────────────────────────────────────
+    _SortError? sortErr;
+    try {
+      rows.sort((a, b) {
+        final aScore = a.rankScore(_filter);
+        final bScore = b.rankScore(_filter);
+        if (aScore != bScore) return bScore.compareTo(aScore);
+        // ── Within-group tiebreaker — per mode ───────────────────────────
+        switch (_filter) {
+          case _MediaCheckFilter.chatGPT:
+            // Unlocked group: SG/US first → region asc → name asc
+            final aR = (a.result?.chatGPT.region ?? '').toUpperCase();
+            final bR = (b.result?.chatGPT.region ?? '').toUpperCase();
+            final ap = _regionPriority(aR);
+            final bp = _regionPriority(bR);
+            if (ap != bp) return bp.compareTo(ap);
+            if (aR != bR) return aR.compareTo(bR);
+            return a.target.proxy.name.compareTo(b.target.proxy.name);
+          case _MediaCheckFilter.youTubeCN:
+            // Same-group: by name asc
+            return a.target.proxy.name.compareTo(b.target.proxy.name);
+          case _MediaCheckFilter.green:
+            return a.target.proxy.name.compareTo(b.target.proxy.name);
+        }
+      });
+    } catch (e, stack) {
+      sortErr = _SortError(e, stack, rows.length);
+      _ytSortDiag('sort_error', {
+        'error': '$e',
+        'stack': '$stack',
+        'candidateCount': rows.length,
+      });
+    }
+
+    // ── YT_SORT_DIAG: after_sort ─────────────────────────────────────────
+    if (kDebugMode && _filter == _MediaCheckFilter.youTubeCN && rows.isNotEmpty) {
+      final afterOrder = rows.map((r) => {
+        'originalIndex': _targets.indexOf(r.target),
+        'nodeId': r.target.proxy.name,
+        'nodeName': r.target.proxy.name,
+        'sortRank': r.rankScore(_filter),
+        'sortLatency': r.delay,
+        'matched': r.result != null,
+      }).toList();
+      _ytSortDiag('after_sort', {
+        'order': afterOrder,
+        'changed': sortErr == null,
+        'sortError': sortErr?.error,
+      });
+    }
+
     return rows;
   }
 
@@ -600,6 +897,21 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         ? 0.0
         : _currentRunDone / _currentRunTotal;
     final rows = _rows;
+    // ── YT_SORT_DIAG: display_order ──────────────────────────────────
+    if (kDebugMode && _filter == _MediaCheckFilter.youTubeCN && rows.isNotEmpty) {
+      final displayOrder = rows.map((r) => {
+        'index': rows.indexOf(r),
+        'nodeId': r.target.proxy.name,
+        'nodeName': r.target.proxy.name,
+        'sourceOriginalIndex': _targets.indexOf(r.target),
+        'sortRank': r.rankScore(_filter),
+        'sortLatency': r.delay,
+      }).toList();
+      _ytSortDiag('display_order', {
+        'displayCount': rows.length,
+        'displayOrder': displayOrder,
+      });
+    }
     final summary = _summary;
 
     return CommonScaffold(
@@ -1520,7 +1832,7 @@ class _SingleResultLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return Container(
-      height: 34,
+      height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
@@ -1905,31 +2217,23 @@ class _MediaCheckRow {
 
   int get delay => result?.https.normalizedDelay ?? 999999;
 
-  /// Independent ranking per mode — no cross-reference to other modes.
+  /// Primary grouping only — within-group order is handled by the sort tiebreaker.
   int rankScore(_MediaCheckFilter filter) {
     final r = result;
     if (r == null) return -1;
-    final d = delay;
     return switch (filter) {
-      // ChatGPT: available first (sorted by delay asc), then others (sorted by delay asc)
       _MediaCheckFilter.chatGPT =>
-        r.chatGPT.isChatGPTAvailable ? 200000 - d.clamp(0, 199999) : -d,
-      // YouTube: 送中 → available → unknown → failed/timeout; each group sorted by delay asc
+        r.chatGPT.isChatGPTAvailable ? 200000 : -1,
       _MediaCheckFilter.youTubeCN =>
-        r.youTube.isYouTubeCN
-            ? 400000 - d.clamp(0, 399999)
-            : r.youTube.status == 'available'
-            ? 300000 - d.clamp(0, 299999)
-            : r.youTube.status == 'unknown'
-            ? 200000 - d.clamp(0, 199999)
-            : -d,
-      // Green: stable-low-latency first → others; each sorted by median delay asc
+        r.youTube.isYouTubeCN ? 400000
+            : r.youTube.status == 'available' ? 300000
+            : r.youTube.status == 'unknown' ? 200000
+            : -1,
       _MediaCheckFilter.green =>
         health.isStableLowLatency
             ? 200000 -
                   (health.medianDelay > 0 ? health.medianDelay : 999999).clamp(
-                    0,
-                    199999,
+                    0, 199999,
                   )
             : -(health.medianDelay > 0 ? health.medianDelay : 999999),
     };

@@ -517,7 +517,7 @@ class _HeroActionButton extends StatelessWidget {
     final Color baseColor;
     if (isSmartPaused || isSmartResuming || label == '暂停中') {
       baseColor = surge.orange;
-    } else if (isStart || label == '停止中') {
+    } else if ((isStart && !loading) || label == '停止中') {
       baseColor = surge.red;
     } else {
       baseColor = surge.green;

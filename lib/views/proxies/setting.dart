@@ -63,18 +63,6 @@ class ProxiesSetting extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SettingSection(
-            title: appLocalizations.style,
-            children: [
-              _SettingOption(
-                icon: Icons.view_list_rounded,
-                label: appLocalizations.list,
-                selected: true,
-                onTap: () => _setListStyle(ref),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _SettingSection(
             title: appLocalizations.sort,
             children: [
               for (final item in ProxiesSortType.values)
