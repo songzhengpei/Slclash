@@ -21,6 +21,8 @@ class AppStateManager extends ConsumerStatefulWidget {
 
 class _AppStateManagerState extends ConsumerState<AppStateManager>
     with WidgetsBindingObserver {
+  DateTime? _lastGcOnBackground;
+
   @override
   void initState() {
     super.initState();
@@ -125,6 +127,16 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
           .read(healthObservationSchedulerProvider.notifier)
           .onLifecycleChanged(DateTime.now());
       setupAction.cancelUiStatsTimer();
+      // P0: 真正切到后台时触发 Go GC 释放堆内存（60s 节流）
+      // inactive/hidden 是瞬态（如来电、通知栏），不触发
+      if (state == AppLifecycleState.paused) {
+        final now = DateTime.now();
+        final last = _lastGcOnBackground;
+        if (last == null || now.difference(last).inSeconds >= 60) {
+          _lastGcOnBackground = now;
+          unawaited(coreController.requestGc());
+        }
+      }
     }
   }
 

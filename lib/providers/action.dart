@@ -690,6 +690,10 @@ class SetupAction extends _$SetupAction {
     _updateTimer?.cancel();
     _updateTimer = null;
     await coreController.stopListener();
+    // P0+P1: 停代理后先关连接释放 buffer，再 GC 释放 Go 堆
+    // 顺序执行，不阻塞 handleStop 调用者的后续 UI 重置
+    unawaited(coreController.closeConnections()
+        .then((_) => coreController.requestGc()));
   }
 
   /// Local-only stop for smart auto stop: cancel timer, stop listener,
