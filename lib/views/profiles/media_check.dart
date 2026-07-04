@@ -8,12 +8,53 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// ── YT_SORT_DIAG helpers (debug-only) ──────────────────────────────────────
+
+String _normalizeNodeName(String name) {
+  return name
+      .trim()
+      .replaceAll(RegExp(r'[​-‍﻿­⁠]'), '')
+      .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+int _simpleHash(String s) {
+  int hash = 0;
+  for (final c in s.codeUnits) {
+    hash = hash * 31 + c;
+  }
+  return hash;
+}
+
+String _codepoints(String s) {
+  return s.runes.map((r) => r.toRadixString(16)).join(' ');
+}
+
+void _ytSortDiag(String phase, Map<String, Object?> data) {
+  if (!kDebugMode) return;
+  data['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+  debugPrint('YT_SORT_DIAG|$phase|${json.encode(data)}');
+}
+
+int _regionPriority(String region) {
+  if (region.toUpperCase() == 'SG') return 2;
+  if (region.toUpperCase() == 'US') return 1;
+  return 0;
+}
+
+class _SortError {
+  _SortError(this.error, this.stack, this.candidateCount);
+  final Object error;
+  final StackTrace stack;
+  final int candidateCount;
+}
 
 // ── Page-local constants ──────────────────────────────────────────────────
 
 const _mediaCheckConcurrencyKey = 'media-check-concurrency-v1';
-const _observeIdleDelay = Duration(seconds: 30);
 const _resultPanelMaxHeight = 470.0;
 
 typedef MediaCheckConfigLoader =
@@ -21,34 +62,6 @@ typedef MediaCheckConfigLoader =
 
 Future<Map<String, dynamic>> _defaultMediaCheckConfigLoader(int profileId) {
   return coreController.getConfig(profileId);
-}
-
-Duration? mediaCheckObservationDelay({
-  required MediaCheckObserveSettings settings,
-  required DateTime now,
-  required DateTime lastInteractionAt,
-  required bool loading,
-  required bool checking,
-  required bool hasTargets,
-  Duration idleDelay = _observeIdleDelay,
-  Duration checkingRetryDelay = const Duration(minutes: 1),
-}) {
-  if (!settings.enabled || loading || !hasTargets) {
-    return null;
-  }
-  if (checking) {
-    return checkingRetryDelay;
-  }
-
-  final idleAt = lastInteractionAt.add(idleDelay);
-  final dueAt = settings.lastRunAt <= 0
-      ? now
-      : DateTime.fromMillisecondsSinceEpoch(
-          settings.lastRunAt,
-        ).add(Duration(minutes: settings.intervalMinutes));
-  final nextAt = dueAt.isAfter(idleAt) ? dueAt : idleAt;
-  final delay = nextAt.difference(now);
-  return delay.isNegative ? Duration.zero : delay;
 }
 
 // ── UI color extensions (SurgeTheme-dependent, kept in view layer) ────────
@@ -81,7 +94,7 @@ extension MediaHTTPSResultColors on MediaHTTPSResult {
   }
 }
 
-class ProfileMediaCheckView extends StatefulWidget {
+class ProfileMediaCheckView extends ConsumerStatefulWidget {
   const ProfileMediaCheckView({
     super.key,
     required this.profiles,
@@ -94,11 +107,10 @@ class ProfileMediaCheckView extends StatefulWidget {
   final MediaCheckConfigLoader configLoader;
 
   @override
-  State<ProfileMediaCheckView> createState() => _ProfileMediaCheckViewState();
+  ConsumerState<ProfileMediaCheckView> createState() => _ProfileMediaCheckViewState();
 }
 
-class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
-    with WidgetsBindingObserver {
+class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
   static const _defaultConcurrency = 5;
   static const _maxConcurrency = 10;
 
@@ -107,14 +119,10 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   late Profile _profile;
   final _cacheStore = MediaCheckCacheStore();
   MediaCheckCache _cache = const MediaCheckCache(entries: {});
-  MediaCheckObserveSettings _observeSettings =
-      const MediaCheckObserveSettings();
   List<_MediaCheckTarget> _targets = const [];
   final Map<String, MediaCheckResult> _results = {};
   final Set<String> _running = {};
   final Set<String> _queued = {};
-  Timer? _observeTimer;
-  DateTime _lastInteractionAt = DateTime.now();
   var _loading = true;
   var _checking = false;
   var _healthSampling = false;
@@ -129,10 +137,8 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _profile = widget.initialProfile;
     _restoreConcurrency();
-    _restoreObserveSettings();
     _loadTargets();
     // Persist the initial profile selection for background health observation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -160,28 +166,10 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _cancelRequested = true;
     _generation++;
-    _observeTimer?.cancel();
     _removeGroupsListener?.call();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Always try to run observation on lifecycle changes —
-    // paused state no longer blocks health checks.
-    _maybeRunObservationOrSchedule();
-  }
-
-  Future<void> _restoreObserveSettings() async {
-    final settings = await _cacheStore.loadObserveSettings();
-    if (!mounted) return;
-    setState(() {
-      _observeSettings = settings;
-    });
-    _scheduleObservation();
   }
 
   Future<void> _loadTargets() async {
@@ -214,6 +202,29 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         cachedResults[target.key] = result;
       }
     }
+    // ── YT_SORT_DIAG: cache_read ──────────────────────────────────────
+    if (kDebugMode) {
+      final ytStatusDist = <String, int>{};
+      final delayDist = <String, int>{};
+      for (final entry in cache.entries.values) {
+        final lr = entry.lastResult;
+        if (lr == null) continue;
+        final st = lr.youTube.status;
+        ytStatusDist[st] = (ytStatusDist[st] ?? 0) + 1;
+        final d = lr.https.delay.toString();
+        delayDist[d] = (delayDist[d] ?? 0) + 1;
+      }
+      _ytSortDiag('cache_read', {
+        'cacheHit': cache.entries.isNotEmpty,
+        'cacheKey': _filter.cacheKey,
+        'currentSubscriptionId': '${_profile.id}',
+        'currentFilter': '${_filter.name}',
+        'cacheEntryCount': cache.entries.length,
+        'cachedResultCount': cachedResults.length,
+        'youtubeStatusDistribution': ytStatusDist,
+        'youtubeDelayDistribution': delayDist,
+      });
+    }
     setState(() {
       _cache = cache;
       _targets = targets;
@@ -223,7 +234,18 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
       _loading = false;
       _cancelRequested = false;
     });
-    _maybeRunObservationOrSchedule();
+    _ytSortDiag('context', {
+      'screen': 'streaming_check',
+      'checkType': 'youtube_send_to_cn',
+      'subscriptionId': '${_profile.id}',
+      'subscriptionName': _profile.realLabel,
+      'subscriptionUrlHash': _simpleHash(_profile.url).toString(),
+      'subscriptionUpdatedAt': _profile.lastUpdateDate?.millisecondsSinceEpoch,
+      'profileVersion': '${_profile.id}',
+      'groupId': null,
+      'groupName': '',
+      'cacheKey': '${_filter.cacheKey}',
+    });
   }
 
   Future<List<Proxy>> _loadRuntimeLeafProxies() async {
@@ -269,29 +291,45 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     _cacheStore.save(_cache);
   }
 
-  /// Select every current-subscription target that is not in observation
-  /// cooldown. Manual checks intentionally ignore this filter.
-  List<_MediaCheckTarget> _selectAutoHealthTargets() {
-    return _targets.where((target) {
-      final entry = _cache.entries[target.key];
-      return entry == null || !entry.isObservationCoolingDown();
-    }).toList();
-  }
-
-  Future<void> _start({_MediaCheckFilter? mode, bool automatic = false}) async {
+  Future<void> _start({_MediaCheckFilter? mode}) async {
+    if (kDebugMode) {
+      _ytSortDiag('ui_filter_state', {
+        'selectedTab': _filter.label,
+        'currentFilter': '${_filter.name}',
+        'defaultFilter': 'chatGPT',
+        'modeFromArg': '${mode?.name ?? 'null'}',
+        'buttonSource': 'start_button',
+        'isYoutubeSelected': _filter == _MediaCheckFilter.youTubeCN,
+        'isChatGPTSelected': _filter == _MediaCheckFilter.chatGPT,
+        'profileLabel': _profile.realLabel,
+        'profileId': '${_profile.id}',
+      });
+    }
     final runMode = mode ?? _filter;
     final healthOnly = runMode == _MediaCheckFilter.green;
-    final runTargets = healthOnly && automatic
-        ? _selectAutoHealthTargets()
-        : _targets;
+    final runTargets = _targets;
     if (_checking || runTargets.isEmpty) {
-      if (!_checking && healthOnly && automatic) {
-        final nextSettings = _observeSettings.copyWith(
-          lastRunAt: DateTime.now().millisecondsSinceEpoch,
-        );
-        await _setObserveSettings(nextSettings);
-      }
       return;
+    }
+    if (kDebugMode) {
+      _ytSortDiag('start_entry', {
+        'filter': '${_filter.name}',
+        'runMode': '${runMode.name}',
+        'healthOnly': healthOnly,
+        'subscriptionId': '${_profile.id}',
+        'subscriptionName': _profile.realLabel,
+        'candidateCount': _targets.length,
+      });
+      final expectedYoutube = runMode == _MediaCheckFilter.youTubeCN;
+      _ytSortDiag('core_mode_resolved', {
+        'inputFilter': '${_filter.name}',
+        'inputRunMode': '${runMode.name}',
+        'resolvedCoreMode': runMode.coreMode,
+        'expectedCoreMode': 'youtube',
+        'isExpectedYoutubeMode': expectedYoutube,
+        'modeSource': mode != null ? 'arg' : '_filter',
+        'fallbackUsed': false,
+      });
     }
     final generation = ++_generation;
     setState(() {
@@ -321,6 +359,15 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
           _running.add(target.key);
         });
         try {
+          // ── YT_SORT_DIAG: core_request_payload ────────────────────────────
+          if (kDebugMode) {
+            _ytSortDiag('core_request_payload', {
+              'coreMode': runMode.coreMode,
+              'subscriptionId': '${_profile.id}',
+              'candidateName': target.proxy.name,
+              'healthOnly': healthOnly,
+            });
+          }
           final data = await coreController.mediaCheck(
             target.proxy.name,
             profileId: target.profile.id,
@@ -328,15 +375,55 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
             mode: runMode.coreMode,
           );
           if (!mounted || generation != _generation || data.isEmpty) continue;
+          // ── YT_SORT_DIAG: core_raw_response ───────────────────────────────
+          if (kDebugMode) {
+            final rawContainsYoutube = data.contains('youtube') || data.contains('youTube');
+            final rawContainsChatGPT = data.contains('chatgpt') || data.contains('chatGPT');
+            _ytSortDiag('core_raw_response', {
+              'coreMode': runMode.coreMode,
+              'rawLength': data.length,
+              'rawHash': '${_simpleHash(data)}',
+              'containsYoutubeField': rawContainsYoutube,
+              'containsChatGPTField': rawContainsChatGPT,
+              'rawYoutubeSnippet': data.length > 2000 ? data.substring(0, 2000) : data,
+            });
+          }
+          final decoded = json.decode(data) as Map<String, dynamic>;
+          // ── YT_SORT_DIAG: decoded_response_summary ────────────────────────
+          if (kDebugMode) {
+            final ytRaw = decoded['youtube'] as Map<String, dynamic>?;
+            final cgRaw = decoded['chatgpt'] as Map<String, dynamic>?;
+            _ytSortDiag('decoded_response_summary', {
+              'coreMode': runMode.coreMode,
+              'topLevelKeys': decoded.keys.toList(),
+              'youtubeExists': ytRaw != null,
+              'youtubeType': ytRaw != null ? '${ytRaw.runtimeType}' : 'null',
+              'youtubeStatus': ytRaw?['status'],
+              'youtubeRegion': ytRaw?['region'] ?? '',
+              'chatGPTExists': cgRaw != null,
+            });
+          }
           final result =
-              MediaCheckResult.fromJson(
-                json.decode(data) as Map<String, dynamic>,
-              ).copyWith(
+              MediaCheckResult.fromJson(decoded).copyWith(
                 profileId: target.profile.id,
                 profileLabel: target.profile.realLabel,
               );
           // Update in-memory cache synchronously, then update UI immediately
           _updateCacheInMemory(target, result, runMode);
+          // ── YT_SORT_DIAG: cache_write ─────────────────────────────────────
+          if (kDebugMode) {
+            final entry = _cache.entries[target.key];
+            final lr = entry?.lastResult;
+            _ytSortDiag('cache_write', {
+              'cacheKey': runMode.coreMode,
+              'mode': runMode.coreMode,
+              'subscriptionId': '${_profile.id}',
+              'youtubeStatus': lr?.youTube.status ?? 'null',
+              'youtubeRegion': lr?.youTube.region ?? '',
+              'youtubeIsCN': lr?.youTube.isYouTubeCN ?? false,
+              'httpsDelay': lr?.https.delay ?? -999,
+            });
+          }
           if (!mounted || generation != _generation) continue;
           setState(() {
             final cached = _cache.entries[target.key]?.lastResult;
@@ -379,12 +466,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
       _running.clear();
       _queued.clear();
     });
-    if (!_cancelRequested && healthOnly) {
-      final nextSettings = _observeSettings.copyWith(
-        lastRunAt: DateTime.now().millisecondsSinceEpoch,
-      );
-      await _setObserveSettings(nextSettings);
-    }
   }
 
   void _cancel() {
@@ -398,87 +479,8 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
     });
   }
 
-  Future<void> _setObserveSettings(MediaCheckObserveSettings settings) async {
-    setState(() {
-      _observeSettings = settings;
-    });
-    await _cacheStore.saveObserveSettings(settings);
-    _scheduleObservation();
-  }
-
-  void _toggleObservation(bool value) {
-    _markInteraction();
-    _setObserveSettings(_observeSettings.copyWith(enabled: value));
-    if (value) {
-      _maybeRunObservationOrSchedule();
-    }
-  }
-
-  void _cycleObservationInterval() {
-    _markInteraction();
-    final currentIndex = MediaCheckObserveSettings.intervalOptions.indexOf(
-      _observeSettings.intervalMinutes,
-    );
-    final nextIndex =
-        (currentIndex + 1) % MediaCheckObserveSettings.intervalOptions.length;
-    _setObserveSettings(
-      _observeSettings.copyWith(
-        intervalMinutes: MediaCheckObserveSettings.intervalOptions[nextIndex],
-      ),
-    );
-  }
-
-  void _markInteraction() {
-    _lastInteractionAt = DateTime.now();
-    _scheduleObservation();
-  }
-
-  void _scheduleObservation() {
-    _observeTimer?.cancel();
-    final delay = mediaCheckObservationDelay(
-      settings: _observeSettings,
-      now: DateTime.now(),
-      lastInteractionAt: _lastInteractionAt,
-      loading: _loading,
-      checking: _checking,
-      hasTargets: _targets.isNotEmpty,
-    );
-    if (delay == null) return;
-    _observeTimer = Timer(delay, () async {
-      _observeTimer = null;
-      final started = await _maybeRunObservation();
-      if (mounted && !started) {
-        _scheduleObservation();
-      }
-    });
-  }
-
-  Future<bool> _maybeRunObservation() async {
-    final idleEnough =
-        DateTime.now().difference(_lastInteractionAt) >= _observeIdleDelay;
-    if (!mounted ||
-        !_observeSettings.enabled ||
-        _checking ||
-        _loading ||
-        _targets.isEmpty ||
-        !idleEnough ||
-        !_observeSettings.isDue) {
-      return false;
-    }
-    await _start(mode: _MediaCheckFilter.green, automatic: true);
-    return true;
-  }
-
-  Future<void> _maybeRunObservationOrSchedule() async {
-    final started = await _maybeRunObservation();
-    if (mounted && !started) {
-      _scheduleObservation();
-    }
-  }
-
   void _changeProfile(Profile profile) {
     if (_checking || profile.id == _profile.id) return;
-    _markInteraction();
     setState(() {
       _profile = profile;
     });
@@ -491,7 +493,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
   void _changeFilter(_MediaCheckFilter filter) {
     if (_checking || filter == _filter) return;
-    _markInteraction();
     setState(() {
       _filter = filter;
     });
@@ -529,7 +530,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
 
   Future<void> _clearCurrentModeCache() async {
     if (_checking) return;
-    _markInteraction();
     final targetKeys = _targets.map((target) => target.key).toSet();
     final nextCache = _cache.clearModeForKeys(
       keys: targetKeys,
@@ -568,12 +568,151 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         ),
       );
     }
-    rows.sort((a, b) {
-      final aScore = a.rankScore(_filter);
-      final bScore = b.rankScore(_filter);
-      if (aScore != bScore) return bScore.compareTo(aScore);
-      return a.delay.compareTo(b.delay);
-    });
+
+    // ── YT_SORT_DIAG: candidates_loaded ──────────────────────────────────
+    if (kDebugMode && _filter == _MediaCheckFilter.youTubeCN && rows.isNotEmpty) {
+      final candidates = rows
+          .take(20)
+          .map((r) => {
+                'index': rows.indexOf(r),
+                'nodeId': r.target.proxy.name,
+                'nodeName': r.target.proxy.name,
+                'normalizedName': _normalizeNodeName(r.target.proxy.name),
+                'nameHash': '${_simpleHash(r.target.proxy.name)}',
+                'nameCodepoints': _codepoints(r.target.proxy.name),
+              })
+          .toList();
+      _ytSortDiag('candidates_loaded', {'candidateCount': rows.length, 'candidates': candidates});
+
+      // results_loaded
+      final rc = rows.take(20).map((r) {
+        final rs = r.result;
+        return {
+          'key': r.target.key,
+          'nodeId': r.target.proxy.name,
+          'nodeName': r.target.proxy.name,
+          'normalizedName': _normalizeNodeName(r.target.proxy.name),
+          'status': rs?.youTube.status ?? 'no_result',
+          'unlock': rs?.youTube.isYouTubeCN ?? false,
+          'region': rs?.youTube.region ?? '',
+          'latency': r.delay,
+          'rank': r.rankScore(_filter),
+          'error': rs?.youTube.error ?? (rs == null ? 'missing_result' : null),
+        };
+      }).toList();
+      _ytSortDiag('results_loaded', {
+        'source': _results.isNotEmpty ? (_cache.entries.isNotEmpty ? 'cache' : 'mixed') : 'unknown',
+        'cacheHit': _cache.entries.isNotEmpty,
+        'cacheKey': _filter.cacheKey,
+        'resultCount': rc.length,
+        'resultSamples': rc,
+      });
+
+      // match_diagnosis
+      final items = rows.take(20).map((r) {
+        final rs = r.result;
+        final matched = rs != null;
+        final invalidReasons = <String>[];
+        if (!matched) invalidReasons.add('missing_result');
+        if (matched) {
+          if (r.delay <= 0) invalidReasons.add('negative_latency');
+          final rank = r.rankScore(_filter);
+          if (rank == -999999) invalidReasons.add('missing_rank');
+          if (rs.youTube.region.isEmpty) invalidReasons.add('undefined_region');
+          if (!rs.youTube.isYouTubeCN && rs.youTube.status != 'available' && rs.youTube.status != 'unknown') {
+            invalidReasons.add('unknown_unlock_status');
+          }
+        }
+        return {
+          'index': rows.indexOf(r),
+          'nodeId': r.target.proxy.name,
+          'nodeName': r.target.proxy.name,
+          'normalizedName': _normalizeNodeName(r.target.proxy.name),
+          'matched': matched,
+          'matchedBy': matched ? 'nodeId' : 'none',
+          'matchedResultKey': r.target.key,
+          'sortRank': matched ? r.rankScore(_filter) : null,
+          'sortLatency': r.delay,
+          'sortRegion': rs?.youTube.region ?? null,
+          'sortUnlock': rs?.youTube.isYouTubeCN ?? null,
+          'invalidReasons': invalidReasons,
+        };
+      }).toList();
+      final missingCount = items.where((i) => !(i['matched'] as bool)).length;
+      final invalidCount = items.where((i) => (i['invalidReasons'] as List).isNotEmpty).length;
+      _ytSortDiag('match_diagnosis', {
+        'candidateCount': rows.length,
+        'matchedCount': rows.length - missingCount,
+        'missingResultCount': missingCount,
+        'invalidSortKeyCount': invalidCount,
+        'items': items,
+      });
+    }
+
+    // ── YT_SORT_DIAG: before_sort ────────────────────────────────────────
+    if (kDebugMode && _filter == _MediaCheckFilter.youTubeCN && rows.isNotEmpty) {
+      final order = rows.map((r) => {
+        'index': rows.indexOf(r),
+        'nodeId': r.target.proxy.name,
+        'nodeName': r.target.proxy.name,
+        'sortRank': r.rankScore(_filter),
+        'sortLatency': r.delay,
+        'matched': r.result != null,
+      }).toList();
+      _ytSortDiag('before_sort', {'order': order});
+    }
+
+    // ── Sort with error capture ───────────────────────────────────────────
+    _SortError? sortErr;
+    try {
+      rows.sort((a, b) {
+        final aScore = a.rankScore(_filter);
+        final bScore = b.rankScore(_filter);
+        if (aScore != bScore) return bScore.compareTo(aScore);
+        // ── Within-group tiebreaker — per mode ───────────────────────────
+        switch (_filter) {
+          case _MediaCheckFilter.chatGPT:
+            // Unlocked group: SG/US first → region asc → name asc
+            final aR = (a.result?.chatGPT.region ?? '').toUpperCase();
+            final bR = (b.result?.chatGPT.region ?? '').toUpperCase();
+            final ap = _regionPriority(aR);
+            final bp = _regionPriority(bR);
+            if (ap != bp) return bp.compareTo(ap);
+            if (aR != bR) return aR.compareTo(bR);
+            return a.target.proxy.name.compareTo(b.target.proxy.name);
+          case _MediaCheckFilter.youTubeCN:
+            // Same-group: by name asc
+            return a.target.proxy.name.compareTo(b.target.proxy.name);
+          case _MediaCheckFilter.green:
+            return a.target.proxy.name.compareTo(b.target.proxy.name);
+        }
+      });
+    } catch (e, stack) {
+      sortErr = _SortError(e, stack, rows.length);
+      _ytSortDiag('sort_error', {
+        'error': '$e',
+        'stack': '$stack',
+        'candidateCount': rows.length,
+      });
+    }
+
+    // ── YT_SORT_DIAG: after_sort ─────────────────────────────────────────
+    if (kDebugMode && _filter == _MediaCheckFilter.youTubeCN && rows.isNotEmpty) {
+      final afterOrder = rows.map((r) => {
+        'originalIndex': _targets.indexOf(r.target),
+        'nodeId': r.target.proxy.name,
+        'nodeName': r.target.proxy.name,
+        'sortRank': r.rankScore(_filter),
+        'sortLatency': r.delay,
+        'matched': r.result != null,
+      }).toList();
+      _ytSortDiag('after_sort', {
+        'order': afterOrder,
+        'changed': sortErr == null,
+        'sortError': sortErr?.error,
+      });
+    }
+
     return rows;
   }
 
@@ -600,65 +739,84 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
         ? 0.0
         : _currentRunDone / _currentRunTotal;
     final rows = _rows;
+    // ── YT_SORT_DIAG: display_order ──────────────────────────────────
+    if (kDebugMode && _filter == _MediaCheckFilter.youTubeCN && rows.isNotEmpty) {
+      final displayOrder = rows.map((r) => {
+        'index': rows.indexOf(r),
+        'nodeId': r.target.proxy.name,
+        'nodeName': r.target.proxy.name,
+        'sourceOriginalIndex': _targets.indexOf(r.target),
+        'sortRank': r.rankScore(_filter),
+        'sortLatency': r.delay,
+      }).toList();
+      _ytSortDiag('display_order', {
+        'displayCount': rows.length,
+        'displayOrder': displayOrder,
+      });
+    }
     final summary = _summary;
+
+    final schedulerState = ref.watch(healthObservationSchedulerProvider);
 
     return CommonScaffold(
       title: '流媒体检测',
       backgroundColor: surge.background,
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) => _markInteraction(),
-        onPointerMove: (_) => _markInteraction(),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 16,
-              bottom: 112 + MediaQuery.paddingOf(context).bottom,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _MediaCheckControlCard(
-                  profiles: widget.profiles,
-                  profile: _profile,
-                  filter: _filter,
-                  loading: _loading,
-                  checking: _checking,
-                  paused: _paused,
-                  targetCount: _targets.length,
-                  cachedCount: _cachedCountForMode,
-                  runningCount: _running.length,
-                  concurrency: _concurrency,
-                  summary: summary,
-                  observing: _observeSettings.enabled,
-                  observeIntervalLabel: _observeSettings.intervalLabel,
-                  healthSampling: _healthSampling,
-                  progress: progress,
-                  onProfileChanged: _checking ? null : _changeProfile,
-                  onFilterChanged: _checking ? null : _changeFilter,
-                  onConcurrencyChanged: _checking
-                      ? null
-                      : (value) {
-                          _markInteraction();
-                          setState(() {
-                            _concurrency = value;
-                          });
-                          preferences.setInt(_mediaCheckConcurrencyKey, value);
-                        },
-                  onStart: () {
-                    _markInteraction();
-                    _start();
-                  },
-                  onCancel: _cancel,
-                  onObservingChanged: _toggleObservation,
-                  onObserveIntervalTap: _checking
-                      ? null
-                      : _cycleObservationInterval,
-                  onSummaryFilterChanged: _checking ? null : _changeFilter,
-                ),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: 112 + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MediaCheckControlCard(
+                profiles: widget.profiles,
+                profile: _profile,
+                filter: _filter,
+                loading: _loading,
+                checking: _checking,
+                paused: _paused,
+                targetCount: _targets.length,
+                cachedCount: _cachedCountForMode,
+                runningCount: _running.length,
+                concurrency: _concurrency,
+                summary: summary,
+                observing: schedulerState.enabled,
+                observeIntervalLabel: schedulerState.intervalLabel,
+                healthSampling: _healthSampling,
+                progress: progress,
+                onProfileChanged: _checking ? null : _changeProfile,
+                onFilterChanged: _checking ? null : _changeFilter,
+                onConcurrencyChanged: _checking
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _concurrency = value;
+                        });
+                        preferences.setInt(_mediaCheckConcurrencyKey, value);
+                      },
+                onStart: () {
+                  _start();
+                },
+                onCancel: _cancel,
+                onObservingChanged: (value) {
+                  ref.read(healthObservationSchedulerProvider.notifier).setEnabled(value);
+                },
+                onObserveIntervalTap: _checking
+                    ? null
+                    : () {
+                        final currentInterval = schedulerState.intervalMinutes;
+                        final options = HealthObservationScheduler.observeIntervalOptions;
+                        final currentIndex = options.indexOf(currentInterval);
+                        final nextIndex = (currentIndex + 1) % options.length;
+                        ref.read(healthObservationSchedulerProvider.notifier).setIntervalMinutes(options[nextIndex]);
+                      },
+                onSummaryFilterChanged: _checking ? null : _changeFilter,
+              ),
                 const SizedBox(height: 12),
                 if (_loading)
                   const Center(
@@ -692,7 +850,6 @@ class _ProfileMediaCheckViewState extends State<ProfileMediaCheckView>
             ),
           ),
         ),
-      ),
     );
   }
 }
@@ -1520,7 +1677,7 @@ class _SingleResultLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return Container(
-      height: 34,
+      height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
@@ -1905,31 +2062,23 @@ class _MediaCheckRow {
 
   int get delay => result?.https.normalizedDelay ?? 999999;
 
-  /// Independent ranking per mode — no cross-reference to other modes.
+  /// Primary grouping only — within-group order is handled by the sort tiebreaker.
   int rankScore(_MediaCheckFilter filter) {
     final r = result;
     if (r == null) return -1;
-    final d = delay;
     return switch (filter) {
-      // ChatGPT: available first (sorted by delay asc), then others (sorted by delay asc)
       _MediaCheckFilter.chatGPT =>
-        r.chatGPT.isChatGPTAvailable ? 200000 - d.clamp(0, 199999) : -d,
-      // YouTube: 送中 → available → unknown → failed/timeout; each group sorted by delay asc
+        r.chatGPT.isChatGPTAvailable ? 200000 : -1,
       _MediaCheckFilter.youTubeCN =>
-        r.youTube.isYouTubeCN
-            ? 400000 - d.clamp(0, 399999)
-            : r.youTube.status == 'available'
-            ? 300000 - d.clamp(0, 299999)
-            : r.youTube.status == 'unknown'
-            ? 200000 - d.clamp(0, 199999)
-            : -d,
-      // Green: stable-low-latency first → others; each sorted by median delay asc
+        r.youTube.isYouTubeCN ? 400000
+            : r.youTube.status == 'available' ? 300000
+            : r.youTube.status == 'unknown' ? 200000
+            : -1,
       _MediaCheckFilter.green =>
         health.isStableLowLatency
             ? 200000 -
                   (health.medianDelay > 0 ? health.medianDelay : 999999).clamp(
-                    0,
-                    199999,
+                    0, 199999,
                   )
             : -(health.medianDelay > 0 ? health.medianDelay : 999999),
     };

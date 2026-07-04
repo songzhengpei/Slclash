@@ -68,6 +68,12 @@ class HealthObservationSchedulerState {
     return DateTime.now().isAfter(nextEligibleAt!);
   }
 
+  String get intervalLabel {
+    if (intervalMinutes < 60) return '${intervalMinutes}m';
+    final hours = intervalMinutes ~/ 60;
+    return '${hours}h';
+  }
+
   HealthObservationSchedulerState copyWith({
     DateTime? lastAttemptAt,
     DateTime? lastCompletedAt,
@@ -128,8 +134,8 @@ int healthObservationWorkerCount({
   bool networkPowerLimited = false,
 }) {
   if (eligibleProxyCount <= 0 || powerSaveMode) return 0;
-  if (!screenOn || cellular || networkPowerLimited) return 1;
-  final maxWorkers = appForeground ? 5 : 2;
+  if (!screenOn || cellular || networkPowerLimited) return math.min(5, eligibleProxyCount);
+  final maxWorkers = appForeground ? 10 : 5;
   return math.min(maxWorkers, eligibleProxyCount);
 }
 
@@ -175,6 +181,10 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   static const _retryNoProfile = Duration(minutes: 3);
   static const _retryNoProxies = Duration(minutes: 5);
   static const _retryNoNetwork = Duration(minutes: 2);
+
+  static List<int> get observeIntervalOptions {
+    return kDebugMode ? const [2, 20, 40, 60, 120] : const [20, 40, 60, 120];
+  }
 
   Timer? _timer;
   DateTime? _appStartedAt;
@@ -634,17 +644,29 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   void setEnabled(bool value) {
     state = state.copyWith(enabled: value);
     _scheduleNext();
+    _persistSettings();
   }
 
   /// Update the observation interval (minutes).
   void setIntervalMinutes(int minutes) {
     state = state.copyWith(intervalMinutes: minutes);
     _scheduleNext();
+    _persistSettings();
   }
 
   /// Called by AppStateManager on lifecycle change to track background time.
   void onLifecycleChanged(DateTime timestamp) {
     _lastLifecycleChangeAt = timestamp;
+  }
+
+  Future<void> _persistSettings() async {
+    await preferences.setString(
+      _observeSettingsKey,
+      json.encode({
+        'enabled': state.enabled,
+        'interval-minutes': state.intervalMinutes,
+      }),
+    );
   }
 
   /// Make the next observation eligible immediately.

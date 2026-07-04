@@ -151,8 +151,6 @@ class _ProfilesViewState extends State<ProfilesView> {
                               });
                             },
                           ),
-                          const SizedBox(height: 12),
-                          const _ProfileSectionHeader(title: '快捷操作'),
                           const SizedBox(height: 8),
                           _MediaCheckEntryCard(
                             profile: currentProfile,
@@ -365,7 +363,7 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
         16,
         8,
         16,
-        28 + MediaQuery.paddingOf(context).bottom,
+        28,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
