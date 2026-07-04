@@ -74,7 +74,13 @@ class ComputedSelectedCache extends Notifier<Map<String, String>> {
     for (final group in computedGroups) {
       final now = group.now;
       if (now == null || now.isEmpty) continue;
-      if (_fallbackNames.contains(now.toUpperCase())) continue;
+      // Only skip when now matches a built-in placeholder name AND is not a
+      // real proxy in the group. A user may name a proxy "Direct" (e.g. in
+      // a fallback group with Direct as a URL-tested candidate).
+      if (_fallbackNames.contains(now.toUpperCase()) &&
+          !group.all.any((p) => p.name == now)) {
+        continue;
+      }
       if (!group.all.any((p) => p.name == now)) continue;
       cache[group.name] = now;
     }

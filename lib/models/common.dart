@@ -334,9 +334,13 @@ extension GroupExt on Group {
       {String? cachedComputedNow}) {
     if (type.isComputedSelected) {
       final current = realNow;
-      if (current.isNotEmpty &&
-          !_fallbackNames.contains(current.toUpperCase())) {
-        return current;
+      if (current.isNotEmpty) {
+        final isTransientFallback =
+            _fallbackNames.contains(current.toUpperCase()) &&
+                !all.any((p) => p.name == current);
+        if (!isTransientFallback) {
+          return current;
+        }
       }
       // Runtime returned a fallback — try UI-only cache
       if (cachedComputedNow != null &&
