@@ -11,7 +11,7 @@ class SurgeBottomNavLayout {
   static const double height = 56;
   static const double horizontalInset = 18;
   static const double extraBottomInset = 5;
-  static const double noGestureBottomInset = 19;
+  static const double noGestureBottomInset = 16;
   static const double contentGap = 9;
 
   static double navBottomInset(BuildContext context) {
@@ -70,6 +70,7 @@ class SurgeBottomNav extends StatelessWidget {
           SurgeBottomNavLayout.horizontalInset * 2,
       0.0,
     );
+    final navSurface = Color.alphaBlend(surge.navBar, surge.background);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -84,7 +85,7 @@ class SurgeBottomNav extends StatelessWidget {
           width: navWidth,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: surge.navBar,
+              color: navSurface,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
                 color: surge.separator.withValues(alpha: 0.72),
