@@ -1033,7 +1033,7 @@ class _ModeSwitch extends StatelessWidget {
     final selectedIndex = modes.indexOf(value).clamp(0, modes.length - 1);
 
     return Container(
-      height: 32 * layoutScale,
+      height: 34 * layoutScale,
       padding: EdgeInsets.all(3 * layoutScale),
       decoration: BoxDecoration(
         color: surge.fill,
@@ -1157,7 +1157,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
     return Container(
       width: double.infinity,
       height: 34 * layoutScale,
-      padding: EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: surge.fill,
         borderRadius: BorderRadius.circular(22),
@@ -1184,7 +1184,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         height: 1.0,
                         letterSpacing: 0,
@@ -1232,7 +1232,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         height: 1.0,
                         letterSpacing: 0,

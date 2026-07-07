@@ -71,6 +71,12 @@ class SurgeBottomNav extends StatelessWidget {
       0.0,
     );
     final navSurface = Color.alphaBlend(surge.navBar, surge.background);
+    final isDark =
+        ThemeData.estimateBrightnessForColor(navSurface) == Brightness.dark;
+    final navBorder =
+        isDark
+            ? surge.navBorder.withValues(alpha: 0.95)
+            : surge.separator.withValues(alpha: 0.70);
     final selectedSurface =
         Color.alphaBlend(surge.textPrimary.withValues(alpha: 0.065), navSurface);
     final selectedBorder = surge.textPrimary.withValues(alpha: 0.10);
@@ -91,7 +97,7 @@ class SurgeBottomNav extends StatelessWidget {
               color: navSurface,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: surge.separator.withValues(alpha: 0.70),
+                color: navBorder,
                 width: 0.5,
               ),
               boxShadow: [
@@ -126,37 +132,37 @@ class SurgeBottomNav extends StatelessWidget {
                             width: itemWidth,
                             duration: SurgeMotion.container,
                             curve: SurgeMotion.stateCurve,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: selectedSurface,
-                                borderRadius: BorderRadius.circular(21),
-                                border: Border.all(
-                                  color: selectedBorder,
-                                  width: 0.5,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: selectedSurface,
+                                    borderRadius: BorderRadius.circular(21),
+                                    border: Border.all(
+                                      color: selectedBorder,
+                                      width: 0.5,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 1),
-                                  child: FractionallySizedBox(
-                                    widthFactor: 0.56,
-                                    heightFactor: 1,
+                                if (!isDark)
+                                  const Positioned(
+                                    left: 14,
+                                    right: 14,
+                                    top: 1,
+                                    height: 1,
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
                                           colors: [
-                                            Colors.white.withValues(alpha: 0.18),
-                                            Colors.white.withValues(alpha: 0.0),
+                                            Colors.white70,
+                                            Colors.white10,
                                           ],
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ),
+                              ],
                             ),
                           ),
                           Row(
