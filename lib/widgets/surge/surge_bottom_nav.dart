@@ -9,7 +9,7 @@ class SurgeBottomNavLayout {
   const SurgeBottomNavLayout._();
 
   static const double height = 56;
-  static const double horizontalInset = 18;
+  static const double horizontalInset = 24;
   static const double extraBottomInset = 5;
   static const double noGestureBottomInset = 16;
   static const double contentGap = 9;
@@ -88,19 +88,19 @@ class SurgeBottomNav extends StatelessWidget {
               color: navSurface,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: surge.separator.withValues(alpha: 0.72),
+                color: surge.separator.withValues(alpha: 0.78),
                 width: 0.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: surge.shadow.withValues(alpha: 0.24),
-                  blurRadius: 6,
+                  color: surge.shadow.withValues(alpha: 0.18),
+                  blurRadius: 5,
                   offset: const Offset(0, 2),
                 ),
                 BoxShadow(
-                  color: surge.shadow.withValues(alpha: 0.14),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
+                  color: surge.shadow.withValues(alpha: 0.10),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -116,6 +116,24 @@ class SurgeBottomNav extends StatelessWidget {
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
+                          Positioned(
+                            left: 16,
+                            right: 16,
+                            top: 1,
+                            height: 1,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.0),
+                                    Colors.white.withValues(alpha: 0.38),
+                                    Colors.white.withValues(alpha: 0.0),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(0.5),
+                              ),
+                            ),
+                          ),
                           AnimatedPositioned(
                             left: itemWidth * currentIndex,
                             top: 5,
@@ -125,10 +143,10 @@ class SurgeBottomNav extends StatelessWidget {
                             curve: SurgeMotion.stateCurve,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: surge.fill.withValues(alpha: 0.58),
+                                color: surge.fill.withValues(alpha: 0.62),
                                 borderRadius: BorderRadius.circular(21),
                                 border: Border.all(
-                                  color: surge.separator.withValues(alpha: 0.48),
+                                  color: surge.separator.withValues(alpha: 0.54),
                                   width: 0.5,
                                 ),
                               ),
