@@ -1172,7 +1172,6 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                 ref,
                 groups,
                 selectedGroupName,
-                surge,
               ),
               behavior: HitTestBehavior.opaque,
               child: Row(
@@ -1260,99 +1259,99 @@ class _HeroProxySelectorBar extends ConsumerWidget {
     WidgetRef ref,
     List<Group> groups,
     String selectedGroupName,
-    SurgeTheme surge,
   ) {
-    showModalBottomSheet(
+    showSheet(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => SizedBox(
-        height: MediaQuery.of(context).size.height * 0.65,
-        child: AdaptiveSheetScaffold(
-          title: context.appLocalizations.proxyGroup,
-          body: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            itemCount: groups.length,
-            itemBuilder: (context, index) {
-              final group = groups[index];
-              final isSelected = group.name == selectedGroupName;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      proxy_common.updateCurrentGroupName(group.name);
-                      Navigator.of(context).pop();
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected ? surge.selectedFill : surge.fill,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? surge.primary.withValues(alpha: 0.48)
-                              : surge.separator,
-                          width: isSelected ? 1 : 0.5,
+      props: const SheetProps(isScrollControlled: true),
+      builder: (sheetContext) {
+        final surge = SurgeTheme.of(sheetContext);
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.65,
+          child: AdaptiveSheetScaffold(
+            title: sheetContext.appLocalizations.proxyGroup,
+            body: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              itemCount: groups.length,
+              itemBuilder: (context, index) {
+                final group = groups[index];
+                final isSelected = group.name == selectedGroupName;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        proxy_common.updateCurrentGroupName(group.name);
+                        Navigator.of(context).pop();
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          if (isSelected) ...[
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF2FAA67),
-                                shape: BoxShape.circle,
-                              ),
-                              margin: const EdgeInsets.only(right: 8),
-                            ),
-                          ],
-                          Expanded(
-                            child: Text(
-                              group.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: context.textTheme.bodyMedium?.copyWith(
-                                color: surge.textPrimary,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                              ),
-                            ),
+                        decoration: BoxDecoration(
+                          color: isSelected ? surge.selectedFill : surge.fill,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? surge.primary.withValues(alpha: 0.48)
+                                : surge.separator,
+                            width: isSelected ? 1 : 0.5,
                           ),
-                          Text(
-                            group.type.name,
-                            style: context.textTheme.labelSmall?.copyWith(
-                              color: surge.textSecondary,
-                              fontSize: 11,
+                        ),
+                        child: Row(
+                          children: [
+                            if (isSelected) ...[
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF2FAA67),
+                                  shape: BoxShape.circle,
+                                ),
+                                margin: const EdgeInsets.only(right: 8),
+                              ),
+                            ],
+                            Expanded(
+                              child: Text(
+                                group.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.textTheme.bodyMedium?.copyWith(
+                                  color: surge.textPrimary,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                ),
+                              ),
                             ),
-                          ),
-                          if (isSelected) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.check_circle,
-                              size: 18,
-                              color: surge.primary,
+                            Text(
+                              group.type.name,
+                              style: context.textTheme.labelSmall?.copyWith(
+                                color: surge.textSecondary,
+                                fontSize: 11,
+                              ),
                             ),
+                            if (isSelected) ...[
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.check_circle,
+                                size: 18,
+                                color: surge.primary,
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
