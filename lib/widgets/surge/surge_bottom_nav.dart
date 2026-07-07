@@ -71,6 +71,9 @@ class SurgeBottomNav extends StatelessWidget {
       0.0,
     );
     final navSurface = Color.alphaBlend(surge.navBar, surge.background);
+    final selectedSurface =
+        Color.alphaBlend(surge.textPrimary.withValues(alpha: 0.065), navSurface);
+    final selectedBorder = surge.textPrimary.withValues(alpha: 0.10);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -117,19 +120,41 @@ class SurgeBottomNav extends StatelessWidget {
                         clipBehavior: Clip.none,
                         children: [
                           AnimatedPositioned(
-                            left: itemWidth * currentIndex + 7,
-                            top: 6,
-                            bottom: 6,
-                            width: itemWidth - 14,
+                            left: itemWidth * currentIndex,
+                            top: 5,
+                            bottom: 5,
+                            width: itemWidth,
                             duration: SurgeMotion.container,
                             curve: SurgeMotion.stateCurve,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: surge.fill.withValues(alpha: 0.54),
-                                borderRadius: BorderRadius.circular(20),
+                                color: selectedSurface,
+                                borderRadius: BorderRadius.circular(21),
                                 border: Border.all(
-                                  color: surge.separator.withValues(alpha: 0.42),
+                                  color: selectedBorder,
                                   width: 0.5,
+                                ),
+                              ),
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 1),
+                                  child: FractionallySizedBox(
+                                    widthFactor: 0.56,
+                                    heightFactor: 1,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            Colors.white.withValues(alpha: 0.18),
+                                            Colors.white.withValues(alpha: 0.0),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
