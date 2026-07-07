@@ -6,6 +6,8 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+enum ProxyListRowPosition { single, first, middle, last }
+
 double getProxyTileHeight() {
   final measure = globalState.measure;
   return 22 + measure.bodyMediumHeight + measure.bodySmallHeight + 3;
@@ -78,14 +80,16 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
       .read(proxiesActionProvider.notifier)
       .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: 0));
   try {
-    ref.read(proxiesActionProvider.notifier).setDelay(
+    ref
+        .read(proxiesActionProvider.notifier)
+        .setDelay(
           await coreController.getDelay(currentTestUrl, state.proxyName),
         );
   } catch (e) {
     commonPrint.log('proxyDelayTest failed for ${state.proxyName}: $e');
-    ref.read(proxiesActionProvider.notifier).setDelay(
-          Delay(url: currentTestUrl, name: state.proxyName, value: -1),
-        );
+    ref
+        .read(proxiesActionProvider.notifier)
+        .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: -1));
   }
 }
 
@@ -111,5 +115,5 @@ double getScrollToSelectedOffset({
     (proxy) => proxy.name == selectedProxyName,
   );
   final selectedIndex = findSelectedIndex != -1 ? findSelectedIndex : 0;
-  return (selectedIndex * (getProxyTileHeight() + 6)) - 40;
+  return (selectedIndex * getProxyTileHeight()) - 40;
 }

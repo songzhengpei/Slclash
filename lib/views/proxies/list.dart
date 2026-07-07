@@ -48,7 +48,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     double headerOffset = 0.0;
     if (index + 1 <= _headerOffset.length - 1) {
       final endOffset = _headerOffset[index + 1];
-      final startOffset = endOffset - listHeaderHeight - 8;
+      final startOffset = endOffset - listHeaderHeight;
       if (initOffset > startOffset && initOffset < endOffset) {
         headerOffset = initOffset - startOffset;
       }
@@ -118,27 +118,44 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     required ProxyCardType cardType,
   }) {
     final items = <Widget>[];
-    for (final group in groups) {
+    for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+      final group = groups[groupIndex];
       final groupName = group.name;
       final isExpand = currentUnfoldSet.contains(groupName);
-      items.addAll([
+      final proxies = isExpand ? group.all : const <Proxy>[];
+      final isFirstGroup = groupIndex == 0;
+      final isLastGroup = groupIndex == groups.length - 1;
+      final headerPosition = proxies.isNotEmpty
+          ? (isFirstGroup
+                ? ProxyListRowPosition.first
+                : ProxyListRowPosition.middle)
+          : (isFirstGroup && isLastGroup
+                ? ProxyListRowPosition.single
+                : isFirstGroup
+                ? ProxyListRowPosition.first
+                : isLastGroup
+                ? ProxyListRowPosition.last
+                : ProxyListRowPosition.middle);
+
+      items.add(
         ListHeader(
           onScrollToSelected: _scrollToGroupSelected,
           isExpand: isExpand,
+          rowPosition: headerPosition,
+          showDivider: !(isLastGroup && proxies.isEmpty),
           group: group,
           onChange: (String groupName) {
             _handleChange(currentUnfoldSet, groupName);
           },
         ),
-        const SizedBox(height: 8),
-      ]);
-      if (isExpand) {
-        final proxies = group.all;
+      );
+      if (proxies.isNotEmpty) {
         final proxyItems = proxies.asMap().entries.expand<Widget>((entry) {
           final index = entry.key;
           final proxy = entry.value;
+          final isLastProxy = index == proxies.length - 1;
+          final isLastVisualRow = isLastGroup && isLastProxy;
           return [
-            if (index == 0) const SizedBox(height: 5),
             SizedBox(
               height: getProxyTileHeight(),
               child: ProxyCard(
@@ -149,12 +166,15 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                 proxy: proxy,
                 groupName: groupName,
                 isExpanded: true,
+                rowPosition: isLastVisualRow
+                    ? ProxyListRowPosition.last
+                    : ProxyListRowPosition.middle,
+                showDivider: !isLastVisualRow,
               ),
             ),
-            const SizedBox(height: 6),
           ];
         });
-        items.addAll([...proxyItems, const SizedBox(height: 2)]);
+        items.addAll(proxyItems);
       }
     }
     return items;
@@ -174,6 +194,8 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         onScrollToSelected: _scrollToGroupSelected,
         key: Key(groupName),
         isExpand: isExpand,
+        rowPosition: ProxyListRowPosition.single,
+        showDivider: false,
         group: group,
         onChange: (String groupName) {
           _handleChange(currentUnfoldSet, groupName);
@@ -250,7 +272,6 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     final proxies = currentGroups.getGroup(groupName)?.all;
     _jumpTo(
       currentInitOffset +
-          8 +
           getScrollToSelectedOffset(
             groupName: groupName,
             proxies: proxies ?? [],
@@ -407,12 +428,16 @@ class ListHeader extends StatefulWidget {
   final Function(String groupName) onChange;
   final Function(String groupName) onScrollToSelected;
   final bool isExpand;
+  final ProxyListRowPosition rowPosition;
+  final bool showDivider;
 
   final bool enterAnimated;
 
   const ListHeader({
     super.key,
     this.enterAnimated = true,
+    this.rowPosition = ProxyListRowPosition.single,
+    this.showDivider = false,
     required this.group,
     required this.onChange,
     required this.onScrollToSelected,
@@ -498,204 +523,295 @@ class _ListHeaderState extends State<ListHeader> {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final card = SurgeCard(
+    final radius = BorderRadius.vertical(
+      top:
+          widget.rowPosition == ProxyListRowPosition.first ||
+              widget.rowPosition == ProxyListRowPosition.single
+          ? Radius.circular(surge.radii.card)
+          : Radius.zero,
+      bottom:
+          widget.rowPosition == ProxyListRowPosition.last ||
+              widget.rowPosition == ProxyListRowPosition.single
+          ? Radius.circular(surge.radii.card)
+          : Radius.zero,
+    );
+    final border = Border(
+      left: BorderSide(
+        color: surge.separator.withValues(alpha: 0.78),
+        width: 0.5,
+      ),
+      right: BorderSide(
+        color: surge.separator.withValues(alpha: 0.78),
+        width: 0.5,
+      ),
+      top:
+          widget.rowPosition == ProxyListRowPosition.first ||
+              widget.rowPosition == ProxyListRowPosition.single
+          ? BorderSide(
+              color: surge.separator.withValues(alpha: 0.78),
+              width: 0.5,
+            )
+          : BorderSide.none,
+      bottom:
+          widget.rowPosition == ProxyListRowPosition.last ||
+              widget.rowPosition == ProxyListRowPosition.single
+          ? BorderSide(
+              color: surge.separator.withValues(alpha: 0.78),
+              width: 0.5,
+            )
+          : BorderSide.none,
+    );
+    final card = Material(
       key: widget.key,
-      padding: EdgeInsets.zero,
-      shadow: true,
-      borderRadius: surge.radii.card,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Row(
-                children: [
-                  _buildIcon(),
-                  Flexible(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        EmojiText(
-                          groupName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.textTheme.titleMedium?.copyWith(
-                            color: surge.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Flexible(
-                          flex: 1,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                groupType,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: context.textTheme.labelMedium?.copyWith(
-                                  color: surge.textSecondary,
-                                  fontSize: 12,
-                                  letterSpacing: 0,
+      color: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      borderRadius: radius,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: surge.card,
+          borderRadius: radius,
+          border: border,
+          boxShadow:
+              widget.rowPosition == ProxyListRowPosition.first ||
+                  widget.rowPosition == ProxyListRowPosition.single
+              ? [
+                  BoxShadow(
+                    color: surge.shadow.withValues(alpha: 0.10),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: InkWell(
+          onTap: () {
+            _handleChange(groupName);
+          },
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: Row(
+                        children: [
+                          _buildIcon(),
+                          Flexible(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                EmojiText(
+                                  groupName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: context.textTheme.titleMedium
+                                      ?.copyWith(
+                                        color: surge.textPrimary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0,
+                                      ),
                                 ),
-                              ),
-                              Flexible(
-                                flex: 1,
-                                child: Consumer(
-                                  builder: (_, ref, _) {
-                                    final proxyName = ref
-                                        .watch(
-                                          selectedProxyNameProvider(groupName),
-                                        )
-                                        .takeFirstValid([]);
-                                    if (proxyName.isEmpty) {
-                                      return const SizedBox();
-                                    }
-                                    final groups = ref.watch(groupsProvider);
-                                    final nestedGroup = groups.getGroup(
-                                      proxyName,
-                                    );
-                                    String displayLabel;
-                                    if (nestedGroup != null) {
-                                      // Resolve to leaf node
-                                      String leafName;
-                                      if (nestedGroup.type.isComputedSelected) {
-                                        final computedMap = ref.read(
-                                          computedSelectedMapProvider,
-                                        );
-                                        leafName = nestedGroup
-                                            .getCurrentSelectedName(
-                                              '',
-                                              cachedComputedNow:
-                                                  computedMap[proxyName],
+                                const SizedBox(height: 4),
+                                Flexible(
+                                  flex: 1,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        groupType,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: context.textTheme.labelMedium
+                                            ?.copyWith(
+                                              color: surge.textSecondary,
+                                              fontSize: 12,
+                                              letterSpacing: 0,
+                                            ),
+                                      ),
+                                      Flexible(
+                                        flex: 1,
+                                        child: Consumer(
+                                          builder: (_, ref, _) {
+                                            final proxyName = ref
+                                                .watch(
+                                                  selectedProxyNameProvider(
+                                                    groupName,
+                                                  ),
+                                                )
+                                                .takeFirstValid([]);
+                                            if (proxyName.isEmpty) {
+                                              return const SizedBox();
+                                            }
+                                            final groups = ref.watch(
+                                              groupsProvider,
                                             );
-                                      } else {
-                                        leafName = nestedGroup.realNow;
-                                      }
-                                      int depth = 0;
-                                      while (leafName.isNotEmpty &&
-                                          groups.getGroup(leafName) != null &&
-                                          depth < 4) {
-                                        final nextGroup = groups.getGroup(
-                                          leafName,
-                                        )!;
-                                        leafName = nextGroup
-                                            .getCurrentSelectedName(
-                                              '',
-                                              cachedComputedNow: ref.read(
-                                                computedSelectedMapProvider,
-                                              )[leafName],
+                                            final nestedGroup = groups.getGroup(
+                                              proxyName,
                                             );
-                                        depth++;
-                                      }
-                                      displayLabel = leafName.isNotEmpty
-                                          ? '${nestedGroup.name}: $leafName'
-                                          : nestedGroup.name;
-                                    } else {
-                                      displayLabel = proxyName;
-                                    }
-                                    return Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Flexible(
-                                          flex: 1,
-                                          child: EmojiText(
-                                            '  $displayLabel',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: context.textTheme.labelMedium
-                                                ?.copyWith(
-                                                  color: surge.primary,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  letterSpacing: 0,
+                                            String displayLabel;
+                                            if (nestedGroup != null) {
+                                              // Resolve to leaf node
+                                              String leafName;
+                                              if (nestedGroup
+                                                  .type
+                                                  .isComputedSelected) {
+                                                final computedMap = ref.read(
+                                                  computedSelectedMapProvider,
+                                                );
+                                                leafName = nestedGroup
+                                                    .getCurrentSelectedName(
+                                                      '',
+                                                      cachedComputedNow:
+                                                          computedMap[proxyName],
+                                                    );
+                                              } else {
+                                                leafName = nestedGroup.realNow;
+                                              }
+                                              int depth = 0;
+                                              while (leafName.isNotEmpty &&
+                                                  groups.getGroup(leafName) !=
+                                                      null &&
+                                                  depth < 4) {
+                                                final nextGroup = groups
+                                                    .getGroup(leafName)!;
+                                                leafName = nextGroup
+                                                    .getCurrentSelectedName(
+                                                      '',
+                                                      cachedComputedNow: ref.read(
+                                                        computedSelectedMapProvider,
+                                                      )[leafName],
+                                                    );
+                                                depth++;
+                                              }
+                                              displayLabel = leafName.isNotEmpty
+                                                  ? '${nestedGroup.name}: $leafName'
+                                                  : nestedGroup.name;
+                                            } else {
+                                              displayLabel = proxyName;
+                                            }
+                                            return Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.center,
+                                              children: [
+                                                Flexible(
+                                                  flex: 1,
+                                                  child: EmojiText(
+                                                    '  $displayLabel',
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: context
+                                                        .textTheme
+                                                        .labelMedium
+                                                        ?.copyWith(
+                                                          color: surge.primary,
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          letterSpacing: 0,
+                                                        ),
+                                                  ),
                                                 ),
-                                          ),
+                                              ],
+                                            );
+                                          },
                                         ),
-                                      ],
-                                    );
-                                  },
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                              ],
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        if (isExpand) ...[
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(1),
+                            onPressed: () {
+                              widget.onScrollToSelected(groupName);
+                            },
+                            style: ButtonStyle(
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: WidgetStatePropertyAll(
+                                surge.textSecondary,
+                              ),
+                            ),
+                            iconSize: 18,
+                            icon: const Icon(Icons.adjust),
+                          ),
+                          IconButton(
+                            iconSize: 19,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(1),
+                            onPressed: _delayTest,
+                            style: ButtonStyle(
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: WidgetStatePropertyAll(
+                                surge.textSecondary,
+                              ),
+                            ),
+                            icon: const Icon(Icons.network_ping_rounded),
+                          ),
+                          const SizedBox(width: 4),
+                        ] else
+                          const SizedBox(width: 4),
+                        IconButton.filledTonal(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(1),
+                          iconSize: 22,
+                          style: ButtonStyle(
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: WidgetStatePropertyAll(
+                              surge.textSecondary.withValues(alpha: 0.12),
+                            ),
+                            foregroundColor: WidgetStatePropertyAll(
+                              surge.textPrimary,
+                            ),
+                          ),
+                          onPressed: () {
+                            _handleChange(groupName);
+                          },
+                          icon: CommonExpandIcon(expand: isExpand),
                         ),
-                        const SizedBox(width: 4),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              children: [
-                if (isExpand) ...[
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.all(1),
-                    onPressed: () {
-                      widget.onScrollToSelected(groupName);
-                    },
-                    style: ButtonStyle(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      foregroundColor: WidgetStatePropertyAll(
-                        surge.textSecondary,
-                      ),
-                    ),
-                    iconSize: 18,
-                    icon: const Icon(Icons.adjust),
-                  ),
-                  IconButton(
-                    iconSize: 19,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.all(1),
-                    onPressed: _delayTest,
-                    style: ButtonStyle(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      foregroundColor: WidgetStatePropertyAll(
-                        surge.textSecondary,
-                      ),
-                    ),
-                    icon: const Icon(Icons.network_ping_rounded),
-                  ),
-                  const SizedBox(width: 4),
-                ] else
-                  const SizedBox(width: 4),
-                IconButton.filledTonal(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.all(1),
-                  iconSize: 22,
-                  style: ButtonStyle(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: WidgetStatePropertyAll(
-                      surge.textSecondary.withValues(alpha: 0.12),
-                    ),
-                    foregroundColor: WidgetStatePropertyAll(surge.textPrimary),
-                  ),
-                  onPressed: () {
-                    _handleChange(groupName);
-                  },
-                  icon: CommonExpandIcon(expand: isExpand),
+                  ],
                 ),
-              ],
-            ),
-          ],
+              ),
+              if (widget.showDivider)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 0,
+                  child: Divider(
+                    height: 0,
+                    thickness: 0.5,
+                    color: surge.separator.withValues(alpha: 0.55),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-      onTap: () {
-        _handleChange(groupName);
-      },
     );
     return widget.enterAnimated ? FadeScaleEnterBox(child: card) : card;
   }

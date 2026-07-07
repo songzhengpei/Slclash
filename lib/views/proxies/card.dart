@@ -16,6 +16,8 @@ class ProxyCard extends StatelessWidget {
   final ProxyCardType type;
   final String? testUrl;
   final bool isExpanded;
+  final ProxyListRowPosition rowPosition;
+  final bool showDivider;
 
   const ProxyCard({
     super.key,
@@ -25,6 +27,8 @@ class ProxyCard extends StatelessWidget {
     required this.groupType,
     required this.type,
     this.isExpanded = false,
+    this.rowPosition = ProxyListRowPosition.single,
+    this.showDivider = false,
   });
 
   void _handleTestCurrentDelay() {
@@ -61,90 +65,129 @@ class ProxyCard extends StatelessWidget {
           selectedProxyNameProvider(groupName),
         );
         final isSelected = selectedProxyName == proxy.name;
-        final dynamicColor = ref.watch(
-          themeSettingProvider.select((state) => state.dynamicColor),
+        final surface = isExpanded
+            ? (isSelected
+                  ? surge.selectedFill
+                  : Color.alphaBlend(
+                      surge.fill.withValues(alpha: 0.28),
+                      surge.card,
+                    ))
+            : (isSelected ? surge.selectedFill : surge.card);
+        final radius = BorderRadius.vertical(
+          top:
+              rowPosition == ProxyListRowPosition.first ||
+                  rowPosition == ProxyListRowPosition.single
+              ? Radius.circular(surge.radii.card)
+              : Radius.zero,
+          bottom:
+              rowPosition == ProxyListRowPosition.last ||
+                  rowPosition == ProxyListRowPosition.single
+              ? Radius.circular(surge.radii.card)
+              : Radius.zero,
         );
-        final selectedBorderColor = !dynamicColor
-            ? surge.textPrimary
-            : surge.primary;
-        return Stack(
+        final borderColor = isSelected
+            ? surge.primary.withValues(alpha: 0.16)
+            : surge.separator.withValues(alpha: 0.78);
+        final border = Border(
+          left: BorderSide(color: borderColor, width: 0.5),
+          right: BorderSide(color: borderColor, width: 0.5),
+          top:
+              rowPosition == ProxyListRowPosition.first ||
+                  rowPosition == ProxyListRowPosition.single
+              ? BorderSide(color: borderColor, width: 0.5)
+              : BorderSide.none,
+          bottom:
+              rowPosition == ProxyListRowPosition.last ||
+                  rowPosition == ProxyListRowPosition.single
+              ? BorderSide(color: borderColor, width: 0.5)
+              : BorderSide.none,
+        );
+
+        return Material(
+          key: key,
+          color: Colors.transparent,
           clipBehavior: Clip.none,
-          children: [
-            SurgeCard(
-              key: key,
-              onTap: () {
-                _changeProxy(ref);
-              },
-              padding: EdgeInsets.zero,
-              shadow: false,
-              borderRadius: surge.radii.list,
-              backgroundColor: isExpanded
-                  ? (isSelected ? surge.selectedFill : surge.fill)
-                  : (isSelected ? surge.selectedFill : surge.card),
-              border: isExpanded
-                  ? (isSelected
-                      ? Border.all(color: surge.primary.withValues(alpha: 0.48), width: 1)
-                      : Border.all(color: surge.separator, width: 0.5))
-                  : Border.all(
-                      color: isSelected
-                          ? selectedBorderColor
-                          : surge.separator.withValues(alpha: 0.95),
-                      width: isSelected ? 1.05 : 0.75,
-                    ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _ProxyTextBlock(proxy: proxy, type: type),
-                    ),
-                    if (groupType.isComputedSelected) ...[
-                      const SizedBox(width: 8),
-                      _ProxyComputedMark(groupName: groupName, proxy: proxy),
-                    ],
-                    const SizedBox(width: 12),
-                    _DelayBadge(
-                      proxyName: proxy.name,
-                      testUrl: testUrl,
-                      onTap: _handleTestCurrentDelay,
-                    ),
-                  ],
-                ),
+          borderRadius: radius,
+          child: InkWell(
+            onTap: () {
+              _changeProxy(ref);
+            },
+            child: Ink(
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: radius,
+                border: border,
               ),
-            ),
-            Positioned(
-              right: 10,
-              top: -6,
-              child: AnimatedScale(
-                scale: isSelected ? 1 : 0.65,
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOutCubic,
-                child: AnimatedOpacity(
-                  opacity: isSelected ? 1 : 0,
-                  duration: const Duration(milliseconds: 160),
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: surge.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: surge.card, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: surge.shadow,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(32, 7, 12, 7),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _ProxyTextBlock(proxy: proxy, type: type),
+                        ),
+                        if (groupType.isComputedSelected) ...[
+                          const SizedBox(width: 8),
+                          _ProxyComputedMark(
+                            groupName: groupName,
+                            proxy: proxy,
+                          ),
+                        ],
+                        const SizedBox(width: 12),
+                        _DelayBadge(
+                          proxyName: proxy.name,
+                          testUrl: testUrl,
+                          onTap: _handleTestCurrentDelay,
                         ),
                       ],
                     ),
                   ),
-                ),
+                  if (showDivider)
+                    Positioned(
+                      left: 32,
+                      right: 16,
+                      bottom: 0,
+                      child: Divider(
+                        height: 0,
+                        thickness: 0.5,
+                        color: surge.separator.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  Positioned(
+                    right: 10,
+                    top: -6,
+                    child: AnimatedScale(
+                      scale: isSelected ? 1 : 0.65,
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOutCubic,
+                      child: AnimatedOpacity(
+                        opacity: isSelected ? 1 : 0,
+                        duration: const Duration(milliseconds: 160),
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: surge.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: surface, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: surge.shadow.withValues(alpha: 0.45),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         );
       },
     );

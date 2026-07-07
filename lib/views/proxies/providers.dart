@@ -13,6 +13,8 @@ import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'common.dart';
+
 class ProvidersView extends ConsumerStatefulWidget {
   const ProvidersView({super.key});
 
@@ -107,19 +109,38 @@ class _ProviderSection extends StatelessWidget {
             ),
           ),
         ),
-        for (var i = 0; i < providers.length; i++) ...[
-          ProviderItem(provider: providers[i]),
-          if (i != providers.length - 1) const SizedBox(height: 10),
-        ],
+        Column(
+          children: [
+            for (var i = 0; i < providers.length; i++)
+              ProviderItem(
+                provider: providers[i],
+                rowPosition: providers.length == 1
+                    ? ProxyListRowPosition.single
+                    : i == 0
+                    ? ProxyListRowPosition.first
+                    : i == providers.length - 1
+                    ? ProxyListRowPosition.last
+                    : ProxyListRowPosition.middle,
+                showDivider: i != providers.length - 1,
+              ),
+          ],
+        ),
       ],
     );
   }
 }
 
 class ProviderItem extends StatelessWidget {
-  const ProviderItem({super.key, required this.provider});
+  const ProviderItem({
+    super.key,
+    required this.provider,
+    this.rowPosition = ProxyListRowPosition.single,
+    this.showDivider = false,
+  });
 
   final ExternalProvider provider;
+  final ProxyListRowPosition rowPosition;
+  final bool showDivider;
 
   Future<void> _handleUpdateProvider() async {
     if (provider.vehicleType != 'HTTP') return;
@@ -164,81 +185,159 @@ class ProviderItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final hasUpdated = provider.updateAt.microsecondsSinceEpoch > 0;
+    final radius = BorderRadius.vertical(
+      top:
+          rowPosition == ProxyListRowPosition.first ||
+              rowPosition == ProxyListRowPosition.single
+          ? Radius.circular(surge.radii.card)
+          : Radius.zero,
+      bottom:
+          rowPosition == ProxyListRowPosition.last ||
+              rowPosition == ProxyListRowPosition.single
+          ? Radius.circular(surge.radii.card)
+          : Radius.zero,
+    );
+    final border = Border(
+      left: BorderSide(
+        color: surge.separator.withValues(alpha: 0.78),
+        width: 0.5,
+      ),
+      right: BorderSide(
+        color: surge.separator.withValues(alpha: 0.78),
+        width: 0.5,
+      ),
+      top:
+          rowPosition == ProxyListRowPosition.first ||
+              rowPosition == ProxyListRowPosition.single
+          ? BorderSide(
+              color: surge.separator.withValues(alpha: 0.78),
+              width: 0.5,
+            )
+          : BorderSide.none,
+      bottom:
+          rowPosition == ProxyListRowPosition.last ||
+              rowPosition == ProxyListRowPosition.single
+          ? BorderSide(
+              color: surge.separator.withValues(alpha: 0.78),
+              width: 0.5,
+            )
+          : BorderSide.none,
+    );
 
-    return SurgeCard(
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
-      borderRadius: 18,
-      shadow: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      provider.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.titleSmall?.copyWith(
-                        color: surge.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
-                        letterSpacing: 0,
+    return Material(
+      color: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      borderRadius: radius,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: surge.card,
+          borderRadius: radius,
+          border: border,
+          boxShadow:
+              rowPosition == ProxyListRowPosition.first ||
+                  rowPosition == ProxyListRowPosition.single
+              ? [
+                  BoxShadow(
+                    color: surge.shadow.withValues(alpha: 0.10),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              provider.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.textTheme.titleSmall?.copyWith(
+                                color: surge.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                height: 1,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              hasUpdated
+                                  ? _providerDesc(context)
+                                  : provider.type,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.textTheme.labelMedium?.copyWith(
+                                color: surge.textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                height: 1,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      hasUpdated ? _providerDesc(context) : provider.type,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelMedium?.copyWith(
-                        color: surge.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        height: 1,
-                        letterSpacing: 0,
-                      ),
+                    ],
+                  ),
+                  if (provider.subscriptionInfo != null) ...[
+                    const SizedBox(height: 10),
+                    SubscriptionInfoView(
+                      subscriptionInfo: provider.subscriptionInfo,
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _ProviderActionButton(
+                        icon: Icons.upload_file_rounded,
+                        label: context.appLocalizations.upload,
+                        onTap: _handleSideLoadProvider,
+                      ),
+                      if (provider.vehicleType == 'HTTP') ...[
+                        const SizedBox(width: 8),
+                        Consumer(
+                          builder: (_, ref, _) {
+                            final isUpdating = ref.watch(
+                              isUpdatingProvider(provider.updatingKey),
+                            );
+                            return _ProviderActionButton(
+                              icon: Icons.sync_rounded,
+                              label: context.appLocalizations.sync,
+                              loading: isUpdating,
+                              onTap: _handleUpdateProvider,
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (showDivider)
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: 0,
+                child: Divider(
+                  height: 0,
+                  thickness: 0.5,
+                  color: surge.separator.withValues(alpha: 0.55),
                 ),
               ),
-            ],
-          ),
-          if (provider.subscriptionInfo != null) ...[
-            const SizedBox(height: 10),
-            SubscriptionInfoView(subscriptionInfo: provider.subscriptionInfo),
           ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _ProviderActionButton(
-                icon: Icons.upload_file_rounded,
-                label: context.appLocalizations.upload,
-                onTap: _handleSideLoadProvider,
-              ),
-              if (provider.vehicleType == 'HTTP') ...[
-                const SizedBox(width: 8),
-                Consumer(
-                  builder: (_, ref, _) {
-                    final isUpdating = ref.watch(
-                      isUpdatingProvider(provider.updatingKey),
-                    );
-                    return _ProviderActionButton(
-                      icon: Icons.sync_rounded,
-                      label: context.appLocalizations.sync,
-                      loading: isUpdating,
-                      onTap: _handleUpdateProvider,
-                    );
-                  },
-                ),
-              ],
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
