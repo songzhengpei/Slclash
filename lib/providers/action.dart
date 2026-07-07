@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:path/path.dart';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
