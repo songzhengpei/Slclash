@@ -92,14 +92,14 @@ class SurgeBottomNav extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: surge.shadow.withValues(alpha: 0.55),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+                  color: surge.shadow.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
                 BoxShadow(
-                  color: surge.shadow.withValues(alpha: 0.45),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
+                  color: surge.shadow.withValues(alpha: 0.22),
+                  blurRadius: 18,
+                  offset: const Offset(0, 7),
                 ),
               ],
             ),
@@ -124,17 +124,17 @@ class SurgeBottomNav extends StatelessWidget {
                             curve: SurgeMotion.stateCurve,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: surge.primary.withValues(alpha: 0.11),
+                                color: surge.fill.withValues(alpha: 0.82),
                                 borderRadius: BorderRadius.circular(22),
                                 border: Border.all(
-                                  color: surge.primary.withValues(alpha: 0.18),
+                                  color: surge.separator.withValues(alpha: 0.55),
                                   width: 0.5,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: surge.primary.withValues(alpha: 0.10),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 3),
+                                    color: surge.shadow.withValues(alpha: 0.18),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 1),
                                   ),
                                 ],
                               ),
@@ -180,7 +180,7 @@ class _SurgeBottomNavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final color = selected ? surge.primary : surge.textSecondary;
+    final color = selected ? surge.textPrimary : surge.textSecondary;
     final icon = selected ? item.activeIcon ?? item.icon : item.icon;
 
     return Material(
