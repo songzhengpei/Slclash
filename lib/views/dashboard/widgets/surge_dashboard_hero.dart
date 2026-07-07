@@ -1172,6 +1172,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                 ref,
                 groups,
                 selectedGroupName,
+                surge,
               ),
               behavior: HitTestBehavior.opaque,
               child: Row(
@@ -1184,7 +1185,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         height: 1.0,
                         letterSpacing: 0,
@@ -1232,7 +1233,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         height: 1.0,
                         letterSpacing: 0,
@@ -1259,14 +1260,17 @@ class _HeroProxySelectorBar extends ConsumerWidget {
     WidgetRef ref,
     List<Group> groups,
     String selectedGroupName,
+    SurgeTheme surge,
   ) {
-    showSheet(
+    showModalBottomSheet(
       context: context,
-      props: const SheetProps(isScrollControlled: false),
-      builder: (sheetContext) {
-        final surge = SurgeTheme.of(sheetContext);
-        return AdaptiveSheetScaffold(
-          title: sheetContext.appLocalizations.proxyGroup,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.65,
+        child: AdaptiveSheetScaffold(
+          title: context.appLocalizations.proxyGroup,
           body: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             itemCount: groups.length,
@@ -1347,8 +1351,8 @@ class _HeroProxySelectorBar extends ConsumerWidget {
               );
             },
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 

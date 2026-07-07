@@ -135,18 +135,20 @@ class SurgeBottomNav extends StatelessWidget {
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: selectedSurface,
-                                    borderRadius: BorderRadius.circular(21),
-                                    border: Border.all(
-                                      color: selectedBorder,
-                                      width: 0.5,
+                                Positioned.fill(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: selectedSurface,
+                                      borderRadius: BorderRadius.circular(21),
+                                      border: Border.all(
+                                        color: selectedBorder,
+                                        width: 0.5,
+                                      ),
                                     ),
                                   ),
                                 ),
                                 if (!isDark)
-                                  const Positioned(
+                                  Positioned(
                                     left: 14,
                                     right: 14,
                                     top: 1,
@@ -155,8 +157,8 @@ class SurgeBottomNav extends StatelessWidget {
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: [
-                                            Colors.white70,
-                                            Colors.white10,
+                                            Colors.white.withValues(alpha: 0.14),
+                                            Colors.white.withValues(alpha: 0.0),
                                           ],
                                         ),
                                       ),
