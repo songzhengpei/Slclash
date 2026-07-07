@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'card.dart';
 import 'common.dart';
 import 'empty.dart';
+import 'soft_os_control_dock.dart';
 
 typedef GroupNameProxiesMap = Map<String, List<Proxy>>;
 
@@ -772,60 +773,7 @@ class _ListHeaderState extends State<ListHeader> {
                         ],
                       ),
                     ),
-                    Row(
-                      children: [
-                        if (isExpand) ...[
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(1),
-                            onPressed: () {
-                              widget.onScrollToSelected(groupName);
-                            },
-                            style: ButtonStyle(
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              foregroundColor: WidgetStatePropertyAll(
-                                surge.textSecondary,
-                              ),
-                            ),
-                            iconSize: 18,
-                            icon: const Icon(Icons.adjust),
-                          ),
-                          IconButton(
-                            iconSize: 19,
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(1),
-                            onPressed: _delayTest,
-                            style: ButtonStyle(
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              foregroundColor: WidgetStatePropertyAll(
-                                surge.textSecondary,
-                              ),
-                            ),
-                            icon: const Icon(Icons.network_ping_rounded),
-                          ),
-                          const SizedBox(width: 4),
-                        ] else
-                          const SizedBox(width: 4),
-                        IconButton.filledTonal(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.all(1),
-                          iconSize: 20,
-                          style: ButtonStyle(
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            backgroundColor: WidgetStatePropertyAll(
-                              surge.textSecondary.withValues(alpha: 0.10),
-                            ),
-                            foregroundColor: WidgetStatePropertyAll(
-                              surge.textPrimary,
-                            ),
-                          ),
-                          onPressed: () {
-                            _handleChange(groupName);
-                          },
-                          icon: CommonExpandIcon(expand: isExpand),
-                        ),
-                      ],
-                    ),
+                    _buildActions(context),
                   ],
                 ),
               ),
@@ -836,8 +784,8 @@ class _ListHeaderState extends State<ListHeader> {
                   bottom: 0,
                   child: Divider(
                     height: 0,
-                    thickness: 0.5,
-                    color: surge.separator.withValues(alpha: 0.55),
+                    thickness: surge.spacing.hairline,
+                    color: surge.separator,
                   ),
                 ),
             ],
@@ -846,5 +794,37 @@ class _ListHeaderState extends State<ListHeader> {
       ),
     );
     return widget.enterAnimated ? FadeScaleEnterBox(child: card) : card;
+  }
+
+  Widget _buildActions(BuildContext context) {
+    return SoftOsControlDock(
+      children: [
+        if (isExpand) ...[
+          SoftOsDockButton(
+            tooltip: '定位当前节点',
+            icon: Icons.adjust_rounded,
+            onTap: () {
+              widget.onScrollToSelected(groupName);
+            },
+          ),
+          const SoftOsDockDivider(),
+          SoftOsDockButton(
+            tooltip: '测试延迟',
+            icon: Icons.network_ping_rounded,
+            onTap: _delayTest,
+          ),
+          const SoftOsDockDivider(),
+        ],
+        SoftOsDockButton(
+          tooltip: isExpand ? '收起' : '展开',
+          icon: isExpand
+              ? Icons.keyboard_arrow_up_rounded
+              : Icons.keyboard_arrow_down_rounded,
+          onTap: () {
+            _handleChange(groupName);
+          },
+        ),
+      ],
+    );
   }
 }

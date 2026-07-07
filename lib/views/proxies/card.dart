@@ -146,39 +146,26 @@ class ProxyCard extends StatelessWidget {
                       bottom: 0,
                       child: Divider(
                         height: 0,
-                        thickness: 0.5,
-                        color: surge.separator.withValues(alpha: 0.55),
+                        thickness: surge.spacing.hairline,
+                        color: surge.separator.withValues(alpha: 0.40),
                       ),
                     ),
-                  Positioned(
-                    right: 10,
-                    top: -6,
-                    child: AnimatedScale(
-                      scale: isSelected ? 1 : 0.65,
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOutCubic,
-                      child: AnimatedOpacity(
-                        opacity: isSelected ? 1 : 0,
-                        duration: const Duration(milliseconds: 160),
+                  if (isSelected)
+                    Positioned(
+                      left: 14,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
                         child: Container(
-                          width: 18,
-                          height: 18,
+                          width: 3,
+                          height: 28,
                           decoration: BoxDecoration(
-                            color: surge.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: surface, width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: surge.shadow.withValues(alpha: 0.45),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            color: surge.primary.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'common.dart';
+import 'soft_os_control_dock.dart';
 
 class ProvidersView extends ConsumerStatefulWidget {
   const ProvidersView({super.key});
@@ -345,93 +346,25 @@ class _ProviderActionDock extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final surge = SurgeTheme.of(context);
     final isUpdating = canSync && ref.watch(isUpdatingProvider(updatingKey));
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: surge.textSecondary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: surge.separator.withValues(alpha: 0.70),
-          width: 0.5,
+    return SoftOsControlDock(
+      children: [
+        SoftOsDockButton(
+          tooltip: uploadLabel,
+          icon: Icons.upload_file_rounded,
+          onTap: onUpload,
         ),
-      ),
-      child: SizedBox(
-        height: 42,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ProviderActionIcon(
-              tooltip: uploadLabel,
-              icon: Icons.upload_file_rounded,
-              onTap: onUpload,
-            ),
-            if (canSync) ...[
-              SizedBox(
-                height: 22,
-                child: VerticalDivider(
-                  width: 1,
-                  thickness: 0.5,
-                  color: surge.separator.withValues(alpha: 0.70),
-                ),
-              ),
-              _ProviderActionIcon(
-                tooltip: syncLabel,
-                icon: Icons.sync_rounded,
-                loading: isUpdating,
-                onTap: onSync,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProviderActionIcon extends StatelessWidget {
-  const _ProviderActionIcon({
-    required this.tooltip,
-    required this.icon,
-    required this.onTap,
-    this.loading = false,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    final foreground = loading ? surge.textSecondary : surge.textPrimary;
-
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: loading ? null : onTap,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: 42,
-            height: 42,
-            child: Center(
-              child: loading
-                  ? SizedBox.square(
-                      dimension: 15,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: foreground,
-                      ),
-                    )
-                  : Icon(icon, size: 18, color: foreground),
-            ),
+        if (canSync) ...[
+          const SoftOsDockDivider(),
+          SoftOsDockButton(
+            tooltip: syncLabel,
+            icon: Icons.sync_rounded,
+            loading: isUpdating,
+            onTap: onSync,
           ),
-        ),
-      ),
+        ],
+      ],
     );
   }
 }
