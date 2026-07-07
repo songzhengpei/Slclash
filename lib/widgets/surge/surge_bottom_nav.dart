@@ -92,14 +92,14 @@ class SurgeBottomNav extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: surge.shadow.withValues(alpha: 0.35),
-                  blurRadius: 8,
+                  color: surge.shadow.withValues(alpha: 0.24),
+                  blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
                 BoxShadow(
-                  color: surge.shadow.withValues(alpha: 0.22),
-                  blurRadius: 18,
-                  offset: const Offset(0, 7),
+                  color: surge.shadow.withValues(alpha: 0.14),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
@@ -117,26 +117,19 @@ class SurgeBottomNav extends StatelessWidget {
                         children: [
                           AnimatedPositioned(
                             left: itemWidth * currentIndex,
-                            top: 4,
-                            bottom: 4,
+                            top: 5,
+                            bottom: 5,
                             width: itemWidth,
                             duration: SurgeMotion.container,
                             curve: SurgeMotion.stateCurve,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: surge.fill.withValues(alpha: 0.82),
-                                borderRadius: BorderRadius.circular(22),
+                                color: surge.fill.withValues(alpha: 0.58),
+                                borderRadius: BorderRadius.circular(21),
                                 border: Border.all(
-                                  color: surge.separator.withValues(alpha: 0.55),
+                                  color: surge.separator.withValues(alpha: 0.48),
                                   width: 0.5,
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: surge.shadow.withValues(alpha: 0.18),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
                               ),
                             ),
                           ),
@@ -187,7 +180,12 @@ class _SurgeBottomNavTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(21),
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
