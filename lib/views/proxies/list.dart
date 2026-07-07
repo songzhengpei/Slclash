@@ -66,11 +66,13 @@ class _ProxiesListViewState extends State<ProxiesListView> {
   }
 
   double _getListItemHeight(Widget item) {
-    return switch (item.runtimeType) {
-      const (SizedBox) => (item as SizedBox).height ?? 0,
-      const (ListHeader) => listHeaderHeight,
-      Type() => getProxyTileHeight(),
-    };
+    if (item is ListHeader) {
+      return listHeaderHeight;
+    }
+    if (item is SizedBox) {
+      return item.height ?? 0;
+    }
+    return getProxyTileHeight();
   }
 
   @override
@@ -100,7 +102,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     final List<double> headerOffset = [];
     double currentHeight = 0;
     for (final item in items) {
-      if (item.runtimeType == ListHeader) {
+      if (item is ListHeader) {
         headerOffset.add(currentHeight);
       }
       final itemHeight = _getListItemHeight(item);
@@ -341,7 +343,23 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           currentUnfoldSet: state.currentUnfoldSet,
           cardType: state.proxyCardType,
         );
-        final itemsOffset = _getItemHeightList(items);
+        if (items.isEmpty) {
+          return ProxiesEmptyState(
+            label: appLocalizations.nullTip(appLocalizations.proxies),
+            description: '当前筛选条件下没有可显示的代理组。你可以尝试刷新代理组。',
+            actionLabel: '刷新代理组',
+            onAction: () {
+              globalState.loadingRun(
+                () async {
+                  await ref.read(proxiesActionProvider.notifier).updateGroups();
+                },
+                silence: false,
+                tag: LoadingTag.proxies,
+              );
+            },
+          );
+        }
+        _getItemHeightList(items);
         return CommonScrollBar(
           controller: _controller,
           thumbVisibility: true,
@@ -360,61 +378,66 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                       SurgeBottomNavLayout.mainPageBottomPadding(context),
                     ),
                     controller: _controller,
-                    itemExtentBuilder: (index, _) {
-                      return itemsOffset[index];
-                    },
                     itemCount: items.length,
                     itemBuilder: (_, index) {
-                      return items[index];
+                      final item = items[index];
+                      if (item is ListHeader) {
+                        return SizedBox(height: listHeaderHeight, child: item);
+                      }
+                      return item;
                     },
                   ),
                 ),
               ),
-              LayoutBuilder(
-                builder: (_, container) {
-                  containerHeight = container.maxHeight;
-                  return ValueListenableBuilder(
-                    valueListenable: _headerStateNotifier,
-                    builder: (_, headerState, _) {
-                      if (headerState == null) {
-                        return const SizedBox();
-                      }
-                      if (!_controller.hasClients ||
-                          _controller.offset <= 0.5) {
-                        return const SizedBox();
-                      }
-                      final index =
-                          headerState.currentIndex > state.groups.length - 1
-                          ? 0
-                          : headerState.currentIndex;
-                      if (index < 0 || state.groups.isEmpty) {
-                        return Container();
-                      }
-                      return Stack(
-                        children: [
-                          Positioned(
-                            top: -headerState.offset,
-                            child: Container(
-                              width: container.maxWidth,
-                              color: SurgeTheme.of(context).background,
-                              padding: const EdgeInsets.only(
-                                top: 16,
-                                left: 16,
-                                right: 16,
-                                bottom: 8,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: LayoutBuilder(
+                    builder: (_, container) {
+                      containerHeight = container.maxHeight;
+                      return ValueListenableBuilder(
+                        valueListenable: _headerStateNotifier,
+                        builder: (_, headerState, _) {
+                          if (headerState == null) {
+                            return const SizedBox.shrink();
+                          }
+                          if (!_controller.hasClients ||
+                              _controller.offset <= 0.5) {
+                            return const SizedBox.shrink();
+                          }
+                          final index =
+                              headerState.currentIndex > state.groups.length - 1
+                              ? 0
+                              : headerState.currentIndex;
+                          if (index < 0 || state.groups.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return Stack(
+                            children: [
+                              Positioned(
+                                top: -headerState.offset,
+                                child: Container(
+                                  width: container.maxWidth,
+                                  color: SurgeTheme.of(context).background,
+                                  padding: const EdgeInsets.only(
+                                    top: 16,
+                                    left: 16,
+                                    right: 16,
+                                    bottom: 8,
+                                  ),
+                                  child: _buildHeader(
+                                    ref,
+                                    group: state.groups[index],
+                                    currentUnfoldSet: state.currentUnfoldSet,
+                                  ),
+                                ),
                               ),
-                              child: _buildHeader(
-                                ref,
-                                group: state.groups[index],
-                                currentUnfoldSet: state.currentUnfoldSet,
-                              ),
-                            ),
-                          ),
-                        ],
+                            ],
+                          );
+                        },
                       );
                     },
-                  );
-                },
+                  ),
+                ),
               ),
             ],
           ),
