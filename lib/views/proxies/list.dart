@@ -196,8 +196,10 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         onScrollToSelected: _scrollToGroupSelected,
         key: Key(groupName),
         isExpand: isExpand,
-        rowPosition: ProxyListRowPosition.single,
-        showDivider: false,
+        rowPosition: isExpand
+            ? ProxyListRowPosition.first
+            : ProxyListRowPosition.single,
+        showDivider: isExpand,
         group: group,
         onChange: (String groupName) {
           _handleChange(currentUnfoldSet, groupName);
@@ -390,53 +392,55 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                 ),
               ),
               Positioned.fill(
-                child: IgnorePointer(
-                  child: LayoutBuilder(
-                    builder: (_, container) {
-                      containerHeight = container.maxHeight;
-                      return ValueListenableBuilder(
-                        valueListenable: _headerStateNotifier,
-                        builder: (_, headerState, _) {
-                          if (headerState == null) {
-                            return const SizedBox.shrink();
-                          }
-                          if (!_controller.hasClients ||
-                              _controller.offset <= 0.5) {
-                            return const SizedBox.shrink();
-                          }
-                          final index =
-                              headerState.currentIndex > state.groups.length - 1
-                              ? 0
-                              : headerState.currentIndex;
-                          if (index < 0 || state.groups.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-                          return Stack(
-                            children: [
-                              Positioned(
-                                top: -headerState.offset,
-                                child: Container(
-                                  width: container.maxWidth,
-                                  color: SurgeTheme.of(context).background,
-                                  padding: const EdgeInsets.only(
-                                    top: 16,
-                                    left: 16,
-                                    right: 16,
-                                    bottom: 8,
-                                  ),
-                                  child: _buildHeader(
-                                    ref,
-                                    group: state.groups[index],
-                                    currentUnfoldSet: state.currentUnfoldSet,
-                                  ),
+                child: LayoutBuilder(
+                  builder: (_, container) {
+                    containerHeight = container.maxHeight;
+                    return ValueListenableBuilder(
+                      valueListenable: _headerStateNotifier,
+                      builder: (_, headerState, _) {
+                        if (headerState == null) {
+                          return const SizedBox.shrink();
+                        }
+                        if (!_controller.hasClients ||
+                            _controller.offset <= 0.5) {
+                          return const SizedBox.shrink();
+                        }
+                        final index =
+                            headerState.currentIndex > state.groups.length - 1
+                            ? 0
+                            : headerState.currentIndex;
+                        if (index < 0 || state.groups.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        final group = state.groups[index];
+                        final isExpand = state.currentUnfoldSet.contains(
+                          group.name,
+                        );
+                        return Stack(
+                          children: [
+                            Positioned(
+                              top: -headerState.offset,
+                              child: Container(
+                                width: container.maxWidth,
+                                color: SurgeTheme.of(context).background,
+                                padding: EdgeInsets.only(
+                                  top: 16,
+                                  left: 16,
+                                  right: 16,
+                                  bottom: isExpand ? 0 : 8,
+                                ),
+                                child: _buildHeader(
+                                  ref,
+                                  group: group,
+                                  currentUnfoldSet: state.currentUnfoldSet,
                                 ),
                               ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                  ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ],
