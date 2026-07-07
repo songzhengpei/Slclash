@@ -381,6 +381,10 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                       if (headerState == null) {
                         return const SizedBox();
                       }
+                      if (!_controller.hasClients ||
+                          _controller.offset <= 0.5) {
+                        return const SizedBox();
+                      }
                       final index =
                           headerState.currentIndex > state.groups.length - 1
                           ? 0
@@ -613,8 +617,9 @@ class _ListHeaderState extends State<ListHeader> {
                                   style: context.textTheme.titleMedium
                                       ?.copyWith(
                                         color: surge.textPrimary,
-                                        fontSize: 16,
+                                        fontSize: 15.5,
                                         fontWeight: FontWeight.w700,
+                                        height: 1.05,
                                         letterSpacing: 0,
                                       ),
                                 ),
@@ -635,6 +640,7 @@ class _ListHeaderState extends State<ListHeader> {
                                             ?.copyWith(
                                               color: surge.textSecondary,
                                               fontSize: 12,
+                                              fontWeight: FontWeight.w500,
                                               letterSpacing: 0,
                                             ),
                                       ),
@@ -717,7 +723,8 @@ class _ListHeaderState extends State<ListHeader> {
                                                         .textTheme
                                                         .labelMedium
                                                         ?.copyWith(
-                                                          color: surge.primary,
+                                                          color:
+                                                              surge.textPrimary,
                                                           fontSize: 12,
                                                           fontWeight:
                                                               FontWeight.w600,
@@ -777,11 +784,11 @@ class _ListHeaderState extends State<ListHeader> {
                         IconButton.filledTonal(
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.all(1),
-                          iconSize: 22,
+                          iconSize: 20,
                           style: ButtonStyle(
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             backgroundColor: WidgetStatePropertyAll(
-                              surge.textSecondary.withValues(alpha: 0.12),
+                              surge.textSecondary.withValues(alpha: 0.10),
                             ),
                             foregroundColor: WidgetStatePropertyAll(
                               surge.textPrimary,

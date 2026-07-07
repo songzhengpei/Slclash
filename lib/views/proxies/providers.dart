@@ -248,7 +248,7 @@ class ProviderItem extends StatelessWidget {
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -288,6 +288,15 @@ class ProviderItem extends StatelessWidget {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      _ProviderActionDock(
+                        uploadLabel: context.appLocalizations.upload,
+                        syncLabel: context.appLocalizations.sync,
+                        canSync: provider.vehicleType == 'HTTP',
+                        onUpload: _handleSideLoadProvider,
+                        onSync: _handleUpdateProvider,
+                        updatingKey: provider.updatingKey,
+                      ),
                     ],
                   ),
                   if (provider.subscriptionInfo != null) ...[
@@ -296,32 +305,6 @@ class ProviderItem extends StatelessWidget {
                       subscriptionInfo: provider.subscriptionInfo,
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _ProviderActionButton(
-                        icon: Icons.upload_file_rounded,
-                        label: context.appLocalizations.upload,
-                        onTap: _handleSideLoadProvider,
-                      ),
-                      if (provider.vehicleType == 'HTTP') ...[
-                        const SizedBox(width: 8),
-                        Consumer(
-                          builder: (_, ref, _) {
-                            final isUpdating = ref.watch(
-                              isUpdatingProvider(provider.updatingKey),
-                            );
-                            return _ProviderActionButton(
-                              icon: Icons.sync_rounded,
-                              label: context.appLocalizations.sync,
-                              loading: isUpdating,
-                              onTap: _handleUpdateProvider,
-                            );
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -343,16 +326,80 @@ class ProviderItem extends StatelessWidget {
   }
 }
 
-class _ProviderActionButton extends StatelessWidget {
-  const _ProviderActionButton({
+class _ProviderActionDock extends ConsumerWidget {
+  const _ProviderActionDock({
+    required this.uploadLabel,
+    required this.syncLabel,
+    required this.canSync,
+    required this.onUpload,
+    required this.onSync,
+    required this.updatingKey,
+  });
+
+  final String uploadLabel;
+  final String syncLabel;
+  final bool canSync;
+  final VoidCallback onUpload;
+  final VoidCallback onSync;
+  final String updatingKey;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final surge = SurgeTheme.of(context);
+    final isUpdating = canSync && ref.watch(isUpdatingProvider(updatingKey));
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: surge.textSecondary.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: surge.separator.withValues(alpha: 0.70),
+          width: 0.5,
+        ),
+      ),
+      child: SizedBox(
+        height: 42,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ProviderActionIcon(
+              tooltip: uploadLabel,
+              icon: Icons.upload_file_rounded,
+              onTap: onUpload,
+            ),
+            if (canSync) ...[
+              SizedBox(
+                height: 22,
+                child: VerticalDivider(
+                  width: 1,
+                  thickness: 0.5,
+                  color: surge.separator.withValues(alpha: 0.70),
+                ),
+              ),
+              _ProviderActionIcon(
+                tooltip: syncLabel,
+                icon: Icons.sync_rounded,
+                loading: isUpdating,
+                onTap: onSync,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderActionIcon extends StatelessWidget {
+  const _ProviderActionIcon({
+    required this.tooltip,
     required this.icon,
-    required this.label,
     required this.onTap,
     this.loading = false,
   });
 
+  final String tooltip;
   final IconData icon;
-  final String label;
   final VoidCallback onTap;
   final bool loading;
 
@@ -361,42 +408,27 @@ class _ProviderActionButton extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     final foreground = loading ? surge.textSecondary : surge.textPrimary;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: loading ? null : onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: surge.textSecondary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (loading)
-                SizedBox.square(
-                  dimension: 13,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: foreground,
-                  ),
-                )
-              else
-                Icon(icon, size: 15, color: foreground),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: context.textTheme.labelMedium?.copyWith(
-                  color: foreground,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: loading ? null : onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Center(
+              child: loading
+                  ? SizedBox.square(
+                      dimension: 15,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: foreground,
+                      ),
+                    )
+                  : Icon(icon, size: 18, color: foreground),
+            ),
           ),
         ),
       ),

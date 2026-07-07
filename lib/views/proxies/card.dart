@@ -66,12 +66,7 @@ class ProxyCard extends StatelessWidget {
         );
         final isSelected = selectedProxyName == proxy.name;
         final surface = isExpanded
-            ? (isSelected
-                  ? surge.selectedFill
-                  : Color.alphaBlend(
-                      surge.fill.withValues(alpha: 0.28),
-                      surge.card,
-                    ))
+            ? (isSelected ? surge.selectedFill : surge.card)
             : (isSelected ? surge.selectedFill : surge.card);
         final radius = BorderRadius.vertical(
           top:
@@ -307,8 +302,9 @@ class _ProxyTextBlock extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
           style: context.textTheme.bodyMedium?.copyWith(
             color: surge.textPrimary,
-            fontSize: 14,
+            fontSize: 13.5,
             fontWeight: FontWeight.w600,
+            height: 1.05,
             letterSpacing: 0,
           ),
         ),
@@ -320,6 +316,7 @@ class _ProxyTextBlock extends ConsumerWidget {
           style: context.textTheme.bodySmall?.copyWith(
             color: surge.textSecondary,
             fontSize: 12,
+            fontWeight: FontWeight.w400,
             letterSpacing: 0,
           ),
         ),
