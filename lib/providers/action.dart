@@ -1070,8 +1070,7 @@ class BackupAction extends _$BackupAction {
     final appVersion = ref.read(versionProvider).toString();
     final profilesJson = profiles.map((p) {
       final json = p.toJson();
-      // v2: keep scriptId, strip overwriteType (restored as standard/script)
-      json.remove('overwriteType');
+      // v2: keep both scriptId and overwriteType for correct restore
       return json;
     }).toList();
 
@@ -1117,7 +1116,7 @@ class BackupAction extends _$BackupAction {
       if (!await restoreDir.exists()) {
         throw currentAppLocalizations.restoreException;
       }
-      final isV2 = restoreData.scripts != null;
+      final isV2 = restoreData.isV2;
 
       // Process profiles with overwrite downgrade strategy
       final profiles = restoreData.profiles.map((p) {
@@ -1150,7 +1149,7 @@ class BackupAction extends _$BackupAction {
 
       // Convert scripts from backup data
       List<Script>? scriptList;
-      if (restoreData.scripts != null) {
+      if (isV2 && restoreData.scripts != null) {
         scriptList = [];
         for (final s in restoreData.scripts!) {
           try {
@@ -1162,7 +1161,9 @@ class BackupAction extends _$BackupAction {
       // Integrity check: convert and validate rules + links
       List<Rule>? ruleList;
       List<ProfileRuleLink>? linkList;
-      if (restoreData.rules != null && restoreData.links != null) {
+      final hasRules = restoreData.rules != null;
+      final hasLinks = restoreData.links != null;
+      if (hasRules && hasLinks) {
         ruleList = [];
         for (final r in restoreData.rules!) {
           try {
@@ -1191,6 +1192,11 @@ class BackupAction extends _$BackupAction {
             '${unknownLinks.map((l) => l.ruleId).toSet()}',
           );
         }
+      } else if (hasRules != hasLinks) {
+        throw Exception(
+          'Invalid backup: rules/links metadata incomplete '
+          '(rules=${hasRules}, links=${hasLinks})',
+        );
       }
 
       // Restore to database

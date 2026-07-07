@@ -129,10 +129,10 @@ class RulesDao extends DatabaseAccessor<Database> with _$RulesDaoMixin {
     );
     final ruleIds = rules.map((item) => item.id);
     batch.deleteWhere(this.rules, (t) => t.id.isNotIn(ruleIds));
-    final keys = indexing.generateNKeys(links.length);
+    // Preserve original link order from backup
     batch.insertAllOnConflictUpdate(
       profileRuleLinks,
-      links.mapIndexed((index, item) => item.toCompanion(keys[index])),
+      links.map((item) => item.toCompanion()),
     );
     final linkKeys = links.map((item) => item.key);
     batch.deleteWhere(profileRuleLinks, (t) => t.id.isNotIn(linkKeys));

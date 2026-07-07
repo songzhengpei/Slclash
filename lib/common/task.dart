@@ -753,13 +753,19 @@ Future<String> _backupProfilesOnlyTask(
     );
   }
 
-  // v2: Add provider cache files for current profileId only
-  if (isV2 && currentProfileId != null) {
-    final curProvidersDir = Directory(
-      join(profilesDir.path, 'providers', currentProfileId.toString()),
-    );
-    if (await curProvidersDir.exists()) {
-      await for (final entity in curProvidersDir.list(recursive: true)) {
+  // v2: Add provider cache files for all backed-up profile IDs
+  if (isV2) {
+    final profileIds = profilesJson
+        .map((p) => p['id'])
+        .whereType<int>()
+        .map((id) => id.toString())
+        .toSet();
+    for (final id in profileIds) {
+      final profileProvidersDir = Directory(
+        join(profilesDir.path, 'providers', id),
+      );
+      if (!await profileProvidersDir.exists()) continue;
+      await for (final entity in profileProvidersDir.list(recursive: true)) {
         if (entity is File) {
           final relPath = relative(entity.path, from: profilesDir.path);
           await encoder.addFile(entity, join('profiles', relPath));
@@ -793,10 +799,14 @@ class ProfilesRestoreData {
   final List<Map<String, dynamic>>? scripts;
   final List<Map<String, dynamic>>? rules;
   final List<Map<String, dynamic>>? links;
+  final String backupType;
+
+  bool get isV2 => backupType == profilesBackupTypeV2;
 
   ProfilesRestoreData({
     required this.currentProfileId,
     required this.profiles,
+    required this.backupType,
     this.scripts,
     this.rules,
     this.links,
@@ -831,8 +841,9 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
         'Security: path traversal detected in backup: ${file.name}',
       );
     }
-    final outPath = normalize(join(restoreDirPath, normalizedName));
-    if (!outPath.startsWith(restoreDirPath)) {
+    final root = absolute(normalize(restoreDirPath));
+    final outPath = absolute(normalize(join(root, normalizedName)));
+    if (!equals(root, outPath) && !isWithin(root, outPath)) {
       throw FormatException(
         'Security: resolved path outside restore dir: ${file.name}',
       );
@@ -910,6 +921,7 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
       return ProfilesRestoreData(
         currentProfileId: metadata.currentProfileId,
         profiles: metadata.profiles,
+        backupType: backupType,
         scripts: isV2 ? metadata.scripts : null,
         rules: isV2 ? metadata.rules : null,
         links: isV2 ? metadata.links : null,
@@ -955,6 +967,7 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
     return ProfilesRestoreData(
       currentProfileId: currentProfileId,
       profiles: profiles.map((p) => p.toJson()).toList(),
+      backupType: '',
     );
   }
 
@@ -984,6 +997,7 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
     return ProfilesRestoreData(
       currentProfileId: currentProfileId,
       profiles: rawProfiles,
+      backupType: '',
     );
   }
 

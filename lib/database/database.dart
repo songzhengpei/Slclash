@@ -195,10 +195,10 @@ class Database extends _$Database {
             this.rules,
             rules.map((r) => r.toCompanion()).toList(),
           );
-          final keys = indexing.generateNKeys(links.length);
+          // Preserve original link order from backup (do not regenerate keys)
           b.insertAllOnConflictUpdate(
             profileRuleLinks,
-            links.mapIndexed((i, l) => l.toCompanion(keys[i])).toList(),
+            links.map((l) => l.toCompanion()).toList(),
           );
         }
       }
