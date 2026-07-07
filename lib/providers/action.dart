@@ -1075,9 +1075,21 @@ class BackupAction extends _$BackupAction {
     }).toList();
 
     // Query scripts, rules, links for v2 backup
+    // Filter out scripts whose .js file is missing on disk
     final scriptsFromDb = await database.scriptsDao.query().get();
-    final scriptJsons = scriptsFromDb.map((s) => s.toJson()).toList();
-    final jsFileNames = await database.scriptsDao.fileNames().get();
+    final allJsFileNames =
+        await database.scriptsDao.fileNames().get();
+    final scriptsDir = Directory(await appPath.scriptsDirPath);
+    final jsFileNames = <String>[];
+    final scriptJsons = <Map<String, dynamic>>[];
+    for (final s in scriptsFromDb) {
+      final jsFileName = '${s.id}.js';
+      final jsFile = File(join(scriptsDir.path, jsFileName));
+      if (await jsFile.exists()) {
+        scriptJsons.add(s.toJson());
+        jsFileNames.add(jsFileName);
+      }
+    }
     final rulesFromDb = await database.rulesDao.queryAllRules();
     final ruleJsons = rulesFromDb.map((r) => r.toJson()).toList();
     final linksFromDb = await database.rulesDao.queryAllLinks();
