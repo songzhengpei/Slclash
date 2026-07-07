@@ -75,7 +75,7 @@ class SurgeBottomNav extends StatelessWidget {
         ThemeData.estimateBrightnessForColor(navSurface) == Brightness.dark;
     final navBorder =
         isDark
-            ? surge.navBorder.withValues(alpha: 0.95)
+            ? surge.navBorder.withValues(alpha: 0.40)
             : surge.separator.withValues(alpha: 0.70);
     final selectedSurface =
         Color.alphaBlend(surge.textPrimary.withValues(alpha: 0.065), navSurface);
