@@ -302,13 +302,11 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         ref.watch(themeSettingProvider.select((state) => state.textScale));
         final hasGroups = state.groups.isNotEmpty;
         final freshness = snapshotState.freshness;
-        if (!hasGroups &&
-            (freshness == ProxyGroupsFreshnessState.none ||
-                freshness == ProxyGroupsFreshnessState.failed ||
-                freshness == ProxyGroupsFreshnessState.refreshing)) {
+        if (!hasGroups) {
           final isFailed = freshness == ProxyGroupsFreshnessState.failed;
           final isRefreshing =
               freshness == ProxyGroupsFreshnessState.refreshing;
+          final canRefresh = freshness != ProxyGroupsFreshnessState.refreshing;
           return ProxiesEmptyState(
             label: isRefreshing
                 ? '正在刷新代理组'
@@ -319,9 +317,9 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                 ? '正在重新读取当前配置的代理组。'
                 : isFailed
                 ? '配置已加载，但当前代理组数据为空。你可以尝试刷新代理组。'
-                : '当前配置没有可显示的代理组。',
-            actionLabel: isFailed || isRefreshing ? '刷新代理组' : null,
-            onAction: isFailed || isRefreshing
+                : '当前配置暂时没有可显示的代理组。你可以尝试刷新代理组。',
+            actionLabel: canRefresh ? '刷新代理组' : null,
+            onAction: canRefresh
                 ? () {
                     globalState.loadingRun(
                       () async {
