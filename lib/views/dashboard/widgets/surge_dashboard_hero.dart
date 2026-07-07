@@ -1269,11 +1269,9 @@ class _HeroProxySelectorBar extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => SizedBox(
         height: MediaQuery.of(context).size.height * 0.65,
-        child: SheetProvider(
-          type: SheetType.bottomSheet,
-          child: AdaptiveSheetScaffold(
-            title: context.appLocalizations.proxyGroup,
-            body: ListView.builder(
+        child: AdaptiveSheetScaffold(
+          title: context.appLocalizations.proxyGroup,
+          body: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             itemCount: groups.length,
             itemBuilder: (context, index) {
@@ -1353,7 +1351,6 @@ class _HeroProxySelectorBar extends ConsumerWidget {
               );
             },
           ),
-        ),
         ),
       ),
     );
