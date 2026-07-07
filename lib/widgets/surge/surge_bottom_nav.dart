@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -86,44 +85,76 @@ class SurgeBottomNav extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: surge.navBar,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: surge.navBorder),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: surge.separator.withValues(alpha: 0.72),
+                width: 0.5,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: surge.shadow,
-                  blurRadius: 26,
-                  offset: const Offset(0, 12),
+                  color: surge.shadow.withValues(alpha: 0.55),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+                BoxShadow(
+                  color: surge.shadow.withValues(alpha: 0.45),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: surge.navBar,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: SizedBox(
-                    height: SurgeBottomNavLayout.height,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+              borderRadius: BorderRadius.circular(28),
+              child: SizedBox(
+                height: SurgeBottomNavLayout.height,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final itemWidth = constraints.maxWidth / items.length;
+                      return Stack(
+                        clipBehavior: Clip.none,
                         children: [
-                          for (var index = 0; index < items.length; index++)
-                            Expanded(
-                              child: _SurgeBottomNavTile(
-                                item: items[index],
-                                selected: index == currentIndex,
-                                onTap: () => onTap(index),
+                          AnimatedPositioned(
+                            left: itemWidth * currentIndex,
+                            top: 4,
+                            bottom: 4,
+                            width: itemWidth,
+                            duration: SurgeMotion.container,
+                            curve: SurgeMotion.stateCurve,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: surge.primary.withValues(alpha: 0.11),
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: surge.primary.withValues(alpha: 0.18),
+                                  width: 0.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: surge.primary.withValues(alpha: 0.10),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
                               ),
                             ),
+                          ),
+                          Row(
+                            children: [
+                              for (var index = 0; index < items.length; index++)
+                                Expanded(
+                                  child: _SurgeBottomNavTile(
+                                    item: items[index],
+                                    selected: index == currentIndex,
+                                    onTap: () => onTap(index),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -149,24 +180,19 @@ class _SurgeBottomNavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final color = selected ? surge.textPrimary : surge.textSecondary;
+    final color = selected ? surge.primary : surge.textSecondary;
     final icon = selected ? item.activeIcon ?? item.icon : item.icon;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedScale(
-                scale: selected ? 1.08 : 1,
-                duration: SurgeMotion.reveal,
-                curve: SurgeMotion.stateCurve,
-                child: Icon(icon, color: color, size: selected ? 25 : 24),
-              ),
+              Icon(icon, color: color, size: 24),
               const SizedBox(height: 5),
               Text(
                 item.label,
