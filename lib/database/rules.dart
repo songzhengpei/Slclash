@@ -90,6 +90,14 @@ class RulesDao extends DatabaseAccessor<Database> with _$RulesDaoMixin {
     });
   }
 
+  Future<List<Rule>> queryAllRules() async {
+    return select(rules).map((r) => r.toRule()).get();
+  }
+
+  Future<List<ProfileRuleLink>> queryAllLinks() async {
+    return select(profileRuleLinks).map((l) => l.toLink()).get();
+  }
+
   Future<void> resetOrders() async {
     final stmt = profileRuleLinks.select();
 

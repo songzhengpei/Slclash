@@ -636,6 +636,9 @@ class ProfilesBackupMetadata {
   final String appVersion;
   final int? currentProfileId;
   final List<Map<String, dynamic>> profiles;
+  final List<Map<String, dynamic>>? scripts;
+  final List<Map<String, dynamic>>? rules;
+  final List<Map<String, dynamic>>? links;
 
   ProfilesBackupMetadata({
     required this.backupType,
@@ -643,6 +646,9 @@ class ProfilesBackupMetadata {
     required this.appVersion,
     required this.currentProfileId,
     required this.profiles,
+    this.scripts,
+    this.rules,
+    this.links,
   });
 
   Map<String, dynamic> toJson() => {
@@ -651,6 +657,9 @@ class ProfilesBackupMetadata {
         'appVersion': appVersion,
         'currentProfileId': currentProfileId,
         'profiles': profiles,
+        if (scripts != null) 'scripts': scripts,
+        if (rules != null) 'rules': rules,
+        if (links != null) 'links': links,
       };
 
   factory ProfilesBackupMetadata.fromJson(Map<String, dynamic> json) {
@@ -663,47 +672,69 @@ class ProfilesBackupMetadata {
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           [],
+      scripts: (json['scripts'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+      rules: (json['rules'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+      links: (json['links'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
     );
   }
 }
 
 Future<String> backupProfilesOnlyTask(
-  List<Map<String, dynamic>> profilesJson,
-  List<String> fileNames,
+  Map<String, dynamic> backupPayload,
   int? currentProfileId,
   String appVersion,
 ) async {
   return compute<
-      VM5<List<Map<String, dynamic>>, List<String>, int?, String,
-          RootIsolateToken>,
+      VM4<Map<String, dynamic>, int?, String, RootIsolateToken>,
       String>(
     _backupProfilesOnlyTask,
-    VM5(profilesJson, fileNames, currentProfileId, appVersion,
+    VM4(backupPayload, currentProfileId, appVersion,
         RootIsolateToken.instance!),
   );
 }
 
 Future<String> _backupProfilesOnlyTask(
-  VM5<List<Map<String, dynamic>>, List<String>, int?, String, RootIsolateToken>
-      args,
+  VM4<Map<String, dynamic>, int?, String, RootIsolateToken> args,
 ) async {
-  final profilesJson = args.a;
-  final fileNames = args.b;
-  final currentProfileId = args.c;
-  final appVersion = args.d;
-  final token = args.e;
+  final backupPayload = args.a;
+  final currentProfileId = args.b;
+  final appVersion = args.c;
+  final token = args.d;
   BackgroundIsolateBinaryMessenger.ensureInitialized(token);
 
+  final profilesJson =
+      (backupPayload['profiles'] as List).cast<Map<String, dynamic>>();
+  final yamlFileNames =
+      (backupPayload['yamlFileNames'] as List).cast<String>();
+  final jsFileNames = (backupPayload['jsFileNames'] as List?)?.cast<String>();
+  final scripts =
+      (backupPayload['scripts'] as List?)?.cast<Map<String, dynamic>>();
+  final rules =
+      (backupPayload['rules'] as List?)?.cast<Map<String, dynamic>>();
+  final links =
+      (backupPayload['links'] as List?)?.cast<Map<String, dynamic>>();
+
   final profilesDir = Directory(await appPath.profilesPath);
+  final scriptsDir = Directory(await appPath.scriptsDirPath);
   final tempZipFilePath = await appPath.tempFilePath;
   final tempMetaFile = File(await appPath.tempFilePath);
 
+  final isV2 = scripts != null || rules != null || links != null;
   final metadata = ProfilesBackupMetadata(
-    backupType: profilesBackupType,
+    backupType: isV2 ? profilesBackupTypeV2 : profilesBackupType,
     createdAt: DateTime.now().toUtc().toIso8601String(),
     appVersion: appVersion,
     currentProfileId: currentProfileId,
     profiles: profilesJson,
+    scripts: isV2 ? scripts : null,
+    rules: isV2 ? rules : null,
+    links: isV2 ? links : null,
   );
   await tempMetaFile.writeAsString(json.encode(metadata.toJson()));
 
@@ -714,13 +745,43 @@ Future<String> _backupProfilesOnlyTask(
     await encoder.addDirectory(
       profilesDir,
       filter: (file, _) {
-        if (!fileNames.contains(basename(file.path))) {
-          return ZipFileOperation.skip;
+        if (yamlFileNames.contains(basename(file.path))) {
+          return ZipFileOperation.include;
         }
-        return ZipFileOperation.include;
+        return ZipFileOperation.skip;
       },
     );
   }
+
+  // v2: Add provider cache files for current profileId only
+  if (isV2 && currentProfileId != null) {
+    final curProvidersDir = Directory(
+      join(profilesDir.path, 'providers', currentProfileId.toString()),
+    );
+    if (await curProvidersDir.exists()) {
+      await for (final entity in curProvidersDir.list(recursive: true)) {
+        if (entity is File) {
+          final relPath = relative(entity.path, from: profilesDir.path);
+          await encoder.addFile(entity, join('profiles', relPath));
+        }
+      }
+    }
+  }
+
+  // v2: Add script files for IDs in jsFileNames
+  if (isV2 && jsFileNames != null && jsFileNames.isNotEmpty) {
+    if (await scriptsDir.exists()) {
+      await for (final entity in scriptsDir.list()) {
+        if (entity is File && entity.path.endsWith('.js')) {
+          final base = basename(entity.path);
+          if (jsFileNames.contains(base)) {
+            await encoder.addFile(entity, join('scripts', base));
+          }
+        }
+      }
+    }
+  }
+
   encoder.close();
   await tempMetaFile.safeDelete();
   return tempZipFilePath;
@@ -729,10 +790,16 @@ Future<String> _backupProfilesOnlyTask(
 class ProfilesRestoreData {
   final int? currentProfileId;
   final List<Map<String, dynamic>> profiles;
+  final List<Map<String, dynamic>>? scripts;
+  final List<Map<String, dynamic>>? rules;
+  final List<Map<String, dynamic>>? links;
 
   ProfilesRestoreData({
     required this.currentProfileId,
     required this.profiles,
+    this.scripts,
+    this.rules,
+    this.links,
   });
 }
 
@@ -757,7 +824,19 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
   final dir = Directory(restoreDirPath);
   await dir.create(recursive: true);
   for (final file in archive.files) {
-    final outPath = join(restoreDirPath, posix.normalize(file.name));
+    // Zip path safety: prevent path traversal
+    final normalizedName = normalize(file.name);
+    if (normalizedName.contains('..')) {
+      throw FormatException(
+        'Security: path traversal detected in backup: ${file.name}',
+      );
+    }
+    final outPath = normalize(join(restoreDirPath, normalizedName));
+    if (!outPath.startsWith(restoreDirPath)) {
+      throw FormatException(
+        'Security: resolved path outside restore dir: ${file.name}',
+      );
+    }
     final outputStream = OutputFileStream(outPath);
     file.writeContent(outputStream);
     await outputStream.close();
@@ -770,9 +849,10 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
     final metadataMap =
         json.decode(await metadataFile.readAsString()) as Map<String, dynamic>;
     final backupType = metadataMap['backupType'] as String? ?? '';
-    if (backupType == profilesBackupType) {
-      // New profiles-only format
+    if (backupType == profilesBackupType ||
+        backupType == profilesBackupTypeV2) {
       final metadata = ProfilesBackupMetadata.fromJson(metadataMap);
+      final isV2 = backupType == profilesBackupTypeV2;
       // Copy yaml files
       final restoreProfilesDir = join(restoreDirPath, profilesBackupDirName);
       if (await Directory(restoreProfilesDir).exists()) {
@@ -788,9 +868,51 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
           }
         }
       }
+      // v2: Restore provider cache files
+      if (isV2) {
+        final restoreProvidersDir =
+            join(restoreProfilesDir, 'providers');
+        if (await Directory(restoreProvidersDir).exists()) {
+          final targetProvidersDir =
+              Directory(await appPath.getProvidersRootPath());
+          if (!await targetProvidersDir.exists()) {
+            await targetProvidersDir.create(recursive: true);
+          }
+          await for (final f
+              in Directory(restoreProvidersDir).list(recursive: true)) {
+            if (f is File) {
+              final rel = relative(f.path, from: restoreProvidersDir);
+              final t = join(targetProvidersDir.path, rel);
+              await Directory(dirname(t)).create(recursive: true);
+              await f.copy(t);
+            }
+          }
+        }
+      }
+      // v2: Restore script files
+      if (isV2) {
+        final restoreScriptsDir =
+            join(restoreDirPath, scriptsBackupDirName);
+        if (await Directory(restoreScriptsDir).exists()) {
+          final targetScriptsDir =
+              Directory(await appPath.scriptsDirPath);
+          if (!await targetScriptsDir.exists()) {
+            await targetScriptsDir.create(recursive: true);
+          }
+          await for (final f in Directory(restoreScriptsDir).list()) {
+            if (f is File && f.path.endsWith('.js')) {
+              await f.copy(
+                  join(targetScriptsDir.path, basename(f.path)));
+            }
+          }
+        }
+      }
       return ProfilesRestoreData(
         currentProfileId: metadata.currentProfileId,
         profiles: metadata.profiles,
+        scripts: isV2 ? metadata.scripts : null,
+        rules: isV2 ? metadata.rules : null,
+        links: isV2 ? metadata.links : null,
       );
     }
   }

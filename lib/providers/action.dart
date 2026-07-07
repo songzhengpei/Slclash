@@ -1070,14 +1070,37 @@ class BackupAction extends _$BackupAction {
     final appVersion = ref.read(versionProvider).toString();
     final profilesJson = profiles.map((p) {
       final json = p.toJson();
-      // Remove fields that depend on external data
-      json.remove('scriptId');
+      // v2: keep scriptId, strip overwriteType (restored as standard/script)
       json.remove('overwriteType');
       return json;
     }).toList();
+
+    // Query scripts, rules, links for v2 backup
+    final scriptsFromDb = await database.scriptsDao.query().get();
+    final scriptJsons = scriptsFromDb.map((s) => s.toJson()).toList();
+    final jsFileNames = await database.scriptsDao.fileNames().get();
+    final rulesFromDb = await database.rulesDao.queryAllRules();
+    final ruleJsons = rulesFromDb.map((r) => r.toJson()).toList();
+    final linksFromDb = await database.rulesDao.queryAllLinks();
+    final linkJsons = linksFromDb.map((link) {
+      return <String, dynamic>{
+        'profileId': link.profileId,
+        'ruleId': link.ruleId,
+        'scene': link.scene?.name,
+        'order': link.order,
+      };
+    }).toList();
+
+    final backupPayload = <String, dynamic>{
+      'profiles': profilesJson,
+      'yamlFileNames': profileFileNames,
+      'jsFileNames': jsFileNames,
+      'scripts': scriptJsons,
+      'rules': ruleJsons,
+      'links': linkJsons,
+    };
     return backupProfilesOnlyTask(
-      profilesJson,
-      profileFileNames,
+      backupPayload,
       currentProfileId,
       appVersion,
     );
@@ -1094,13 +1117,29 @@ class BackupAction extends _$BackupAction {
       if (!await restoreDir.exists()) {
         throw currentAppLocalizations.restoreException;
       }
-      // Clean profiles: remove scriptId and overwriteType
+      final isV2 = restoreData.scripts != null;
+
+      // Process profiles with overwrite downgrade strategy
       final profiles = restoreData.profiles.map((p) {
         final map = Map<String, dynamic>.from(p);
-        map['scriptId'] = null;
-        map['overwriteType'] = OverwriteType.standard.name;
+        if (!isV2) {
+          // v1 backup: everything to standard
+          map['scriptId'] = null;
+          map['overwriteType'] = OverwriteType.standard.name;
+        } else {
+          // v2 backup: custom → standard, script/standard stay
+          final ot = OverwriteType.values.byName(
+            map['overwriteType'] as String? ?? 'standard',
+          );
+          if (ot == OverwriteType.custom) {
+            map['overwriteType'] = OverwriteType.standard.name;
+            map['scriptId'] = null;
+          }
+          // script / standard: keep as-is
+        }
         return map;
       }).toList();
+
       // Convert to Profile objects
       final profileList = <Profile>[];
       for (final p in profiles) {
@@ -1108,9 +1147,62 @@ class BackupAction extends _$BackupAction {
           profileList.add(Profile.fromJson(p));
         } catch (_) {}
       }
+
+      // Convert scripts from backup data
+      List<Script>? scriptList;
+      if (restoreData.scripts != null) {
+        scriptList = [];
+        for (final s in restoreData.scripts!) {
+          try {
+            scriptList.add(Script.fromJson(s));
+          } catch (_) {}
+        }
+      }
+
+      // Integrity check: convert and validate rules + links
+      List<Rule>? ruleList;
+      List<ProfileRuleLink>? linkList;
+      if (restoreData.rules != null && restoreData.links != null) {
+        ruleList = [];
+        for (final r in restoreData.rules!) {
+          try {
+            ruleList.add(Rule.fromJson(r));
+          } catch (_) {}
+        }
+        linkList = restoreData.links!.map((m) {
+          return ProfileRuleLink(
+            profileId: m['profileId'] as int?,
+            ruleId: m['ruleId'] as int,
+            scene: m['scene'] != null
+                ? RuleScene.values.byName(m['scene'] as String)
+                : null,
+            order: m['order'] as String?,
+          );
+        }).toList();
+
+        // Validate: every link must reference a known rule
+        final ruleIds = ruleList!.map((r) => r.id).toSet();
+        final unknownLinks =
+            linkList!.where((l) => !ruleIds.contains(l.ruleId)).toList();
+        if (unknownLinks.isNotEmpty) {
+          throw Exception(
+            'Restore integrity error: ${unknownLinks.length} link(s) '
+            'reference non-existent rule IDs: '
+            '${unknownLinks.map((l) => l.ruleId).toSet()}',
+          );
+        }
+      }
+
       // Restore to database
       final isOverride = restoreStrategy == RestoreStrategy.override;
-      await database.restoreProfilesOnly(profileList, isOverride: isOverride);
+      await database.restoreProfilesOnly(
+        profileList,
+        scripts: scriptList ?? [],
+        rules: ruleList ?? [],
+        links: linkList ?? [],
+        isOverride: isOverride,
+      );
+
       // Restore currentProfileId
       final restoredIds = profileList.map((p) => p.id).toSet();
       final requestedId = restoreData.currentProfileId;

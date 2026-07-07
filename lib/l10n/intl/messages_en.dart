@@ -764,7 +764,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Restore configuration files only",
     ),
     "restoreProfilesOnlyDesc": MessageLookupByLibrary.simpleMessage(
-      "Only subscription and node data will be restored. App settings, theme, WebDAV, scripts, rules, and custom proxy groups will not be restored.",
+      "Profiles, provider node caches, scripts, and rules will be restored. App settings, theme, WebDAV, and custom proxy groups will not be restored.",
     ),
     "restoreStrategy": MessageLookupByLibrary.simpleMessage("Restore strategy"),
     "restoreStrategy_compatible": MessageLookupByLibrary.simpleMessage(

@@ -157,17 +157,50 @@ class Database extends _$Database {
 
   Future<void> restoreProfilesOnly(
     List<Profile> profiles, {
+    List<Script> scripts = const [],
+    List<Rule> rules = const [],
+    List<ProfileRuleLink> links = const [],
     bool isOverride = false,
   }) async {
-    if (profiles.isEmpty) return;
+    if (profiles.isEmpty &&
+        scripts.isEmpty &&
+        rules.isEmpty &&
+        links.isEmpty) return;
     await batch((b) {
-      if (isOverride) {
-        profilesDao.setAllWithBatch(b, profiles);
-      } else {
-        profilesDao.putAllWithBatch(
-          b,
-          profiles.map((item) => item.toCompanion()),
-        );
+      if (profiles.isNotEmpty) {
+        if (isOverride) {
+          profilesDao.setAllWithBatch(b, profiles);
+        } else {
+          profilesDao.putAllWithBatch(
+            b,
+            profiles.map((item) => item.toCompanion()),
+          );
+        }
+      }
+      if (scripts.isNotEmpty) {
+        if (isOverride) {
+          scriptsDao.setAllWithBatch(b, scripts);
+        } else {
+          b.insertAllOnConflictUpdate(
+            this.scripts,
+            scripts.map((s) => s.toCompanion()).toList(),
+          );
+        }
+      }
+      if (rules.isNotEmpty && links.isNotEmpty) {
+        if (isOverride) {
+          rulesDao.restoreWithBatch(b, rules, links);
+        } else {
+          b.insertAllOnConflictUpdate(
+            this.rules,
+            rules.map((r) => r.toCompanion()).toList(),
+          );
+          final keys = indexing.generateNKeys(links.length);
+          b.insertAllOnConflictUpdate(
+            profileRuleLinks,
+            links.mapIndexed((i, l) => l.toCompanion(keys[i])).toList(),
+          );
+        }
       }
     });
   }
