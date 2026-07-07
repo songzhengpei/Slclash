@@ -693,8 +693,9 @@ class SetupAction extends _$SetupAction {
     await coreController.stopListener();
     // P0+P1: 停代理后先关连接释放 buffer，再 GC 释放 Go 堆
     // 顺序执行，不阻塞 handleStop 调用者的后续 UI 重置
-    unawaited(coreController.closeConnections()
-        .then((_) => coreController.requestGc()));
+    unawaited(
+      coreController.closeConnections().then((_) => coreController.requestGc()),
+    );
   }
 
   /// Local-only stop for smart auto stop: cancel timer, stop listener,
@@ -1078,8 +1079,6 @@ class BackupAction extends _$BackupAction {
     // Query scripts, rules, links for v2 backup
     // Filter out scripts whose .js file is missing on disk
     final scriptsFromDb = await database.scriptsDao.query().get();
-    final allJsFileNames =
-        await database.scriptsDao.fileNames().get();
     final scriptsDir = Directory(await appPath.scriptsDirPath);
     final jsFileNames = <String>[];
     final scriptJsons = <Map<String, dynamic>>[];
@@ -1111,11 +1110,7 @@ class BackupAction extends _$BackupAction {
       'rules': ruleJsons,
       'links': linkJsons,
     };
-    return backupProfilesOnlyTask(
-      backupPayload,
-      currentProfileId,
-      appVersion,
-    );
+    return backupProfilesOnlyTask(backupPayload, currentProfileId, appVersion);
   }
 
   Future<void> restore() async {
@@ -1140,9 +1135,8 @@ class BackupAction extends _$BackupAction {
           map['overwriteType'] = OverwriteType.standard.name;
         } else {
           // v2 backup: custom → standard, script/standard stay
-          final ot = OverwriteType.values.byName(
-            map['overwriteType'] as String? ?? 'standard',
-          );
+          final overwriteType = map['overwriteType'] as String? ?? 'standard';
+          final ot = OverwriteType.values.byName(overwriteType);
           if (ot == OverwriteType.custom) {
             map['overwriteType'] = OverwriteType.standard.name;
             map['scriptId'] = null;
@@ -1195,9 +1189,10 @@ class BackupAction extends _$BackupAction {
         }).toList();
 
         // Validate: every link must reference a known rule
-        final ruleIds = ruleList!.map((r) => r.id).toSet();
-        final unknownLinks =
-            linkList!.where((l) => !ruleIds.contains(l.ruleId)).toList();
+        final ruleIds = ruleList.map((r) => r.id).toSet();
+        final unknownLinks = linkList
+            .where((l) => !ruleIds.contains(l.ruleId))
+            .toList();
         if (unknownLinks.isNotEmpty) {
           throw Exception(
             'Restore integrity error: ${unknownLinks.length} link(s) '
