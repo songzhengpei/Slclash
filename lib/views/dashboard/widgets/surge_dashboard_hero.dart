@@ -406,7 +406,10 @@ class _HeroModeCardSurface extends StatelessWidget {
         return Container(
           width: double.infinity,
           height: 80 * layoutScale,
-          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10 * layoutScale),
+          padding: EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 10 * layoutScale,
+          ),
           decoration: BoxDecoration(
             color: fillColor,
             gradient: !dynamicColor && progress > 0.001
@@ -544,9 +547,15 @@ class _HeroActionButton extends StatelessWidget {
           onTap: onPressed,
           borderRadius: BorderRadius.circular(18),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: 74, minHeight: 28 * layoutScale),
+            constraints: BoxConstraints(
+              minWidth: 74,
+              minHeight: 28 * layoutScale,
+            ),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4 * layoutScale),
+              padding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 4 * layoutScale,
+              ),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -1019,7 +1028,11 @@ class _PillStatusLightState extends State<_PillStatusLight>
 }
 
 class _ModeSwitch extends StatelessWidget {
-  const _ModeSwitch({required this.value, required this.onChanged, this.layoutScale = 1.0});
+  const _ModeSwitch({
+    required this.value,
+    required this.onChanged,
+    this.layoutScale = 1.0,
+  });
 
   final Mode value;
   final ValueChanged<Mode> onChanged;
@@ -1485,9 +1498,10 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                       ),
                     ),
                   ),
-                  SoftOsIconButton(
-                    icon: Icons.close,
+                  SoftOsActionButton(
+                    icon: normalizeSoftOsActionIcon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
+                    compact: true,
                   ),
                 ],
               ),

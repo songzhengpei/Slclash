@@ -236,15 +236,7 @@ class _AccessViewState extends ConsumerState<AccessView> {
     final appLocalizations = context.appLocalizations;
     return [
       if (showSave) _buildConfirm(),
-      CommonPopupBox(
-        targetBuilder: (open) {
-          return IconButton(
-            onPressed: () {
-              open(offset: const Offset(0, 0));
-            },
-            icon: const Icon(Icons.more_vert),
-          );
-        },
+      SoftOsPopupActionButton(
         popup: CommonPopupMenu(
           items: [
             PopupMenuItemData(

@@ -182,7 +182,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
       required VoidCallback? onPressed,
     }) {
       return Padding(
-        padding: const EdgeInsets.only(left: 10),
+        padding: const EdgeInsets.only(left: 8),
         child: Align(
           alignment: Alignment.centerLeft,
           child: SoftOsActionButton(
@@ -285,6 +285,9 @@ class CommonScaffoldState extends State<CommonScaffold> {
     if (action is CommonPopupBox) {
       return _SoftOsScaffoldAction.popup(action.popup);
     }
+    if (action is SoftOsPopupActionButton) {
+      return _SoftOsScaffoldAction.popup(action.popup, tooltip: action.tooltip);
+    }
     if (action is SurgeAddButton) {
       return _SoftOsScaffoldAction.text(
         label: action.label,
@@ -340,23 +343,10 @@ class CommonScaffoldState extends State<CommonScaffold> {
       );
     }
     if (action.popup != null) {
-      return CommonPopupBox(
+      return SoftOsPopupActionButton(
         popup: action.popup!,
-        targetBuilder: (open) {
-          return inDock
-              ? SoftOsActionDockButton(
-                  icon: normalizeSoftOsActionIcon(Icons.more_vert),
-                  onPressed: () {
-                    open(offset: const Offset(0, 0));
-                  },
-                )
-              : SoftOsActionButton(
-                  icon: normalizeSoftOsActionIcon(Icons.more_vert),
-                  onPressed: () {
-                    open(offset: const Offset(0, 0));
-                  },
-                );
-        },
+        inDock: inDock,
+        tooltip: action.tooltip,
       );
     }
     if (action.label != null) {
@@ -469,7 +459,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
                       animateColor: true,
                       centerTitle: widget.centerTitle ?? false,
                       leading: leading,
-                      leadingWidth: leading != null ? 64 : null,
+                      leadingWidth: leading != null ? 56 : null,
                       title: _buildTitle(state.searchState),
                       actions: _buildActions(
                         state.searchState != null,
@@ -607,13 +597,12 @@ class _SoftOsScaffoldAction {
       tooltip = null,
       raw = false;
 
-  const _SoftOsScaffoldAction.popup(this.popup)
+  const _SoftOsScaffoldAction.popup(this.popup, {this.tooltip})
     : icon = null,
       child = null,
       label = null,
       consumer = null,
       onPressed = null,
-      tooltip = null,
       raw = false;
 
   final IconData? icon;

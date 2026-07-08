@@ -251,7 +251,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       backgroundColor: backgroundColor,
       forceMaterialTransparency: type == SheetType.bottomSheet ? true : false,
       leading: leading,
-      leadingWidth: leading != null ? 64 : null,
+      leadingWidth: leading != null ? 56 : null,
       automaticallyImplyLeading: false,
       centerTitle: true,
       toolbarHeight: type == SheetType.bottomSheet ? 48 : null,

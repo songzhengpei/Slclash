@@ -1,4 +1,5 @@
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/widgets/popup.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -13,6 +14,10 @@ IconData normalizeSoftOsActionIcon(IconData icon) {
     Icons.add || Icons.add_rounded => CupertinoIcons.plus,
     Icons.save_as_outlined ||
     Icons.save_as_rounded => CupertinoIcons.square_arrow_down,
+    Icons.delete ||
+    Icons.delete_rounded ||
+    Icons.delete_outline ||
+    Icons.delete_outline_rounded ||
     Icons.delete_sweep_outlined ||
     Icons.delete_sweep_rounded => CupertinoIcons.trash,
     Icons.filter_alt_outlined ||
@@ -38,7 +43,7 @@ Color _softOsActionSurface(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return Color.alphaBlend(
-    surge.textPrimary.withValues(alpha: isDark ? 0.14 : 0.09),
+    surge.textPrimary.withValues(alpha: isDark ? 0.18 : 0.12),
     surge.card,
   );
 }
@@ -46,7 +51,7 @@ Color _softOsActionSurface(BuildContext context) {
 Color _softOsActionBorder(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  return surge.textPrimary.withValues(alpha: isDark ? 0.20 : 0.15);
+  return surge.textPrimary.withValues(alpha: isDark ? 0.26 : 0.22);
 }
 
 Color _softOsActionForeground(BuildContext context, bool enabled) {
@@ -61,13 +66,13 @@ List<BoxShadow> _softOsActionShadows(BuildContext context) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return [
     BoxShadow(
-      color: surge.shadow.withValues(alpha: isDark ? 0.16 : 0.06),
-      blurRadius: isDark ? 5 : 6,
-      offset: const Offset(0, 1.5),
+      color: surge.shadow.withValues(alpha: isDark ? 0.14 : 0.05),
+      blurRadius: isDark ? 4.5 : 5,
+      offset: const Offset(0, 1),
     ),
     BoxShadow(
-      color: surge.shadow.withValues(alpha: isDark ? 0.08 : 0.025),
-      blurRadius: 1.5,
+      color: surge.shadow.withValues(alpha: isDark ? 0.07 : 0.02),
+      blurRadius: 1,
       offset: const Offset(0, 0.5),
     ),
   ];
@@ -146,9 +151,9 @@ class SoftOsActionButton extends StatelessWidget {
   final bool loading;
   final bool compact;
 
-  double get _visualWidth => compact ? 40 : 42;
-  double get _visualHeight => compact ? 34 : 36;
-  double get _iconSize => compact ? 19 : 20;
+  double get _visualWidth => compact ? 38 : 40;
+  double get _visualHeight => compact ? 32 : 34;
+  double get _iconSize => compact ? 18.5 : 19;
   double get _radius => _visualHeight / 2;
 
   @override
@@ -227,7 +232,7 @@ class SoftOsActionDock extends StatelessWidget {
   final List<Widget> children;
   final bool compact;
 
-  double get _height => compact ? 34 : 36;
+  double get _height => compact ? 32 : 34;
   double get _radius => _height / 2;
 
   @override
@@ -289,8 +294,8 @@ class SoftOsActionDockButton extends StatelessWidget {
   final bool loading;
   final bool compact;
 
-  double get _iconSize => compact ? 19 : 20;
-  double get _width => compact ? 38 : 40;
+  double get _iconSize => compact ? 18.5 : 19;
+  double get _width => compact ? 36 : 38;
 
   @override
   Widget build(BuildContext context) {
@@ -332,7 +337,7 @@ class SoftOsActionDockButton extends StatelessWidget {
 
 /// A thin divider for [SoftOsActionDock].
 class SoftOsActionDivider extends StatelessWidget {
-  const SoftOsActionDivider({super.key, this.height = 18, this.alpha = 0.22});
+  const SoftOsActionDivider({super.key, this.height = 16, this.alpha = 0.28});
 
   final double height;
   final double alpha;
@@ -371,8 +376,8 @@ class SoftOsActionTextButton extends StatelessWidget {
   final String? tooltip;
   final bool compact;
 
-  double get _visualHeight => compact ? 34 : 36;
-  double get _minWidth => compact ? 48 : 54;
+  double get _visualHeight => compact ? 32 : 34;
+  double get _minWidth => compact ? 46 : 50;
   double get _radius => _visualHeight / 2;
 
   @override
@@ -408,7 +413,7 @@ class SoftOsActionTextButton extends StatelessWidget {
                   minHeight: _visualHeight,
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Center(child: _SoftOsActionText(label: label)),
                 ),
               ),
@@ -446,7 +451,7 @@ class SoftOsActionDockTextButton extends StatelessWidget {
   final String? tooltip;
   final bool compact;
 
-  double get _minWidth => compact ? 48 : 54;
+  double get _minWidth => compact ? 46 : 50;
 
   @override
   Widget build(BuildContext context) {
@@ -462,7 +467,7 @@ class SoftOsActionDockTextButton extends StatelessWidget {
           child: SizedBox(
             height: 48,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Center(child: _SoftOsActionText(label: label)),
             ),
           ),
@@ -479,6 +484,50 @@ class SoftOsActionDockTextButton extends StatelessWidget {
         style: TextStyle(color: foreground),
         child: result,
       ),
+    );
+  }
+}
+
+/// A stable popup entry point rendered with the AppBar Soft OS action style.
+class SoftOsPopupActionButton extends StatelessWidget {
+  const SoftOsPopupActionButton({
+    super.key,
+    required this.popup,
+    this.inDock = false,
+    this.compact = false,
+    this.tooltip,
+    this.offset = Offset.zero,
+  });
+
+  final Widget popup;
+  final bool inDock;
+  final bool compact;
+  final String? tooltip;
+  final Offset offset;
+
+  @override
+  Widget build(BuildContext context) {
+    return CommonPopupBox(
+      popup: popup,
+      targetBuilder: (open) {
+        void handleOpen() {
+          open(offset: offset);
+        }
+
+        return inDock
+            ? SoftOsActionDockButton(
+                icon: normalizeSoftOsActionIcon(Icons.more_vert),
+                onPressed: handleOpen,
+                tooltip: tooltip,
+                compact: compact,
+              )
+            : SoftOsActionButton(
+                icon: normalizeSoftOsActionIcon(Icons.more_vert),
+                onPressed: handleOpen,
+                tooltip: tooltip,
+                compact: compact,
+              );
+      },
     );
   }
 }
