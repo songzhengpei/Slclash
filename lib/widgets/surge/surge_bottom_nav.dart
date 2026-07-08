@@ -9,7 +9,7 @@ class SurgeBottomNavLayout {
   const SurgeBottomNavLayout._();
 
   static const double height = 56;
-  static const double horizontalInset = 24;
+  static const double horizontalInset = 21;
   static const double extraBottomInset = 5;
   static const double noGestureBottomInset = 16;
   static const double contentGap = 9;
@@ -95,7 +95,7 @@ class SurgeBottomNav extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: navSurface,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(26),
               border: Border.all(
                 color: navBorder,
                 width: 0.5,
@@ -114,7 +114,7 @@ class SurgeBottomNav extends StatelessWidget {
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(26),
               child: SizedBox(
                 height: SurgeBottomNavLayout.height,
                 child: Padding(
