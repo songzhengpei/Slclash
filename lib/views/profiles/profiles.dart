@@ -77,16 +77,16 @@ class _ProfilesViewState extends State<ProfilesView> {
   List<Widget> _buildActions(List<Profile> profiles) {
     return [
       if (profiles.isNotEmpty)
-        _ProfilesActionButton(
+        IconButton(
           tooltip: context.appLocalizations.sync,
-          icon: Icons.sync_rounded,
+          icon: const Icon(Icons.sync_rounded),
           onPressed: () {
             _updateProfiles(profiles);
           },
         ),
-      _ProfilesActionButton(
+      IconButton(
         tooltip: context.appLocalizations.settings,
-        icon: Icons.tune_rounded,
+        icon: const Icon(Icons.tune_rounded),
         onPressed: () {
           showSheet(
             context: context,
@@ -270,29 +270,6 @@ class _SoftOsIconSurface extends StatelessWidget {
         icon,
         size: iconSize,
         color: color.withValues(alpha: foregroundAlpha),
-      ),
-    );
-  }
-}
-
-class _ProfilesActionButton extends StatelessWidget {
-  const _ProfilesActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Tooltip(
-        message: tooltip,
-        child: SoftOsIconButton(icon: icon, onPressed: onPressed),
       ),
     );
   }

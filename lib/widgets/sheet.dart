@@ -178,18 +178,10 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         (nestedNavigatorPop != null && route?.impliesAppBarDismissal == false ||
             nestedNavigatorPop == null);
     final compact = type == SheetType.bottomSheet;
-    IconData normalizeIcon(IconData icon) {
-      return switch (icon) {
-        Icons.close => Icons.close_rounded,
-        Icons.arrow_back => Icons.arrow_back_rounded,
-        Icons.check => Icons.check_rounded,
-        _ => icon,
-      };
-    }
 
     Widget buildIconButton(IconButtonData data) {
       return SoftOsActionButton(
-        icon: normalizeIcon(data.icon),
+        icon: normalizeSoftOsActionIcon(data.icon),
         onPressed: data.onPressed,
         compact: compact,
       );
@@ -209,7 +201,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         }
         children.add(
           SoftOsActionDockButton(
-            icon: normalizeIcon(data[index].icon),
+            icon: normalizeSoftOsActionIcon(data[index].icon),
             onPressed: data[index].onPressed,
             compact: compact,
           ),
@@ -239,20 +231,37 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
                   ),
                 ))
         : null;
-
     final suffixPop = type != SheetType.page && actions.isEmpty && useCloseIcon;
+    final pagePopButton =
+        type == SheetType.page && route?.impliesAppBarDismissal == true
+        ? buildIconButton(
+            IconButtonData(
+              icon: backIconData,
+              onPressed:
+                  widget.backAction ??
+                  () {
+                    Navigator.of(context).maybePop();
+                  },
+            ),
+          )
+        : null;
+    final leading = suffixPop ? null : popButton ?? pagePopButton;
+
     final appBar = AppBar(
       backgroundColor: backgroundColor,
       forceMaterialTransparency: type == SheetType.bottomSheet ? true : false,
-      leading: suffixPop ? null : popButton,
-      automaticallyImplyLeading: type == SheetType.page ? true : false,
+      leading: leading,
+      leadingWidth: leading != null ? 64 : null,
+      automaticallyImplyLeading: false,
       centerTitle: true,
       toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
       title: Text(widget.title),
       titleTextStyle: type == SheetType.bottomSheet
           ? context.textTheme.titleLarge?.adjustSize(-4)
           : null,
-      actions: !suffixPop ? genActions(actions) : genActions([?popButton]),
+      actions: !suffixPop
+          ? genActions(actions, endSpace: 16)
+          : genActions([?popButton], endSpace: 16),
     );
     if (type == SheetType.bottomSheet) {
       const handleSize = Size(28, 4);

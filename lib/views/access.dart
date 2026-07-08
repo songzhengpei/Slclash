@@ -193,33 +193,15 @@ class _AccessViewState extends ConsumerState<AccessView> {
   }
 
   Widget _buildConfirm() {
-    return Consumer(
-      builder: (_, ref, child) {
-        final accessControl = ref.watch(accessControlStateProvider);
-        final noSave = ref.watch(
-          vpnSettingProvider.select((state) {
-            final current = _getRealAccessControlProps(
-              state.accessControlProps,
-            );
-            final origin = _getRealAccessControlProps(accessControl);
-            return current == origin;
-          }),
-        );
-        if (noSave) {
-          return const SizedBox();
-        }
-        return child!;
+    return CommonPopScope(
+      onPop: (_) {
+        _handleBack();
+        return false;
       },
-      child: CommonPopScope(
-        onPop: (_) {
-          _handleBack();
-          return false;
-        },
-        child: CommonMinFilledButtonTheme(
-          child: FilledButton.tonal(
-            onPressed: _handleSave,
-            child: Text(context.appLocalizations.save),
-          ),
+      child: CommonMinFilledButtonTheme(
+        child: FilledButton.tonal(
+          onPressed: _handleSave,
+          child: Text(context.appLocalizations.save),
         ),
       ),
     );
@@ -246,10 +228,14 @@ class _AccessViewState extends ConsumerState<AccessView> {
     });
   }
 
-  List<Widget> _buildActions(BuildContext context, {required bool enable}) {
+  List<Widget> _buildActions(
+    BuildContext context, {
+    required bool enable,
+    required bool showSave,
+  }) {
     final appLocalizations = context.appLocalizations;
     return [
-      _buildConfirm(),
+      if (showSave) _buildConfirm(),
       CommonPopupBox(
         targetBuilder: (open) {
           return IconButton(
@@ -454,13 +440,24 @@ class _AccessViewState extends ConsumerState<AccessView> {
     final currentList = accessControl.currentList;
     final viewPackageNameList = viewPackages.map((e) => e.packageName).toList();
     final valueList = currentList.intersection(viewPackageNameList);
+    final noSave = ref.watch(
+      vpnSettingProvider.select((state) {
+        final current = _getRealAccessControlProps(state.accessControlProps);
+        final origin = _getRealAccessControlProps(accessControl);
+        return current == origin;
+      }),
+    );
     return CommonScaffold(
       key: _scaffoldKey,
       isLoading: isLoading,
       backgroundColor: SurgeTheme.of(context).background,
       searchState: AppBarSearchState(onSearch: _onSearch, autoAddSearch: false),
       title: context.appLocalizations.appAccessControl,
-      actions: _buildActions(context, enable: accessControl.enable),
+      actions: _buildActions(
+        context,
+        enable: accessControl.enable,
+        showSave: !noSave,
+      ),
       body: DisabledMask(
         status: !accessControl.enable,
         child: Column(

@@ -1,5 +1,77 @@
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
+IconData normalizeSoftOsActionIcon(IconData icon) {
+  return switch (icon) {
+    Icons.close || Icons.close_rounded => CupertinoIcons.xmark,
+    Icons.arrow_back ||
+    Icons.arrow_back_rounded ||
+    Icons.arrow_back_ios_new_rounded => CupertinoIcons.chevron_back,
+    Icons.search || Icons.search_rounded => CupertinoIcons.search,
+    Icons.check || Icons.check_rounded => CupertinoIcons.check_mark,
+    Icons.add || Icons.add_rounded => CupertinoIcons.plus,
+    Icons.save_as_outlined ||
+    Icons.save_as_rounded => CupertinoIcons.square_arrow_down,
+    Icons.delete_sweep_outlined ||
+    Icons.delete_sweep_rounded => CupertinoIcons.trash,
+    Icons.filter_alt_outlined ||
+    Icons.settings_outlined ||
+    Icons.tune ||
+    Icons.tune_rounded => CupertinoIcons.slider_horizontal_3,
+    Icons.sync || Icons.sync_rounded => CupertinoIcons.arrow_2_circlepath,
+    Icons.cloud_sync ||
+    Icons.cloud_sync_rounded => CupertinoIcons.cloud_download,
+    Icons.refresh ||
+    Icons.refresh_rounded ||
+    Icons.replay ||
+    Icons.replay_rounded => CupertinoIcons.arrow_counterclockwise,
+    Icons.more_horiz ||
+    Icons.more_horiz_rounded ||
+    Icons.more_vert ||
+    Icons.more_vert_rounded => CupertinoIcons.ellipsis,
+    _ => icon,
+  };
+}
+
+Color _softOsActionSurface(BuildContext context) {
+  final surge = SurgeTheme.of(context);
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return Color.alphaBlend(
+    surge.textPrimary.withValues(alpha: isDark ? 0.14 : 0.09),
+    surge.card,
+  );
+}
+
+Color _softOsActionBorder(BuildContext context) {
+  final surge = SurgeTheme.of(context);
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return surge.textPrimary.withValues(alpha: isDark ? 0.20 : 0.15);
+}
+
+Color _softOsActionForeground(BuildContext context, bool enabled) {
+  final surge = SurgeTheme.of(context);
+  return enabled
+      ? surge.textPrimary.withValues(alpha: 0.96)
+      : surge.textSecondary.withValues(alpha: 0.46);
+}
+
+List<BoxShadow> _softOsActionShadows(BuildContext context) {
+  final surge = SurgeTheme.of(context);
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return [
+    BoxShadow(
+      color: surge.shadow.withValues(alpha: isDark ? 0.16 : 0.06),
+      blurRadius: isDark ? 5 : 6,
+      offset: const Offset(0, 1.5),
+    ),
+    BoxShadow(
+      color: surge.shadow.withValues(alpha: isDark ? 0.08 : 0.025),
+      blurRadius: 1.5,
+      offset: const Offset(0, 0.5),
+    ),
+  ];
+}
 
 /// A standalone circular icon button following the Soft OS visual language.
 ///
@@ -74,55 +146,66 @@ class SoftOsActionButton extends StatelessWidget {
   final bool loading;
   final bool compact;
 
-  double get _visualSize => compact ? 40 : 42;
+  double get _visualWidth => compact ? 40 : 42;
+  double get _visualHeight => compact ? 34 : 36;
   double get _iconSize => compact ? 19 : 20;
+  double get _radius => _visualHeight / 2;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final enabled = onPressed != null && !loading;
-    final foreground = enabled
-        ? surge.textPrimary.withValues(alpha: 0.82)
-        : surge.textSecondary.withValues(alpha: 0.42);
-    final backgroundAlpha = enabled ? (compact ? 0.05 : 0.052) : 0.035;
-    final borderAlpha = enabled ? (compact ? 0.40 : 0.44) : 0.30;
+    final foreground = _softOsActionForeground(context, enabled);
+    final radius = BorderRadius.circular(_radius);
 
     Widget result = SizedBox.square(
       dimension: 48,
-      child: Center(
-        child: Material(
-          color: surge.textSecondary.withValues(alpha: backgroundAlpha),
-          shape: CircleBorder(
-            side: BorderSide(
-              color: surge.separator.withValues(alpha: borderAlpha),
-              width: surge.spacing.hairline,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: _softOsActionSurface(context),
+              borderRadius: radius,
+              border: Border.all(
+                color: _softOsActionBorder(context),
+                width: surge.spacing.hairline,
+              ),
+              boxShadow: _softOsActionShadows(context),
             ),
+            child: SizedBox(width: _visualWidth, height: _visualHeight),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: loading ? null : onPressed,
-            customBorder: const CircleBorder(),
-            child: SizedBox.square(
-              dimension: _visualSize,
-              child: Center(
-                child: loading
-                    ? SizedBox.square(
-                        dimension: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.6,
-                          color: foreground,
+          Positioned.fill(
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(24),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: loading ? null : onPressed,
+                borderRadius: BorderRadius.circular(24),
+                child: Center(
+                  child: loading
+                      ? SizedBox.square(
+                          dimension: 15,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.7,
+                            color: foreground,
+                          ),
+                        )
+                      : IconTheme.merge(
+                          data: IconThemeData(
+                            size: _iconSize,
+                            color: foreground,
+                          ),
+                          child:
+                              child ??
+                              Icon(icon, size: _iconSize, color: foreground),
                         ),
-                      )
-                    : IconTheme.merge(
-                        data: IconThemeData(size: _iconSize, color: foreground),
-                        child:
-                            child ??
-                            Icon(icon, size: _iconSize, color: foreground),
-                      ),
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
 
@@ -144,31 +227,43 @@ class SoftOsActionDock extends StatelessWidget {
   final List<Widget> children;
   final bool compact;
 
-  double get _height => compact ? 42 : 44;
-  double get _radius => compact ? 21 : 22;
-  double get _surfaceAlpha => compact ? 0.05 : 0.052;
-  double get _borderAlpha => compact ? 0.40 : 0.44;
+  double get _height => compact ? 34 : 36;
+  double get _radius => _height / 2;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return SizedBox(
       height: 48,
-      child: Center(
-        child: Material(
-          color: surge.textSecondary.withValues(alpha: _surfaceAlpha),
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_radius),
-            side: BorderSide(
-              color: surge.separator.withValues(alpha: _borderAlpha),
-              width: surge.spacing.hairline,
+      child: IntrinsicWidth(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              top: (48 - _height) / 2,
+              bottom: (48 - _height) / 2,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: _softOsActionSurface(context),
+                  borderRadius: BorderRadius.circular(_radius),
+                  border: Border.all(
+                    color: _softOsActionBorder(context),
+                    width: surge.spacing.hairline,
+                  ),
+                  boxShadow: _softOsActionShadows(context),
+                ),
+              ),
             ),
-          ),
-          child: SizedBox(
-            height: _height,
-            child: Row(mainAxisSize: MainAxisSize.min, children: children),
-          ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: SizedBox(
+                height: 48,
+                child: Row(mainAxisSize: MainAxisSize.min, children: children),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -195,28 +290,26 @@ class SoftOsActionDockButton extends StatelessWidget {
   final bool compact;
 
   double get _iconSize => compact ? 19 : 20;
+  double get _width => compact ? 38 : 40;
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
     final enabled = onPressed != null && !loading;
-    final foreground = enabled
-        ? surge.textPrimary.withValues(alpha: 0.82)
-        : surge.textSecondary.withValues(alpha: 0.42);
+    final foreground = _softOsActionForeground(context, enabled);
 
     Widget result = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: loading ? null : onPressed,
         child: SizedBox(
-          width: 44,
+          width: _width,
           height: 48,
           child: Center(
             child: loading
                 ? SizedBox.square(
-                    dimension: 14,
+                    dimension: 15,
                     child: CircularProgressIndicator(
-                      strokeWidth: 1.6,
+                      strokeWidth: 1.7,
                       color: foreground,
                     ),
                   )
@@ -239,7 +332,7 @@ class SoftOsActionDockButton extends StatelessWidget {
 
 /// A thin divider for [SoftOsActionDock].
 class SoftOsActionDivider extends StatelessWidget {
-  const SoftOsActionDivider({super.key, this.height = 20, this.alpha = 0.40});
+  const SoftOsActionDivider({super.key, this.height = 18, this.alpha = 0.22});
 
   final double height;
   final double alpha;
@@ -255,9 +348,158 @@ class SoftOsActionDivider extends StatelessWidget {
           child: VerticalDivider(
             width: 1,
             thickness: surge.spacing.hairline,
-            color: surge.separator.withValues(alpha: alpha),
+            color: surge.textPrimary.withValues(alpha: alpha),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// AppBar-level text action matching [SoftOsActionButton].
+class SoftOsActionTextButton extends StatelessWidget {
+  const SoftOsActionTextButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.tooltip,
+    this.compact = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+  final bool compact;
+
+  double get _visualHeight => compact ? 34 : 36;
+  double get _minWidth => compact ? 48 : 54;
+  double get _radius => _visualHeight / 2;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final enabled = onPressed != null;
+    final foreground = _softOsActionForeground(context, enabled);
+    final radius = BorderRadius.circular(_radius);
+
+    Widget result = SizedBox(
+      height: 48,
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: _softOsActionSurface(context),
+            borderRadius: radius,
+            border: Border.all(
+              color: _softOsActionBorder(context),
+              width: surge.spacing.hairline,
+            ),
+            boxShadow: _softOsActionShadows(context),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: radius,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: radius,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: _minWidth,
+                  minHeight: _visualHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Center(child: _SoftOsActionText(label: label)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (tooltip != null && tooltip!.isNotEmpty) {
+      result = Tooltip(message: tooltip!, child: result);
+    }
+    return IconTheme.merge(
+      data: IconThemeData(color: foreground),
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: foreground),
+        child: result,
+      ),
+    );
+  }
+}
+
+/// A text segment inside [SoftOsActionDock].
+class SoftOsActionDockTextButton extends StatelessWidget {
+  const SoftOsActionDockTextButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.tooltip,
+    this.compact = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+  final bool compact;
+
+  double get _minWidth => compact ? 48 : 54;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final foreground = _softOsActionForeground(context, enabled);
+
+    Widget result = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: _minWidth),
+          child: SizedBox(
+            height: 48,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Center(child: _SoftOsActionText(label: label)),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (tooltip != null && tooltip!.isNotEmpty) {
+      result = Tooltip(message: tooltip!, child: result);
+    }
+    return IconTheme.merge(
+      data: IconThemeData(color: foreground),
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: foreground),
+        child: result,
+      ),
+    );
+  }
+}
+
+class _SoftOsActionText extends StatelessWidget {
+  const _SoftOsActionText({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = IconTheme.of(context).color;
+    return Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: color,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
       ),
     );
   }

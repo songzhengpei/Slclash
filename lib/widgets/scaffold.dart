@@ -1,13 +1,16 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/widgets/popup.dart';
 import 'package:fl_clash/widgets/pop_scope.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'chip.dart';
 import 'inherited.dart';
+import 'theme.dart';
 
 typedef OnKeywordsUpdateCallback = void Function(List<String> keywords);
 
@@ -174,28 +177,55 @@ class CommonScaffoldState extends State<CommonScaffold> {
   }
 
   Widget? _buildLeading(VoidCallback? backAction) {
+    Widget buildLeadingButton({
+      required IconData icon,
+      required VoidCallback? onPressed,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 10),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SoftOsActionButton(
+            icon: normalizeSoftOsActionIcon(icon),
+            onPressed: onPressed,
+          ),
+        ),
+      );
+    }
+
     if (_isEdit) {
-      return IconButton(
+      return buildLeadingButton(
         onPressed: _appBarState.value.editState?.onExit,
-        icon: const Icon(Icons.close),
+        icon: Icons.close,
       );
     }
     if (_isSearch) {
-      return IconButton(
+      return buildLeadingButton(
         onPressed: handleExitSearching,
-        icon: const Icon(Icons.arrow_back),
+        icon: Icons.arrow_back,
       );
     }
-    return backAction != null
-        ? BackButton(
-            onPressed: () {
-              if (!mounted) {
-                return;
-              }
-              backAction();
-            },
-          )
-        : null;
+    if (backAction != null) {
+      return buildLeadingButton(
+        icon: Icons.arrow_back,
+        onPressed: () {
+          if (!mounted) {
+            return;
+          }
+          backAction();
+        },
+      );
+    }
+    final route = ModalRoute.of(context);
+    if (route?.impliesAppBarDismissal == true) {
+      return buildLeadingButton(
+        icon: Icons.arrow_back,
+        onPressed: () {
+          Navigator.of(context).maybePop();
+        },
+      );
+    }
+    return null;
   }
 
   Widget _buildTitle(AppBarSearchState? startState) {
@@ -222,18 +252,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
   }
 
   IconData _normalizeActionIcon(IconData icon) {
-    return switch (icon) {
-      Icons.close => Icons.close_rounded,
-      Icons.arrow_back => Icons.arrow_back_rounded,
-      Icons.search => Icons.search_rounded,
-      Icons.check => Icons.check_rounded,
-      Icons.add => Icons.add_rounded,
-      Icons.save_as_outlined => Icons.save_as_rounded,
-      Icons.delete_sweep_outlined => Icons.delete_sweep_rounded,
-      Icons.filter_alt_outlined => Icons.tune_rounded,
-      Icons.settings_outlined => Icons.tune_rounded,
-      _ => icon,
-    };
+    return normalizeSoftOsActionIcon(icon);
   }
 
   IconData? _resolveIconData(Widget icon) {
@@ -243,7 +262,44 @@ class CommonScaffoldState extends State<CommonScaffold> {
     return null;
   }
 
+  String? _resolveTextLabel(Widget? child) {
+    if (child is Text) {
+      return child.data;
+    }
+    return null;
+  }
+
   _SoftOsScaffoldAction? _resolveAction(Widget action) {
+    if (action is SizedBox && action.child == null) {
+      return null;
+    }
+    if (action is CommonMinIconButtonTheme) {
+      return _resolveAction(action.child);
+    }
+    if (action is CommonMinFilledButtonTheme) {
+      return _resolveAction(action.child);
+    }
+    if (action is Consumer) {
+      return _SoftOsScaffoldAction.consumer(action);
+    }
+    if (action is CommonPopupBox) {
+      return _SoftOsScaffoldAction.popup(action.popup);
+    }
+    if (action is SurgeAddButton) {
+      return _SoftOsScaffoldAction.text(
+        label: action.label,
+        onPressed: action.onPressed,
+      );
+    }
+    if (action is ButtonStyleButton) {
+      final label = _resolveTextLabel(action.child);
+      if (label != null && label.isNotEmpty) {
+        return _SoftOsScaffoldAction.text(
+          label: label,
+          onPressed: action.onPressed,
+        );
+      }
+    }
     if (action is IconButton) {
       final icon = _resolveIconData(action.icon);
       return _SoftOsScaffoldAction(
@@ -265,21 +321,78 @@ class CommonScaffoldState extends State<CommonScaffold> {
     return _SoftOsScaffoldAction(child: action, onPressed: null, raw: true);
   }
 
+  Widget _buildActionTarget(
+    _SoftOsScaffoldAction action, {
+    required bool inDock,
+  }) {
+    if (action.consumer != null) {
+      final consumer = action.consumer!;
+      return Consumer(
+        builder: (context, ref, child) {
+          final resolved = _resolveAction(
+            consumer.builder(context, ref, consumer.child),
+          );
+          if (resolved == null) {
+            return const SizedBox.shrink();
+          }
+          return _buildActionTarget(resolved, inDock: inDock);
+        },
+      );
+    }
+    if (action.popup != null) {
+      return CommonPopupBox(
+        popup: action.popup!,
+        targetBuilder: (open) {
+          return inDock
+              ? SoftOsActionDockButton(
+                  icon: normalizeSoftOsActionIcon(Icons.more_vert),
+                  onPressed: () {
+                    open(offset: const Offset(0, 0));
+                  },
+                )
+              : SoftOsActionButton(
+                  icon: normalizeSoftOsActionIcon(Icons.more_vert),
+                  onPressed: () {
+                    open(offset: const Offset(0, 0));
+                  },
+                );
+        },
+      );
+    }
+    if (action.label != null) {
+      return inDock
+          ? SoftOsActionDockTextButton(
+              label: action.label!,
+              onPressed: action.onPressed,
+              tooltip: action.tooltip,
+            )
+          : SoftOsActionTextButton(
+              label: action.label!,
+              onPressed: action.onPressed,
+              tooltip: action.tooltip,
+            );
+    }
+    if (action.raw) {
+      return SizedBox.square(dimension: 48, child: Center(child: action.child));
+    }
+    return inDock
+        ? SoftOsActionDockButton(
+            icon: action.icon,
+            onPressed: action.onPressed,
+            tooltip: action.tooltip,
+            child: action.child,
+          )
+        : SoftOsActionButton(
+            icon: action.icon,
+            onPressed: action.onPressed,
+            tooltip: action.tooltip,
+            child: action.child,
+          );
+  }
+
   Widget _buildSoftOsActions(List<_SoftOsScaffoldAction> actions) {
     if (actions.length == 1) {
-      final action = actions.first;
-      if (action.raw) {
-        return SizedBox.square(
-          dimension: 48,
-          child: Center(child: action.child),
-        );
-      }
-      return SoftOsActionButton(
-        icon: action.icon,
-        onPressed: action.onPressed,
-        tooltip: action.tooltip,
-        child: action.child,
-      );
+      return _buildActionTarget(actions.first, inDock: false);
     }
 
     final children = <Widget>[];
@@ -288,20 +401,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
       if (index > 0) {
         children.add(const SoftOsActionDivider());
       }
-      if (action.raw) {
-        children.add(
-          SizedBox.square(dimension: 48, child: Center(child: action.child)),
-        );
-      } else {
-        children.add(
-          SoftOsActionDockButton(
-            icon: action.icon,
-            onPressed: action.onPressed,
-            tooltip: action.tooltip,
-            child: action.child,
-          ),
-        );
-      }
+      children.add(_buildActionTarget(action, inDock: true));
     }
 
     return SoftOsActionDock(children: children);
@@ -310,13 +410,16 @@ class CommonScaffoldState extends State<CommonScaffold> {
   List<Widget> _buildActions(bool hasSearch, List<Widget> actions) {
     if (_isSearch) {
       return genActions([
-        SoftOsActionButton(icon: Icons.close_rounded, onPressed: _handleClear),
-      ]);
+        SoftOsActionButton(
+          icon: normalizeSoftOsActionIcon(Icons.close),
+          onPressed: _handleClear,
+        ),
+      ], endSpace: 16);
     }
     final resolvedActions = [
       if (hasSearch && widget.searchState?.autoAddSearch == true)
         _SoftOsScaffoldAction(
-          icon: Icons.search_rounded,
+          icon: normalizeSoftOsActionIcon(Icons.search),
           onPressed: () {
             _updateSearchState((state) => state?.copyWith(query: ''));
           },
@@ -326,7 +429,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
     if (resolvedActions.isEmpty) {
       return const [];
     }
-    return genActions([_buildSoftOsActions(resolvedActions)]);
+    return genActions([_buildSoftOsActions(resolvedActions)], endSpace: 16);
   }
 
   Widget _buildAppBarWrap(Widget child) {
@@ -359,14 +462,14 @@ class CommonScaffoldState extends State<CommonScaffold> {
               ValueListenableBuilder<AppBarState>(
                 valueListenable: _appBarState,
                 builder: (_, state, _) {
+                  final leading = _buildLeading(backAction);
                   return _buildAppBarWrap(
                     AppBar(
-                      automaticallyImplyLeading: backAction != null
-                          ? false
-                          : true,
+                      automaticallyImplyLeading: false,
                       animateColor: true,
                       centerTitle: widget.centerTitle ?? false,
-                      leading: _buildLeading(backAction),
+                      leading: leading,
+                      leadingWidth: leading != null ? 64 : null,
                       title: _buildTitle(state.searchState),
                       actions: _buildActions(
                         state.searchState != null,
@@ -471,22 +574,66 @@ class _SoftOsScaffoldAction {
   const _SoftOsScaffoldAction({
     this.icon,
     this.child,
+    this.label,
+    this.consumer,
+    this.popup,
     required this.onPressed,
     this.tooltip,
     this.raw = false,
-  }) : assert(icon != null || child != null);
+  }) : assert(
+         icon != null ||
+             child != null ||
+             label != null ||
+             consumer != null ||
+             popup != null,
+       );
+
+  const _SoftOsScaffoldAction.text({
+    required this.label,
+    required this.onPressed,
+  }) : icon = null,
+       child = null,
+       consumer = null,
+       popup = null,
+       tooltip = null,
+       raw = false;
+
+  const _SoftOsScaffoldAction.consumer(this.consumer)
+    : icon = null,
+      child = null,
+      label = null,
+      popup = null,
+      onPressed = null,
+      tooltip = null,
+      raw = false;
+
+  const _SoftOsScaffoldAction.popup(this.popup)
+    : icon = null,
+      child = null,
+      label = null,
+      consumer = null,
+      onPressed = null,
+      tooltip = null,
+      raw = false;
 
   final IconData? icon;
   final Widget? child;
+  final String? label;
+  final Consumer? consumer;
+  final Widget? popup;
   final VoidCallback? onPressed;
   final String? tooltip;
   final bool raw;
 }
 
-List<Widget> genActions(List<Widget> actions, {double? space}) {
+List<Widget> genActions(
+  List<Widget> actions, {
+  double? space,
+  double endSpace = 8,
+}) {
   return <Widget>[
     ...actions.separated(SizedBox(width: space ?? 4)),
-    const SizedBox(width: 8),
+    SizedBox(width: endSpace),
   ];
 }
 

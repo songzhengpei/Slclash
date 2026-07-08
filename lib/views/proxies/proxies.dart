@@ -55,16 +55,16 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     final hasProviders = _hasProviders();
     return [
       if (hasProviders)
-        _ProxiesActionButton(
+        IconButton(
           tooltip: appLocalizations.providers,
-          icon: Icons.cloud_sync_rounded,
+          icon: const Icon(Icons.cloud_sync_rounded),
           onPressed: () {
             unawaited(_handleProvidersPressed(context));
           },
         ),
-      _ProxiesActionButton(
+      IconButton(
         tooltip: appLocalizations.settings,
-        icon: Icons.tune_rounded,
+        icon: const Icon(Icons.tune_rounded),
         onPressed: () {
           showSheet(
             context: context,
@@ -120,45 +120,6 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       title: context.appLocalizations.proxies,
       backgroundColor: surge.background,
       body: ColoredBox(color: surge.background, child: const ProxiesListView()),
-    );
-  }
-}
-
-class _ProxiesActionButton extends StatelessWidget {
-  const _ProxiesActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Tooltip(
-        message: tooltip,
-        child: IconButton(
-          onPressed: onPressed,
-          icon: Icon(icon, size: 22, color: surge.textPrimary),
-          style: IconButton.styleFrom(
-            fixedSize: const Size(40, 40),
-            minimumSize: const Size(40, 40),
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            backgroundColor: Colors.transparent,
-            foregroundColor: surge.textPrimary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
