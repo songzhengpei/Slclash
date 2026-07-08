@@ -153,6 +153,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                         const SizedBox(height: 14),
                         SurgeSection(
                           title: '已添加订阅',
+                          margin: const EdgeInsets.only(bottom: 14),
                           children: [
                             _ProfileListContainer(
                               profiles: state.profiles,
@@ -180,54 +181,6 @@ class _ProfilesViewState extends State<ProfilesView> {
                 ),
         );
       },
-    );
-  }
-}
-
-class _MediaCheckEntryPill extends StatelessWidget {
-  const _MediaCheckEntryPill({
-    required this.label,
-    required this.color,
-    required this.icon,
-  });
-
-  final String label;
-  final Color color;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.075),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withValues(alpha: 0.14),
-          width: surge.spacing.hairline,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14.5, color: color.withValues(alpha: 0.88)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -300,22 +253,12 @@ class _MediaCheckCompactRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            _MediaCheckEntryPill(
-              label: 'GPT',
-              color: surge.purple,
-              icon: Icons.auto_awesome_rounded,
-            ),
-            const SizedBox(width: 6),
-            _MediaCheckEntryPill(
-              label: 'YouTube',
-              color: surge.orange,
-              icon: Icons.play_arrow_rounded,
-            ),
-            const SizedBox(width: 6),
-            _MediaCheckEntryPill(
-              label: '健康',
-              color: surge.green,
-              icon: Icons.favorite_border_rounded,
+            const SoftOsIconButton(
+              icon: Icons.chevron_right_rounded,
+              onPressed: null,
+              visualSize: 30,
+              tapSize: 44,
+              iconSize: 15,
             ),
           ],
         ),
