@@ -30,6 +30,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     null,
   );
   List<double> _headerOffset = [];
+  double _listContentHeight = 0;
   double containerHeight = 0;
 
   @override
@@ -111,7 +112,36 @@ class _ProxiesListViewState extends State<ProxiesListView> {
       currentHeight = currentHeight + itemHeight;
     }
     _headerOffset = headerOffset;
+    _listContentHeight = currentHeight;
     return itemHeightList;
+  }
+
+  double _getHeaderSectionEndOffset(int index) {
+    if (index + 1 < _headerOffset.length) {
+      return _headerOffset[index + 1];
+    }
+    return _listContentHeight;
+  }
+
+  bool _shouldShowStickyHeader({
+    required int index,
+    required Group group,
+    required Set<String> currentUnfoldSet,
+    required double viewportHeight,
+  }) {
+    if (!_controller.hasClients ||
+        index < 0 ||
+        index >= _headerOffset.length ||
+        _controller.offset <= _headerOffset[index] + 0.5) {
+      return false;
+    }
+    if (!currentUnfoldSet.contains(group.name)) {
+      return false;
+    }
+    final sectionHeight =
+        _getHeaderSectionEndOffset(index) - _headerOffset[index];
+    final visibleContentHeight = max(0.0, viewportHeight - 16);
+    return sectionHeight > visibleContentHeight;
   }
 
   List<Widget> _buildItems(
@@ -402,33 +432,31 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                         if (headerState == null) {
                           return const SizedBox.shrink();
                         }
-                        if (!_controller.hasClients ||
-                            _controller.offset <= 0.5) {
-                          return const SizedBox.shrink();
-                        }
-                        final index =
-                            headerState.currentIndex > state.groups.length - 1
-                            ? 0
-                            : headerState.currentIndex;
-                        if (index < 0 || state.groups.isEmpty) {
+                        final index = headerState.currentIndex;
+                        if (index < 0 ||
+                            index >= state.groups.length ||
+                            index >= _headerOffset.length) {
                           return const SizedBox.shrink();
                         }
                         final group = state.groups[index];
-                        final isExpand = state.currentUnfoldSet.contains(
-                          group.name,
-                        );
+                        if (!_shouldShowStickyHeader(
+                          index: index,
+                          group: group,
+                          currentUnfoldSet: state.currentUnfoldSet,
+                          viewportHeight: container.maxHeight,
+                        )) {
+                          return const SizedBox.shrink();
+                        }
                         return Stack(
                           children: [
                             Positioned(
                               top: -headerState.offset,
                               child: Container(
                                 width: container.maxWidth,
-                                color: SurgeTheme.of(context).background,
-                                padding: EdgeInsets.only(
+                                padding: const EdgeInsets.only(
                                   top: 16,
                                   left: 16,
                                   right: 16,
-                                  bottom: isExpand ? 0 : 8,
                                 ),
                                 child: _buildHeader(
                                   ref,
