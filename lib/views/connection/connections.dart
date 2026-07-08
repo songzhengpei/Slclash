@@ -5,8 +5,8 @@ import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
-import 'package:fl_clash/widgets/widgets.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -37,6 +37,7 @@ class ConnectionsView extends ConsumerStatefulWidget {
 
 class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   static const _refreshInterval = Duration(seconds: 1);
+  static const _surfaceBottomPadding = 8.0;
 
   final _connectionsStateNotifier = ValueNotifier<TrackerInfosState>(
     const TrackerInfosState(),
@@ -203,11 +204,11 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
             );
           }
           return Padding(
-            padding: EdgeInsets.only(
+            padding: const EdgeInsets.only(
               left: 16,
               right: 16,
               top: 8,
-              bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
+              bottom: _surfaceBottomPadding,
             ),
             child: SoftOsListSurface(
               child: SuperListView.builder(

@@ -17,6 +17,9 @@ class LogsView extends ConsumerStatefulWidget {
 }
 
 class _LogsViewState extends ConsumerState<LogsView> {
+  static const _surfaceBottomPadding = 8.0;
+  static const _fabListEndPadding = 88.0;
+
   final _logsStateNotifier = ValueNotifier<LogsState>(const LogsState());
   late ScrollController _scrollController;
 
@@ -26,7 +29,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
   void initState() {
     super.initState();
     _logs = ref.read(logsProvider).list;
-    _scrollController = ScrollController(initialScrollOffset: double.maxFinite);
+    _scrollController = ScrollController();
     _logsStateNotifier.value = _logsStateNotifier.value.copyWith(logs: _logs);
     ref.listenManual(logsProvider.select((state) => VM(state.list)), (
       prev,
@@ -142,11 +145,11 @@ class _LogsViewState extends ConsumerState<LogsView> {
             );
           }
           return Padding(
-            padding: EdgeInsets.only(
+            padding: const EdgeInsets.only(
               left: 16,
               right: 16,
               top: 8,
-              bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
+              bottom: _surfaceBottomPadding,
             ),
             child: _LogsListSurface(
               child: ScrollToEndBox(
@@ -162,9 +165,11 @@ class _LogsViewState extends ConsumerState<LogsView> {
                   controller: _scrollController,
                   child: SuperListView.builder(
                     physics: const NextClampingScrollPhysics(),
-                    reverse: true,
                     controller: _scrollController,
                     itemBuilder: (_, index) {
+                      if (index == logs.length) {
+                        return const SizedBox(height: _fabListEndPadding);
+                      }
                       final log = logs[index];
                       return LogItem(
                         key: Key(log.dateTime),
@@ -175,7 +180,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
                         },
                       );
                     },
-                    itemCount: logs.length,
+                    itemCount: logs.length + 1,
                   ),
                 ),
               ),

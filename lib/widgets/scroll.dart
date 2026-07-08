@@ -58,6 +58,9 @@ class _ScrollToEndBoxState<T> extends State<ScrollToEndBox<T>> {
   @override
   void initState() {
     super.initState();
+    if (widget.enable) {
+      _handleTryToEnd();
+    }
   }
 
   Future<bool> _handleTryToEnd() {

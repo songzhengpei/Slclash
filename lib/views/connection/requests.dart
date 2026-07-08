@@ -5,7 +5,6 @@ import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
-import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +20,9 @@ class RequestsView extends ConsumerStatefulWidget {
 }
 
 class _RequestsViewState extends ConsumerState<RequestsView> {
+  static const _surfaceBottomPadding = 8.0;
+  static const _fabListEndPadding = 88.0;
+
   final _requestsStateNotifier = ValueNotifier<TrackerInfosState>(
     const TrackerInfosState(),
   );
@@ -43,7 +45,7 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
   void initState() {
     super.initState();
     _requests = ref.read(requestsProvider).list;
-    _scrollController = ScrollController(initialScrollOffset: double.maxFinite);
+    _scrollController = ScrollController();
     _requestsStateNotifier.value = _requestsStateNotifier.value.copyWith(
       trackerInfos: _requests,
     );
@@ -164,11 +166,11 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
             );
           }
           return Padding(
-            padding: EdgeInsets.only(
+            padding: const EdgeInsets.only(
               left: 16,
               right: 16,
               top: 8,
-              bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
+              bottom: _surfaceBottomPadding,
             ),
             child: SoftOsListSurface(
               child: CommonScrollBar(
@@ -183,10 +185,12 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
                         .copyWith(autoScrollToEnd: false);
                   },
                   child: SuperListView.builder(
-                    reverse: true,
                     physics: const NextClampingScrollPhysics(),
                     controller: _scrollController,
                     itemBuilder: (_, index) {
+                      if (index == requests.length) {
+                        return const SizedBox(height: _fabListEndPadding);
+                      }
                       final trackerInfo = requests[index];
                       return TrackerInfoItem(
                         key: Key(trackerInfo.id),
@@ -200,7 +204,7 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
                         ),
                       );
                     },
-                    itemCount: requests.length,
+                    itemCount: requests.length + 1,
                   ),
                 ),
               ),
