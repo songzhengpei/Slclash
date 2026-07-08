@@ -927,16 +927,10 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                   ),
                   const SizedBox(width: 12),
                   _ProfilePill(
-                    label: '当前使用',
-                    color: surge.primary,
+                    label: 'Active',
+                    color: surge.green,
                     filled: true,
                     emphasized: true,
-                  ),
-                  const SizedBox(width: 8),
-                  _ProfilePill(
-                    label: widget.profile.type.name,
-                    color: surge.textSecondary,
-                    filled: true,
                   ),
                 ],
               ),
@@ -1133,7 +1127,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
       onTap: enabled ? onTap : null,
       child: Container(
         height: 44,
-        padding: const EdgeInsets.only(left: 2),
+        padding: const EdgeInsets.only(left: 2, right: 4),
         child: Row(
           children: [
             _SoftOsIconSurface(
@@ -1148,7 +1142,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                enabled ? '当前订阅节点' : '正在读取当前订阅节点',
+                enabled ? '展开显示当前节点' : '正在读取当前订阅节点',
                 style: context.textTheme.labelMedium?.copyWith(
                   color: enabled ? surge.textPrimary : surge.textSecondary,
                   fontSize: 13,
@@ -1157,17 +1151,15 @@ class _CurrentProfileExpandButton extends StatelessWidget {
                 ),
               ),
             ),
-            IgnorePointer(
-              child: AnimatedRotation(
-                turns: expanded ? 0.5 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: SoftOsIconButton(
-                  icon: Icons.keyboard_arrow_down_rounded,
-                  onPressed: enabled ? onTap : null,
-                  visualSize: 30,
-                  tapSize: 44,
-                  iconSize: 15,
-                ),
+            AnimatedRotation(
+              turns: expanded ? 0.5 : 0,
+              duration: const Duration(milliseconds: 180),
+              child: SoftOsIconButton(
+                icon: Icons.keyboard_arrow_down_rounded,
+                onPressed: enabled ? onTap : null,
+                visualSize: 30,
+                tapSize: 44,
+                iconSize: 15,
               ),
             ),
           ],
@@ -2319,7 +2311,7 @@ class _ProfileSummaryLine extends StatelessWidget {
       builder: (context, _) {
         return _SummaryText(
           text:
-              '更新 ${lastUpdateDate!.getLastUpdateTimeDesc(context)} · $trafficText · $expireText',
+              '${lastUpdateDate!.getLastUpdateTimeDesc(context)} · $trafficText · $expireText',
           style: style,
         );
       },
@@ -2341,7 +2333,7 @@ class _ProfileUpdateSummary extends StatelessWidget {
         style: style,
       );
     }
-    final prefix = profile.type == ProfileType.file ? '本地文件 · 更新 ' : '更新 ';
+    final prefix = profile.type == ProfileType.file ? '本地文件 · ' : '';
     return TickBuilder(
       duration: const Duration(minutes: 1),
       builder: (context, _) {
