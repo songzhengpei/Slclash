@@ -3,6 +3,16 @@ import 'package:fl_clash/widgets/popup.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+const double _softOsActionTapSize = 48;
+const double _softOsActionVisualHeight = 34;
+const double _softOsActionCompactVisualHeight = 32;
+const double _softOsActionIconWidth = 40;
+const double _softOsActionCompactIconWidth = 38;
+const double _softOsActionDockButtonWidth = 44;
+const double _softOsActionCompactDockButtonWidth = 40;
+const double _softOsActionIconSize = 19;
+const double _softOsActionCompactIconSize = 18.5;
+
 IconData normalizeSoftOsActionIcon(IconData icon) {
   return switch (icon) {
     Icons.close || Icons.close_rounded => CupertinoIcons.xmark,
@@ -151,9 +161,12 @@ class SoftOsActionButton extends StatelessWidget {
   final bool loading;
   final bool compact;
 
-  double get _visualWidth => compact ? 38 : 40;
-  double get _visualHeight => compact ? 32 : 34;
-  double get _iconSize => compact ? 18.5 : 19;
+  double get _visualWidth =>
+      compact ? _softOsActionCompactIconWidth : _softOsActionIconWidth;
+  double get _visualHeight =>
+      compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
+  double get _iconSize =>
+      compact ? _softOsActionCompactIconSize : _softOsActionIconSize;
   double get _radius => _visualHeight / 2;
 
   @override
@@ -164,7 +177,7 @@ class SoftOsActionButton extends StatelessWidget {
     final radius = BorderRadius.circular(_radius);
 
     Widget result = SizedBox.square(
-      dimension: 48,
+      dimension: _softOsActionTapSize,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -232,14 +245,15 @@ class SoftOsActionDock extends StatelessWidget {
   final List<Widget> children;
   final bool compact;
 
-  double get _height => compact ? 32 : 34;
+  double get _height =>
+      compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
   double get _radius => _height / 2;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return SizedBox(
-      height: 48,
+      height: _softOsActionTapSize,
       child: IntrinsicWidth(
         child: Stack(
           alignment: Alignment.center,
@@ -247,8 +261,8 @@ class SoftOsActionDock extends StatelessWidget {
             Positioned(
               left: 0,
               right: 0,
-              top: (48 - _height) / 2,
-              bottom: (48 - _height) / 2,
+              top: (_softOsActionTapSize - _height) / 2,
+              bottom: (_softOsActionTapSize - _height) / 2,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: _softOsActionSurface(context),
@@ -264,7 +278,7 @@ class SoftOsActionDock extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(24),
               child: SizedBox(
-                height: 48,
+                height: _softOsActionTapSize,
                 child: Row(mainAxisSize: MainAxisSize.min, children: children),
               ),
             ),
@@ -294,8 +308,11 @@ class SoftOsActionDockButton extends StatelessWidget {
   final bool loading;
   final bool compact;
 
-  double get _iconSize => compact ? 18.5 : 19;
-  double get _width => compact ? 36 : 38;
+  double get _iconSize =>
+      compact ? _softOsActionCompactIconSize : _softOsActionIconSize;
+  double get _width => compact
+      ? _softOsActionCompactDockButtonWidth
+      : _softOsActionDockButtonWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -308,7 +325,7 @@ class SoftOsActionDockButton extends StatelessWidget {
         onTap: loading ? null : onPressed,
         child: SizedBox(
           width: _width,
-          height: 48,
+          height: _softOsActionTapSize,
           child: Center(
             child: loading
                 ? SizedBox.square(
@@ -337,7 +354,7 @@ class SoftOsActionDockButton extends StatelessWidget {
 
 /// A thin divider for [SoftOsActionDock].
 class SoftOsActionDivider extends StatelessWidget {
-  const SoftOsActionDivider({super.key, this.height = 16, this.alpha = 0.28});
+  const SoftOsActionDivider({super.key, this.height = 18, this.alpha = 0.28});
 
   final double height;
   final double alpha;
@@ -346,7 +363,7 @@ class SoftOsActionDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return SizedBox(
-      height: 48,
+      height: _softOsActionTapSize,
       child: Center(
         child: SizedBox(
           height: height,
@@ -376,7 +393,8 @@ class SoftOsActionTextButton extends StatelessWidget {
   final String? tooltip;
   final bool compact;
 
-  double get _visualHeight => compact ? 32 : 34;
+  double get _visualHeight =>
+      compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
   double get _minWidth => compact ? 46 : 50;
   double get _radius => _visualHeight / 2;
 
@@ -388,7 +406,7 @@ class SoftOsActionTextButton extends StatelessWidget {
     final radius = BorderRadius.circular(_radius);
 
     Widget result = SizedBox(
-      height: 48,
+      height: _softOsActionTapSize,
       child: Center(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -465,7 +483,7 @@ class SoftOsActionDockTextButton extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(minWidth: _minWidth),
           child: SizedBox(
-            height: 48,
+            height: _softOsActionTapSize,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Center(child: _SoftOsActionText(label: label)),

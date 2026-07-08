@@ -288,6 +288,13 @@ class CommonScaffoldState extends State<CommonScaffold> {
     if (action is SoftOsPopupActionButton) {
       return _SoftOsScaffoldAction.popup(action.popup, tooltip: action.tooltip);
     }
+    if (action is SoftOsActionTextButton) {
+      return _SoftOsScaffoldAction.text(
+        label: action.label,
+        onPressed: action.onPressed,
+        tooltip: action.tooltip,
+      );
+    }
     if (action is SurgeAddButton) {
       return _SoftOsScaffoldAction.text(
         label: action.label,
@@ -581,11 +588,11 @@ class _SoftOsScaffoldAction {
   const _SoftOsScaffoldAction.text({
     required this.label,
     required this.onPressed,
+    this.tooltip,
   }) : icon = null,
        child = null,
        consumer = null,
        popup = null,
-       tooltip = null,
        raw = false;
 
   const _SoftOsScaffoldAction.consumer(this.consumer)

@@ -183,27 +183,19 @@ class _AccessViewState extends ConsumerState<AccessView> {
 
   void _handleSave() {
     final accessControl = ref.read(accessControlStateProvider);
+    final realAccessControl = _getRealAccessControlProps(accessControl);
     ref
         .read(vpnSettingProvider.notifier)
         .update(
-          (state) => state.copyWith(
-            accessControlProps: _getRealAccessControlProps(accessControl),
-          ),
+          (state) => state.copyWith(accessControlProps: realAccessControl),
         );
+    ref.read(accessControlStateProvider.notifier).value = realAccessControl;
   }
 
-  Widget _buildConfirm() {
-    return CommonPopScope(
-      onPop: (_) {
-        _handleBack();
-        return false;
-      },
-      child: CommonMinFilledButtonTheme(
-        child: FilledButton.tonal(
-          onPressed: _handleSave,
-          child: Text(context.appLocalizations.save),
-        ),
-      ),
+  Widget _buildConfirm({required bool hasChanges}) {
+    return SoftOsActionTextButton(
+      label: context.appLocalizations.save,
+      onPressed: hasChanges ? _handleSave : null,
     );
   }
 
@@ -231,11 +223,11 @@ class _AccessViewState extends ConsumerState<AccessView> {
   List<Widget> _buildActions(
     BuildContext context, {
     required bool enable,
-    required bool showSave,
+    required bool hasChanges,
   }) {
     final appLocalizations = context.appLocalizations;
     return [
-      if (showSave) _buildConfirm(),
+      _buildConfirm(hasChanges: hasChanges),
       SoftOsPopupActionButton(
         popup: CommonPopupMenu(
           items: [
@@ -432,43 +424,54 @@ class _AccessViewState extends ConsumerState<AccessView> {
     final currentList = accessControl.currentList;
     final viewPackageNameList = viewPackages.map((e) => e.packageName).toList();
     final valueList = currentList.intersection(viewPackageNameList);
-    final noSave = ref.watch(
-      vpnSettingProvider.select((state) {
-        final current = _getRealAccessControlProps(state.accessControlProps);
-        final origin = _getRealAccessControlProps(accessControl);
-        return current == origin;
-      }),
+    final savedAccessControl = ref.watch(
+      vpnSettingProvider.select((state) => state.accessControlProps),
     );
-    return CommonScaffold(
-      key: _scaffoldKey,
-      isLoading: isLoading,
-      backgroundColor: SurgeTheme.of(context).background,
-      searchState: AppBarSearchState(onSearch: _onSearch, autoAddSearch: false),
-      title: context.appLocalizations.appAccessControl,
-      actions: _buildActions(
-        context,
-        enable: accessControl.enable,
-        showSave: !noSave,
-      ),
-      body: DisabledMask(
-        status: !accessControl.enable,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildBannerBar(mode, valueList.length),
-            const SizedBox(height: 6),
-            Expanded(
-              child: _buildContent(
-                packages: viewPackages,
-                valueList: valueList,
-              ),
-            ),
-          ],
+    final hasChanges =
+        _getRealAccessControlProps(savedAccessControl) !=
+        _getRealAccessControlProps(accessControl);
+    return CommonPopScope(
+      onPop: (_) async {
+        if (!hasChanges) {
+          return true;
+        }
+        await _handleBack();
+        return false;
+      },
+      child: CommonScaffold(
+        key: _scaffoldKey,
+        isLoading: isLoading,
+        backgroundColor: SurgeTheme.of(context).background,
+        searchState: AppBarSearchState(
+          onSearch: _onSearch,
+          autoAddSearch: false,
         ),
-      ),
-      floatingActionButton: _buildSelectedAllButton(
-        isSelectedAll: valueList.length == viewPackageNameList.length,
-        allValueList: viewPackageNameList,
+        title: context.appLocalizations.appAccessControl,
+        actions: _buildActions(
+          context,
+          enable: accessControl.enable,
+          hasChanges: hasChanges,
+        ),
+        body: DisabledMask(
+          status: !accessControl.enable,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildBannerBar(mode, valueList.length),
+              const SizedBox(height: 6),
+              Expanded(
+                child: _buildContent(
+                  packages: viewPackages,
+                  valueList: valueList,
+                ),
+              ),
+            ],
+          ),
+        ),
+        floatingActionButton: _buildSelectedAllButton(
+          isSelectedAll: valueList.length == viewPackageNameList.length,
+          allValueList: viewPackageNameList,
+        ),
       ),
     );
   }
