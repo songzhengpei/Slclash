@@ -155,11 +155,11 @@ class ProxyCard extends StatelessWidget {
                       bottom: 0,
                       child: Center(
                         child: Container(
-                          width: 2,
-                          height: 22,
+                          width: 3,
+                          height: 28,
                           decoration: BoxDecoration(
-                            color: surge.primary.withValues(alpha: 0.50),
-                            borderRadius: BorderRadius.circular(1),
+                            color: surge.primary.withValues(alpha: 0.64),
+                            borderRadius: BorderRadius.circular(1.5),
                           ),
                         ),
                       ),
@@ -192,7 +192,6 @@ class _DelayBadge extends ConsumerWidget {
       delayProvider(proxyName: proxyName, testUrl: testUrl),
     );
 
-    // Determine colors and label based on delay state
     final bool isTesting = delay == 0;
     final bool isUntested = delay == null;
     final bool isTimeout = delay != null && delay < 0;

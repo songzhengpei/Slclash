@@ -773,11 +773,11 @@ class _ListHeaderState extends State<ListHeader> {
                                                           color: surge
                                                               .textPrimary
                                                               .withValues(
-                                                                alpha: 0.84,
+                                                                alpha: 0.78,
                                                               ),
                                                           fontSize: 12,
                                                           fontWeight:
-                                                              FontWeight.w600,
+                                                              FontWeight.w500,
                                                           letterSpacing: 0,
                                                         ),
                                                   ),

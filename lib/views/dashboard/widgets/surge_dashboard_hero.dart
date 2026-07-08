@@ -1485,13 +1485,9 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                       ),
                     ),
                   ),
-                  IconButton.filledTonal(
+                  SoftOsIconButton(
+                    icon: Icons.close,
                     onPressed: () => Navigator.of(context).pop(),
-                    style: IconButton.styleFrom(
-                      visualDensity: VisualDensity.standard,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    icon: const Icon(Icons.close),
                   ),
                 ],
               ),

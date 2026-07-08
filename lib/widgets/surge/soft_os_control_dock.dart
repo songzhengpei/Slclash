@@ -52,14 +52,16 @@ class SoftOsIconButton extends StatelessWidget {
   }
 }
 
-/// A lightweight pill-shaped dock container following the Soft OS visual language.
+/// A pill-shaped dock container following the Soft OS visual language.
 ///
-/// Defaults match the proxy-page spec: 34dp height, low-contrast surface,
-/// thin separator border, small icons.
+/// Outer height is [tapHeight] (44dp) for real touch targets.
+/// The visible pill with background/border is only [height] (34dp) tall,
+/// centered vertically inside the tap area.
 class SoftOsControlDock extends StatelessWidget {
   const SoftOsControlDock({
     super.key,
     this.height = 34,
+    this.tapHeight = 44,
     this.surfaceAlpha = 0.052,
     this.borderAlpha = 0.38,
     this.borderRadius,
@@ -67,6 +69,7 @@ class SoftOsControlDock extends StatelessWidget {
   });
 
   final double height;
+  final double tapHeight;
   final double surfaceAlpha;
   final double borderAlpha;
   final double? borderRadius;
@@ -76,18 +79,23 @@ class SoftOsControlDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final radius = borderRadius ?? height / 2;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: surge.textSecondary.withValues(alpha: surfaceAlpha),
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: surge.separator.withValues(alpha: borderAlpha),
-          width: surge.spacing.hairline,
+    return SizedBox(
+      height: tapHeight,
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: surge.textSecondary.withValues(alpha: surfaceAlpha),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(
+              color: surge.separator.withValues(alpha: borderAlpha),
+              width: surge.spacing.hairline,
+            ),
+          ),
+          child: SizedBox(
+            height: height,
+            child: Row(mainAxisSize: MainAxisSize.min, children: children),
+          ),
         ),
-      ),
-      child: SizedBox(
-        height: height,
-        child: Row(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
   }
@@ -95,7 +103,8 @@ class SoftOsControlDock extends StatelessWidget {
 
 /// A single button inside [SoftOsControlDock].
 ///
-/// Taps are disabled while [loading] is true and a small spinner is shown.
+/// Click area is 36dp wide × 44dp tall; the icon centers vertically
+/// inside the visual pill. Taps are disabled while [loading] is true.
 class SoftOsDockButton extends StatelessWidget {
   const SoftOsDockButton({
     super.key,
@@ -148,7 +157,7 @@ class SoftOsDockButton extends StatelessWidget {
   }
 }
 
-/// A thin vertical divider inside [SoftOsControlDock].
+/// A thin vertical divider inside [SoftOsControlDock], centered in the tap area.
 class SoftOsDockDivider extends StatelessWidget {
   const SoftOsDockDivider({super.key, this.height = 17, this.dividerAlpha = 0.34});
 
@@ -159,11 +168,16 @@ class SoftOsDockDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return SizedBox(
-      height: height,
-      child: VerticalDivider(
-        width: 1,
-        thickness: surge.spacing.hairline,
-        color: surge.separator.withValues(alpha: dividerAlpha),
+      height: 44,
+      child: Center(
+        child: SizedBox(
+          height: height,
+          child: VerticalDivider(
+            width: 1,
+            thickness: surge.spacing.hairline,
+            color: surge.separator.withValues(alpha: dividerAlpha),
+          ),
+        ),
       ),
     );
   }
