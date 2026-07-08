@@ -1127,7 +1127,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
       onTap: enabled ? onTap : null,
       child: Container(
         height: 44,
-        padding: const EdgeInsets.only(left: 2, right: 4),
+        padding: const EdgeInsets.only(left: 2, right: 10),
         child: Row(
           children: [
             _SoftOsIconSurface(
@@ -1142,7 +1142,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                enabled ? '展开显示当前节点' : '正在读取当前订阅节点',
+                enabled ? '展开显示当前订阅节点' : '正在读取当前订阅节点',
                 style: context.textTheme.labelMedium?.copyWith(
                   color: enabled ? surge.textPrimary : surge.textSecondary,
                   fontSize: 13,
@@ -2225,7 +2225,7 @@ class _ProfileListSummary extends StatelessWidget {
     final total = hasTraffic ? subscriptionInfo.total : 0;
     final progress = hasTraffic ? (used / total).clamp(0.0, 1.0) : 0.0;
     final expireText = hasTraffic && subscriptionInfo.expire != 0
-        ? '到期 ${DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000).show}'
+        ? DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000).show.toString()
         : '永久有效';
     final trafficText = '${used.traffic.show} / ${total.traffic.show}';
     final detailStyle = context.textTheme.labelSmall?.copyWith(
