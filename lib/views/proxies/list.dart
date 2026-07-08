@@ -440,17 +440,22 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                           children: [
                             Positioned(
                               top: -headerState.offset,
-                              child: Container(
+                              child: SizedBox(
                                 width: container.maxWidth,
-                                color: SurgeTheme.of(context).background,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                child: _buildHeader(
-                                  ref,
-                                  group: group,
-                                  currentUnfoldSet: state.currentUnfoldSet,
-                                  rowPosition: ProxyListRowPosition.first,
+                                height: listHeaderHeight,
+                                child: ColoredBox(
+                                  color: SurgeTheme.of(context).background,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    child: _buildHeader(
+                                      ref,
+                                      group: group,
+                                      currentUnfoldSet: state.currentUnfoldSet,
+                                      rowPosition: ProxyListRowPosition.first,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
