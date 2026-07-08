@@ -13,7 +13,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'card.dart';
 import 'common.dart';
 import 'empty.dart';
-import 'soft_os_control_dock.dart';
 
 typedef GroupNameProxiesMap = Map<String, List<Proxy>>;
 
@@ -820,28 +819,32 @@ class _ListHeaderState extends State<ListHeader> {
 
   Widget _buildActions(BuildContext context) {
     return SoftOsControlDock(
+      height: 34,
       children: [
         if (isExpand) ...[
           SoftOsDockButton(
             tooltip: '定位当前节点',
             icon: Icons.adjust_rounded,
+            iconSize: 15.5,
             onTap: () {
               widget.onScrollToSelected(groupName);
             },
           ),
-          const SoftOsDockDivider(),
+          const SoftOsDockDivider(height: 18),
           SoftOsDockButton(
             tooltip: '测试延迟',
             icon: Icons.network_ping_rounded,
+            iconSize: 15.5,
             onTap: _delayTest,
           ),
-          const SoftOsDockDivider(),
+          const SoftOsDockDivider(height: 18),
         ],
         SoftOsDockButton(
           tooltip: isExpand ? '收起' : '展开',
           icon: isExpand
               ? Icons.keyboard_arrow_up_rounded
               : Icons.keyboard_arrow_down_rounded,
+          iconSize: 15.5,
           onTap: () {
             _handleChange(groupName);
           },

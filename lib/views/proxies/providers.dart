@@ -14,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'common.dart';
-import 'soft_os_control_dock.dart';
 
 class ProvidersView extends ConsumerStatefulWidget {
   const ProvidersView({super.key});

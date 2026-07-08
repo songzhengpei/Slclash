@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/app.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/inherited.dart';
 import 'package:flutter/foundation.dart';
@@ -178,14 +179,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
             nestedNavigatorPop == null);
     Widget buildIconButton(IconButtonData data) {
       if (type == SheetType.bottomSheet) {
-        return IconButton.filledTonal(
-          onPressed: data.onPressed,
-          style: IconButton.styleFrom(
-            visualDensity: VisualDensity.standard,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          icon: Icon(data.icon),
-        );
+        return _SoftOsSheetButton(icon: data.icon, onPressed: data.onPressed);
       }
       return IconButton(
         onPressed: data.onPressed,
@@ -320,5 +314,37 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       );
     }
     return CommonScaffold(appBar: appBar, body: widget.body);
+  }
+}
+
+class _SoftOsSheetButton extends StatelessWidget {
+  const _SoftOsSheetButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Material(
+      color: surge.textSecondary.withValues(alpha: 0.08),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: Center(
+            child: Icon(
+              icon,
+              size: 16,
+              color: surge.textPrimary.withValues(alpha: 0.75),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

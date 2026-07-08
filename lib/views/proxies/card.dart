@@ -157,11 +157,11 @@ class ProxyCard extends StatelessWidget {
                       bottom: 0,
                       child: Center(
                         child: Container(
-                          width: 3,
-                          height: 28,
+                          width: 2,
+                          height: 24,
                           decoration: BoxDecoration(
-                            color: surge.primary.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(2),
+                            color: surge.primary.withValues(alpha: 0.60),
+                            borderRadius: BorderRadius.circular(1),
                           ),
                         ),
                       ),
@@ -193,18 +193,45 @@ class _DelayBadge extends ConsumerWidget {
     final delay = ref.watch(
       delayProvider(proxyName: proxyName, testUrl: testUrl),
     );
-    final color = delay == null
-        ? surge.textSecondary
-        : delay == 0
-        ? surge.textSecondary
-        : delay < 0
-        ? surge.red
-        : utils.getDelayColor(delay) ?? surge.textSecondary;
-    final label = delay == null
+
+    // Determine colors and label based on delay state
+    final bool isTesting = delay == 0;
+    final bool isUntested = delay == null;
+    final bool isTimeout = delay != null && delay < 0;
+    final bool isSuccess = delay != null && delay > 0;
+
+    final Color bg;
+    final Color border;
+    final Color fg;
+
+    if (isUntested) {
+      bg = surge.textSecondary.withValues(alpha: 0.06);
+      border = surge.separator.withValues(alpha: 0.45);
+      fg = surge.textPrimary.withValues(alpha: 0.75);
+    } else if (isTesting) {
+      bg = surge.textSecondary.withValues(alpha: 0.06);
+      border = surge.separator.withValues(alpha: 0.45);
+      fg = surge.textSecondary;
+    } else if (isSuccess) {
+      final delayColor = utils.getDelayColor(delay) ?? surge.green;
+      bg = delayColor.withValues(alpha: 0.10);
+      border = delayColor.withValues(alpha: 0.16);
+      fg = delayColor;
+    } else if (isTimeout) {
+      bg = surge.red.withValues(alpha: 0.10);
+      border = surge.red.withValues(alpha: 0.16);
+      fg = surge.red;
+    } else {
+      bg = surge.fill;
+      border = surge.separator;
+      fg = surge.textSecondary;
+    }
+
+    final label = isUntested
         ? 'Test'
-        : delay == 0
+        : isTesting
         ? ''
-        : delay > 0
+        : isSuccess
         ? '$delay ms'
         : 'Timeout';
 
@@ -215,14 +242,9 @@ class _DelayBadge extends ConsumerWidget {
         height: 30,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: delay == null ? surge.fill : color.withValues(alpha: 0.1),
+            color: bg,
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: delay == null
-                  ? surge.separator.withValues(alpha: 0.55)
-                  : color.withValues(alpha: 0.18),
-              width: 0.5,
-            ),
+            border: Border.all(color: border, width: 0.5),
           ),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 160),
@@ -234,12 +256,12 @@ class _DelayBadge extends ConsumerWidget {
             },
             child: Center(
               key: ValueKey(label),
-              child: delay == 0
+              child: isTesting
                   ? SizedBox.square(
                       dimension: 12,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: color,
+                        color: fg,
                       ),
                     )
                   : Text(
@@ -252,7 +274,7 @@ class _DelayBadge extends ConsumerWidget {
                         height: 1,
                       ),
                       style: context.textTheme.labelSmall?.copyWith(
-                        color: color,
+                        color: fg,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         height: 1,

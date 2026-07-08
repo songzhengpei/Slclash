@@ -1,3 +1,4 @@
+export 'soft_os_control_dock.dart';
 export 'surge_bottom_nav.dart';
 export 'surge_action_card.dart';
 export 'surge_card.dart';
