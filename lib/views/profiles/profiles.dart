@@ -151,6 +151,8 @@ class _ProfilesViewState extends State<ProfilesView> {
                               });
                             },
                           ),
+                          const SizedBox(height: 20),
+                          const _ProfileSectionHeader(title: '流媒体检测'),
                           const SizedBox(height: 8),
                           _MediaCheckEntryCard(
                             profile: currentProfile,
@@ -194,18 +196,23 @@ class _MediaCheckEntryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return Container(
-      height: 34,
+      height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.075),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withValues(alpha: 0.14),
+          width: surge.spacing.hairline,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 14.5, color: color.withValues(alpha: 0.88)),
           const SizedBox(width: 6),
           Text(
             label,
@@ -213,12 +220,49 @@ class _MediaCheckEntryPill extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: context.textTheme.labelSmall?.copyWith(
               color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
               letterSpacing: 0,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SoftOsIconSurface extends StatelessWidget {
+  const _SoftOsIconSurface({
+    required this.icon,
+    required this.color,
+    this.size = 30,
+    this.radius,
+    this.iconSize = 16,
+    this.backgroundAlpha = 0.055,
+    this.foregroundAlpha = 0.72,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double size;
+  final double? radius;
+  final double iconSize;
+  final double backgroundAlpha;
+  final double foregroundAlpha;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: backgroundAlpha),
+        borderRadius: BorderRadius.circular(radius ?? size / 2),
+      ),
+      child: Icon(
+        icon,
+        size: iconSize,
+        color: color.withValues(alpha: foregroundAlpha),
       ),
     );
   }
@@ -237,27 +281,11 @@ class _ProfilesActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Tooltip(
         message: tooltip,
-        child: IconButton(
-          onPressed: onPressed,
-          icon: Icon(icon, size: 22, color: surge.textPrimary),
-          style: IconButton.styleFrom(
-            fixedSize: const Size(40, 40),
-            minimumSize: const Size(40, 40),
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            backgroundColor: Colors.transparent,
-            foregroundColor: surge.textPrimary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-        ),
+        child: SoftOsIconButton(icon: icon, onPressed: onPressed),
       ),
     );
   }
@@ -359,12 +387,7 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        28,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -372,16 +395,19 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
             title: '添加订阅',
             children: [
               _ProfileSettingOption(
+                icon: Icons.qr_code_scanner_rounded,
                 label: appLocalizations.qrcode,
                 subtitle: appLocalizations.qrcodeDesc,
                 onTap: _toScan,
               ),
               _ProfileSettingOption(
+                icon: Icons.insert_drive_file_outlined,
                 label: appLocalizations.file,
                 subtitle: appLocalizations.fileDesc,
                 onTap: _handleAddProfileFormFile,
               ),
               _ProfileSettingOption(
+                icon: Icons.link_rounded,
                 label: appLocalizations.url,
                 subtitle: appLocalizations.urlDesc,
                 onTap: _toAddUrl,
@@ -682,14 +708,14 @@ class _ProfileSettingOption extends StatelessWidget {
           child: Row(
             children: [
               if (icon != null) ...[
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: foreground.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, size: 17, color: foreground),
+                _SoftOsIconSurface(
+                  icon: icon!,
+                  color: foreground,
+                  size: 30,
+                  radius: 15,
+                  iconSize: 15.5,
+                  backgroundAlpha: 0.055,
+                  foregroundAlpha: 0.72,
                 ),
                 const SizedBox(width: 12),
               ],
@@ -778,9 +804,15 @@ class _ProfileSortOption extends StatelessWidget {
             ),
             ReorderableDragStartListener(
               index: index,
-              child: Icon(
-                Icons.drag_handle_rounded,
-                color: surge.textSecondary.withValues(alpha: 0.8),
+              child: SizedBox.square(
+                dimension: 44,
+                child: Center(
+                  child: Icon(
+                    Icons.drag_handle_rounded,
+                    size: 18,
+                    color: surge.textSecondary.withValues(alpha: 0.72),
+                  ),
+                ),
               ),
             ),
           ],
@@ -895,6 +927,13 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                   ),
                   const SizedBox(width: 12),
                   _ProfilePill(
+                    label: '当前使用',
+                    color: surge.primary,
+                    filled: true,
+                    emphasized: true,
+                  ),
+                  const SizedBox(width: 8),
+                  _ProfilePill(
                     label: widget.profile.type.name,
                     color: surge.textSecondary,
                     filled: true,
@@ -903,7 +942,7 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
               ),
               const SizedBox(height: 12),
               _CurrentProfileDetails(profile: widget.profile),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Divider(height: 1, color: surge.separator),
               _CurrentProfileExpandButton(
                 expanded: widget.expanded,
@@ -937,61 +976,24 @@ class _CurrentProfileDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final subscriptionInfo = profile.subscriptionInfo;
     final infoStyle = context.textTheme.labelSmall?.copyWith(
       color: surge.textSecondary,
       fontSize: 11,
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w500,
       letterSpacing: 0,
     );
 
-    if (subscriptionInfo == null || subscriptionInfo.total == 0) {
-      return LastUpdateTimeText(
-        lastUpdateDate: profile.lastUpdateDate,
-        style: infoStyle,
-      );
-    }
-
-    final used = subscriptionInfo.upload + subscriptionInfo.download;
-    final total = subscriptionInfo.total;
-    final progress = total == 0 ? 0.0 : (used / total).clamp(0.0, 1.0);
-    final usedText = used.traffic.show;
-    final totalText = total.traffic.show;
-    final expireText = subscriptionInfo.expire != 0
-        ? DateTime.fromMillisecondsSinceEpoch(
-            subscriptionInfo.expire * 1000,
-          ).show
-        : context.appLocalizations.infiniteTime;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
-            minHeight: 6,
-            value: progress,
-            backgroundColor: surge.fill,
-            color: surge.textPrimary,
-          ),
+        Icon(
+          Icons.schedule_rounded,
+          size: 14,
+          color: surge.textSecondary.withValues(alpha: 0.82),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '$usedText / $totalText · $expireText',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: infoStyle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            LastUpdateTimeText(
-              lastUpdateDate: profile.lastUpdateDate,
-              style: infoStyle,
-            ),
-          ],
+        const SizedBox(width: 6),
+        LastUpdateTimeText(
+          lastUpdateDate: profile.lastUpdateDate,
+          style: infoStyle,
         ),
       ],
     );
@@ -1022,16 +1024,16 @@ class _MediaCheckEntryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              SizedBox(
-                width: 30,
-                height: 40,
-                child: Icon(
-                  Icons.fact_check_rounded,
-                  color: surge.primary,
-                  size: 30,
-                ),
+              _SoftOsIconSurface(
+                icon: Icons.fact_check_rounded,
+                color: surge.primary,
+                size: 34,
+                radius: 12,
+                iconSize: 18,
+                backgroundAlpha: 0.08,
+                foregroundAlpha: 0.88,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Transform.translate(
                   offset: const Offset(0, -1),
@@ -1046,8 +1048,8 @@ class _MediaCheckEntryCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: context.textTheme.titleSmall?.copyWith(
                           color: surge.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
                           height: 1.05,
                           letterSpacing: 0,
                         ),
@@ -1060,6 +1062,7 @@ class _MediaCheckEntryCard extends StatelessWidget {
                         style: context.textTheme.labelSmall?.copyWith(
                           color: surge.textSecondary,
                           fontSize: 11,
+                          fontWeight: FontWeight.w500,
                           height: 1.05,
                           letterSpacing: 0,
                         ),
@@ -1069,10 +1072,20 @@ class _MediaCheckEntryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: surge.textSecondary,
-                size: 22,
+              SoftOsIconButton(
+                icon: Icons.chevron_right_rounded,
+                onPressed: () {
+                  BaseNavigator.push(
+                    context,
+                    ProfileMediaCheckView(
+                      profiles: profiles,
+                      initialProfile: profile,
+                    ),
+                  );
+                },
+                visualSize: 30,
+                tapSize: 44,
+                iconSize: 15,
               ),
             ],
           ),
@@ -1083,7 +1096,7 @@ class _MediaCheckEntryCard extends StatelessWidget {
                 child: _MediaCheckEntryPill(
                   label: 'GPT',
                   color: surge.purple,
-                  icon: Icons.psychology_alt_rounded,
+                  icon: Icons.auto_awesome_rounded,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1091,7 +1104,7 @@ class _MediaCheckEntryCard extends StatelessWidget {
                 child: _MediaCheckEntryPill(
                   label: 'YouTube',
                   color: surge.orange,
-                  icon: Icons.smart_display_rounded,
+                  icon: Icons.play_arrow_rounded,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1099,7 +1112,7 @@ class _MediaCheckEntryCard extends StatelessWidget {
                 child: _MediaCheckEntryPill(
                   label: '健康',
                   color: surge.green,
-                  icon: Icons.eco_outlined,
+                  icon: Icons.favorite_border_rounded,
                 ),
               ),
             ],
@@ -1127,19 +1140,23 @@ class _CurrentProfileExpandButton extends StatelessWidget {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 2),
+        height: 44,
+        padding: const EdgeInsets.only(left: 2),
         child: Row(
           children: [
-            Icon(
-              Icons.hub_outlined,
-              size: 17,
+            _SoftOsIconSurface(
+              icon: Icons.hub_outlined,
               color: enabled ? surge.textPrimary : surge.textSecondary,
+              size: 28,
+              radius: 14,
+              iconSize: 15,
+              backgroundAlpha: enabled ? 0.055 : 0.04,
+              foregroundAlpha: enabled ? 0.72 : 0.55,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                enabled ? '展开当前订阅节点' : '正在读取当前订阅节点',
+                enabled ? '当前订阅节点' : '正在读取当前订阅节点',
                 style: context.textTheme.labelMedium?.copyWith(
                   color: enabled ? surge.textPrimary : surge.textSecondary,
                   fontSize: 13,
@@ -1148,13 +1165,17 @@ class _CurrentProfileExpandButton extends StatelessWidget {
                 ),
               ),
             ),
-            AnimatedRotation(
-              turns: expanded ? 0.5 : 0,
-              duration: const Duration(milliseconds: 180),
-              child: Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: surge.textSecondary,
-                size: 21,
+            IgnorePointer(
+              child: AnimatedRotation(
+                turns: expanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: SoftOsIconButton(
+                  icon: Icons.keyboard_arrow_down_rounded,
+                  onPressed: enabled ? onTap : null,
+                  visualSize: 30,
+                  tapSize: 44,
+                  iconSize: 15,
+                ),
               ),
             ),
           ],
@@ -1522,56 +1543,21 @@ class _ProfileListContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      itemCount: profiles.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (_, i) => _ProfileListItem(
-        profile: profiles[i],
-        isSelected: profiles[i].id == currentProfileId,
-        onTap: () => onSelect(profiles[i].id),
-      ),
-    );
-  }
-}
-
-class _SelectedProfileDot extends StatelessWidget {
-  const _SelectedProfileDot({required this.selected});
-
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return Positioned(
-      right: 10,
-      top: -6,
-      child: AnimatedScale(
-        scale: selected ? 1 : 0.65,
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOutCubic,
-        child: AnimatedOpacity(
-          opacity: selected ? 1 : 0,
-          duration: const Duration(milliseconds: 160),
-          child: Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              color: surge.primary,
-              shape: BoxShape.circle,
-              border: Border.all(color: surge.card, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: surge.shadow,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+    return SurgeCard(
+      padding: EdgeInsets.zero,
+      borderRadius: surge.radii.card,
+      shadow: true,
+      child: Column(
+        children: [
+          for (var i = 0; i < profiles.length; i++)
+            _ProfileListItem(
+              profile: profiles[i],
+              isSelected: profiles[i].id == currentProfileId,
+              showDivider: i != profiles.length - 1,
+              onTap: () => onSelect(profiles[i].id),
             ),
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -1581,11 +1567,13 @@ class _ProfileListItem extends StatelessWidget {
   const _ProfileListItem({
     required this.profile,
     required this.isSelected,
+    required this.showDivider,
     required this.onTap,
   });
 
   final Profile profile;
   final bool isSelected;
+  final bool showDivider;
   final VoidCallback onTap;
 
   Future<void> _handleDeleteProfile(BuildContext context) async {
@@ -1660,32 +1648,19 @@ class _ProfileListItem extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     final hasTraffic =
         profile.subscriptionInfo != null && profile.subscriptionInfo!.total > 0;
-    return Consumer(
-      builder: (_, ref, _) {
-        final dynamicColor = ref.watch(
-          themeSettingProvider.select((state) => state.dynamicColor),
-        );
-        final selectedBorderColor = !dynamicColor
-            ? surge.textPrimary
-            : surge.primary;
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            SurgeCard(
-              backgroundColor: isSelected ? surge.selectedFill : surge.card,
-              border: Border.all(
-                color: isSelected
-                    ? selectedBorderColor
-                    : surge.separator.withValues(alpha: 0.95),
-                width: isSelected ? 1.05 : 0.75,
-              ),
-              shadow: false,
-              borderRadius: surge.radii.list,
-              padding: EdgeInsets.zero,
-              height: hasTraffic ? 92 : 78,
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
+    final surface = isSelected
+        ? Color.alphaBlend(surge.primary.withValues(alpha: 0.045), surge.card)
+        : surge.card;
+    return Material(
+      color: surface,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: hasTraffic ? 92 : 74,
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -1697,7 +1672,7 @@ class _ProfileListItem extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     SizedBox(
-                      width: 88,
+                      width: 92,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -1706,56 +1681,57 @@ class _ProfileListItem extends StatelessWidget {
                             color: surge.textSecondary,
                           ),
                           const SizedBox(width: 4),
-                          SizedBox(
-                            height: 40,
-                            width: 40,
-                            child: Consumer(
-                              builder: (_, ref, _) {
-                                final isUpdating = ref.watch(
-                                  isUpdatingProvider(profile.updatingKey),
-                                );
-                                return FadeThroughBox(
-                                  child: isUpdating
-                                      ? const Padding(
-                                          key: ValueKey('loading'),
-                                          padding: EdgeInsets.all(9),
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
+                          Consumer(
+                            builder: (_, ref, _) {
+                              final isUpdating = ref.watch(
+                                isUpdatingProvider(profile.updatingKey),
+                              );
+                              return FadeThroughBox(
+                                child: isUpdating
+                                    ? SizedBox.square(
+                                        key: const ValueKey('loading'),
+                                        dimension: 44,
+                                        child: Center(
+                                          child: SizedBox.square(
+                                            dimension: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 1.8,
+                                              color: surge.textSecondary,
+                                            ),
                                           ),
-                                        )
-                                      : _ProfileActionButton(
-                                          onEdit: () {
-                                            _handleShowEditExtendPage(context);
-                                          },
-                                          onPreview: () {
-                                            _handlePreview(context);
-                                          },
-                                          onSync:
-                                              profile.type == ProfileType.url
-                                              ? _updateProfile
-                                              : null,
-                                          onOverride: () {
-                                            _handlePushGenProfilePage(
-                                              context,
-                                              profile.id,
-                                            );
-                                          },
-                                          onCopyLink:
-                                              profile.type == ProfileType.url
-                                              ? () {
-                                                  _handleCopyLink(context);
-                                                }
-                                              : null,
-                                          onExport: () {
-                                            _handleExportFile(context);
-                                          },
-                                          onDelete: () {
-                                            _handleDeleteProfile(context);
-                                          },
                                         ),
-                                );
-                              },
-                            ),
+                                      )
+                                    : _ProfileActionButton(
+                                        onEdit: () {
+                                          _handleShowEditExtendPage(context);
+                                        },
+                                        onPreview: () {
+                                          _handlePreview(context);
+                                        },
+                                        onSync: profile.type == ProfileType.url
+                                            ? _updateProfile
+                                            : null,
+                                        onOverride: () {
+                                          _handlePushGenProfilePage(
+                                            context,
+                                            profile.id,
+                                          );
+                                        },
+                                        onCopyLink:
+                                            profile.type == ProfileType.url
+                                            ? () {
+                                                _handleCopyLink(context);
+                                              }
+                                            : null,
+                                        onExport: () {
+                                          _handleExportFile(context);
+                                        },
+                                        onDelete: () {
+                                          _handleDeleteProfile(context);
+                                        },
+                                      ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1763,11 +1739,37 @@ class _ProfileListItem extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-            _SelectedProfileDot(selected: isSelected),
-          ],
-        );
-      },
+              if (isSelected)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Container(
+                      width: 3,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: surge.primary.withValues(alpha: 0.64),
+                        borderRadius: BorderRadius.circular(1.5),
+                      ),
+                    ),
+                  ),
+                ),
+              if (showDivider)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 0,
+                  child: Divider(
+                    height: 0,
+                    thickness: surge.spacing.hairline,
+                    color: surge.separator.withValues(alpha: 0.62),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2044,7 +2046,6 @@ class _ProfileActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
     final appLocalizations = context.appLocalizations;
     return CommonPopupBox(
       key: const ValueKey('menu'),
@@ -2091,12 +2092,12 @@ class _ProfileActionButton extends StatelessWidget {
         ],
       ),
       targetBuilder: (open) {
-        return IconButton(
-          visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
-          color: surge.textSecondary,
+        return SoftOsIconButton(
+          icon: Icons.more_horiz_rounded,
           onPressed: open,
-          icon: const Icon(Icons.more_horiz_rounded),
+          visualSize: 30,
+          tapSize: 44,
+          iconSize: 16,
         );
       },
     );
@@ -2142,7 +2143,9 @@ class _ProfileActionMenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final color = danger ? surge.red : surge.textPrimary;
+    final color = danger
+        ? surge.red.withValues(alpha: 0.88)
+        : surge.textPrimary.withValues(alpha: 0.72);
     return InkWell(
       onTap: () {
         Navigator.of(context).pop();
@@ -2157,11 +2160,11 @@ class _ProfileActionMenuItem extends StatelessWidget {
               height: 30,
               decoration: BoxDecoration(
                 color: danger
-                    ? surge.red.withValues(alpha: 0.09)
-                    : surge.textSecondary.withValues(alpha: 0.08),
+                    ? surge.red.withValues(alpha: 0.075)
+                    : surge.textSecondary.withValues(alpha: 0.055),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: Icon(icon, size: 16, color: color),
+              child: Icon(icon, size: 15.5, color: color),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -2170,7 +2173,7 @@ class _ProfileActionMenuItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: context.textTheme.bodyMedium?.copyWith(
-                  color: color,
+                  color: danger ? color : surge.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0,
@@ -2236,25 +2239,20 @@ class _ProfileListSummary extends StatelessWidget {
     final total = hasTraffic ? subscriptionInfo.total : 0;
     final progress = hasTraffic ? (used / total).clamp(0.0, 1.0) : 0.0;
     final expireText = hasTraffic && subscriptionInfo.expire != 0
-        ? DateTime.fromMillisecondsSinceEpoch(
-            subscriptionInfo.expire * 1000,
-          ).show
-        : context.appLocalizations.infiniteTime;
+        ? '到期 ${DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000).show}'
+        : '永久有效';
     final trafficText = '${used.traffic.show} / ${total.traffic.show}';
     final detailStyle = context.textTheme.labelSmall?.copyWith(
       color: surge.textSecondary,
       fontSize: 11,
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w500,
       letterSpacing: 0,
     );
 
     if (!hasTraffic) {
       return Padding(
         padding: const EdgeInsets.only(top: 5),
-        child: LastUpdateTimeText(
-          lastUpdateDate: profile.lastUpdateDate,
-          style: detailStyle,
-        ),
+        child: _ProfileUpdateSummary(profile: profile, style: detailStyle),
       );
     }
 
@@ -2263,15 +2261,7 @@ class _ProfileListSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2.5),
-            child: LinearProgressIndicator(
-              minHeight: 5,
-              value: progress,
-              color: hasTraffic ? surge.primary : Colors.transparent,
-              backgroundColor: surge.fill,
-            ),
-          ),
+          SoftOsUsageBar(value: progress),
           const SizedBox(height: 7),
           _ProfileSummaryLine(
             lastUpdateDate: profile.lastUpdateDate,
@@ -2280,6 +2270,33 @@ class _ProfileListSummary extends StatelessWidget {
             style: detailStyle,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class SoftOsUsageBar extends StatelessWidget {
+  const SoftOsUsageBar({super.key, required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final progress = value.clamp(0.0, 1.0);
+    final color = progress >= 0.95
+        ? surge.red.withValues(alpha: 0.82)
+        : progress >= 0.8
+        ? surge.orange.withValues(alpha: 0.78)
+        : surge.primary.withValues(alpha: 0.72);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2.5),
+      child: LinearProgressIndicator(
+        minHeight: 5,
+        value: progress,
+        color: color,
+        backgroundColor: surge.textSecondary.withValues(alpha: 0.08),
       ),
     );
   }
@@ -2308,7 +2325,35 @@ class _ProfileSummaryLine extends StatelessWidget {
       builder: (context, _) {
         return _SummaryText(
           text:
-              '${lastUpdateDate!.getLastUpdateTimeDesc(context)} · $trafficText · $expireText',
+              '更新 ${lastUpdateDate!.getLastUpdateTimeDesc(context)} · $trafficText · $expireText',
+          style: style,
+        );
+      },
+    );
+  }
+}
+
+class _ProfileUpdateSummary extends StatelessWidget {
+  const _ProfileUpdateSummary({required this.profile, required this.style});
+
+  final Profile profile;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    if (profile.lastUpdateDate == null) {
+      return _SummaryText(
+        text: profile.type == ProfileType.file ? '本地文件' : '',
+        style: style,
+      );
+    }
+    final prefix = profile.type == ProfileType.file ? '本地文件 · 更新 ' : '更新 ';
+    return TickBuilder(
+      duration: const Duration(minutes: 1),
+      builder: (context, _) {
+        return _SummaryText(
+          text:
+              '$prefix${profile.lastUpdateDate!.getLastUpdateTimeDesc(context)}',
           style: style,
         );
       },
@@ -2339,29 +2384,50 @@ class _ProfilePill extends StatelessWidget {
     required this.label,
     required this.color,
     this.filled = false,
+    this.emphasized = false,
   });
 
   final String label;
   final Color color;
   final bool filled;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final backgroundAlpha = emphasized
+        ? 0.09
+        : filled
+        ? 0.055
+        : 0.055;
+    final borderAlpha = emphasized ? 0.16 : 0.38;
+    final textColor = emphasized
+        ? color.withValues(alpha: 0.92)
+        : surge.textPrimary.withValues(alpha: 0.68);
     return Container(
       constraints: const BoxConstraints(maxWidth: 74),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      height: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: filled ? 0.12 : 0.08),
+        color: color.withValues(alpha: backgroundAlpha),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: emphasized
+              ? color.withValues(alpha: borderAlpha)
+              : surge.separator.withValues(alpha: borderAlpha),
+          width: surge.spacing.hairline,
+        ),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: context.textTheme.labelSmall?.copyWith(
-          color: color,
+          color: textColor,
           fontSize: 11,
           fontWeight: FontWeight.w600,
+          height: 1,
           letterSpacing: 0,
         ),
       ),
