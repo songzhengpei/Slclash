@@ -30,7 +30,6 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     null,
   );
   List<double> _headerOffset = [];
-  double _listContentHeight = 0;
   double containerHeight = 0;
 
   @override
@@ -112,22 +111,13 @@ class _ProxiesListViewState extends State<ProxiesListView> {
       currentHeight = currentHeight + itemHeight;
     }
     _headerOffset = headerOffset;
-    _listContentHeight = currentHeight;
     return itemHeightList;
-  }
-
-  double _getHeaderSectionEndOffset(int index) {
-    if (index + 1 < _headerOffset.length) {
-      return _headerOffset[index + 1];
-    }
-    return _listContentHeight;
   }
 
   bool _shouldShowStickyHeader({
     required int index,
     required Group group,
     required Set<String> currentUnfoldSet,
-    required double viewportHeight,
   }) {
     if (!_controller.hasClients ||
         index < 0 ||
@@ -138,10 +128,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     if (!currentUnfoldSet.contains(group.name)) {
       return false;
     }
-    final sectionHeight =
-        _getHeaderSectionEndOffset(index) - _headerOffset[index];
-    final visibleContentHeight = max(0.0, viewportHeight - 16);
-    return sectionHeight > visibleContentHeight;
+    return true;
   }
 
   List<Widget> _buildItems(
@@ -446,7 +433,6 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                           index: index,
                           group: group,
                           currentUnfoldSet: state.currentUnfoldSet,
-                          viewportHeight: container.maxHeight,
                         )) {
                           return const SizedBox.shrink();
                         }
@@ -456,6 +442,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                               top: -headerState.offset,
                               child: Container(
                                 width: container.maxWidth,
+                                color: SurgeTheme.of(context).background,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                 ),
