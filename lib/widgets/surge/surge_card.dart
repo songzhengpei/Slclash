@@ -51,20 +51,22 @@ class SurgeCard extends StatelessWidget {
 
     return Padding(
       padding: margin ?? EdgeInsets.zero,
-      child: Material(
-        color: Colors.transparent,
-        clipBehavior: clipBehavior,
+      child: ClipRRect(
         borderRadius: radius,
-        child: Ink(
-          height: height,
-          width: width,
-          decoration: decoration,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: radius,
-            child: Padding(
-              padding: padding ?? EdgeInsets.all(surge.spacing.cardPadding),
-              child: child,
+        child: Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          child: Ink(
+            height: height,
+            width: width,
+            decoration: decoration,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: radius,
+              child: Padding(
+                padding: padding ?? EdgeInsets.all(surge.spacing.cardPadding),
+                child: child,
+              ),
             ),
           ),
         ),

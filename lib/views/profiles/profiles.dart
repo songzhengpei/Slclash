@@ -1127,7 +1127,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
       onTap: enabled ? onTap : null,
       child: Container(
         height: 44,
-        padding: const EdgeInsets.only(left: 2, right: 10),
+        padding: const EdgeInsets.only(left: 2, right: 0),
         child: Row(
           children: [
             _SoftOsIconSurface(
