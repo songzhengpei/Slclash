@@ -1666,12 +1666,13 @@ class _ProfileListItem extends StatelessWidget {
                     SizedBox(
                       width: 92,
                       child: Row(
-                        mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          _ProfilePill(
-                            label: profile.type.name,
-                            color: surge.textSecondary,
+                          Flexible(
+                            child: _ProfilePill(
+                              label: profile.type.name,
+                              color: surge.textSecondary,
+                            ),
                           ),
                           const SizedBox(width: 4),
                           Consumer(
@@ -2397,7 +2398,7 @@ class _ProfilePill extends StatelessWidget {
         ? color.withValues(alpha: 0.92)
         : surge.textPrimary.withValues(alpha: 0.68);
     return Container(
-      constraints: const BoxConstraints(maxWidth: 50),
+      constraints: const BoxConstraints(maxWidth: 68),
       height: 26,
       padding: const EdgeInsets.symmetric(horizontal: 9),
       alignment: Alignment.center,
