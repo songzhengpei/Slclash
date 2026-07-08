@@ -160,10 +160,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                           ),
                           const SizedBox(height: 20),
                         ],
-                        _ProfileSectionHeader(
-                          title: '已添加订阅',
-                          count: state.profiles.length,
-                        ),
+                        _ProfileSectionHeader(title: '已添加订阅'),
                         const SizedBox(height: 8),
                         _ProfileListContainer(
                           profiles: state.profiles,
@@ -1226,9 +1223,9 @@ class _CurrentProfileExpandButton extends StatelessWidget {
               _SoftOsIconSurface(
                 icon: Icons.hub_outlined,
                 color: enabled ? surge.textPrimary : surge.textSecondary,
-                size: 34,
-                radius: 12,
-                iconSize: 18,
+                size: 30,
+                radius: 15,
+                iconSize: 15,
                 backgroundAlpha: enabled ? 0.055 : 0.04,
                 foregroundAlpha: enabled ? 0.72 : 0.55,
               ),
@@ -1571,10 +1568,9 @@ class _ProfileDelayBadge extends ConsumerWidget {
 }
 
 class _ProfileSectionHeader extends StatelessWidget {
-  const _ProfileSectionHeader({required this.title, this.count});
+  const _ProfileSectionHeader({required this.title});
 
   final String title;
-  final int? count;
 
   @override
   Widget build(BuildContext context) {
@@ -1596,15 +1592,6 @@ class _ProfileSectionHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (count != null)
-            Text(
-              '$count',
-              style: context.textTheme.labelSmall?.copyWith(
-                color: surge.textSecondary,
-                fontSize: 12,
-                letterSpacing: 0,
-              ),
-            ),
         ],
       ),
     );
@@ -1846,11 +1833,11 @@ class _ProfileListItem extends StatelessWidget {
                     bottom: 0,
                     child: Center(
                       child: Container(
-                        width: 4,
+                        width: 3,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: surge.primary.withValues(alpha: 0.72),
-                          borderRadius: BorderRadius.circular(2),
+                          color: surge.primary.withValues(alpha: 0.68),
+                          borderRadius: BorderRadius.circular(1.5),
                         ),
                       ),
                     ),
