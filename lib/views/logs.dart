@@ -188,6 +188,8 @@ class LogItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final levelColor = log.logLevel.color(context) ?? surge.textSecondary;
     return SurgeDataListItem(
       onTap: () {},
       child: Column(
@@ -195,26 +197,53 @@ class LogItem extends StatelessWidget {
         children: [
           SelectableText(
             log.payload,
-            style: context.textTheme.bodyLarge?.copyWith(
-              color: log.logLevel.color(context),
+            style: context.textTheme.bodyMedium?.copyWith(
+              color: surge.textPrimary,
+              fontSize: 13,
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              CommonChip(
-                onPressed: () {
+              GestureDetector(
+                onTap: () {
                   if (onClick == null) return;
                   onClick!(log.logLevel.name);
                 },
-                label: log.logLevel.name,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: levelColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: levelColor.withValues(alpha: 0.16),
+                      width: surge.spacing.hairline,
+                    ),
+                  ),
+                  child: Text(
+                    log.logLevel.name,
+                    style: context.textTheme.labelSmall?.copyWith(
+                      color: levelColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      height: 1,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
               ),
+              const Spacer(),
               Text(
                 log.dateTime,
-                style: context.textTheme.bodySmall?.copyWith(
-                  color: context.colorScheme.onSurface.opacity80,
+                style: context.textTheme.labelSmall?.copyWith(
+                  color: surge.textSecondary.withValues(alpha: 0.62),
+                  fontSize: 10,
+                  height: 1,
+                  letterSpacing: 0,
                 ),
               ),
             ],

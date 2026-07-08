@@ -41,133 +41,145 @@ class TrackerInfoItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
+    final surge = SurgeTheme.of(context);
     final value = ref.watch(
       patchClashConfigProvider.select(
         (state) =>
             state.findProcessMode == FindProcessMode.always && system.isAndroid,
       ),
     );
-    final title = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(trackerInfo.desc, style: context.textTheme.bodyLarge),
-        // Row(
-        //   mainAxisSize: MainAxisSize.max,
-        //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        //   spacing: 8,
-        //   children: [
-        //     Flexible(
-        //       child: Text(trackerInfo.desc, style: context.textTheme.bodyLarge),
-        //     ),
-        //     Text(
-        //       trackerInfo.start.lastUpdateTimeDesc,
-        //       style: context.textTheme.bodySmall?.copyWith(
-        //         color: context.colorScheme.onSurface.opacity60,
-        //       ),
-        //     ),
-        //   ],
-        // ),
-        const SizedBox(height: 6),
-        Text(
-          _getSourceText(context, trackerInfo),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: context.textTheme.bodyMedium?.copyWith(
-            color: context.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-    final subTitle = SizedBox(
-      height: subTitleHeight,
-      child: Row(
-        spacing: 8,
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: ListView.separated(
-              separatorBuilder: (_, _) => const SizedBox(width: 6),
-              padding: EdgeInsets.zero,
-              scrollDirection: Axis.horizontal,
-              itemCount: trackerInfo.chains.length,
-              itemBuilder: (_, index) {
-                final chain = trackerInfo.chains[index];
-                return CommonChip(
-                  label: chain,
-                  labelStyle: context.textTheme.bodySmall?.copyWith(
-                    color: context.colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: () {
-                    if (onClickKeyword == null) return;
-                    onClickKeyword!(chain);
-                  },
-                );
-              },
-            ),
-          ),
-          ?trailing,
-        ],
-      ),
-    );
-    final icon = value
-        ? GestureDetector(
-            onTap: () {
-              if (onClickKeyword == null) return;
-              final process = trackerInfo.metadata.process;
-              if (process.isEmpty) return;
-              onClickKeyword!(process);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: SurgeCard(
+        shadow: false,
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        onTap: () {
+          showExtend(
+            context,
+            builder: (_) {
+              return AdaptiveSheetScaffold(
+                body: TrackerInfoDetailView(trackerInfo: trackerInfo),
+                title: detailTitle,
+              );
             },
-            child: Container(
-              margin: const EdgeInsets.only(top: 4),
-              width: 42,
-              height: 42,
-              child: FutureBuilder<ImageProvider?>(
-                future: _getPackageIcon(trackerInfo),
-                builder: (_, snapshot) {
-                  if (!snapshot.hasData && snapshot.data == null) {
-                    return Container();
-                  } else {
-                    return Image(
-                      image: snapshot.data!,
-                      gaplessPlayback: true,
-                      width: 42,
-                      height: 42,
-                    );
-                  }
-                },
-              ),
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (value)
+                  GestureDetector(
+                    onTap: () {
+                      if (onClickKeyword == null) return;
+                      final process = trackerInfo.metadata.process;
+                      if (process.isEmpty) return;
+                      onClickKeyword!(process);
+                    },
+                    child: FutureBuilder<ImageProvider?>(
+                      future: _getPackageIcon(trackerInfo),
+                      builder: (_, snapshot) {
+                        if (!snapshot.hasData || snapshot.data == null) {
+                          return const SizedBox(width: 34, height: 34);
+                        }
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image(
+                            image: snapshot.data!,
+                            gaplessPlayback: true,
+                            width: 34,
+                            height: 34,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                if (value) const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        trackerInfo.desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          color: surge.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        _getSourceText(context, trackerInfo),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.labelSmall?.copyWith(
+                          color: surge.textSecondary,
+                          fontSize: 11,
+                          height: 1,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (trailing != null) trailing!,
+              ],
             ),
-          )
-        : null;
-    return SurgeDataListItem(
-      onTap: () {
-        showExtend(
-          context,
-          builder: (_) {
-            return AdaptiveSheetScaffold(
-              body: TrackerInfoDetailView(trackerInfo: trackerInfo),
-              title: detailTitle,
-            );
-          },
-        );
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            spacing: 12,
-            children: [
-              ?icon,
-              Flexible(child: title),
+            if (trackerInfo.chains.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 28,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.zero,
+                  itemCount: trackerInfo.chains.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 6),
+                  itemBuilder: (_, index) {
+                    final chain = trackerInfo.chains[index];
+                    return GestureDetector(
+                      onTap: () {
+                        if (onClickKeyword == null) return;
+                        onClickKeyword!(chain);
+                      },
+                      child: Container(
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: surge.textSecondary.withValues(alpha: 0.055),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: surge.separator.withValues(alpha: 0.38),
+                            width: surge.spacing.hairline,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          chain,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.textTheme.labelSmall?.copyWith(
+                            color: surge.textPrimary.withValues(alpha: 0.72),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            height: 1,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 8),
-          subTitle,
-        ],
+          ],
+        ),
       ),
     );
   }

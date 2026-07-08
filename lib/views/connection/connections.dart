@@ -6,6 +6,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/widgets/widgets.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -211,14 +212,14 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                 onClickKeyword: (value) {
                   context.commonScaffoldState?.addKeyword(value);
                 },
-                trailing: IconButton(
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  style: IconButton.styleFrom(minimumSize: Size.zero),
-                  icon: const Icon(Icons.block),
+                trailing: SoftOsIconButton(
+                  icon: Icons.block_rounded,
                   onPressed: () {
                     _handleBlockConnection(trackerInfo.id);
                   },
+                  visualSize: 30,
+                  tapSize: 44,
+                  iconSize: 15,
                 ),
                 detailTitle: appLocalizations.details(
                   appLocalizations.connection,

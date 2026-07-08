@@ -1213,7 +1213,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return Material(
-      color: Colors.transparent,
+      type: MaterialType.transparency,
       child: InkWell(
         onTap: enabled ? onTap : null,
         child: SizedBox(

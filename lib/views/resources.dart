@@ -47,6 +47,15 @@ enum _ResourceAutoUpdateMode {
     };
   }
 
+  String get statusText {
+    return switch (this) {
+      _ResourceAutoUpdateMode.off => '手动',
+      _ResourceAutoUpdateMode.daily => '自动更新：每日',
+      _ResourceAutoUpdateMode.everyThreeDays => '自动更新：3日',
+      _ResourceAutoUpdateMode.everySevenDays => '自动更新：7日',
+    };
+  }
+
   static _ResourceAutoUpdateMode fromName(String? name) {
     return _ResourceAutoUpdateMode.values.firstWhere(
       (item) => item.name == name,
@@ -248,13 +257,11 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
 
   List<Widget> _buildActions() {
     return [
-      _ResourceActionButton(
-        tooltip: '全部更新',
+      SoftOsIconButton(
         icon: Icons.sync_rounded,
         onPressed: () => _handleUpdateAll(),
       ),
-      _ResourceActionButton(
-        tooltip: '自动更新',
+      SoftOsIconButton(
         icon: Icons.schedule_rounded,
         onPressed: _showAutoUpdateSheet,
       ),
@@ -273,16 +280,13 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
         builder: (_, updatingItems, _) {
           return ListView.builder(
             padding: EdgeInsets.only(
-              bottom: 112 + MediaQuery.paddingOf(context).bottom,
+              top: 4,
+              bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
             ),
             itemCount: _geoItems.length + 1,
             itemBuilder: (_, index) {
               if (index == 0) {
-                return SurgeDataHeader(
-                  text: _autoUpdateMode == _ResourceAutoUpdateMode.off
-                      ? '资源文件用于规则匹配和地理信息识别，可按需手动同步。'
-                      : '自动更新：${_autoUpdateMode.title}',
-                );
+                return _ResourceStatusCard(mode: _autoUpdateMode);
               }
               final item = _geoItems[index - 1];
               return _ResourceItemCard(
@@ -298,218 +302,73 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
   }
 }
 
-class _ResourceActionButton extends StatelessWidget {
-  const _ResourceActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
+/// Status card showing current auto-update mode.
+class _ResourceStatusCard extends StatelessWidget {
+  const _ResourceStatusCard({required this.mode});
 
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: IconButton(onPressed: onPressed, icon: Icon(icon)),
-    );
-  }
-}
-
-class _ResourceAutoUpdateSheet extends StatefulWidget {
-  const _ResourceAutoUpdateSheet({
-    required this.value,
-    required this.onChanged,
-  });
-
-  final _ResourceAutoUpdateMode value;
-  final ValueChanged<_ResourceAutoUpdateMode> onChanged;
-
-  @override
-  State<_ResourceAutoUpdateSheet> createState() =>
-      _ResourceAutoUpdateSheetState();
-}
-
-class _ResourceAutoUpdateSheetState extends State<_ResourceAutoUpdateSheet> {
-  late var _value = widget.value;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        28 + MediaQuery.paddingOf(context).bottom,
-      ),
-      child: _ResourceSettingSection(
-        title: '更新频率',
-        subtitle: '首次打开资源页时触发',
-        children: [
-          for (final mode in _ResourceAutoUpdateMode.values)
-            _ResourceSettingOption(
-              icon: mode == _ResourceAutoUpdateMode.off
-                  ? Icons.pause_circle_outline_rounded
-                  : Icons.update_rounded,
-              title: mode.title,
-              subtitle: mode.subtitle,
-              selected: mode == _value,
-              onTap: () {
-                setState(() {
-                  _value = mode;
-                });
-                widget.onChanged(mode);
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResourceSettingSection extends StatelessWidget {
-  const _ResourceSettingSection({
-    required this.title,
-    required this.children,
-    this.subtitle,
-  });
-
-  final String title;
-  final String? subtitle;
-  final List<Widget> children;
+  final _ResourceAutoUpdateMode mode;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-          child: Row(
-            children: [
-              Text(
-                title,
-                style: context.textTheme.titleSmall?.copyWith(
-                  color: surge.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                  letterSpacing: 0,
-                ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: SurgeCard(
+        shadow: false,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: surge.textSecondary.withValues(alpha: 0.055),
+                borderRadius: BorderRadius.circular(15),
               ),
-              if (subtitle != null) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    subtitle!,
+              child: Icon(
+                mode == _ResourceAutoUpdateMode.off
+                    ? Icons.pause_circle_outline_rounded
+                    : Icons.update_rounded,
+                size: 15,
+                color: surge.textPrimary.withValues(alpha: 0.72),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    mode.statusText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelSmall?.copyWith(
-                      color: surge.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: surge.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                       height: 1,
                       letterSpacing: 0,
                     ),
                   ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        SurgeCard(
-          padding: EdgeInsets.zero,
-          borderRadius: 18,
-          shadow: true,
-          child: Column(children: children),
-        ),
-      ],
-    );
-  }
-}
-
-class _ResourceSettingOption extends StatelessWidget {
-  const _ResourceSettingOption({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    final foreground = selected ? surge.textPrimary : surge.textSecondary;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          child: Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: selected ? surge.selectedFill : surge.fill,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, size: 17, color: foreground),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  if (mode != _ResourceAutoUpdateMode.off) ...[
+                    const SizedBox(height: 4),
                     Text(
-                      title,
+                      mode.subtitle,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.bodyMedium?.copyWith(
-                        color: surge.textPrimary,
-                        fontSize: 15,
-                        fontWeight: selected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        height: 1,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: context.textTheme.labelSmall?.copyWith(
                         color: surge.textSecondary,
                         fontSize: 11,
-                        height: 1.1,
+                        height: 1,
                         letterSpacing: 0,
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-              const SizedBox(width: 12),
-              SurgeSelectIndicator(
-                selected: selected,
-                size: 18,
-                iconSize: 12,
-                showCheck: false,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -575,97 +434,276 @@ class _ResourceItemCard extends ConsumerWidget {
     );
     if (url == null) return const SizedBox();
 
-    return SurgeDataListItem(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: surge.textSecondary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: SurgeCard(
+        shadow: false,
+        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: surge.textSecondary.withValues(alpha: 0.055),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: surge.separator.withValues(alpha: 0.38),
+                  width: surge.spacing.hairline,
+                ),
+              ),
+              child: Icon(
+                item.icon,
+                size: 17,
+                color: surge.textPrimary.withValues(alpha: 0.72),
+              ),
             ),
-            child: Icon(item.icon, size: 18, color: surge.textSecondary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: surge.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  FutureBuilder<FileInfo>(
+                    future: _getGeoFileLastModified(item.fileName),
+                    builder: (_, snapshot) {
+                      final text = snapshot.data?.getDesc(context) ?? '读取中';
+                      return Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.labelSmall?.copyWith(
+                          color: surge.textSecondary,
+                          fontSize: 11,
+                          height: 1,
+                          letterSpacing: 0,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    url,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.bodySmall?.copyWith(
+                      color: surge.textSecondary.withValues(alpha: 0.82),
+                      fontSize: 11,
+                      height: 1,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            SoftOsControlDock(
+              height: 30,
+              tapHeight: 44,
               children: [
-                Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodyLarge?.copyWith(
-                    color: surge.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
-                  ),
+                SoftOsDockButton(
+                  tooltip: context.appLocalizations.edit,
+                  icon: Icons.edit_rounded,
+                  onTap: () => _updateUrl(context, ref, url),
                 ),
-                const SizedBox(height: 5),
-                FutureBuilder<FileInfo>(
-                  future: _getGeoFileLastModified(item.fileName),
-                  builder: (_, snapshot) {
-                    final text = snapshot.data?.getDesc(context) ?? '读取中';
-                    return Text(
-                      text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelMedium?.copyWith(
-                        color: surge.textSecondary,
-                        fontSize: 11,
-                        height: 1,
-                        letterSpacing: 0,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  url,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodySmall?.copyWith(
-                    color: surge.textSecondary,
-                    fontSize: 11,
-                    height: 1.18,
-                    letterSpacing: 0,
-                  ),
+                SoftOsDockDivider(height: 15),
+                SoftOsDockButton(
+                  tooltip: context.appLocalizations.sync,
+                  icon: Icons.sync_rounded,
+                  loading: updating,
+                  onTap: onUpdate,
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResourceAutoUpdateSheet extends StatefulWidget {
+  const _ResourceAutoUpdateSheet({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final _ResourceAutoUpdateMode value;
+  final ValueChanged<_ResourceAutoUpdateMode> onChanged;
+
+  @override
+  State<_ResourceAutoUpdateSheet> createState() =>
+      _ResourceAutoUpdateSheetState();
+}
+
+class _ResourceAutoUpdateSheetState extends State<_ResourceAutoUpdateSheet> {
+  late var _value = widget.value;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        28 + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(
+              '更新频率',
+              style: context.textTheme.titleSmall?.copyWith(
+                color: surge.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                height: 1,
+                letterSpacing: 0,
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          Text(
+            '首次打开资源页时触发',
+            style: context.textTheme.labelSmall?.copyWith(
+              color: surge.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              height: 1,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SurgeCard(
+            padding: EdgeInsets.zero,
+            borderRadius: 18,
+            shadow: true,
+            child: Column(
+              children: [
+                for (final mode in _ResourceAutoUpdateMode.values)
+                  _ResourceSheetOption(
+                    icon: mode == _ResourceAutoUpdateMode.off
+                        ? Icons.pause_circle_outline_rounded
+                        : Icons.update_rounded,
+                    title: mode.title,
+                    subtitle: mode.subtitle,
+                    selected: mode == _value,
+                    onTap: () {
+                      setState(() {
+                        _value = mode;
+                      });
+                      widget.onChanged(mode);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResourceSheetOption extends StatelessWidget {
+  const _ResourceSheetOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final foreground = selected ? surge.textPrimary : surge.textSecondary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: Row(
             children: [
-              Tooltip(
-                message: context.appLocalizations.edit,
-                child: IconButton(
-                  onPressed: () => _updateUrl(context, ref, url),
-                  icon: const Icon(Icons.edit_rounded),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? surge.primary.withValues(alpha: 0.1)
+                      : surge.textSecondary.withValues(alpha: 0.055),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: surge.separator.withValues(alpha: 0.38),
+                    width: surge.spacing.hairline,
+                  ),
+                ),
+                child: Icon(icon, size: 15, color: foreground),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        color: surge.textPrimary,
+                        fontSize: 15,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        height: 1,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.labelSmall?.copyWith(
+                        color: surge.textSecondary,
+                        fontSize: 11,
+                        height: 1.1,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Tooltip(
-                message: context.appLocalizations.sync,
-                child: updating
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : IconButton(
-                        onPressed: onUpdate,
-                        icon: const Icon(Icons.sync_rounded),
-                      ),
+              const SizedBox(width: 12),
+              SurgeSelectIndicator(
+                selected: selected,
+                size: 18,
+                iconSize: 12,
+                showCheck: false,
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
