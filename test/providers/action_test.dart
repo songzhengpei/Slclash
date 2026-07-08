@@ -27,32 +27,76 @@ void main() {
   });
 
   group('shouldReconnectCoreOnResume', () {
-    test('does not reconnect core on Android when VPN is stopped and groups exist', () {
-      expect(
-        shouldReconnectCoreOnResume(isAndroid: true, isRunning: false, hasGroups: true),
-        isFalse,
-      );
-    });
+    test(
+      'does not reconnect core on Android when VPN is stopped and groups exist',
+      () {
+        expect(
+          shouldReconnectCoreOnResume(
+            isAndroid: true,
+            isRunning: false,
+            hasGroups: true,
+          ),
+          isFalse,
+        );
+      },
+    );
 
-    test('reconnects core on Android when VPN is stopped but groups are empty (initial load)', () {
-      expect(
-        shouldReconnectCoreOnResume(isAndroid: true, isRunning: false, hasGroups: false),
-        isTrue,
-      );
-    });
+    test(
+      'reconnects core on Android when VPN is stopped but groups are empty (initial load)',
+      () {
+        expect(
+          shouldReconnectCoreOnResume(
+            isAndroid: true,
+            isRunning: false,
+            hasGroups: false,
+          ),
+          isTrue,
+        );
+      },
+    );
 
     test('reconnects core on Android when VPN is running', () {
       expect(
-        shouldReconnectCoreOnResume(isAndroid: true, isRunning: true, hasGroups: true),
+        shouldReconnectCoreOnResume(
+          isAndroid: true,
+          isRunning: true,
+          hasGroups: true,
+        ),
         isTrue,
       );
     });
 
     test('does not reconnect core on non-Android platforms', () {
       expect(
-        shouldReconnectCoreOnResume(isAndroid: false, isRunning: true, hasGroups: true),
+        shouldReconnectCoreOnResume(
+          isAndroid: false,
+          isRunning: true,
+          hasGroups: true,
+        ),
         isFalse,
       );
+    });
+  });
+
+  group('hasExternalProviderDefinitions', () {
+    test('is false when config has no providers', () {
+      expect(hasExternalProviderDefinitions(const ClashConfig()), isFalse);
+    });
+
+    test('is true when config has proxy providers', () {
+      final config = ClashConfig.fromJson({
+        'proxy-providers': {'provider1': <String, Object?>{}},
+      });
+
+      expect(hasExternalProviderDefinitions(config), isTrue);
+    });
+
+    test('is true when config has rule providers', () {
+      final config = ClashConfig.fromJson({
+        'rule-providers': {'rules1': <String, Object?>{}},
+      });
+
+      expect(hasExternalProviderDefinitions(config), isTrue);
     });
   });
 

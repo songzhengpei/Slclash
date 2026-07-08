@@ -164,6 +164,10 @@ class Providers extends _$Providers with AutoDisposeNotifierMixin {
     value = newState;
   }
 
+  void clear() {
+    value = [];
+  }
+
   Future<void> syncProviders() async {
     value = await coreController.getExternalProviders();
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -18,24 +20,46 @@ class ProxiesView extends ConsumerStatefulWidget {
 }
 
 class _ProxiesViewState extends ConsumerState<ProxiesView> {
-  List<Widget> _buildActions(BuildContext context) {
-    final appLocalizations = context.appLocalizations;
-    final hasProviders = ref.watch(
+  bool _hasProviders() {
+    final runtimeHasProviders = ref.watch(
       providersProvider.select((state) => state.isNotEmpty),
     );
+    final currentProfileId = ref.watch(currentProfileIdProvider);
+    final profileHasProviders =
+        currentProfileId != null &&
+        ref.watch(
+          clashConfigProvider(currentProfileId).select((state) {
+            final config = state.value;
+            return config != null && hasExternalProviderDefinitions(config);
+          }),
+        );
+    return runtimeHasProviders || profileHasProviders;
+  }
+
+  Future<void> _handleProvidersPressed(BuildContext context) async {
+    await ref
+        .read(proxiesActionProvider.notifier)
+        .ensureProvidersForCurrentProfile();
+    if (!context.mounted) return;
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
+      builder: (_) {
+        return const ProvidersView();
+      },
+    );
+  }
+
+  List<Widget> _buildActions(BuildContext context) {
+    final appLocalizations = context.appLocalizations;
+    final hasProviders = _hasProviders();
     return [
       if (hasProviders)
         _ProxiesActionButton(
           tooltip: appLocalizations.providers,
           icon: Icons.cloud_sync_rounded,
           onPressed: () {
-            showSheet(
-              context: context,
-              props: const SheetProps(isScrollControlled: true),
-              builder: (_) {
-                return const ProvidersView();
-              },
-            );
+            unawaited(_handleProvidersPressed(context));
           },
         ),
       _ProxiesActionButton(

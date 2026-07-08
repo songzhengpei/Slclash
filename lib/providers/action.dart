@@ -41,6 +41,10 @@ bool shouldReconnectCoreOnResume({
   return isAndroid && (isRunning || !hasGroups);
 }
 
+bool hasExternalProviderDefinitions(ClashConfig config) {
+  return config.proxyProviders.isNotEmpty || config.ruleProviders.isNotEmpty;
+}
+
 @Riverpod(keepAlive: true)
 class CommonAction extends _$CommonAction {
   @override
@@ -1469,8 +1473,77 @@ class ThemeAction extends _$ThemeAction {
 
 @Riverpod(keepAlive: true)
 class ProxiesAction extends _$ProxiesAction {
+  Future<void>? _ensureProvidersFuture;
+
   @override
   void build() {}
+
+  Future<void> ensureProvidersForCurrentProfile() {
+    final running = _ensureProvidersFuture;
+    if (running != null) return running;
+
+    final future = _ensureProvidersForCurrentProfile();
+    _ensureProvidersFuture = future;
+    future.whenComplete(() {
+      if (_ensureProvidersFuture == future) {
+        _ensureProvidersFuture = null;
+      }
+    });
+    return future;
+  }
+
+  Future<void> _ensureProvidersForCurrentProfile() async {
+    final profileId = ref.read(currentProfileIdProvider);
+    if (profileId == null) {
+      ref.read(providersProvider.notifier).clear();
+      return;
+    }
+
+    try {
+      final config = await ref.read(clashConfigProvider(profileId).future);
+      if (ref.read(currentProfileIdProvider) != profileId) return;
+
+      if (!hasExternalProviderDefinitions(config)) {
+        ref.read(providersProvider.notifier).clear();
+        return;
+      }
+
+      if (ref.read(providersProvider).isNotEmpty) return;
+
+      final coreReady = await _ensureCoreReadyForDisplay();
+      if (!coreReady) return;
+
+      await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
+      if (ref.read(currentProfileIdProvider) != profileId) return;
+
+      await ref.read(providersProvider.notifier).syncProviders();
+    } catch (e) {
+      commonPrint.log(
+        'ensureProvidersForCurrentProfile failed: $e',
+        logLevel: LogLevel.warning,
+      );
+    }
+  }
+
+  Future<bool> _ensureCoreReadyForDisplay() async {
+    if (!coreController.isCompleted) {
+      final connected = await ref
+          .read(coreActionProvider.notifier)
+          .connectCore();
+      if (!connected) return false;
+    }
+
+    final isInit = await coreController.isInit;
+    if (isInit) return true;
+
+    final version = ref.read(versionProvider);
+    final initialized = await coreController.init(version);
+    commonPrint.log('init result: $initialized');
+    if (!initialized) {
+      ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+    }
+    return initialized;
+  }
 
   bool _groupsEqual(List<Group> a, List<Group> b) {
     if (a.length != b.length) return false;
