@@ -1480,26 +1480,20 @@ class _ProfileListContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return SurgeCard(
-      padding: EdgeInsets.zero,
-      borderRadius: surge.radii.card,
-      shadow: true,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(surge.radii.card),
-        child: Column(
-          children: [
-            for (var i = 0; i < profiles.length; i++)
-              _ProfileListItem(
-                profile: profiles[i],
-                isSelected: profiles[i].id == currentProfileId,
-                isCurrent: profiles[i].id == currentProfileId,
-                showDivider: i != profiles.length - 1,
-                isFirst: i == 0,
-                isLast: i == profiles.length - 1,
-                onTap: () => onSelect(profiles[i].id),
-              ),
-          ],
-        ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(surge.radii.list),
+      child: Column(
+        children: [
+          for (var i = 0; i < profiles.length; i++)
+            _ProfileListItem(
+              profile: profiles[i],
+              isSelected: profiles[i].id == currentProfileId,
+              showDivider: i != profiles.length - 1,
+              isFirst: i == 0,
+              isLast: i == profiles.length - 1,
+              onTap: () => onSelect(profiles[i].id),
+            ),
+        ],
       ),
     );
   }
@@ -1509,7 +1503,6 @@ class _ProfileListItem extends StatelessWidget {
   const _ProfileListItem({
     required this.profile,
     required this.isSelected,
-    required this.isCurrent,
     required this.showDivider,
     required this.isFirst,
     required this.isLast,
@@ -1518,7 +1511,6 @@ class _ProfileListItem extends StatelessWidget {
 
   final Profile profile;
   final bool isSelected;
-  final bool isCurrent;
   final bool showDivider;
   final bool isFirst;
   final bool isLast;
@@ -1631,17 +1623,11 @@ class _ProfileListItem extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            if (isSelected && isCurrent)
-                              _ProfilePill(
-                                label: '当前',
-                                color: surge.green,
-                              )
-                            else
-                              Flexible(
-                                child: _ProfilePill(
-                                  label: profile.type.name,
-                                  color: surge.textSecondary,
-                                ),
+                            Flexible(
+                              child: _ProfilePill(
+                                label: profile.type.name,
+                                color: surge.textSecondary,
+                              ),
                               ),
                             const SizedBox(width: 4),
                             Consumer(
