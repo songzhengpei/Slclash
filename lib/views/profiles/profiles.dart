@@ -1074,15 +1074,7 @@ class _MediaCheckEntryCard extends StatelessWidget {
               const SizedBox(width: 8),
               SoftOsIconButton(
                 icon: Icons.chevron_right_rounded,
-                onPressed: () {
-                  BaseNavigator.push(
-                    context,
-                    ProfileMediaCheckView(
-                      profiles: profiles,
-                      initialProfile: profile,
-                    ),
-                  );
-                },
+                onPressed: null,
                 visualSize: 30,
                 tapSize: 44,
                 iconSize: 15,
@@ -1674,6 +1666,7 @@ class _ProfileListItem extends StatelessWidget {
                     SizedBox(
                       width: 92,
                       child: Row(
+                        mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           _ProfilePill(
@@ -2373,7 +2366,6 @@ class _SummaryText extends StatelessWidget {
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      softWrap: false,
       style: style,
     );
   }
@@ -2405,7 +2397,7 @@ class _ProfilePill extends StatelessWidget {
         ? color.withValues(alpha: 0.92)
         : surge.textPrimary.withValues(alpha: 0.68);
     return Container(
-      constraints: const BoxConstraints(maxWidth: 74),
+      constraints: const BoxConstraints(maxWidth: 50),
       height: 26,
       padding: const EdgeInsets.symmetric(horizontal: 9),
       alignment: Alignment.center,
