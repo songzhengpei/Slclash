@@ -439,21 +439,28 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                         return Stack(
                           children: [
                             Positioned(
-                              top: -headerState.offset,
+                              top: 0,
                               child: SizedBox(
                                 width: container.maxWidth,
                                 height: listHeaderHeight,
                                 child: ColoredBox(
                                   color: SurgeTheme.of(context).background,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                    ),
-                                    child: _buildHeader(
-                                      ref,
-                                      group: group,
-                                      currentUnfoldSet: state.currentUnfoldSet,
-                                      rowPosition: ProxyListRowPosition.first,
+                                  child: ClipRect(
+                                    child: Transform.translate(
+                                      offset: Offset(0, -headerState.offset),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                        ),
+                                        child: _buildHeader(
+                                          ref,
+                                          group: group,
+                                          currentUnfoldSet:
+                                              state.currentUnfoldSet,
+                                          rowPosition:
+                                              ProxyListRowPosition.first,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
