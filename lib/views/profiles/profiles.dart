@@ -169,8 +169,18 @@ class _ProfilesViewState extends State<ProfilesView> {
                           profiles: state.profiles,
                           currentProfileId: state.currentProfileId,
                           onSelect: (profileId) {
+                            if (profileId == null ||
+                                profileId == state.currentProfileId) {
+                              return;
+                            }
                             ref.read(currentProfileIdProvider.notifier).value =
                                 profileId;
+                            ref
+                                .read(setupActionProvider.notifier)
+                                .applyProfileDebounce(
+                                  silence: true,
+                                  force: true,
+                                );
                           },
                         ),
                       ],
@@ -926,12 +936,7 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  _ProfilePill(
-                    label: 'Active',
-                    color: surge.green,
-                    filled: true,
-                    emphasized: true,
-                  ),
+                  _CurrentProfileStatusPill(profileId: widget.profile.id),
                 ],
               ),
               const SizedBox(height: 12),
@@ -990,6 +995,93 @@ class _CurrentProfileDetails extends StatelessWidget {
           style: infoStyle,
         ),
       ],
+    );
+  }
+}
+
+class _CurrentProfileStatusPill extends ConsumerWidget {
+  const _CurrentProfileStatusPill({required this.profileId});
+
+  final int profileId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final surge = SurgeTheme.of(context);
+    final snapshot = ref.watch(proxyGroupsSnapshotProvider);
+    final groupsOwnerProfileId = ref.watch(groupsOwnerProfileIdProvider);
+    final groups = ref.watch(groupsProvider);
+    final hasCurrentGroups =
+        groupsOwnerProfileId == profileId && groups.isNotEmpty;
+
+    late final String label;
+    late final Color color;
+    late final bool loading;
+
+    if (hasCurrentGroups ||
+        (snapshot.hydrated &&
+            groupsOwnerProfileId == profileId &&
+            (snapshot.freshness == ProxyGroupsFreshnessState.fresh ||
+                snapshot.freshness == ProxyGroupsFreshnessState.stale))) {
+      label = 'Active';
+      color = surge.green;
+      loading = false;
+    } else if (snapshot.freshness == ProxyGroupsFreshnessState.refreshing ||
+        (groupsOwnerProfileId != null && groupsOwnerProfileId != profileId)) {
+      label = 'Switching';
+      color = surge.primary;
+      loading = true;
+    } else if (snapshot.freshness == ProxyGroupsFreshnessState.failed) {
+      label = 'Failed';
+      color = surge.red;
+      loading = false;
+    } else {
+      label = 'Pending';
+      color = surge.textSecondary;
+      loading = false;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minWidth: 76),
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: loading ? 0.08 : 0.12),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: color.withValues(alpha: loading ? 0.18 : 0.24),
+          width: surge.spacing.hairline,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (loading) ...[
+            SizedBox.square(
+              dimension: 11,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: color.withValues(alpha: 0.86),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.textTheme.labelSmall?.copyWith(
+              color: color.withValues(alpha: 0.96),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1066,7 +1158,7 @@ class _MediaCheckEntryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              SoftOsIconButton(
+              const SoftOsIconButton(
                 icon: Icons.chevron_right_rounded,
                 onPressed: null,
                 visualSize: 30,
@@ -1123,46 +1215,51 @@ class _CurrentProfileExpandButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.only(left: 2, right: 0),
-        child: Row(
-          children: [
-            _SoftOsIconSurface(
-              icon: Icons.hub_outlined,
-              color: enabled ? surge.textPrimary : surge.textSecondary,
-              size: 28,
-              radius: 14,
-              iconSize: 15,
-              backgroundAlpha: enabled ? 0.055 : 0.04,
-              foregroundAlpha: enabled ? 0.72 : 0.55,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                enabled ? '展开显示当前订阅节点' : '正在读取当前订阅节点',
-                style: context.textTheme.labelMedium?.copyWith(
-                  color: enabled ? surge.textPrimary : surge.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        child: SizedBox(
+          height: 52,
+          child: Row(
+            children: [
+              _SoftOsIconSurface(
+                icon: Icons.hub_outlined,
+                color: enabled ? surge.textPrimary : surge.textSecondary,
+                size: 34,
+                radius: 12,
+                iconSize: 18,
+                backgroundAlpha: enabled ? 0.055 : 0.04,
+                foregroundAlpha: enabled ? 0.72 : 0.55,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  enabled ? '展开显示当前订阅节点' : '正在读取当前订阅节点',
+                  style: context.textTheme.labelMedium?.copyWith(
+                    color: enabled ? surge.textPrimary : surge.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
-            ),
-            AnimatedRotation(
-              turns: expanded ? 0.5 : 0,
-              duration: const Duration(milliseconds: 180),
-              child: SoftOsIconButton(
-                icon: Icons.keyboard_arrow_down_rounded,
-                onPressed: enabled ? onTap : null,
-                visualSize: 30,
-                tapSize: 44,
-                iconSize: 15,
+              const SizedBox(width: 8),
+              IgnorePointer(
+                child: AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: SoftOsIconButton(
+                    icon: Icons.keyboard_arrow_down_rounded,
+                    onPressed: enabled ? onTap : null,
+                    visualSize: 30,
+                    tapSize: 44,
+                    iconSize: 15,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1532,16 +1629,21 @@ class _ProfileListContainer extends StatelessWidget {
       padding: EdgeInsets.zero,
       borderRadius: surge.radii.card,
       shadow: true,
-      child: Column(
-        children: [
-          for (var i = 0; i < profiles.length; i++)
-            _ProfileListItem(
-              profile: profiles[i],
-              isSelected: profiles[i].id == currentProfileId,
-              showDivider: i != profiles.length - 1,
-              onTap: () => onSelect(profiles[i].id),
-            ),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(surge.radii.card),
+        child: Column(
+          children: [
+            for (var i = 0; i < profiles.length; i++)
+              _ProfileListItem(
+                profile: profiles[i],
+                isSelected: profiles[i].id == currentProfileId,
+                showDivider: i != profiles.length - 1,
+                isFirst: i == 0,
+                isLast: i == profiles.length - 1,
+                onTap: () => onSelect(profiles[i].id),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1552,12 +1654,16 @@ class _ProfileListItem extends StatelessWidget {
     required this.profile,
     required this.isSelected,
     required this.showDivider,
+    required this.isFirst,
+    required this.isLast,
     required this.onTap,
   });
 
   final Profile profile;
   final bool isSelected;
   final bool showDivider;
+  final bool isFirst;
+  final bool isLast;
   final VoidCallback onTap;
 
   Future<void> _handleDeleteProfile(BuildContext context) async {
@@ -1635,124 +1741,133 @@ class _ProfileListItem extends StatelessWidget {
     final surface = isSelected
         ? Color.alphaBlend(surge.primary.withValues(alpha: 0.045), surge.card)
         : surge.card;
-    return Material(
-      color: surface,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
+    final rowRadius = BorderRadius.vertical(
+      top: Radius.circular(isFirst ? surge.radii.card : 0),
+      bottom: Radius.circular(isLast ? surge.radii.card : 0),
+    );
+    return ClipRRect(
+      borderRadius: rowRadius,
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(color: surface, borderRadius: rowRadius),
           height: hasTraffic ? 92 : 74,
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: _ProfileTextBlock(
-                        profile: profile,
-                        info: [_ProfileListSummary(profile: profile)],
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 10, 0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: _ProfileTextBlock(
+                          profile: profile,
+                          info: [_ProfileListSummary(profile: profile)],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 92,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Flexible(
-                            child: _ProfilePill(
-                              label: profile.type.name,
-                              color: surge.textSecondary,
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 92,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Flexible(
+                              child: _ProfilePill(
+                                label: profile.type.name,
+                                color: surge.textSecondary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Consumer(
-                            builder: (_, ref, _) {
-                              final isUpdating = ref.watch(
-                                isUpdatingProvider(profile.updatingKey),
-                              );
-                              return FadeThroughBox(
-                                child: isUpdating
-                                    ? SizedBox.square(
-                                        key: const ValueKey('loading'),
-                                        dimension: 44,
-                                        child: Center(
-                                          child: SizedBox.square(
-                                            dimension: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 1.8,
-                                              color: surge.textSecondary,
+                            const SizedBox(width: 4),
+                            Consumer(
+                              builder: (_, ref, _) {
+                                final isUpdating = ref.watch(
+                                  isUpdatingProvider(profile.updatingKey),
+                                );
+                                return FadeThroughBox(
+                                  child: isUpdating
+                                      ? SizedBox.square(
+                                          key: const ValueKey('loading'),
+                                          dimension: 44,
+                                          child: Center(
+                                            child: SizedBox.square(
+                                              dimension: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.8,
+                                                color: surge.textSecondary,
+                                              ),
                                             ),
                                           ),
+                                        )
+                                      : _ProfileActionButton(
+                                          onEdit: () {
+                                            _handleShowEditExtendPage(context);
+                                          },
+                                          onPreview: () {
+                                            _handlePreview(context);
+                                          },
+                                          onSync:
+                                              profile.type == ProfileType.url
+                                              ? _updateProfile
+                                              : null,
+                                          onOverride: () {
+                                            _handlePushGenProfilePage(
+                                              context,
+                                              profile.id,
+                                            );
+                                          },
+                                          onCopyLink:
+                                              profile.type == ProfileType.url
+                                              ? () {
+                                                  _handleCopyLink(context);
+                                                }
+                                              : null,
+                                          onExport: () {
+                                            _handleExportFile(context);
+                                          },
+                                          onDelete: () {
+                                            _handleDeleteProfile(context);
+                                          },
                                         ),
-                                      )
-                                    : _ProfileActionButton(
-                                        onEdit: () {
-                                          _handleShowEditExtendPage(context);
-                                        },
-                                        onPreview: () {
-                                          _handlePreview(context);
-                                        },
-                                        onSync: profile.type == ProfileType.url
-                                            ? _updateProfile
-                                            : null,
-                                        onOverride: () {
-                                          _handlePushGenProfilePage(
-                                            context,
-                                            profile.id,
-                                          );
-                                        },
-                                        onCopyLink:
-                                            profile.type == ProfileType.url
-                                            ? () {
-                                                _handleCopyLink(context);
-                                              }
-                                            : null,
-                                        onExport: () {
-                                          _handleExportFile(context);
-                                        },
-                                        onDelete: () {
-                                          _handleDeleteProfile(context);
-                                        },
-                                      ),
-                              );
-                            },
-                          ),
-                        ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (isSelected)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: Center(
-                    child: Container(
-                      width: 3,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: surge.primary.withValues(alpha: 0.64),
-                        borderRadius: BorderRadius.circular(1.5),
+                if (isSelected)
+                  Positioned(
+                    left: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Container(
+                        width: 4,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: surge.primary.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              if (showDivider)
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 0,
-                  child: Divider(
-                    height: 0,
-                    thickness: surge.spacing.hairline,
-                    color: surge.separator.withValues(alpha: 0.62),
+                if (showDivider)
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 0,
+                    child: Divider(
+                      height: 0,
+                      thickness: surge.spacing.hairline,
+                      color: surge.separator.withValues(alpha: 0.62),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2225,7 +2340,9 @@ class _ProfileListSummary extends StatelessWidget {
     final total = hasTraffic ? subscriptionInfo.total : 0;
     final progress = hasTraffic ? (used / total).clamp(0.0, 1.0) : 0.0;
     final expireText = hasTraffic && subscriptionInfo.expire != 0
-        ? DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000).show.toString()
+        ? DateTime.fromMillisecondsSinceEpoch(
+            subscriptionInfo.expire * 1000,
+          ).show.toString()
         : '永久有效';
     final trafficText = '${used.traffic.show} / ${total.traffic.show}';
     final detailStyle = context.textTheme.labelSmall?.copyWith(
@@ -2365,30 +2482,17 @@ class _SummaryText extends StatelessWidget {
 }
 
 class _ProfilePill extends StatelessWidget {
-  const _ProfilePill({
-    required this.label,
-    required this.color,
-    this.filled = false,
-    this.emphasized = false,
-  });
+  const _ProfilePill({required this.label, required this.color});
 
   final String label;
   final Color color;
-  final bool filled;
-  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final backgroundAlpha = emphasized
-        ? 0.09
-        : filled
-        ? 0.055
-        : 0.055;
-    final borderAlpha = emphasized ? 0.16 : 0.38;
-    final textColor = emphasized
-        ? color.withValues(alpha: 0.92)
-        : surge.textPrimary.withValues(alpha: 0.68);
+    const backgroundAlpha = 0.055;
+    const borderAlpha = 0.38;
+    final textColor = surge.textPrimary.withValues(alpha: 0.68);
     return Container(
       constraints: const BoxConstraints(maxWidth: 68),
       height: 26,
@@ -2398,9 +2502,7 @@ class _ProfilePill extends StatelessWidget {
         color: color.withValues(alpha: backgroundAlpha),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: emphasized
-              ? color.withValues(alpha: borderAlpha)
-              : surge.separator.withValues(alpha: borderAlpha),
+          color: surge.separator.withValues(alpha: borderAlpha),
           width: surge.spacing.hairline,
         ),
       ),
