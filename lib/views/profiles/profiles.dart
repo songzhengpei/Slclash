@@ -160,7 +160,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                           ),
                           const SizedBox(height: 20),
                         ],
-                        _ProfileSectionHeader(title: '已添加订阅'),
+                        const _ProfileSectionHeader(title: '已添加订阅'),
                         const SizedBox(height: 8),
                         _ProfileListContainer(
                           profiles: state.profiles,
@@ -402,19 +402,16 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
             title: '添加订阅',
             children: [
               _ProfileSettingOption(
-                icon: Icons.qr_code_scanner_rounded,
                 label: appLocalizations.qrcode,
                 subtitle: appLocalizations.qrcodeDesc,
                 onTap: _toScan,
               ),
               _ProfileSettingOption(
-                icon: Icons.insert_drive_file_outlined,
                 label: appLocalizations.file,
                 subtitle: appLocalizations.fileDesc,
                 onTap: _handleAddProfileFormFile,
               ),
               _ProfileSettingOption(
-                icon: Icons.link_rounded,
                 label: appLocalizations.url,
                 subtitle: appLocalizations.urlDesc,
                 onTap: _toAddUrl,
@@ -715,14 +712,14 @@ class _ProfileSettingOption extends StatelessWidget {
           child: Row(
             children: [
               if (icon != null) ...[
-                _SoftOsIconSurface(
-                  icon: icon!,
-                  color: foreground,
-                  size: 30,
-                  radius: 15,
-                  iconSize: 15.5,
-                  backgroundAlpha: 0.055,
-                  foregroundAlpha: 0.72,
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: foreground.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 17, color: foreground),
                 ),
                 const SizedBox(width: 12),
               ],
@@ -811,15 +808,9 @@ class _ProfileSortOption extends StatelessWidget {
             ),
             ReorderableDragStartListener(
               index: index,
-              child: SizedBox.square(
-                dimension: 44,
-                child: Center(
-                  child: Icon(
-                    Icons.drag_handle_rounded,
-                    size: 18,
-                    color: surge.textSecondary.withValues(alpha: 0.72),
-                  ),
-                ),
+              child: Icon(
+                Icons.drag_handle_rounded,
+                color: surge.textSecondary.withValues(alpha: 0.8),
               ),
             ),
           ],
@@ -939,7 +930,14 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
               const SizedBox(height: 12),
               _CurrentProfileDetails(profile: widget.profile),
               const SizedBox(height: 12),
-              Divider(height: 1, color: surge.separator),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Divider(
+                  height: 1,
+                  thickness: surge.spacing.hairline,
+                  color: surge.separator.withValues(alpha: 0.62),
+                ),
+              ),
               _CurrentProfileExpandButton(
                 expanded: widget.expanded,
                 enabled: !isLoading,
@@ -1212,9 +1210,11 @@ class _CurrentProfileExpandButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: enabled ? onTap : null,
         child: SizedBox(
           height: 52,

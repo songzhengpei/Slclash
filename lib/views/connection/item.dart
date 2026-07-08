@@ -14,6 +14,7 @@ class TrackerInfoItem extends ConsumerWidget {
   final Function(String)? onClickKeyword;
   final Widget? trailing;
   final String detailTitle;
+  final bool showDivider;
 
   const TrackerInfoItem({
     super.key,
@@ -21,13 +22,14 @@ class TrackerInfoItem extends ConsumerWidget {
     this.onClickKeyword,
     this.trailing,
     required this.detailTitle,
+    this.showDivider = true,
   });
 
   static double get subTitleHeight {
     return globalState.measure.bodySmallHeight + 20;
   }
 
-  Future<ImageProvider?> _getPackageIcon(TrackerInfo connection) async {
+  static Future<ImageProvider?> _getPackageIcon(TrackerInfo connection) async {
     return await app?.getPackageIcon(connection.metadata.process);
   }
 
@@ -42,18 +44,17 @@ class TrackerInfoItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final surge = SurgeTheme.of(context);
-    final value = ref.watch(
+    final showProcessIcon = ref.watch(
       patchClashConfigProvider.select(
         (state) =>
             state.findProcessMode == FindProcessMode.always && system.isAndroid,
       ),
     );
+    final process = trackerInfo.metadata.process;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      child: SurgeCard(
-        shadow: false,
-        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: () {
           showExtend(
             context,
@@ -65,120 +66,206 @@ class TrackerInfoItem extends ConsumerWidget {
             },
           );
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (value)
-                  GestureDetector(
-                    onTap: () {
-                      if (onClickKeyword == null) return;
-                      final process = trackerInfo.metadata.process;
-                      if (process.isEmpty) return;
-                      onClickKeyword!(process);
-                    },
-                    child: FutureBuilder<ImageProvider?>(
-                      future: _getPackageIcon(trackerInfo),
-                      builder: (_, snapshot) {
-                        if (!snapshot.hasData || snapshot.data == null) {
-                          return const SizedBox(width: 34, height: 34);
-                        }
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image(
-                            image: snapshot.data!,
-                            gaplessPlayback: true,
-                            width: 34,
-                            height: 34,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 58),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showProcessIcon && process.isNotEmpty)
+                          _TrackerProcessIcon(
+                            trackerInfo: trackerInfo,
+                            onTap: onClickKeyword == null
+                                ? null
+                                : () => onClickKeyword!(process),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                if (value) const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        trackerInfo.desc,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.bodyMedium?.copyWith(
-                          color: surge.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                trackerInfo.desc,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.textTheme.bodyMedium?.copyWith(
+                                  color: surge.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                _getSourceText(context, trackerInfo),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.textTheme.labelSmall?.copyWith(
+                                  color: surge.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        _getSourceText(context, trackerInfo),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.labelSmall?.copyWith(
-                          color: surge.textSecondary,
-                          fontSize: 11,
-                          height: 1,
-                          letterSpacing: 0,
+                        if (trailing != null) ...[
+                          const SizedBox(width: 6),
+                          trailing!,
+                        ],
+                      ],
+                    ),
+                    if (trackerInfo.chains.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 28,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: EdgeInsets.zero,
+                          itemCount: trackerInfo.chains.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 6),
+                          itemBuilder: (_, index) {
+                            final chain = trackerInfo.chains[index];
+                            return _TrackerChainPill(
+                              label: chain,
+                              onTap: onClickKeyword == null
+                                  ? null
+                                  : () => onClickKeyword!(chain),
+                            );
+                          },
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                if (trailing != null) trailing!,
-              ],
-            ),
-            if (trackerInfo.chains.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 28,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.zero,
-                  itemCount: trackerInfo.chains.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 6),
-                  itemBuilder: (_, index) {
-                    final chain = trackerInfo.chains[index];
-                    return GestureDetector(
-                      onTap: () {
-                        if (onClickKeyword == null) return;
-                        onClickKeyword!(chain);
-                      },
-                      child: Container(
-                        height: 28,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: surge.textSecondary.withValues(alpha: 0.055),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: surge.separator.withValues(alpha: 0.38),
-                            width: surge.spacing.hairline,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          chain,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.textTheme.labelSmall?.copyWith(
-                            color: surge.textPrimary.withValues(alpha: 0.72),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            height: 1,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                  ],
                 ),
               ),
-            ],
+            ),
+            if (showDivider)
+              const Positioned(
+                left: 16,
+                right: 16,
+                bottom: 0,
+                child: SoftOsListDivider(),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class SoftOsListSurface extends StatelessWidget {
+  const SoftOsListSurface({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SurgeCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
+      shadow: false,
+      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
+    );
+  }
+}
+
+class SoftOsListDivider extends StatelessWidget {
+  const SoftOsListDivider({super.key, this.alpha = 0.56});
+
+  final double alpha;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Divider(
+      height: 0,
+      thickness: surge.spacing.hairline,
+      color: surge.separator.withValues(alpha: alpha),
+    );
+  }
+}
+
+class _TrackerProcessIcon extends StatelessWidget {
+  const _TrackerProcessIcon({required this.trackerInfo, this.onTap});
+
+  final TrackerInfo trackerInfo;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<ImageProvider?>(
+      future: TrackerInfoItem._getPackageIcon(trackerInfo),
+      builder: (_, snapshot) {
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(right: 10),
+          child: GestureDetector(
+            onTap: onTap,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image(
+                image: snapshot.data!,
+                gaplessPlayback: true,
+                width: 34,
+                height: 34,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TrackerChainPill extends StatelessWidget {
+  const _TrackerChainPill({required this.label, this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          height: 28,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: surge.textSecondary.withValues(alpha: 0.055),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: surge.separator.withValues(alpha: 0.35),
+              width: surge.spacing.hairline,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.labelSmall?.copyWith(
+                color: surge.textPrimary.withValues(alpha: 0.72),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                height: 1,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
         ),
       ),
     );

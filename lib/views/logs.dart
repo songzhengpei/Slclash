@@ -141,35 +141,42 @@ class _LogsViewState extends ConsumerState<LogsView> {
               label: appLocalizations.nullTip(appLocalizations.logs),
             );
           }
-          return Align(
-            alignment: Alignment.topCenter,
-            child: ScrollToEndBox(
-              onCancelToEnd: () {
-                _logsStateNotifier.value = _logsStateNotifier.value.copyWith(
-                  autoScrollToEnd: false,
-                );
-              },
-              controller: _scrollController,
-              enable: state.autoScrollToEnd,
-              dataSource: logs,
-              child: CommonScrollBar(
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 8,
+              bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
+            ),
+            child: _LogsListSurface(
+              child: ScrollToEndBox(
+                onCancelToEnd: () {
+                  _logsStateNotifier.value = _logsStateNotifier.value.copyWith(
+                    autoScrollToEnd: false,
+                  );
+                },
                 controller: _scrollController,
-                child: SuperListView.builder(
-                  physics: const NextClampingScrollPhysics(),
-                  reverse: true,
-                  shrinkWrap: true,
+                enable: state.autoScrollToEnd,
+                dataSource: logs,
+                child: CommonScrollBar(
                   controller: _scrollController,
-                  itemBuilder: (_, index) {
-                    final log = logs[index];
-                    return LogItem(
-                      key: Key(log.dateTime),
-                      log: log,
-                      onClick: (value) {
-                        context.commonScaffoldState?.addKeyword(value);
-                      },
-                    );
-                  },
-                  itemCount: logs.length,
+                  child: SuperListView.builder(
+                    physics: const NextClampingScrollPhysics(),
+                    reverse: true,
+                    controller: _scrollController,
+                    itemBuilder: (_, index) {
+                      final log = logs[index];
+                      return LogItem(
+                        key: Key(log.dateTime),
+                        log: log,
+                        showDivider: index != logs.length - 1,
+                        onClick: (value) {
+                          context.commonScaffoldState?.addKeyword(value);
+                        },
+                      );
+                    },
+                    itemCount: logs.length,
+                  ),
                 ),
               ),
             ),
@@ -183,73 +190,128 @@ class _LogsViewState extends ConsumerState<LogsView> {
 class LogItem extends StatelessWidget {
   final Log log;
   final Function(String)? onClick;
+  final bool showDivider;
 
-  const LogItem({super.key, required this.log, this.onClick});
+  const LogItem({
+    super.key,
+    required this.log,
+    this.onClick,
+    this.showDivider = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final levelColor = log.logLevel.color(context) ?? surge.textSecondary;
-    return SurgeDataListItem(
-      onTap: () {},
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SelectableText(
-            log.payload,
-            style: context.textTheme.bodyMedium?.copyWith(
-              color: surge.textPrimary,
-              fontSize: 13,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  if (onClick == null) return;
-                  onClick!(log.logLevel.name);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: levelColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: levelColor.withValues(alpha: 0.16),
-                      width: surge.spacing.hairline,
-                    ),
-                  ),
-                  child: Text(
-                    log.logLevel.name,
-                    style: context.textTheme.labelSmall?.copyWith(
-                      color: levelColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      height: 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SelectableText(
+                    log.payload,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: surge.textPrimary.withValues(alpha: 0.9),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
                       letterSpacing: 0,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          if (onClick == null) return;
+                          onClick!(log.logLevel.name);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: levelColor.withValues(alpha: 0.075),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: levelColor.withValues(alpha: 0.14),
+                              width: surge.spacing.hairline,
+                            ),
+                          ),
+                          child: Text(
+                            log.logLevel.name,
+                            style: context.textTheme.labelSmall?.copyWith(
+                              color: levelColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              height: 1,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        log.dateTime,
+                        style: context.textTheme.labelSmall?.copyWith(
+                          color: surge.textSecondary.withValues(alpha: 0.62),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w400,
+                          height: 1,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                log.dateTime,
-                style: context.textTheme.labelSmall?.copyWith(
-                  color: surge.textSecondary.withValues(alpha: 0.62),
-                  fontSize: 10,
-                  height: 1,
-                  letterSpacing: 0,
-                ),
+            ),
+            if (showDivider)
+              const Positioned(
+                left: 14,
+                right: 14,
+                bottom: 0,
+                child: _LogsListDivider(),
               ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _LogsListSurface extends StatelessWidget {
+  const _LogsListSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SurgeCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
+      shadow: false,
+      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
+    );
+  }
+}
+
+class _LogsListDivider extends StatelessWidget {
+  const _LogsListDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return Divider(
+      height: 0,
+      thickness: surge.spacing.hairline,
+      color: surge.separator.withValues(alpha: 0.56),
     );
   }
 }

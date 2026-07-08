@@ -202,31 +202,42 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
               illustration: const ConnectionEmptyIllustration(),
             );
           }
-          return SuperListView.builder(
-            controller: _scrollController,
-            itemBuilder: (context, index) {
-              final trackerInfo = connections[index];
-              return TrackerInfoItem(
-                key: Key(trackerInfo.id),
-                trackerInfo: trackerInfo,
-                onClickKeyword: (value) {
-                  context.commonScaffoldState?.addKeyword(value);
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 8,
+              bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
+            ),
+            child: SoftOsListSurface(
+              child: SuperListView.builder(
+                controller: _scrollController,
+                itemBuilder: (context, index) {
+                  final trackerInfo = connections[index];
+                  return TrackerInfoItem(
+                    key: Key(trackerInfo.id),
+                    trackerInfo: trackerInfo,
+                    showDivider: index != connections.length - 1,
+                    onClickKeyword: (value) {
+                      context.commonScaffoldState?.addKeyword(value);
+                    },
+                    trailing: SoftOsIconButton(
+                      icon: Icons.block_rounded,
+                      onPressed: () {
+                        _handleBlockConnection(trackerInfo.id);
+                      },
+                      visualSize: 30,
+                      tapSize: 44,
+                      iconSize: 15,
+                    ),
+                    detailTitle: appLocalizations.details(
+                      appLocalizations.connection,
+                    ),
+                  );
                 },
-                trailing: SoftOsIconButton(
-                  icon: Icons.block_rounded,
-                  onPressed: () {
-                    _handleBlockConnection(trackerInfo.id);
-                  },
-                  visualSize: 30,
-                  tapSize: 44,
-                  iconSize: 15,
-                ),
-                detailTitle: appLocalizations.details(
-                  appLocalizations.connection,
-                ),
-              );
-            },
-            itemCount: connections.length,
+                itemCount: connections.length,
+              ),
+            ),
           );
         },
       ),

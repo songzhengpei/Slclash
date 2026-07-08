@@ -257,13 +257,13 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
 
   List<Widget> _buildActions() {
     return [
-      SoftOsIconButton(
-        icon: Icons.sync_rounded,
+      IconButton(
         onPressed: () => _handleUpdateAll(),
+        icon: const Icon(Icons.sync_rounded),
       ),
-      SoftOsIconButton(
-        icon: Icons.schedule_rounded,
+      IconButton(
         onPressed: _showAutoUpdateSheet,
+        icon: const Icon(Icons.schedule_rounded),
       ),
     ];
   }
@@ -278,23 +278,35 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
       body: ValueListenableBuilder(
         valueListenable: _updatingItems,
         builder: (_, updatingItems, _) {
-          return ListView.builder(
+          return ListView(
             padding: EdgeInsets.only(
               top: 4,
               bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
             ),
-            itemCount: _geoItems.length + 1,
-            itemBuilder: (_, index) {
-              if (index == 0) {
-                return _ResourceStatusCard(mode: _autoUpdateMode);
-              }
-              final item = _geoItems[index - 1];
-              return _ResourceItemCard(
-                item: item,
-                updating: updatingItems.contains(item.key),
-                onUpdate: () => _handleUpdateItem(item),
-              );
-            },
+            children: [
+              _ResourceStatusCard(mode: _autoUpdateMode),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 5,
+                ),
+                child: _ResourceListSurface(
+                  child: Column(
+                    children: [
+                      for (var index = 0; index < _geoItems.length; index++)
+                        _ResourceItemCard(
+                          item: _geoItems[index],
+                          updating: updatingItems.contains(
+                            _geoItems[index].key,
+                          ),
+                          showDivider: index != _geoItems.length - 1,
+                          onUpdate: () => _handleUpdateItem(_geoItems[index]),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -302,7 +314,6 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
   }
 }
 
-/// Status card showing current auto-update mode.
 class _ResourceStatusCard extends StatelessWidget {
   const _ResourceStatusCard({required this.mode});
 
@@ -375,15 +386,33 @@ class _ResourceStatusCard extends StatelessWidget {
   }
 }
 
+class _ResourceListSurface extends StatelessWidget {
+  const _ResourceListSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SurgeCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
+      shadow: false,
+      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
+    );
+  }
+}
+
 class _ResourceItemCard extends ConsumerWidget {
   const _ResourceItemCard({
     required this.item,
     required this.updating,
+    required this.showDivider,
     required this.onUpdate,
   });
 
   final GeoItem item;
   final bool updating;
+  final bool showDivider;
   final VoidCallback onUpdate;
 
   Future<void> _updateUrl(
@@ -434,102 +463,118 @@ class _ResourceItemCard extends ConsumerWidget {
     );
     if (url == null) return const SizedBox();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      child: SurgeCard(
-        shadow: false,
-        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: surge.textSecondary.withValues(alpha: 0.055),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: surge.separator.withValues(alpha: 0.38),
-                  width: surge.spacing.hairline,
-                ),
-              ),
-              child: Icon(
-                item.icon,
-                size: 17,
-                color: surge.textPrimary.withValues(alpha: 0.72),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodyMedium?.copyWith(
-                      color: surge.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 58),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: surge.textSecondary.withValues(alpha: 0.055),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: surge.separator.withValues(alpha: 0.38),
+                      width: surge.spacing.hairline,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  FutureBuilder<FileInfo>(
-                    future: _getGeoFileLastModified(item.fileName),
-                    builder: (_, snapshot) {
-                      final text = snapshot.data?.getDesc(context) ?? '读取中';
-                      return Text(
-                        text,
+                  child: Icon(
+                    item.icon,
+                    size: 17,
+                    color: surge.textPrimary.withValues(alpha: 0.72),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.labelSmall?.copyWith(
-                          color: surge.textSecondary,
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          color: surge.textPrimary,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      FutureBuilder<FileInfo>(
+                        future: _getGeoFileLastModified(item.fileName),
+                        builder: (_, snapshot) {
+                          final text = snapshot.data?.getDesc(context) ?? '读取中';
+                          return Text(
+                            text,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.textTheme.labelSmall?.copyWith(
+                              color: surge.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              height: 1,
+                              letterSpacing: 0,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        url,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: surge.textSecondary.withValues(alpha: 0.82),
                           fontSize: 11,
+                          fontWeight: FontWeight.w400,
                           height: 1,
                           letterSpacing: 0,
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    url,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodySmall?.copyWith(
-                      color: surge.textSecondary.withValues(alpha: 0.82),
-                      fontSize: 11,
-                      height: 1,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            SoftOsControlDock(
-              height: 30,
-              tapHeight: 44,
-              children: [
-                SoftOsDockButton(
-                  tooltip: context.appLocalizations.edit,
-                  icon: Icons.edit_rounded,
-                  onTap: () => _updateUrl(context, ref, url),
                 ),
-                SoftOsDockDivider(height: 15),
-                SoftOsDockButton(
-                  tooltip: context.appLocalizations.sync,
-                  icon: Icons.sync_rounded,
-                  loading: updating,
-                  onTap: onUpdate,
+                const SizedBox(width: 6),
+                SoftOsControlDock(
+                  height: 30,
+                  tapHeight: 44,
+                  children: [
+                    SoftOsDockButton(
+                      tooltip: context.appLocalizations.edit,
+                      icon: Icons.edit_rounded,
+                      onTap: () => _updateUrl(context, ref, url),
+                    ),
+                    const SoftOsDockDivider(height: 15),
+                    SoftOsDockButton(
+                      tooltip: context.appLocalizations.sync,
+                      icon: Icons.sync_rounded,
+                      loading: updating,
+                      onTap: onUpdate,
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
-      ),
+        if (showDivider)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 0,
+            child: Divider(
+              height: 0,
+              thickness: surge.spacing.hairline,
+              color: surge.separator.withValues(alpha: 0.56),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -673,7 +718,7 @@ class _ResourceSheetOption extends StatelessWidget {
                         color: surge.textPrimary,
                         fontSize: 15,
                         fontWeight: selected
-                            ? FontWeight.w700
+                            ? FontWeight.w600
                             : FontWeight.w500,
                         height: 1,
                         letterSpacing: 0,

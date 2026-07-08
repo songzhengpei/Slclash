@@ -5,6 +5,7 @@ import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -162,42 +163,45 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
               label: appLocalizations.nullTip(appLocalizations.requests),
             );
           }
-          final items = requests
-              .map<Widget>(
-                (trackerInfo) => TrackerInfoItem(
-                  key: Key(trackerInfo.id),
-                  trackerInfo: trackerInfo,
-                  onClickKeyword: (value) {
-                    context.commonScaffoldState?.addKeyword(value);
-                  },
-                  detailTitle: appLocalizations.details(
-                    appLocalizations.request,
-                  ),
-                ),
-              )
-              .toList();
-          return Align(
-            alignment: Alignment.topCenter,
-            child: CommonScrollBar(
-              trackVisibility: false,
-              controller: _scrollController,
-              child: ScrollToEndBox(
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 8,
+              bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
+            ),
+            child: SoftOsListSurface(
+              child: CommonScrollBar(
+                trackVisibility: false,
                 controller: _scrollController,
-                dataSource: requests,
-                enable: state.autoScrollToEnd,
-                onCancelToEnd: () {
-                  _requestsStateNotifier.value = _requestsStateNotifier.value
-                      .copyWith(autoScrollToEnd: false);
-                },
-                child: SuperListView.builder(
-                  reverse: true,
-                  shrinkWrap: true,
-                  physics: const NextClampingScrollPhysics(),
+                child: ScrollToEndBox(
                   controller: _scrollController,
-                  itemBuilder: (_, index) {
-                    return items[index];
+                  dataSource: requests,
+                  enable: state.autoScrollToEnd,
+                  onCancelToEnd: () {
+                    _requestsStateNotifier.value = _requestsStateNotifier.value
+                        .copyWith(autoScrollToEnd: false);
                   },
-                  itemCount: items.length,
+                  child: SuperListView.builder(
+                    reverse: true,
+                    physics: const NextClampingScrollPhysics(),
+                    controller: _scrollController,
+                    itemBuilder: (_, index) {
+                      final trackerInfo = requests[index];
+                      return TrackerInfoItem(
+                        key: Key(trackerInfo.id),
+                        trackerInfo: trackerInfo,
+                        showDivider: index != requests.length - 1,
+                        onClickKeyword: (value) {
+                          context.commonScaffoldState?.addKeyword(value);
+                        },
+                        detailTitle: appLocalizations.details(
+                          appLocalizations.request,
+                        ),
+                      );
+                    },
+                    itemCount: requests.length,
+                  ),
                 ),
               ),
             ),
