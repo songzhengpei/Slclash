@@ -65,9 +65,9 @@ class ProxyCard extends StatelessWidget {
           selectedProxyNameProvider(groupName),
         );
         final isSelected = selectedProxyName == proxy.name;
-        final surface = isExpanded
-            ? (isSelected ? surge.selectedFill : surge.card)
-            : (isSelected ? surge.selectedFill : surge.card);
+        final surface = isSelected
+            ? Color.alphaBlend(surge.primary.withValues(alpha: 0.045), surge.card)
+            : surge.card;
         final radius = BorderRadius.vertical(
           top:
               rowPosition == ProxyListRowPosition.first ||
@@ -80,9 +80,7 @@ class ProxyCard extends StatelessWidget {
               ? Radius.circular(surge.radii.card)
               : Radius.zero,
         );
-        final borderColor = isSelected
-            ? surge.primary.withValues(alpha: 0.16)
-            : surge.separator.withValues(alpha: 0.78);
+        final borderColor = surge.separator.withValues(alpha: 0.74);
         final border = Border(
           left: BorderSide(color: borderColor, width: 0.5),
           right: BorderSide(color: borderColor, width: 0.5),
@@ -147,7 +145,7 @@ class ProxyCard extends StatelessWidget {
                       child: Divider(
                         height: 0,
                         thickness: surge.spacing.hairline,
-                        color: surge.separator.withValues(alpha: 0.40),
+                        color: surge.separator.withValues(alpha: 0.35),
                       ),
                     ),
                   if (isSelected)
@@ -158,9 +156,9 @@ class ProxyCard extends StatelessWidget {
                       child: Center(
                         child: Container(
                           width: 2,
-                          height: 24,
+                          height: 22,
                           decoration: BoxDecoration(
-                            color: surge.primary.withValues(alpha: 0.60),
+                            color: surge.primary.withValues(alpha: 0.50),
                             borderRadius: BorderRadius.circular(1),
                           ),
                         ),
@@ -205,22 +203,22 @@ class _DelayBadge extends ConsumerWidget {
     final Color fg;
 
     if (isUntested) {
-      bg = surge.textSecondary.withValues(alpha: 0.06);
-      border = surge.separator.withValues(alpha: 0.45);
-      fg = surge.textPrimary.withValues(alpha: 0.75);
+      bg = surge.textSecondary.withValues(alpha: 0.052);
+      border = surge.separator.withValues(alpha: 0.42);
+      fg = surge.textPrimary.withValues(alpha: 0.72);
     } else if (isTesting) {
-      bg = surge.textSecondary.withValues(alpha: 0.06);
-      border = surge.separator.withValues(alpha: 0.45);
-      fg = surge.textSecondary;
+      bg = surge.textSecondary.withValues(alpha: 0.052);
+      border = surge.separator.withValues(alpha: 0.42);
+      fg = surge.textSecondary.withValues(alpha: 0.85);
     } else if (isSuccess) {
       final delayColor = utils.getDelayColor(delay) ?? surge.green;
-      bg = delayColor.withValues(alpha: 0.10);
-      border = delayColor.withValues(alpha: 0.16);
-      fg = delayColor;
+      bg = delayColor.withValues(alpha: 0.085);
+      border = delayColor.withValues(alpha: 0.14);
+      fg = delayColor.withValues(alpha: 0.92);
     } else if (isTimeout) {
-      bg = surge.red.withValues(alpha: 0.10);
-      border = surge.red.withValues(alpha: 0.16);
-      fg = surge.red;
+      bg = surge.red.withValues(alpha: 0.085);
+      border = surge.red.withValues(alpha: 0.14);
+      fg = surge.red.withValues(alpha: 0.92);
     } else {
       bg = surge.fill;
       border = surge.separator;
@@ -260,7 +258,7 @@ class _DelayBadge extends ConsumerWidget {
                   ? SizedBox.square(
                       dimension: 12,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
+                        strokeWidth: 1.6,
                         color: fg,
                       ),
                     )
@@ -276,7 +274,7 @@ class _DelayBadge extends ConsumerWidget {
                       style: context.textTheme.labelSmall?.copyWith(
                         color: fg,
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         height: 1,
                         letterSpacing: 0,
                       ),

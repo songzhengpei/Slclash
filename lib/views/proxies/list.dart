@@ -770,8 +770,11 @@ class _ListHeaderState extends State<ListHeader> {
                                                         .textTheme
                                                         .labelMedium
                                                         ?.copyWith(
-                                                          color:
-                                                              surge.textPrimary,
+                                                          color: surge
+                                                              .textPrimary
+                                                              .withValues(
+                                                                alpha: 0.84,
+                                                              ),
                                                           fontSize: 12,
                                                           fontWeight:
                                                               FontWeight.w600,

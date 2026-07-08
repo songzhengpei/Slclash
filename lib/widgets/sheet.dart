@@ -179,7 +179,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
             nestedNavigatorPop == null);
     Widget buildIconButton(IconButtonData data) {
       if (type == SheetType.bottomSheet) {
-        return _SoftOsSheetButton(icon: data.icon, onPressed: data.onPressed);
+        return SoftOsIconButton(icon: data.icon, onPressed: data.onPressed);
       }
       return IconButton(
         onPressed: data.onPressed,
@@ -314,37 +314,5 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       );
     }
     return CommonScaffold(appBar: appBar, body: widget.body);
-  }
-}
-
-class _SoftOsSheetButton extends StatelessWidget {
-  const _SoftOsSheetButton({required this.icon, required this.onPressed});
-
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    return Material(
-      color: surge.textSecondary.withValues(alpha: 0.08),
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: Center(
-            child: Icon(
-              icon,
-              size: 16,
-              color: surge.textPrimary.withValues(alpha: 0.75),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
