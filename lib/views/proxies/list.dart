@@ -217,6 +217,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     WidgetRef ref, {
     required Group group,
     required Set<String> currentUnfoldSet,
+    ProxyListRowPosition? rowPosition,
   }) {
     final groupName = group.name;
     final isExpand = currentUnfoldSet.contains(groupName);
@@ -227,9 +228,11 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         onScrollToSelected: _scrollToGroupSelected,
         key: Key(groupName),
         isExpand: isExpand,
-        rowPosition: isExpand
-            ? ProxyListRowPosition.first
-            : ProxyListRowPosition.single,
+        rowPosition:
+            rowPosition ??
+            (isExpand
+                ? ProxyListRowPosition.first
+                : ProxyListRowPosition.single),
         showDivider: isExpand,
         group: group,
         onChange: (String groupName) {
@@ -462,6 +465,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                                   ref,
                                   group: group,
                                   currentUnfoldSet: state.currentUnfoldSet,
+                                  rowPosition: ProxyListRowPosition.middle,
                                 ),
                               ),
                             ),
