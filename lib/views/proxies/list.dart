@@ -456,10 +456,8 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                               top: -headerState.offset,
                               child: Container(
                                 width: container.maxWidth,
-                                padding: const EdgeInsets.only(
-                                  top: 16,
-                                  left: 16,
-                                  right: 16,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
                                 ),
                                 child: _buildHeader(
                                   ref,
