@@ -463,7 +463,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                                   ref,
                                   group: group,
                                   currentUnfoldSet: state.currentUnfoldSet,
-                                  rowPosition: ProxyListRowPosition.middle,
+                                  rowPosition: ProxyListRowPosition.first,
                                 ),
                               ),
                             ),
