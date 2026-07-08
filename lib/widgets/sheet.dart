@@ -177,21 +177,48 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         type != SheetType.page &&
         (nestedNavigatorPop != null && route?.impliesAppBarDismissal == false ||
             nestedNavigatorPop == null);
+    final compact = type == SheetType.bottomSheet;
+    IconData normalizeIcon(IconData icon) {
+      return switch (icon) {
+        Icons.close => Icons.close_rounded,
+        Icons.arrow_back => Icons.arrow_back_rounded,
+        Icons.check => Icons.check_rounded,
+        _ => icon,
+      };
+    }
+
     Widget buildIconButton(IconButtonData data) {
-      if (type == SheetType.bottomSheet) {
-        return SoftOsIconButton(icon: data.icon, onPressed: data.onPressed);
-      }
-      return IconButton(
+      return SoftOsActionButton(
+        icon: normalizeIcon(data.icon),
         onPressed: data.onPressed,
-        style: IconButton.styleFrom(
-          visualDensity: VisualDensity.standard,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        icon: Icon(data.icon),
+        compact: compact,
       );
     }
 
-    final actions = widget.actions.map(buildIconButton).toList();
+    Widget? buildActionGroup(List<IconButtonData> data) {
+      if (data.isEmpty) {
+        return null;
+      }
+      if (data.length == 1) {
+        return buildIconButton(data.first);
+      }
+      final children = <Widget>[];
+      for (var index = 0; index < data.length; index++) {
+        if (index > 0) {
+          children.add(const SoftOsActionDivider());
+        }
+        children.add(
+          SoftOsActionDockButton(
+            icon: normalizeIcon(data[index].icon),
+            onPressed: data[index].onPressed,
+            compact: compact,
+          ),
+        );
+      }
+      return SoftOsActionDock(compact: compact, children: children);
+    }
+
+    final actions = [?buildActionGroup(widget.actions)];
 
     final popButton = type != SheetType.page
         ? (useCloseIcon

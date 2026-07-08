@@ -221,22 +221,112 @@ class CommonScaffoldState extends State<CommonScaffold> {
           );
   }
 
+  IconData _normalizeActionIcon(IconData icon) {
+    return switch (icon) {
+      Icons.close => Icons.close_rounded,
+      Icons.arrow_back => Icons.arrow_back_rounded,
+      Icons.search => Icons.search_rounded,
+      Icons.check => Icons.check_rounded,
+      Icons.add => Icons.add_rounded,
+      Icons.save_as_outlined => Icons.save_as_rounded,
+      Icons.delete_sweep_outlined => Icons.delete_sweep_rounded,
+      Icons.filter_alt_outlined => Icons.tune_rounded,
+      Icons.settings_outlined => Icons.tune_rounded,
+      _ => icon,
+    };
+  }
+
+  IconData? _resolveIconData(Widget icon) {
+    if (icon is Icon && icon.icon != null) {
+      return _normalizeActionIcon(icon.icon!);
+    }
+    return null;
+  }
+
+  _SoftOsScaffoldAction? _resolveAction(Widget action) {
+    if (action is IconButton) {
+      final icon = _resolveIconData(action.icon);
+      return _SoftOsScaffoldAction(
+        icon: icon,
+        child: icon == null ? action.icon : null,
+        onPressed: action.onPressed,
+        tooltip: action.tooltip,
+      );
+    }
+    if (action is SoftOsIconButton) {
+      return _SoftOsScaffoldAction(
+        icon: _normalizeActionIcon(action.icon),
+        onPressed: action.onPressed,
+      );
+    }
+    if (action is SoftOsActionButton) {
+      return _SoftOsScaffoldAction(child: action, onPressed: null, raw: true);
+    }
+    return _SoftOsScaffoldAction(child: action, onPressed: null, raw: true);
+  }
+
+  Widget _buildSoftOsActions(List<_SoftOsScaffoldAction> actions) {
+    if (actions.length == 1) {
+      final action = actions.first;
+      if (action.raw) {
+        return SizedBox.square(
+          dimension: 48,
+          child: Center(child: action.child),
+        );
+      }
+      return SoftOsActionButton(
+        icon: action.icon,
+        onPressed: action.onPressed,
+        tooltip: action.tooltip,
+        child: action.child,
+      );
+    }
+
+    final children = <Widget>[];
+    for (var index = 0; index < actions.length; index++) {
+      final action = actions[index];
+      if (index > 0) {
+        children.add(const SoftOsActionDivider());
+      }
+      if (action.raw) {
+        children.add(
+          SizedBox.square(dimension: 48, child: Center(child: action.child)),
+        );
+      } else {
+        children.add(
+          SoftOsActionDockButton(
+            icon: action.icon,
+            onPressed: action.onPressed,
+            tooltip: action.tooltip,
+            child: action.child,
+          ),
+        );
+      }
+    }
+
+    return SoftOsActionDock(children: children);
+  }
+
   List<Widget> _buildActions(bool hasSearch, List<Widget> actions) {
     if (_isSearch) {
       return genActions([
-        IconButton(onPressed: _handleClear, icon: const Icon(Icons.close)),
+        SoftOsActionButton(icon: Icons.close_rounded, onPressed: _handleClear),
       ]);
     }
-    return genActions([
+    final resolvedActions = [
       if (hasSearch && widget.searchState?.autoAddSearch == true)
-        IconButton(
+        _SoftOsScaffoldAction(
+          icon: Icons.search_rounded,
           onPressed: () {
             _updateSearchState((state) => state?.copyWith(query: ''));
           },
-          icon: const Icon(Icons.search),
         ),
-      ...actions,
-    ]);
+      ...actions.map(_resolveAction).nonNulls,
+    ];
+    if (resolvedActions.isEmpty) {
+      return const [];
+    }
+    return genActions([_buildSoftOsActions(resolvedActions)]);
   }
 
   Widget _buildAppBarWrap(Widget child) {
@@ -375,6 +465,22 @@ class CommonScaffoldState extends State<CommonScaffold> {
           : null,
     );
   }
+}
+
+class _SoftOsScaffoldAction {
+  const _SoftOsScaffoldAction({
+    this.icon,
+    this.child,
+    required this.onPressed,
+    this.tooltip,
+    this.raw = false,
+  }) : assert(icon != null || child != null);
+
+  final IconData? icon;
+  final Widget? child;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+  final bool raw;
 }
 
 List<Widget> genActions(List<Widget> actions, {double? space}) {
