@@ -188,6 +188,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
           child: SoftOsActionButton(
             icon: normalizeSoftOsActionIcon(icon),
             onPressed: onPressed,
+            compact: true,
           ),
         ),
       );

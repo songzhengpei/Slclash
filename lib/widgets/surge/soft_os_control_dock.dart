@@ -78,14 +78,9 @@ List<BoxShadow> _softOsActionShadows(BuildContext context) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return [
     BoxShadow(
-      color: surge.shadow.withValues(alpha: isDark ? 0.14 : 0.05),
-      blurRadius: isDark ? 4.5 : 5,
+      color: surge.shadow.withValues(alpha: isDark ? 0.12 : 0.04),
+      blurRadius: 4,
       offset: const Offset(0, 1),
-    ),
-    BoxShadow(
-      color: surge.shadow.withValues(alpha: isDark ? 0.07 : 0.02),
-      blurRadius: 1,
-      offset: const Offset(0, 0.5),
     ),
   ];
 }
