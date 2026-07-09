@@ -73,12 +73,10 @@ class SurgeBottomNav extends StatelessWidget {
     final navSurface = Color.alphaBlend(surge.navBar, surge.background);
     final isDark =
         ThemeData.estimateBrightnessForColor(navSurface) == Brightness.dark;
-    final navBorder =
-        isDark
-            ? surge.navBorder.withValues(alpha: 0.40)
-            : surge.separator.withValues(alpha: 0.70);
-    final selectedSurface =
-        Color.alphaBlend(surge.textPrimary.withValues(alpha: 0.065), navSurface);
+    final selectedSurface = Color.alphaBlend(
+      surge.textPrimary.withValues(alpha: 0.065),
+      navSurface,
+    );
     final selectedBorder = surge.textPrimary.withValues(alpha: 0.10);
 
     return Padding(
@@ -97,8 +95,8 @@ class SurgeBottomNav extends StatelessWidget {
               color: navSurface,
               borderRadius: BorderRadius.circular(26),
               border: Border.all(
-                color: navBorder,
-                width: 0.5,
+                color: surge.separator,
+                width: surge.spacing.hairline,
               ),
               boxShadow: [
                 BoxShadow(
@@ -157,7 +155,9 @@ class SurgeBottomNav extends StatelessWidget {
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: [
-                                            Colors.white.withValues(alpha: 0.14),
+                                            Colors.white.withValues(
+                                              alpha: 0.14,
+                                            ),
                                             Colors.white.withValues(alpha: 0.0),
                                           ],
                                         ),

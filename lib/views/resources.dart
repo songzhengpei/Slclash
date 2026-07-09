@@ -542,7 +542,7 @@ class _ResourceItemCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: 6),
                 SoftOsControlDock(
-                  height: 30,
+                  height: 34,
                   tapHeight: 44,
                   children: [
                     SoftOsDockButton(

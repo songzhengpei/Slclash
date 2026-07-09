@@ -429,6 +429,9 @@ class CommonScaffoldState extends State<CommonScaffold> {
     if (resolvedActions.isEmpty) {
       return const [];
     }
+    if (resolvedActions.length == 1) {
+      return genActions([_buildSoftOsActions(resolvedActions)], endSpace: 16);
+    }
     final maxActionWidth = (MediaQuery.sizeOf(context).width * 0.42)
         .clamp(96.0, 176.0)
         .toDouble();

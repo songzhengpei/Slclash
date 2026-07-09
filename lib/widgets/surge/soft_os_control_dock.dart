@@ -12,6 +12,8 @@ const double _softOsActionDockButtonWidth = 44;
 const double _softOsActionCompactDockButtonWidth = 40;
 const double _softOsActionIconSize = 19;
 const double _softOsActionCompactIconSize = 18.5;
+const double _softOsShortTextVisualWidth = 40;
+const double _softOsShortTextTapWidth = 48;
 
 IconData normalizeSoftOsActionIcon(IconData icon) {
   return switch (icon) {
@@ -53,7 +55,7 @@ Color _softOsActionSurface(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return Color.alphaBlend(
-    surge.textPrimary.withValues(alpha: isDark ? 0.18 : 0.12),
+    surge.textPrimary.withValues(alpha: isDark ? 0.22 : 0.12),
     surge.card,
   );
 }
@@ -61,7 +63,7 @@ Color _softOsActionSurface(BuildContext context) {
 Color _softOsActionBorder(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  return surge.textPrimary.withValues(alpha: isDark ? 0.26 : 0.22);
+  return surge.textPrimary.withValues(alpha: isDark ? 0.34 : 0.22);
 }
 
 Color _softOsActionForeground(BuildContext context, bool enabled) {
@@ -395,7 +397,12 @@ class SoftOsActionTextButton extends StatelessWidget {
 
   double get _visualHeight =>
       compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
-  double get _minWidth => compact ? 46 : 50;
+  bool get _isShortLabel => label.trim().runes.length <= 2;
+  double get _minWidth => _isShortLabel ? _softOsShortTextVisualWidth : 50;
+  double? get _tapWidth => _isShortLabel ? _softOsShortTextTapWidth : null;
+  double? get _visualWidth =>
+      _isShortLabel ? _softOsShortTextVisualWidth : null;
+  double get _horizontalPadding => _isShortLabel ? 0 : (compact ? 10 : 12);
   double get _radius => _visualHeight / 2;
 
   @override
@@ -406,6 +413,7 @@ class SoftOsActionTextButton extends StatelessWidget {
     final radius = BorderRadius.circular(_radius);
 
     Widget result = SizedBox(
+      width: _tapWidth,
       height: _softOsActionTapSize,
       child: Center(
         child: DecoratedBox(
@@ -426,12 +434,16 @@ class SoftOsActionTextButton extends StatelessWidget {
               onTap: onPressed,
               borderRadius: radius,
               child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: _minWidth),
+                constraints: BoxConstraints(
+                  minWidth: _minWidth,
+                  maxWidth: _visualWidth ?? double.infinity,
+                ),
                 child: SizedBox(
+                  width: _visualWidth,
                   height: _visualHeight,
                   child: Padding(
                     padding: EdgeInsets.symmetric(
-                      horizontal: compact ? 10 : 12,
+                      horizontal: _horizontalPadding,
                     ),
                     child: Center(child: _SoftOsActionText(label: label)),
                   ),
@@ -605,16 +617,23 @@ class SoftOsControlDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final radius = borderRadius ?? height / 2;
+    final effectiveSurfaceAlpha = isDark
+        ? surfaceAlpha.clamp(0.09, 1.0).toDouble()
+        : surfaceAlpha;
+    final effectiveBorderAlpha = isDark
+        ? borderAlpha.clamp(0.48, 1.0).toDouble()
+        : borderAlpha;
     return SizedBox(
       height: tapHeight,
       child: Center(
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: surge.textSecondary.withValues(alpha: surfaceAlpha),
+            color: surge.textSecondary.withValues(alpha: effectiveSurfaceAlpha),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: surge.separator.withValues(alpha: borderAlpha),
+              color: surge.separator.withValues(alpha: effectiveBorderAlpha),
               width: surge.spacing.hairline,
             ),
           ),

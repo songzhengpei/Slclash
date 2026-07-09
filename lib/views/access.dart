@@ -448,7 +448,7 @@ class _AccessViewState extends ConsumerState<AccessView> {
           onSearch: _onSearch,
           autoAddSearch: false,
         ),
-        title: context.appLocalizations.appAccessControl,
+        title: context.appLocalizations.accessControl,
         actions: _buildActions(
           context,
           enable: accessControl.enable,
