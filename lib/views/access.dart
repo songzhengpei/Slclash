@@ -192,12 +192,12 @@ class _AccessViewState extends ConsumerState<AccessView> {
     ref.read(accessControlStateProvider.notifier).value = realAccessControl;
   }
 
-  Widget _buildConfirm() {
+  Widget _buildConfirm({required bool hasChanges}) {
     final appLocalizations = context.appLocalizations;
     return IconButton(
       tooltip: appLocalizations.save,
       icon: const Icon(Icons.check),
-      onPressed: _handleSave,
+      onPressed: hasChanges ? _handleSave : null,
     );
   }
 
@@ -229,7 +229,7 @@ class _AccessViewState extends ConsumerState<AccessView> {
   }) {
     final appLocalizations = context.appLocalizations;
     return [
-      if (hasChanges) _buildConfirm(),
+      _buildConfirm(hasChanges: hasChanges),
       SoftOsPopupActionButton(
         popup: CommonPopupMenu(
           items: [
