@@ -192,13 +192,6 @@ class _AccessViewState extends ConsumerState<AccessView> {
     ref.read(accessControlStateProvider.notifier).value = realAccessControl;
   }
 
-  Widget _buildConfirm({required bool hasChanges}) {
-    return SoftOsActionTextButton(
-      label: context.appLocalizations.save,
-      onPressed: hasChanges ? _handleSave : null,
-    );
-  }
-
   Future<void> _exportToClipboard() async {
     await globalState.safeRun(() {
       final currentList = ref.read(
@@ -227,10 +220,15 @@ class _AccessViewState extends ConsumerState<AccessView> {
   }) {
     final appLocalizations = context.appLocalizations;
     return [
-      _buildConfirm(hasChanges: hasChanges),
       SoftOsPopupActionButton(
         popup: CommonPopupMenu(
           items: [
+            if (hasChanges)
+              PopupMenuItemData(
+                icon: Icons.check,
+                label: appLocalizations.save,
+                onPressed: _handleSave,
+              ),
             PopupMenuItemData(
               icon: Icons.swap_horiz,
               label: enable
@@ -273,6 +271,44 @@ class _AccessViewState extends ConsumerState<AccessView> {
         ),
       ),
     ];
+  }
+
+  AppBar _buildAccessAppBar({required bool enable, required bool hasChanges}) {
+    final appLocalizations = context.appLocalizations;
+    final surge = SurgeTheme.of(context);
+    return AppBar(
+      automaticallyImplyLeading: false,
+      animateColor: true,
+      centerTitle: false,
+      leadingWidth: 56,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SoftOsActionButton(
+            icon: normalizeSoftOsActionIcon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.of(context).maybePop();
+            },
+          ),
+        ),
+      ),
+      title: Text(
+        appLocalizations.accessControl,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: context.textTheme.titleLarge?.copyWith(
+          color: surge.textPrimary,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
+      ),
+      actions: genActions(
+        _buildActions(context, enable: enable, hasChanges: hasChanges),
+        endSpace: 16,
+      ),
+    );
   }
 
   Widget _buildContent({
@@ -337,7 +373,11 @@ class _AccessViewState extends ConsumerState<AccessView> {
     );
   }
 
-  Widget _buildBannerBar(AccessControlMode mode, int count) {
+  Widget _buildBannerBar(
+    AccessControlMode mode,
+    int count, {
+    required bool hasChanges,
+  }) {
     final appLocalizations = context.appLocalizations;
     final surge = SurgeTheme.of(context);
     final describe = mode == AccessControlMode.acceptSelected
@@ -382,6 +422,14 @@ class _AccessViewState extends ConsumerState<AccessView> {
                 ),
               ),
             ),
+            if (hasChanges) ...[
+              const SizedBox(width: 8),
+              SoftOsActionTextButton(
+                label: appLocalizations.save,
+                tooltip: appLocalizations.save,
+                onPressed: _handleSave,
+              ),
+            ],
           ],
         ),
       ),
@@ -440,33 +488,32 @@ class _AccessViewState extends ConsumerState<AccessView> {
       },
       child: CommonScaffold(
         key: _scaffoldKey,
+        appBar: _buildAccessAppBar(
+          enable: accessControl.enable,
+          hasChanges: hasChanges,
+        ),
         isLoading: isLoading,
         backgroundColor: SurgeTheme.of(context).background,
         searchState: AppBarSearchState(
           onSearch: _onSearch,
           autoAddSearch: false,
         ),
-        title: context.appLocalizations.appAccessControl,
-        actions: _buildActions(
-          context,
-          enable: accessControl.enable,
-          hasChanges: hasChanges,
-        ),
-        body: DisabledMask(
-          status: !accessControl.enable,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildBannerBar(mode, valueList.length),
-              const SizedBox(height: 6),
-              Expanded(
+        title: context.appLocalizations.accessControl,
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildBannerBar(mode, valueList.length, hasChanges: hasChanges),
+            const SizedBox(height: 6),
+            Expanded(
+              child: DisabledMask(
+                status: !accessControl.enable,
                 child: _buildContent(
                   packages: viewPackages,
                   valueList: valueList,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         floatingActionButton: _buildSelectedAllButton(
           isSelectedAll: valueList.length == viewPackageNameList.length,

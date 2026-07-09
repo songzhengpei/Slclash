@@ -660,7 +660,10 @@ class _SurgeNetworkOverviewCardState
       decoration: BoxDecoration(
         color: surge.card,
         borderRadius: BorderRadius.circular(_cardRadius),
-        border: Border.all(color: surge.separator),
+        border: Border.all(
+          color: surge.separator,
+          width: surge.spacing.hairline,
+        ),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -869,8 +872,7 @@ class _SurgeNetworkOverviewCardState
                         _PlatformLatencyPanel(
                           targets: _latencyTargets,
                           results: _latencyResults,
-                          fallbackCountryCode:
-                              countryCode,
+                          fallbackCountryCode: countryCode,
                           activeColor: dashboardDynamicActiveFill,
                           fillColor: surge.fill,
                           textColor: surge.textPrimary,

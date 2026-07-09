@@ -234,7 +234,10 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       decoration: BoxDecoration(
         color: surge.card,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: surge.separator),
+        border: Border.all(
+          color: surge.separator,
+          width: surge.spacing.hairline,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

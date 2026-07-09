@@ -248,6 +248,9 @@ class CommonScaffoldState extends State<CommonScaffold> {
                 : appLocalizations.selectedCountTitle(
                     '${_appBarState.value.editState?.editCount ?? 0}',
                   ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
           );
   }
 
@@ -426,7 +429,22 @@ class CommonScaffoldState extends State<CommonScaffold> {
     if (resolvedActions.isEmpty) {
       return const [];
     }
-    return genActions([_buildSoftOsActions(resolvedActions)], endSpace: 16);
+    if (resolvedActions.length == 1) {
+      return genActions([_buildSoftOsActions(resolvedActions)], endSpace: 16);
+    }
+    final maxActionWidth = (MediaQuery.sizeOf(context).width * 0.42)
+        .clamp(96.0, 176.0)
+        .toDouble();
+    return genActions([
+      ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxActionWidth),
+        child: Align(
+          alignment: Alignment.centerRight,
+          widthFactor: 1,
+          child: _buildSoftOsActions(resolvedActions),
+        ),
+      ),
+    ], endSpace: 16);
   }
 
   Widget _buildAppBarWrap(Widget child) {
@@ -470,9 +488,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
                       title: _buildTitle(state.searchState),
                       actions: _buildActions(
                         state.searchState != null,
-                        state.actions.isNotEmpty
-                            ? state.actions
-                            : widget.actions ?? [],
+                        widget.actions ?? [],
                       ),
                     ),
                   );
