@@ -61,19 +61,21 @@ class SurgeAddButton extends ConsumerWidget {
     final dynamicColor = ref.watch(
       themeSettingProvider.select((state) => state.dynamicColor),
     );
-    final style = dynamicColor
-        ? FilledButton.styleFrom(visualDensity: VisualDensity.compact)
-        : FilledButton.styleFrom(
-            backgroundColor: surge.primary,
-            foregroundColor: surge.onPrimary,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            minimumSize: const Size(0, 36),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(surge.radii.button),
-            ),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          );
-    return FilledButton(style: style, onPressed: onPressed, child: Text(label));
+    final style = FilledButton.styleFrom(
+      backgroundColor: dynamicColor ? null : surge.primary,
+      foregroundColor: dynamicColor ? null : surge.onPrimary,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      minimumSize: const Size(0, 34),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(surge.radii.button),
+      ),
+    );
+    return FilledButton(
+      style: style,
+      onPressed: onPressed,
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
   }
 }

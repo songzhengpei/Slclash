@@ -426,13 +426,15 @@ class SoftOsActionTextButton extends StatelessWidget {
               onTap: onPressed,
               borderRadius: radius,
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: _minWidth,
-                  minHeight: _visualHeight,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Center(child: _SoftOsActionText(label: label)),
+                constraints: BoxConstraints(minWidth: _minWidth),
+                child: SizedBox(
+                  height: _visualHeight,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 10 : 12,
+                    ),
+                    child: Center(child: _SoftOsActionText(label: label)),
+                  ),
                 ),
               ),
             ),
@@ -562,9 +564,14 @@ class _SoftOsActionText extends StatelessWidget {
       label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+      textHeightBehavior: const TextHeightBehavior(
+        applyHeightToFirstAscent: false,
+        applyHeightToLastDescent: false,
+      ),
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
         color: color,
         fontSize: 14,
+        height: 1,
         fontWeight: FontWeight.w700,
         letterSpacing: 0,
       ),
