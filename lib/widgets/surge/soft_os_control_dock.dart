@@ -12,8 +12,8 @@ const double _softOsActionDockButtonWidth = 44;
 const double _softOsActionCompactDockButtonWidth = 40;
 const double _softOsActionIconSize = 19;
 const double _softOsActionCompactIconSize = 18.5;
-const double _softOsShortTextVisualWidth = 40;
-const double _softOsShortTextTapWidth = 48;
+const double _softOsShortTextVisualWidth = 55;
+const double _softOsShortTextTapWidth = 56;
 
 IconData normalizeSoftOsActionIcon(IconData icon) {
   return switch (icon) {

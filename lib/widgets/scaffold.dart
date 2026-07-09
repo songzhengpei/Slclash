@@ -488,9 +488,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
                       title: _buildTitle(state.searchState),
                       actions: _buildActions(
                         state.searchState != null,
-                        state.actions.isNotEmpty
-                            ? state.actions
-                            : widget.actions ?? [],
+                        widget.actions ?? [],
                       ),
                     ),
                   );

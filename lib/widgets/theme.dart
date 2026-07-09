@@ -66,7 +66,7 @@ class SurgeAddButton extends ConsumerWidget {
       backgroundColor: dynamicColor ? null : surge.primary,
       foregroundColor: dynamicColor ? null : surge.onPrimary,
       padding: EdgeInsets.symmetric(horizontal: isShortLabel ? 0 : 14),
-      fixedSize: isShortLabel ? const Size(40, 34) : null,
+      fixedSize: isShortLabel ? const Size(55, 34) : null,
       minimumSize: const Size(0, 34),
       tapTargetSize: isShortLabel
           ? MaterialTapTargetSize.padded
