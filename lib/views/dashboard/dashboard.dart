@@ -22,24 +22,24 @@ class DashboardView extends StatelessWidget {
         color: pageBackground,
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final viewportSize = MediaQuery.sizeOf(context);
             final layout = DashboardResponsiveLayout.fromViewport(
               viewportWidth: constraints.maxWidth,
+              viewportHeight: viewportSize.height,
               textScaler: MediaQuery.textScalerOf(context),
             );
-            final availableContentHeight = (constraints.maxHeight -
-                    layout.pageTopPadding -
-                    bottomPadding)
-                .clamp(0.0, double.infinity)
-                .toDouble();
+            final availableContentHeight =
+                (constraints.maxHeight - layout.pageTopPadding - bottomPadding)
+                    .clamp(0.0, double.infinity)
+                    .toDouble();
             final networkNaturalHeight =
                 NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
                   layout,
                 );
-            final networkHeight = (availableContentHeight -
-                    layout.heroNaturalHeight -
-                    layout.cardGap)
-                .clamp(networkNaturalHeight, double.infinity)
-                .toDouble();
+            final pageHeights = layout.resolvePageHeightAllocation(
+              availableContentHeight: availableContentHeight,
+              networkNaturalHeight: networkNaturalHeight,
+            );
 
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
@@ -55,11 +55,20 @@ class DashboardView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SurgeDashboardHero(layout: layout),
+                      SurgeDashboardHero(
+                        layout: layout,
+                        allocatedHeight: pageHeights.hasHeroExpansion
+                            ? pageHeights.heroHeight
+                            : null,
+                      ),
                       SizedBox(height: layout.cardGap),
                       SizedBox(
-                        height: networkHeight,
-                        child: SurgeNetworkOverviewCard(layout: layout),
+                        height: pageHeights.networkHeight,
+                        child: SurgeNetworkOverviewCard(
+                          layout: layout,
+                          contentExpansionFraction:
+                              pageHeights.networkContentExpansionFraction,
+                        ),
                       ),
                     ],
                   ),

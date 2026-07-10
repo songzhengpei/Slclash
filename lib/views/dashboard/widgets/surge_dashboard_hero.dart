@@ -16,9 +16,14 @@ const _heroFillDuration = Duration(milliseconds: 1500);
 const _statusLightPulseDuration = Duration(milliseconds: 112);
 
 class SurgeDashboardHero extends ConsumerStatefulWidget {
-  const SurgeDashboardHero({super.key, required this.layout});
+  const SurgeDashboardHero({
+    super.key,
+    required this.layout,
+    this.allocatedHeight,
+  });
 
   final DashboardResponsiveLayout layout;
+  final double? allocatedHeight;
 
   @override
   ConsumerState<SurgeDashboardHero> createState() => _SurgeDashboardHeroState();
@@ -256,9 +261,16 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
               }
             },
     );
+    final contentLayout = DashboardHeroLayoutCalculator.layoutFor(
+      responsiveLayout: layout,
+      availableOuterHeight: widget.allocatedHeight ?? layout.heroNaturalHeight,
+    );
 
     return Container(
       width: double.infinity,
+      constraints: widget.allocatedHeight == null
+          ? null
+          : BoxConstraints(minHeight: widget.allocatedHeight!),
       padding: EdgeInsets.fromLTRB(
         layout.cardHorizontalPadding,
         layout.legacy(18),
@@ -293,7 +305,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                 actionButton,
               ],
             ),
-          SizedBox(height: layout.legacy(16)),
+          SizedBox(height: contentLayout.topRowToModeGap),
           AnimatedBuilder(
             animation: _fillAnimation,
             builder: (context, _) {
@@ -308,17 +320,18 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                     _showConnecting || coreStatus == CoreStatus.connecting,
                 failed: _showFailure,
                 statusLabel: statusLabel,
+                height: contentLayout.modeCardHeight,
                 layout: layout,
               );
             },
           ),
-          SizedBox(height: layout.legacy(12)),
+          SizedBox(height: contentLayout.modeToSwitchGap),
           _ModeSwitch(
             value: mode,
             onChanged: (value) => _handleChangeMode(value, ref),
             layout: layout,
           ),
-          SizedBox(height: layout.legacy(10)),
+          SizedBox(height: contentLayout.switchToSelectorGap),
           _HeroProxySelectorBar(layout: layout),
         ],
       ),
@@ -337,6 +350,7 @@ class _HeroModeCard extends StatelessWidget {
     required this.connecting,
     required this.failed,
     required this.statusLabel,
+    required this.height,
     required this.layout,
   });
 
@@ -349,6 +363,7 @@ class _HeroModeCard extends StatelessWidget {
   final bool connecting;
   final bool failed;
   final String statusLabel;
+  final double height;
   final DashboardResponsiveLayout layout;
 
   @override
@@ -365,6 +380,7 @@ class _HeroModeCard extends StatelessWidget {
         failed: failed,
         statusLabel: statusLabel,
         fillProgress: fillProgress.clamp(0.0, 1.0),
+        height: height,
         layout: layout,
       ),
     );
@@ -382,6 +398,7 @@ class _HeroModeCardSurface extends StatelessWidget {
     required this.failed,
     required this.statusLabel,
     required this.fillProgress,
+    required this.height,
     required this.layout,
   });
 
@@ -394,6 +411,7 @@ class _HeroModeCardSurface extends StatelessWidget {
   final bool failed;
   final String statusLabel;
   final double fillProgress;
+  final double height;
   final DashboardResponsiveLayout layout;
 
   @override
@@ -424,8 +442,8 @@ class _HeroModeCardSurface extends StatelessWidget {
         )!;
         return Container(
           width: double.infinity,
-          constraints: BoxConstraints(minHeight: layout.legacy(80)),
-          height: layout.requiresReflow ? null : layout.legacy(80),
+          constraints: BoxConstraints(minHeight: height),
+          height: layout.requiresReflow ? null : height,
           padding: EdgeInsets.symmetric(
             horizontal: layout.geometry(18),
             vertical: layout.legacy(10),
@@ -578,8 +596,8 @@ class _HeroActionButton extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: baseColor.withValues(alpha: 0.2),
-          blurRadius: layout.geometry(14),
-          offset: Offset(0, layout.geometry(6)),
+            blurRadius: layout.geometry(14),
+            offset: Offset(0, layout.geometry(6)),
           ),
         ],
       ),

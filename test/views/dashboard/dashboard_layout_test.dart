@@ -5,11 +5,20 @@ import 'package:fl_clash/views/dashboard/widgets/surge_dashboard_hero.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-DashboardResponsiveLayout _layout(double width, {double textScale = 1}) {
+DashboardResponsiveLayout _layout(
+  double width, {
+  double height = DashboardResponsiveLayout.referenceViewportHeight,
+  double textScale = 1,
+}) {
   return DashboardResponsiveLayout.fromViewport(
     viewportWidth: width,
+    viewportHeight: height,
     textScaler: TextScaler.linear(textScale),
   );
+}
+
+DashboardResponsiveLayout _layoutForViewportHeight(double viewportHeight) {
+  return _layout(384, height: viewportHeight);
 }
 
 void main() {
@@ -31,6 +40,7 @@ void main() {
       expect(layout.geometryScale, 1);
       expect(layout.typographyScale, 1);
       expect(layout.requiresReflow, isFalse);
+      expect(layout.viewportExpansionFraction, 0);
     });
 
     test('keeps the 360dp phone on the single-line layout', () {
@@ -64,6 +74,118 @@ void main() {
       expect(layout.contentMaxWidth, 520);
       expect(layout.geometryScale, 1.07);
       expect(layout.requiresReflow, isFalse);
+      expect(layout.viewportExpansionFraction, 0);
+    });
+
+    test('shares an FHD and WQHD baseline logical viewport', () {
+      final fhd = _layout(384, height: 853.3333333333334);
+      final wqhd = _layout(384, height: 853.3333333333334);
+
+      expect(fhd.geometryScale, wqhd.geometryScale);
+      expect(fhd.heroNaturalHeight, wqhd.heroNaturalHeight);
+      expect(fhd.viewportExpansionFraction, 0);
+      expect(wqhd.viewportExpansionFraction, 0);
+    });
+
+    test(
+      'begins bounded expansion only above the reference viewport height',
+      () {
+        expect(
+          _layoutForViewportHeight(
+            DashboardResponsiveLayout.referenceViewportHeight,
+          ).viewportExpansionFraction,
+          0,
+        );
+        expect(
+          _layoutForViewportHeight(
+            DashboardResponsiveLayout.referenceViewportHeight + 24,
+          ).viewportExpansionFraction,
+          0.5,
+        );
+        expect(
+          _layoutForViewportHeight(
+            DashboardResponsiveLayout.referenceViewportHeight + 48,
+          ).viewportExpansionFraction,
+          1,
+        );
+        expect(
+          _layoutForViewportHeight(
+            DashboardResponsiveLayout.referenceViewportHeight + 96,
+          ).viewportExpansionFraction,
+          1,
+        );
+      },
+    );
+
+    test('keeps the reference device on the legacy vertical allocation', () {
+      final layout = _layout(384);
+      const networkNaturalHeight = 372.0;
+      final naturalContentHeight =
+          layout.heroNaturalHeight + layout.cardGap + networkNaturalHeight;
+      final allocation = layout.resolvePageHeightAllocation(
+        availableContentHeight: naturalContentHeight + 100,
+        networkNaturalHeight: networkNaturalHeight,
+      );
+
+      expect(allocation.heroHeight, layout.heroNaturalHeight);
+      expect(allocation.networkHeight, networkNaturalHeight + 100);
+      expect(allocation.networkContentExpansionFraction, 0);
+    });
+
+    test('gradually shares bounded surplus above the reference viewport', () {
+      final layout = _layoutForViewportHeight(
+        DashboardResponsiveLayout.referenceViewportHeight + 24,
+      );
+      const networkNaturalHeight = 372.0;
+      final naturalContentHeight =
+          layout.heroNaturalHeight + layout.cardGap + networkNaturalHeight;
+      final allocation = layout.resolvePageHeightAllocation(
+        availableContentHeight: naturalContentHeight + 60,
+        networkNaturalHeight: networkNaturalHeight,
+      );
+
+      expect(
+        allocation.heroHeight - layout.heroNaturalHeight,
+        closeTo(10.2, 0.001),
+      );
+      expect(
+        allocation.networkHeight - networkNaturalHeight,
+        closeTo(49.8, 0.001),
+      );
+      expect(allocation.networkContentExpansionFraction, 0.5);
+    });
+
+    test('returns to two natural cards when expansion would be too loose', () {
+      final layout = _layoutForViewportHeight(
+        DashboardResponsiveLayout.referenceViewportHeight + 96,
+      );
+      const networkNaturalHeight = 372.0;
+      final naturalContentHeight =
+          layout.heroNaturalHeight + layout.cardGap + networkNaturalHeight;
+      final allocation = layout.resolvePageHeightAllocation(
+        availableContentHeight:
+            naturalContentHeight + layout.maxDashboardExpansion + 1,
+        networkNaturalHeight: networkNaturalHeight,
+      );
+
+      expect(allocation.heroHeight, layout.heroNaturalHeight);
+      expect(allocation.networkHeight, networkNaturalHeight);
+      expect(allocation.networkContentExpansionFraction, 0);
+    });
+
+    test('spreads an allocated hero height through its visual sections', () {
+      final layout = _layoutForViewportHeight(
+        DashboardResponsiveLayout.referenceViewportHeight + 48,
+      );
+      final hero = DashboardHeroLayoutCalculator.layoutFor(
+        responsiveLayout: layout,
+        availableOuterHeight: layout.heroNaturalHeight + 100,
+      );
+
+      expect(hero.topRowToModeGap - layout.legacy(16), closeTo(32, 0.001));
+      expect(hero.modeCardHeight - layout.legacy(80), closeTo(38, 0.001));
+      expect(hero.modeToSwitchGap - layout.legacy(12), closeTo(16, 0.001));
+      expect(hero.switchToSelectorGap - layout.legacy(10), closeTo(14, 0.001));
     });
 
     test('reflows for enlarged system text at any supported phone width', () {
@@ -96,6 +218,7 @@ void main() {
       final layout = NetworkOverviewCardLayoutCalculator.layoutFor(
         availableOuterHeight: naturalOuterHeight,
         responsiveLayout: responsiveLayout,
+        contentExpansionFraction: 0,
       );
 
       expect(
@@ -110,8 +233,8 @@ void main() {
       );
     });
 
-    test('keeps normal-phone content at its original vertical positions', () {
-      final responsiveLayout = _layout(384);
+    test('keeps compact-phone content at its original vertical positions', () {
+      final responsiveLayout = _layout(360, height: 800);
       final naturalOuterHeight =
           NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
             responsiveLayout,
@@ -119,10 +242,12 @@ void main() {
       final base = NetworkOverviewCardLayoutCalculator.layoutFor(
         availableOuterHeight: naturalOuterHeight,
         responsiveLayout: responsiveLayout,
+        contentExpansionFraction: 0,
       );
       final expanded = NetworkOverviewCardLayoutCalculator.layoutFor(
         availableOuterHeight: naturalOuterHeight + 100,
         responsiveLayout: responsiveLayout,
+        contentExpansionFraction: 0,
       );
 
       expect(expanded.chartHeight, base.chartHeight);
@@ -134,8 +259,10 @@ void main() {
       );
     });
 
-    test('distributes additional height across wide-screen content', () {
-      final responsiveLayout = _layout(800);
+    test('gradually moves extra height out of network detection', () {
+      final responsiveLayout = _layoutForViewportHeight(
+        DashboardResponsiveLayout.referenceViewportHeight + 24,
+      );
       final naturalOuterHeight =
           NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
             responsiveLayout,
@@ -143,18 +270,49 @@ void main() {
       final base = NetworkOverviewCardLayoutCalculator.layoutFor(
         availableOuterHeight: naturalOuterHeight,
         responsiveLayout: responsiveLayout,
+        contentExpansionFraction: 0.5,
       );
       final expanded = NetworkOverviewCardLayoutCalculator.layoutFor(
         availableOuterHeight: naturalOuterHeight + 100,
         responsiveLayout: responsiveLayout,
+        contentExpansionFraction: 0.5,
       );
 
-      expect(expanded.chartHeight - base.chartHeight, closeTo(40, 0.001));
+      expect(expanded.chartHeight - base.chartHeight, closeTo(20, 0.001));
       expect(
         expanded.detectionSlotHeight - base.detectionSlotHeight,
-        closeTo(15, 0.001),
+        closeTo(57.5, 0.001),
       );
     });
+
+    test(
+      'uses the full internal distribution once the viewport ramp completes',
+      () {
+        final responsiveLayout = _layoutForViewportHeight(
+          DashboardResponsiveLayout.referenceViewportHeight + 48,
+        );
+        final naturalOuterHeight =
+            NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
+              responsiveLayout,
+            );
+        final base = NetworkOverviewCardLayoutCalculator.layoutFor(
+          availableOuterHeight: naturalOuterHeight,
+          responsiveLayout: responsiveLayout,
+          contentExpansionFraction: 1,
+        );
+        final expanded = NetworkOverviewCardLayoutCalculator.layoutFor(
+          availableOuterHeight: naturalOuterHeight + 100,
+          responsiveLayout: responsiveLayout,
+          contentExpansionFraction: 1,
+        );
+
+        expect(expanded.chartHeight - base.chartHeight, closeTo(40, 0.001));
+        expect(
+          expanded.detectionSlotHeight - base.detectionSlotHeight,
+          closeTo(15, 0.001),
+        );
+      },
+    );
 
     test('never shrinks below natural content height', () {
       final responsiveLayout = _layout(360);
@@ -165,6 +323,7 @@ void main() {
       final layout = NetworkOverviewCardLayoutCalculator.layoutFor(
         availableOuterHeight: naturalOuterHeight - 80,
         responsiveLayout: responsiveLayout,
+        contentExpansionFraction: 0,
       );
 
       expect(

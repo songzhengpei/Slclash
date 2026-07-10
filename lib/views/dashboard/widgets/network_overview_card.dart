@@ -182,6 +182,7 @@ class NetworkOverviewCardLayoutCalculator {
   static NetworkOverviewCardLayout layoutFor({
     required double availableOuterHeight,
     required DashboardResponsiveLayout responsiveLayout,
+    required double contentExpansionFraction,
   }) {
     final naturalOuterHeight = naturalOuterHeightFor(responsiveLayout);
     final resolvedOuterHeight = math.max(
@@ -189,42 +190,48 @@ class NetworkOverviewCardLayoutCalculator {
       naturalOuterHeight,
     );
     final extraHeight = resolvedOuterHeight - naturalOuterHeight;
-    final distributeExtraHeight = responsiveLayout.isWide;
+    final distributedExtraHeight =
+        extraHeight * contentExpansionFraction.clamp(0.0, 1.0);
     return NetworkOverviewCardLayout(
       headerHeight: headerHeightFor(responsiveLayout),
       chartHeight:
-          chartHeightFor(responsiveLayout) +
-          (distributeExtraHeight ? extraHeight * 0.40 : 0),
+          chartHeightFor(responsiveLayout) + distributedExtraHeight * 0.40,
       headerToChartGap:
-          headerToChartGapFor(responsiveLayout) +
-          (distributeExtraHeight ? extraHeight * 0.10 : 0),
+          headerToChartGapFor(responsiveLayout) + distributedExtraHeight * 0.10,
       chartToDividerGap:
           chartToDividerGapFor(responsiveLayout) +
-          (distributeExtraHeight ? extraHeight * 0.075 : 0),
+          distributedExtraHeight * 0.075,
       dividerToTrafficGap:
           dividerToTrafficGapFor(responsiveLayout) +
-          (distributeExtraHeight ? extraHeight * 0.075 : 0),
+          distributedExtraHeight * 0.075,
       trafficTitleToChartGap:
           trafficTitleToChartGapFor(responsiveLayout) +
-          (distributeExtraHeight ? extraHeight * 0.10 : 0),
+          distributedExtraHeight * 0.10,
       latencyHeaderToRowsGap:
           latencyHeaderToRowsGapFor(responsiveLayout) +
-          (distributeExtraHeight ? extraHeight * 0.06 : 0),
+          distributedExtraHeight * 0.06,
       latencyRowGap:
-          latencyRowGapFor(responsiveLayout) +
-          (distributeExtraHeight ? extraHeight * 0.02 : 0),
-      afterTrafficGap: trafficToDividerGapFor(responsiveLayout),
+          latencyRowGapFor(responsiveLayout) + distributedExtraHeight * 0.02,
+      afterTrafficGap:
+          trafficToDividerGapFor(responsiveLayout) +
+          distributedExtraHeight * 0.02,
       detectionSlotHeight:
           detectionSlotHeightFor(responsiveLayout) +
-          (distributeExtraHeight ? extraHeight * 0.15 : extraHeight),
+          extraHeight -
+          distributedExtraHeight * 0.85,
     );
   }
 }
 
 class SurgeNetworkOverviewCard extends ConsumerStatefulWidget {
-  const SurgeNetworkOverviewCard({super.key, required this.layout});
+  const SurgeNetworkOverviewCard({
+    super.key,
+    required this.layout,
+    this.contentExpansionFraction = 0,
+  });
 
   final DashboardResponsiveLayout layout;
+  final double contentExpansionFraction;
 
   @override
   ConsumerState<SurgeNetworkOverviewCard> createState() =>
@@ -720,6 +727,7 @@ class _SurgeNetworkOverviewCardState
                     responsiveLayout,
                   ),
             responsiveLayout: responsiveLayout,
+            contentExpansionFraction: widget.contentExpansionFraction,
           );
           final overviewLabels = Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1210,6 +1218,7 @@ class _NetworkDetectionBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       constraints: BoxConstraints(minHeight: height),
+      // A fixed visual height can be one physical pixel shorter than the
       height: layout.requiresReflow ? null : height,
       padding: EdgeInsets.symmetric(horizontal: layout.geometry(14)),
       decoration: BoxDecoration(
