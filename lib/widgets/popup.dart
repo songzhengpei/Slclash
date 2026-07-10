@@ -345,7 +345,7 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
             children: [
               IconButton(
                 icon: Icon(
-                  Icons.arrow_back_outlined,
+                  SurgeIcons.back,
                   color: context.colorScheme.onSurfaceVariant.opacity80,
                 ),
                 onPressed: () {

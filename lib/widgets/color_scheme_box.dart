@@ -131,7 +131,7 @@ class ColorSchemeBox extends StatelessWidget {
                         border: Border.all(color: surge.separator),
                       ),
                       child: Icon(
-                        Icons.colorize,
+                        SurgeIcons.colorize,
                         size: 15,
                         color: surge.textSecondary,
                       ),

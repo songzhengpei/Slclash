@@ -84,7 +84,7 @@ class _AddedRulesViewState extends ConsumerState<AddedRulesView> {
             CommonMinIconButtonTheme(
               child: IconButton.filledTonal(
                 onPressed: _handleDelete,
-                icon: const Icon(Icons.delete),
+                icon: const Icon(SurgeIcons.delete),
               ),
             ),
             const SizedBox(width: 2),

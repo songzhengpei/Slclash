@@ -29,7 +29,7 @@ class ProxiesEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.route_rounded,
+              SurgeIcons.route,
               color: surge.textSecondary.withValues(alpha: 0.62),
               size: 28,
             ),

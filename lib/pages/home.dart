@@ -40,11 +40,15 @@ class HomePage extends StatelessWidget {
                 currentIndex: currentIndex,
                 items: navigationItems
                     .map(
-                      (item) => SurgeBottomNavItem(
-                        icon: _getBottomNavIcon(item.label),
-                        activeIcon: _getBottomNavActiveIcon(item.label),
-                        label: Intl.message(item.label.name),
-                      ),
+                      (item) {
+                        final (icon, iconOutlined) =
+                            SurgeIcons.bottomNavigationPair(item.label);
+                        return SurgeBottomNavItem(
+                          icon: icon,
+                          iconOutlined: iconOutlined,
+                          label: Intl.message(item.label.name),
+                        );
+                      },
                     )
                     .toList(),
                 onTap: (index) {
@@ -129,26 +133,6 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
-}
-
-IconData _getBottomNavIcon(PageLabel pageLabel) {
-  return switch (pageLabel) {
-    PageLabel.dashboard => Icons.space_dashboard_outlined,
-    PageLabel.proxies => Icons.article_outlined,
-    PageLabel.profiles => Icons.folder_outlined,
-    PageLabel.tools => Icons.construction_outlined,
-    _ => Icons.circle_outlined,
-  };
-}
-
-IconData _getBottomNavActiveIcon(PageLabel pageLabel) {
-  return switch (pageLabel) {
-    PageLabel.dashboard => Icons.space_dashboard_rounded,
-    PageLabel.proxies => Icons.article_rounded,
-    PageLabel.profiles => Icons.folder_rounded,
-    PageLabel.tools => Icons.construction_rounded,
-    _ => Icons.circle,
-  };
 }
 
 class _HomePageView extends ConsumerStatefulWidget {

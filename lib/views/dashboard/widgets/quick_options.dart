@@ -16,7 +16,7 @@ class TUNButton extends StatelessWidget {
       height: getWidgetHeight(1),
       child: _QuickOptionCard(
         title: appLocalizations.tun,
-        icon: Icons.account_tree_rounded,
+        icon: SurgeIcons.proxyGroup,
         onTap: () {
           showSheet(
             context: context,
@@ -70,7 +70,7 @@ class SystemProxyButton extends StatelessWidget {
       height: getWidgetHeight(1),
       child: _QuickOptionCard(
         title: appLocalizations.systemProxy,
-        icon: Icons.lan_rounded,
+        icon: SurgeIcons.connections,
         onTap: () {
           showSheet(
             context: context,
@@ -115,7 +115,7 @@ class VpnButton extends StatelessWidget {
       height: getWidgetHeight(1),
       child: _QuickOptionCard(
         title: 'VPN',
-        icon: Icons.vpn_lock_rounded,
+        icon: SurgeIcons.vpn,
         onTap: () {
           showSheet(
             context: context,

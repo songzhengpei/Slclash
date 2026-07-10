@@ -101,7 +101,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                           ? Text(proxyName.toLowerCase())
                           : null),
                 leading: OverwriteIconButton(
-                  icon: Icons.remove,
+                  icon: SurgeIcons.remove,
                   onPressed: () {
                     _handleRemove(proxyName);
                   },
@@ -120,7 +120,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                       child: Container(
                         color: Colors.transparent,
                         padding: const EdgeInsets.all(8),
-                        child: const Icon(Icons.drag_handle),
+                        child: const Icon(SurgeIcons.dragHandle),
                       ),
                     ),
                   ],
@@ -218,7 +218,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
                             },
                             icon: Icon(
                               size: 15,
-                              Icons.info_outline,
+                              SurgeIcons.info,
                               color: context.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -385,7 +385,10 @@ class _AddProxiesViewState extends ConsumerState<_AddProxiesView>
               text: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             subtitle: Text(subtitle),
-            trailing: OverwriteIconButton(icon: Icons.add, onPressed: onAdd),
+            trailing: OverwriteIconButton(
+              icon: SurgeIcons.add,
+              onPressed: onAdd,
+            ),
           ),
         ),
       ),

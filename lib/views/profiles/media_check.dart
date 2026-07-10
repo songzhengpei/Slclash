@@ -72,7 +72,8 @@ class ProfileMediaCheckView extends ConsumerStatefulWidget {
   final MediaCheckConfigLoader configLoader;
 
   @override
-  ConsumerState<ProfileMediaCheckView> createState() => _ProfileMediaCheckViewState();
+  ConsumerState<ProfileMediaCheckView> createState() =>
+      _ProfileMediaCheckViewState();
 }
 
 class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
@@ -264,11 +265,10 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
           );
           if (!mounted || generation != _generation || data.isEmpty) continue;
           final decoded = json.decode(data) as Map<String, dynamic>;
-          final result =
-              MediaCheckResult.fromJson(decoded).copyWith(
-                profileId: target.profile.id,
-                profileLabel: target.profile.realLabel,
-              );
+          final result = MediaCheckResult.fromJson(decoded).copyWith(
+            profileId: target.profile.id,
+            profileLabel: target.profile.realLabel,
+          );
           // Update in-memory cache synchronously, then update UI immediately
           _updateCacheInMemory(target, result, runMode);
           if (!mounted || generation != _generation) continue;
@@ -516,52 +516,57 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
                 },
                 onCancel: _cancel,
                 onObservingChanged: (value) {
-                  ref.read(healthObservationSchedulerProvider.notifier).setEnabled(value);
+                  ref
+                      .read(healthObservationSchedulerProvider.notifier)
+                      .setEnabled(value);
                 },
                 onObserveIntervalTap: _checking
                     ? null
                     : () {
                         final currentInterval = schedulerState.intervalMinutes;
-                        final options = HealthObservationScheduler.observeIntervalOptions;
+                        final options =
+                            HealthObservationScheduler.observeIntervalOptions;
                         final currentIndex = options.indexOf(currentInterval);
                         final nextIndex = (currentIndex + 1) % options.length;
-                        ref.read(healthObservationSchedulerProvider.notifier).setIntervalMinutes(options[nextIndex]);
+                        ref
+                            .read(healthObservationSchedulerProvider.notifier)
+                            .setIntervalMinutes(options[nextIndex]);
                       },
                 onSummaryFilterChanged: _checking ? null : _changeFilter,
               ),
-                const SizedBox(height: 12),
-                if (_loading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(28),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else if (rows.isEmpty && _running.isEmpty && _queued.isEmpty)
-                  _EmptyMediaCheckState(targetCount: _targets.length)
-                else if (rows.isEmpty && _running.isEmpty && _queued.isEmpty)
-                  _EmptyFilteredState(filter: _filter)
-                else if (rows.isNotEmpty)
-                  _MediaCheckResultList(
-                    rows: rows,
-                    filter: _filter,
-                    cached: !_checking && _cachedCountForMode > 0,
-                    lastCachedAt: _lastCachedAt,
-                    onClear: _checking ? null : _clearCurrentModeCache,
+              const SizedBox(height: 12),
+              if (_loading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(28),
+                    child: CircularProgressIndicator(),
                   ),
-                for (final key in _running)
-                  if (_targetOfKey(key) case final target?)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _MediaCheckPendingCard(
-                        target: target,
-                        filter: _filter,
-                      ),
+                )
+              else if (rows.isEmpty && _running.isEmpty && _queued.isEmpty)
+                _EmptyMediaCheckState(targetCount: _targets.length)
+              else if (rows.isEmpty && _running.isEmpty && _queued.isEmpty)
+                _EmptyFilteredState(filter: _filter)
+              else if (rows.isNotEmpty)
+                _MediaCheckResultList(
+                  rows: rows,
+                  filter: _filter,
+                  cached: !_checking && _cachedCountForMode > 0,
+                  lastCachedAt: _lastCachedAt,
+                  onClear: _checking ? null : _clearCurrentModeCache,
+                ),
+              for (final key in _running)
+                if (_targetOfKey(key) case final target?)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _MediaCheckPendingCard(
+                      target: target,
+                      filter: _filter,
                     ),
-              ],
-            ),
+                  ),
+            ],
           ),
         ),
+      ),
     );
   }
 }
@@ -787,7 +792,11 @@ class _ObservationControl extends StatelessWidget {
       height: 46,
       child: Row(
         children: [
-          Icon(Icons.monitor_heart_outlined, size: 18, color: surge.green),
+          Icon(
+            SurgeIcons.monitorHealth,
+            size: SurgeIconSize.compact,
+            color: surge.green,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -857,11 +866,7 @@ class _ProfileSelector extends StatelessWidget {
           value: profile,
           isExpanded: true,
           borderRadius: BorderRadius.circular(surge.radii.card),
-          icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: surge.textSecondary,
-            size: 20,
-          ),
+          icon: Icon(SurgeIcons.expand, color: surge.textSecondary, size: 20),
           items: [
             for (final item in profiles)
               DropdownMenuItem(
@@ -916,11 +921,7 @@ class _ModeDropdown extends StatelessWidget {
         child: DropdownButton<_MediaCheckFilter>(
           value: value,
           borderRadius: BorderRadius.circular(surge.radii.card),
-          icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: surge.textSecondary,
-            size: 20,
-          ),
+          icon: Icon(SurgeIcons.expand, color: surge.textSecondary, size: 20),
           items: [
             for (final item in _MediaCheckFilter.values)
               DropdownMenuItem(
@@ -1210,7 +1211,7 @@ class _MediaCheckResultList extends StatelessWidget {
             IconButton(
               tooltip: '清除缓存',
               onPressed: cached ? onClear : null,
-              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              icon: const Icon(SurgeIcons.delete, size: SurgeIconSize.compact),
               style: IconButton.styleFrom(
                 fixedSize: const Size(32, 32),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1353,13 +1354,13 @@ class _MediaCheckResultCard extends StatelessWidget {
                 color: result.chatGPT.statusColor(surge),
                 label: result.chatGPT.chatGPTCompactLabel,
                 meta: result.regionText,
-                icon: Icons.psychology_alt_rounded,
+                icon: SurgeIcons.gpt,
               ),
               _MediaCheckFilter.youTubeCN => _SingleResultLine(
                 color: result.youTube.youtubeColor(surge),
                 label: result.youTube.youtubeCompactLabel,
                 meta: result.youTube.evidence,
-                icon: Icons.smart_display_rounded,
+                icon: SurgeIcons.youtube,
               ),
               _MediaCheckFilter.green => _HealthResultLine(
                 result: result,
@@ -1449,7 +1450,7 @@ class _HealthResultLine extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.eco_outlined, color: color, size: 16),
+          Icon(SurgeIcons.health, color: color, size: SurgeIconSize.inline),
           const SizedBox(width: 8),
           Expanded(
             child: Row(
@@ -1663,10 +1664,7 @@ class _MediaCheckRunButton extends StatelessWidget {
       message: checking ? '取消检测' : '开始检测',
       child: FilledButton.icon(
         onPressed: onTap,
-        icon: Icon(
-          checking ? Icons.stop_rounded : Icons.play_arrow_rounded,
-          size: 15,
-        ),
+        icon: Icon(checking ? SurgeIcons.stop : SurgeIcons.play, size: 15),
         label: Text(checking ? '取消' : '开始'),
         style: FilledButton.styleFrom(
           backgroundColor: color,
@@ -1691,9 +1689,9 @@ class _MediaCheckRunButton extends StatelessWidget {
 }
 
 enum _MediaCheckFilter {
-  chatGPT('GPT', 'GPT 解锁', '解锁地区', Icons.psychology_alt_rounded),
-  youTubeCN('YouTube', 'YouTube 送中', '送中候选', Icons.smart_display_rounded),
-  green('健康', '全绿低延迟', '历史稳定', Icons.eco_outlined);
+  chatGPT('GPT', 'GPT 解锁', '解锁地区', SurgeIcons.gpt),
+  youTubeCN('YouTube', 'YouTube 送中', '送中候选', SurgeIcons.youtube),
+  green('健康', '全绿低延迟', '历史稳定', SurgeIcons.health);
 
   final String label;
   final String resultTitle;
@@ -1779,18 +1777,21 @@ class _MediaCheckRow {
     final r = result;
     if (r == null) return -1;
     return switch (filter) {
-      _MediaCheckFilter.chatGPT =>
-        r.chatGPT.isChatGPTAvailable ? 200000 : -1,
+      _MediaCheckFilter.chatGPT => r.chatGPT.isChatGPTAvailable ? 200000 : -1,
       _MediaCheckFilter.youTubeCN =>
-        r.youTube.isYouTubeCN ? 400000
-            : r.youTube.status == 'available' ? 300000
-            : r.youTube.status == 'unknown' ? 200000
+        r.youTube.isYouTubeCN
+            ? 400000
+            : r.youTube.status == 'available'
+            ? 300000
+            : r.youTube.status == 'unknown'
+            ? 200000
             : -1,
       _MediaCheckFilter.green =>
         health.isStableLowLatency
             ? 200000 -
                   (health.medianDelay > 0 ? health.medianDelay : 999999).clamp(
-                    0, 199999,
+                    0,
+                    199999,
                   )
             : -(health.medianDelay > 0 ? health.medianDelay : 999999),
     };

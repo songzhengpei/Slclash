@@ -182,11 +182,11 @@ class CommonScaffoldState extends State<CommonScaffold> {
       required VoidCallback? onPressed,
     }) {
       return Padding(
-        padding: const EdgeInsets.only(left: 8),
+        padding: const EdgeInsets.only(left: 13),
         child: Align(
           alignment: Alignment.centerLeft,
           child: SoftOsActionButton(
-            icon: normalizeSoftOsActionIcon(icon),
+            icon: icon,
             onPressed: onPressed,
             compact: true,
           ),
@@ -197,18 +197,18 @@ class CommonScaffoldState extends State<CommonScaffold> {
     if (_isEdit) {
       return buildLeadingButton(
         onPressed: _appBarState.value.editState?.onExit,
-        icon: Icons.close,
+        icon: SurgeIcons.close,
       );
     }
     if (_isSearch) {
       return buildLeadingButton(
         onPressed: handleExitSearching,
-        icon: Icons.arrow_back,
+        icon: SurgeIcons.back,
       );
     }
     if (backAction != null) {
       return buildLeadingButton(
-        icon: Icons.arrow_back,
+        icon: SurgeIcons.back,
         onPressed: () {
           if (!mounted) {
             return;
@@ -220,7 +220,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
     final route = ModalRoute.of(context);
     if (route?.impliesAppBarDismissal == true) {
       return buildLeadingButton(
-        icon: Icons.arrow_back,
+        icon: SurgeIcons.back,
         onPressed: () {
           Navigator.of(context).maybePop();
         },
@@ -256,7 +256,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
   }
 
   IconData _normalizeActionIcon(IconData icon) {
-    return normalizeSoftOsActionIcon(icon);
+    return icon;
   }
 
   IconData? _resolveIconData(Widget icon) {
@@ -411,16 +411,13 @@ class CommonScaffoldState extends State<CommonScaffold> {
   List<Widget> _buildActions(bool hasSearch, List<Widget> actions) {
     if (_isSearch) {
       return genActions([
-        SoftOsActionButton(
-          icon: normalizeSoftOsActionIcon(Icons.close),
-          onPressed: _handleClear,
-        ),
+        SoftOsActionButton(icon: SurgeIcons.close, onPressed: _handleClear),
       ], endSpace: 16);
     }
     final resolvedActions = [
       if (hasSearch && widget.searchState?.autoAddSearch == true)
         _SoftOsScaffoldAction(
-          icon: normalizeSoftOsActionIcon(Icons.search),
+          icon: SurgeIcons.search,
           onPressed: () {
             _updateSearchState((state) => state?.copyWith(query: ''));
           },

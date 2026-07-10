@@ -54,7 +54,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
           coreController.closeConnections();
           await _updateConnections(force: true);
         },
-        icon: const Icon(Icons.delete_sweep_outlined),
+        icon: const Icon(SurgeIcons.deleteAll),
       ),
     ];
   }
@@ -223,7 +223,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                       context.commonScaffoldState?.addKeyword(value);
                     },
                     trailing: SoftOsIconButton(
-                      icon: Icons.block_rounded,
+                      icon: SurgeIcons.block,
                       onPressed: () {
                         _handleBlockConnection(trackerInfo.id);
                       },

@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/icons.dart';
 import 'package:flutter/material.dart';
 
 import 'surge_motion.dart';
@@ -72,7 +73,7 @@ class SurgeSelectIndicator extends StatelessWidget {
         duration: SurgeMotion.state,
         curve: SurgeMotion.stateCurve,
         child: selected
-            ? Icon(Icons.check, size: iconSize, color: surge.onPrimary)
+            ? Icon(SurgeIcons.confirm, size: iconSize, color: surge.onPrimary)
             : const SizedBox.shrink(),
       ),
     );

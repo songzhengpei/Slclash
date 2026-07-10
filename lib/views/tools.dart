@@ -221,7 +221,7 @@ class _LocaleItem extends ConsumerWidget {
     final subTitle = locale ?? context.appLocalizations.defaultText;
     final currentLocale = utils.getLocaleForString(locale);
     return _SurgeActionTile(
-      leading: const Icon(Icons.language_outlined),
+      leading: const Icon(SurgeIcons.language),
       title: context.appLocalizations.language,
       subtitle: Intl.message(subTitle),
       onTap: () async {
@@ -247,7 +247,7 @@ class _ThemeItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurgeOpenTile(
-      leading: const Icon(Icons.style),
+      leading: const Icon(SurgeIcons.style),
       title: context.appLocalizations.theme,
       subtitle: context.appLocalizations.themeDesc,
       child: const ThemeView(),
@@ -261,7 +261,7 @@ class _BackupItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurgeOpenTile(
-      leading: const Icon(Icons.cloud_sync),
+      leading: const Icon(SurgeIcons.cloudSync),
       title: context.appLocalizations.backupAndRestore,
       subtitle: context.appLocalizations.backupAndRestoreDesc,
       child: const BackupAndRestore(),
@@ -275,7 +275,7 @@ class _HotkeyItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurgeOpenTile(
-      leading: const Icon(Icons.keyboard),
+      leading: const Icon(SurgeIcons.keyboard),
       title: context.appLocalizations.hotkeyManagement,
       subtitle: context.appLocalizations.hotkeyManagementDesc,
       child: const HotKeyView(),
@@ -290,7 +290,7 @@ class _NetworkItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     return _SurgeOpenTile(
-      leading: const Icon(Icons.vpn_key),
+      leading: const Icon(SurgeIcons.vpnKey),
       title: appLocalizations.network,
       subtitle: appLocalizations.networkDesc,
       child: BaseScaffold(
@@ -308,7 +308,7 @@ class _DnsItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     return _SurgeOpenTile(
-      leading: const Icon(Icons.dns),
+      leading: const Icon(SurgeIcons.dns),
       title: 'DNS',
       subtitle: appLocalizations.dnsDesc,
       child: BaseScaffold(
@@ -328,7 +328,7 @@ class _DnsItem extends StatelessWidget {
                       .update((state) => state.copyWith(dns: defaultDns));
                 },
                 tooltip: appLocalizations.reset,
-                icon: const Icon(Icons.replay),
+                icon: const Icon(SurgeIcons.replay),
               );
             },
           ),
@@ -345,7 +345,7 @@ class _ConfigItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurgeOpenTile(
-      leading: const Icon(Icons.edit),
+      leading: const Icon(SurgeIcons.edit),
       title: context.appLocalizations.basicConfig,
       subtitle: context.appLocalizations.basicConfigDesc,
       child: const ConfigView(),
@@ -359,7 +359,7 @@ class _AdvancedConfigItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurgeOpenTile(
-      leading: const Icon(Icons.build),
+      leading: const Icon(SurgeIcons.build),
       title: context.appLocalizations.advancedConfig,
       subtitle: context.appLocalizations.advancedConfigDesc,
       child: const AdvancedConfigView(),
@@ -373,7 +373,7 @@ class _SettingItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurgeOpenTile(
-      leading: const Icon(Icons.settings),
+      leading: const Icon(SurgeIcons.settings),
       title: context.appLocalizations.application,
       subtitle: context.appLocalizations.applicationDesc,
       child: const ApplicationSettingView(),
@@ -387,7 +387,7 @@ class _InfoItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurgeOpenTile(
-      leading: const Icon(Icons.info),
+      leading: const Icon(SurgeIcons.info),
       title: context.appLocalizations.about,
       subtitle: '版本信息与项目链接',
       child: const AboutView(),
@@ -401,7 +401,7 @@ class _DeveloperItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SurgeOpenTile(
-      leading: const Icon(Icons.developer_board),
+      leading: const Icon(SurgeIcons.developer),
       title: context.appLocalizations.developerMode,
       child: const DeveloperView(),
     );

@@ -73,14 +73,14 @@ class _AccessViewState extends ConsumerState<AccessView> {
               key: const ValueKey(true),
               onPressed: onPressed,
               label: Text(appLocalizations.cancelSelectAll),
-              icon: const Icon(Icons.deselect),
+              icon: const Icon(SurgeIcons.deselect),
             )
           : FloatingActionButton.extended(
               key: const ValueKey(false),
               tooltip: appLocalizations.selectAll,
               onPressed: onPressed,
               label: Text(appLocalizations.selectAll),
-              icon: const Icon(Icons.select_all),
+              icon: const Icon(SurgeIcons.selectAll),
             ),
     );
   }
@@ -230,38 +230,36 @@ class _AccessViewState extends ConsumerState<AccessView> {
       popup: CommonPopupMenu(
         items: [
           PopupMenuItemData(
-            icon: Icons.swap_horiz,
-            label: enable
-                ? appLocalizations.turnOff
-                : appLocalizations.turnOn,
+            icon: SurgeIcons.swap,
+            label: enable ? appLocalizations.turnOff : appLocalizations.turnOn,
             onPressed: _handleToggle,
           ),
           PopupMenuItemData(
-            icon: Icons.search,
+            icon: SurgeIcons.search,
             label: appLocalizations.search,
             onPressed: _handleSearch,
           ),
           PopupMenuItemData(
-            icon: Icons.tune,
+            icon: SurgeIcons.tune,
             label: appLocalizations.settings,
             onPressed: _handleToSetting,
           ),
           PopupMenuItemData(
-            icon: Icons.emergency_outlined,
+            icon: SurgeIcons.emergency,
             label: appLocalizations.action,
             subItems: [
               PopupMenuItemData(
-                icon: Icons.auto_awesome,
+                icon: SurgeIcons.autoAwesome,
                 label: appLocalizations.intelligentSelected,
                 onPressed: _intelligentSelected,
               ),
               PopupMenuItemData(
-                icon: Icons.content_copy,
+                icon: SurgeIcons.copy,
                 label: appLocalizations.clipboardExport,
                 onPressed: _exportToClipboard,
               ),
               PopupMenuItemData(
-                icon: Icons.paste,
+                icon: SurgeIcons.paste,
                 label: appLocalizations.clipboardImport,
                 onPressed: _importFormClipboard,
               ),
@@ -366,9 +364,7 @@ class _AccessViewState extends ConsumerState<AccessView> {
               ),
             ),
             const SizedBox(width: 12),
-            _SelectedPill(
-              label: '${appLocalizations.selected} $count',
-            ),
+            _SelectedPill(label: '${appLocalizations.selected} $count'),
           ],
         ),
       ),
@@ -485,10 +481,7 @@ class _SelectedPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: surfaceColor,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: borderColor,
-          width: surge.spacing.hairline,
-        ),
+        border: Border.all(color: borderColor, width: surge.spacing.hairline),
       ),
       child: Text(
         label,
@@ -563,8 +556,8 @@ class AccessControlPanel extends ConsumerStatefulWidget {
 class _AccessControlPanelState extends ConsumerState<AccessControlPanel> {
   IconData _getIconWithAccessControlMode(AccessControlMode mode) {
     return switch (mode) {
-      AccessControlMode.acceptSelected => Icons.adjust_rounded,
-      AccessControlMode.rejectSelected => Icons.block_rounded,
+      AccessControlMode.acceptSelected => SurgeIcons.selector,
+      AccessControlMode.rejectSelected => SurgeIcons.block,
     };
   }
 
@@ -587,9 +580,9 @@ class _AccessControlPanelState extends ConsumerState<AccessControlPanel> {
 
   IconData _getIconWithProxiesSortType(AccessSortType type) {
     return switch (type) {
-      AccessSortType.none => Icons.sort_rounded,
-      AccessSortType.name => Icons.sort_by_alpha_rounded,
-      AccessSortType.time => Icons.timeline_rounded,
+      AccessSortType.none => SurgeIcons.sort,
+      AccessSortType.name => SurgeIcons.sortAlphabetically,
+      AccessSortType.time => SurgeIcons.timeline,
     };
   }
 
@@ -693,7 +686,7 @@ class _AccessControlPanelState extends ConsumerState<AccessControlPanel> {
             title: appLocalizations.source,
             children: [
               SurgeSettingOption(
-                leading: const Icon(Icons.apps_rounded),
+                leading: const Icon(SurgeIcons.apps),
                 title: appLocalizations.systemApp,
                 selected: vm2.a == false,
                 showDivider: false,
@@ -707,7 +700,7 @@ class _AccessControlPanelState extends ConsumerState<AccessControlPanel> {
                 },
               ),
               SurgeSettingOption(
-                leading: const Icon(Icons.wifi_tethering_off_rounded),
+                leading: const Icon(SurgeIcons.wifiDisabled),
                 title: appLocalizations.noNetworkApp,
                 selected: vm2.b == false,
                 showDivider: false,

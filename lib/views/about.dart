@@ -58,23 +58,23 @@ class AboutView extends StatelessWidget {
       showDividers: true,
       children: [
         _AboutLinkItem(
-          icon: Icons.system_update_alt_rounded,
+          icon: SurgeIcons.systemUpdate,
           title: appLocalizations.checkUpdate,
           onTap: () => _checkUpdate(context),
         ),
         _AboutLinkItem(
-          icon: Icons.code_rounded,
+          icon: SurgeIcons.code,
           title: '原生项目',
           onTap: () =>
               globalState.openUrl('https://github.com/chen08209/FlClash'),
         ),
         _AboutLinkItem(
-          icon: Icons.account_tree_rounded,
+          icon: SurgeIcons.proxyGroup,
           title: appLocalizations.project,
           onTap: () => globalState.openUrl('https://github.com/$repository'),
         ),
         _AboutLinkItem(
-          icon: Icons.memory_rounded,
+          icon: SurgeIcons.memory,
           title: appLocalizations.core,
           onTap: () => globalState.openUrl(_coreSourceUrl),
         ),
@@ -243,7 +243,7 @@ class _AboutLinkItem extends StatelessWidget {
                   dimension: 28,
                   child: Center(
                     child: Icon(
-                      Icons.open_in_new_rounded,
+                      SurgeIcons.openInNew,
                       size: 18,
                       color: surge.textSecondary,
                     ),

@@ -741,7 +741,7 @@ class _SurgeNetworkOverviewCardState
                 child: Align(
                   alignment: Alignment.topLeft,
                   child: Icon(
-                    Icons.public_rounded,
+                    SurgeIcons.network,
                     color: isStart ? surge.primary : surge.inactive,
                     size: responsiveLayout.geometry(18),
                   ),
@@ -818,7 +818,7 @@ class _SurgeNetworkOverviewCardState
                     child: Align(
                       alignment: Alignment.topLeft,
                       child: Icon(
-                        Icons.data_saver_off_rounded,
+                        SurgeIcons.traffic,
                         size: responsiveLayout.geometry(18),
                         color: surge.textSecondary,
                       ),
@@ -1015,13 +1015,13 @@ class _LiveSpeedBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final lines = [
       _LiveSpeedLine(
-        icon: Icons.arrow_upward_rounded,
+        icon: SurgeIcons.arrowUp,
         value: '${up.traffic.show}/s',
         color: upColor,
         layout: layout,
       ),
       _LiveSpeedLine(
-        icon: Icons.arrow_downward_rounded,
+        icon: SurgeIcons.arrowDown,
         value: '${down.traffic.show}/s',
         color: downColor,
         layout: layout,
@@ -1226,7 +1226,7 @@ class _NetworkDetectionBar extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            Icons.network_check_rounded,
+            SurgeIcons.networkCheck,
             size: layout.geometry(16),
             color: primaryColor,
           ),
@@ -1314,14 +1314,14 @@ class _TotalTrafficBadge extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _TrafficAmount(
-          icon: Icons.arrow_upward_rounded,
+          icon: SurgeIcons.arrowUp,
           value: up,
           color: upColor,
           layout: layout,
         ),
         SizedBox(width: layout.geometry(12)),
         _TrafficAmount(
-          icon: Icons.arrow_downward_rounded,
+          icon: SurgeIcons.arrowDown,
           value: down,
           color: downColor,
           layout: layout,
@@ -1661,7 +1661,7 @@ class _RouteFlagBadge extends StatelessWidget {
       child: flag == null || flag.isEmpty
           ? Center(
               child: Icon(
-                Icons.public_rounded,
+                SurgeIcons.network,
                 size: layout.geometry(13),
                 color: surge.textSecondary,
               ),

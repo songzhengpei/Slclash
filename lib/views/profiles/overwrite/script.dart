@@ -79,7 +79,7 @@ class ScriptContent extends ConsumerWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.code_off,
+                          SurgeIcons.codeOff,
                           color: surge.textSecondary,
                           size: 22,
                         ),
@@ -178,7 +178,11 @@ class _ConfigureScriptButton extends StatelessWidget {
               color: surge.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.tune, size: 18, color: surge.primary),
+            child: Icon(
+              SurgeIcons.tune,
+              size: SurgeIconSize.compact,
+              color: surge.primary,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -194,7 +198,11 @@ class _ConfigureScriptButton extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Icon(Icons.arrow_forward_ios, size: 16, color: surge.textSecondary),
+          Icon(
+            SurgeIcons.forward,
+            size: SurgeIconSize.inline,
+            color: surge.textSecondary,
+          ),
         ],
       ),
     );

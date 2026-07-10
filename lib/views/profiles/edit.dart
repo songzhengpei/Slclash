@@ -234,7 +234,7 @@ class _EditProfileViewState extends State<EditProfileView> {
           _handleBack();
         },
         actions: [
-          IconButtonData(icon: Icons.check_rounded, onPressed: _handleConfirm),
+          IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleConfirm),
         ],
         body: Form(
           key: _formKey,
@@ -390,7 +390,7 @@ class _ProfileEditFileActions extends StatelessWidget {
           children: [
             Expanded(
               child: _ProfileEditActionButton(
-                icon: Icons.edit_rounded,
+                icon: SurgeIcons.edit,
                 label: appLocalizations.edit,
                 onPressed: onEdit,
               ),
@@ -398,7 +398,7 @@ class _ProfileEditFileActions extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _ProfileEditActionButton(
-                icon: Icons.upload_rounded,
+                icon: SurgeIcons.upload,
                 label: appLocalizations.upload,
                 onPressed: onUpload,
               ),

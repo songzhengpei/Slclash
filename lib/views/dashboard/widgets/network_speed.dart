@@ -43,7 +43,7 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
             return SurgeDashboardCard(
               title: appLocalizations.networkSpeed,
               subtitle: 'Speed',
-              icon: Icons.speed_rounded,
+              icon: SurgeIcons.speed,
               height: height,
               trailing: ValueListenableBuilder<Traffic>(
                 valueListenable: currentSpeedNotifier,

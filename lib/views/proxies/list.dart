@@ -827,7 +827,7 @@ class _ListHeaderState extends State<ListHeader> {
         if (isExpand) ...[
           SoftOsDockButton(
             tooltip: '定位当前节点',
-            icon: Icons.adjust_rounded,
+            icon: SurgeIcons.selector,
             iconSize: 15.5,
             onTap: () {
               widget.onScrollToSelected(groupName);
@@ -836,7 +836,7 @@ class _ListHeaderState extends State<ListHeader> {
           const SoftOsDockDivider(height: 18),
           SoftOsDockButton(
             tooltip: '测试延迟',
-            icon: Icons.network_ping_rounded,
+            icon: SurgeIcons.networkPing,
             iconSize: 15.5,
             onTap: _delayTest,
           ),
@@ -844,9 +844,7 @@ class _ListHeaderState extends State<ListHeader> {
         ],
         SoftOsDockButton(
           tooltip: isExpand ? '收起' : '展开',
-          icon: isExpand
-              ? Icons.keyboard_arrow_up_rounded
-              : Icons.keyboard_arrow_down_rounded,
+          icon: isExpand ? SurgeIcons.collapse : SurgeIcons.expand,
           iconSize: 15.5,
           onTap: () {
             _handleChange(groupName);

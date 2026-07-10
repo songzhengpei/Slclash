@@ -219,7 +219,7 @@ class _ThemeAwareSvg extends StatelessWidget {
           );
           return SvgPicture.string(svgString, width: 200, height: 200);
         } else if (snapshot.hasError) {
-          return const Icon(Icons.error);
+          return const Icon(SurgeIcons.error);
         }
         return const SizedBox(width: 200, height: 200);
       },

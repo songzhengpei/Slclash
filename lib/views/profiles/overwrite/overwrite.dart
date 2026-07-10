@@ -76,9 +76,9 @@ class _Title extends ConsumerWidget {
 
   IconData _getIcon(OverwriteType type) {
     return switch (type) {
-      OverwriteType.standard => Icons.stars,
-      OverwriteType.script => Icons.rocket,
-      OverwriteType.custom => Icons.dashboard_customize,
+      OverwriteType.standard => SurgeIcons.stars,
+      OverwriteType.script => SurgeIcons.rocket,
+      OverwriteType.custom => SurgeIcons.dashboardCustomize,
     };
   }
 

@@ -101,7 +101,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                   ),
                 ),
                 leading: OverwriteIconButton(
-                  icon: Icons.remove,
+                  icon: SurgeIcons.remove,
                   onPressed: () {
                     _handleRemove(providerName);
                   },
@@ -120,7 +120,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                       child: Container(
                         color: Colors.transparent,
                         padding: const EdgeInsets.all(8),
-                        child: const Icon(Icons.drag_handle),
+                        child: const Icon(SurgeIcons.dragHandle),
                       ),
                     ),
                   ],
@@ -211,7 +211,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
                             },
                             icon: Icon(
                               size: 15,
-                              Icons.info_outline,
+                              SurgeIcons.info,
                               color: context.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -358,7 +358,10 @@ class _AddProxyProvidersViewState extends ConsumerState<_AddProxyProvidersView>
           position: position,
           child: OverwriteListItem(
             title: Text(title),
-            trailing: OverwriteIconButton(icon: Icons.add, onPressed: onAdd),
+            trailing: OverwriteIconButton(
+              icon: SurgeIcons.add,
+              onPressed: onAdd,
+            ),
           ),
         ),
       ),

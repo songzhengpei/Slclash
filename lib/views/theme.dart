@@ -143,17 +143,17 @@ class _ThemeModeItem extends ConsumerWidget {
     );
     final List<ThemeModeItem> themeModeItems = [
       ThemeModeItem(
-        iconData: Icons.auto_mode,
+        iconData: SurgeIcons.loading,
         label: appLocalizations.auto,
         themeMode: ThemeMode.system,
       ),
       ThemeModeItem(
-        iconData: Icons.light_mode,
+        iconData: SurgeIcons.themeLight,
         label: appLocalizations.light,
         themeMode: ThemeMode.light,
       ),
       ThemeModeItem(
-        iconData: Icons.dark_mode,
+        iconData: SurgeIcons.themeDark,
         label: appLocalizations.dark,
         themeMode: ThemeMode.dark,
       ),
@@ -394,17 +394,17 @@ class _DynamicColorItem extends ConsumerWidget {
                   items: const [
                     _SegmentedItem(
                       value: DynamicSchemeVariant.monochrome,
-                      iconData: Icons.contrast,
+                      iconData: SurgeIcons.contrast,
                       label: '单色',
                     ),
                     _SegmentedItem(
                       value: DynamicSchemeVariant.tonalSpot,
-                      iconData: Icons.blur_on,
+                      iconData: SurgeIcons.blur,
                       label: '调性',
                     ),
                     _SegmentedItem(
                       value: DynamicSchemeVariant.content,
-                      iconData: Icons.palette,
+                      iconData: SurgeIcons.appearance,
                       label: '内容',
                     ),
                   ],
@@ -424,12 +424,12 @@ class _DynamicColorItem extends ConsumerWidget {
                   items: const [
                     _SegmentedItem(
                       value: _StaticThemePreset.blueWhite,
-                      iconData: Icons.water_drop,
+                      iconData: SurgeIcons.water,
                       label: '蓝白单色',
                     ),
                     _SegmentedItem(
                       value: _StaticThemePreset.grayBlack,
-                      iconData: Icons.contrast,
+                      iconData: SurgeIcons.contrast,
                       label: '灰黑单色',
                     ),
                   ],
@@ -610,7 +610,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
         child: ItemCard(
           info: Info(
             label: appLocalizations.themeColor,
-            iconData: Icons.palette,
+            iconData: SurgeIcons.appearance,
           ),
           actions: genActions([
             if (_removablePrimaryColor == null)
@@ -639,7 +639,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
                 padding: const EdgeInsets.all(4),
                 visualDensity: VisualDensity.compact,
                 onPressed: _handleReset,
-                icon: const Icon(Icons.replay),
+                icon: const Icon(SurgeIcons.replay),
               ),
           ], space: 8),
           child: Container(
@@ -697,7 +697,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
                                   iconSize: 30,
                                   icon: Icon(
                                     color: context.colorScheme.primary,
-                                    Icons.delete,
+                                    SurgeIcons.delete,
                                   ),
                                 ),
                               ),
@@ -714,7 +714,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
                           iconSize: 32,
                           icon: Icon(
                             color: context.colorScheme.primary,
-                            Icons.add,
+                            SurgeIcons.add,
                           ),
                         ),
                       ),

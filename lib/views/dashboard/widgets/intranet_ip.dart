@@ -20,7 +20,7 @@ class IntranetIP extends StatelessWidget {
       child: SurgeDashboardCard(
         title: appLocalizations.intranetIP,
         subtitle: 'Local IP',
-        icon: Icons.devices_rounded,
+        icon: SurgeIcons.connection,
         height: getWidgetHeight(1),
         child: Consumer(
           builder: (_, ref, _) {

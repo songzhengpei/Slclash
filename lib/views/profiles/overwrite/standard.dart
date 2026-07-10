@@ -104,7 +104,7 @@ class _StandardContentState extends ConsumerState<StandardContent> {
               actions: [
                 if (selectedRules.isNotEmpty) ...[
                   OverwriteIconButton(
-                    icon: Icons.delete,
+                    icon: SurgeIcons.delete,
                     destructive: true,
                     onPressed: _handleDelete,
                   ),

@@ -167,7 +167,7 @@ class _CustomRulesViewState extends ConsumerState<CustomRulesView>
       actions: [
         if (selectedRules.isNotEmpty) ...[
           OverwriteIconButton(
-            icon: Icons.delete,
+            icon: SurgeIcons.delete,
             destructive: true,
             onPressed: _handleDelete,
           ),
@@ -434,7 +434,7 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
               color: context.colorScheme.onSurfaceVariant,
             ),
           ),
-          const Icon(Icons.arrow_forward_ios),
+          const Icon(SurgeIcons.forward),
         ],
       ),
     );
@@ -488,7 +488,7 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
               ),
             ),
           ),
-          const Icon(Icons.arrow_forward_ios),
+          const Icon(SurgeIcons.forward),
         ],
       ),
     );
@@ -541,7 +541,7 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.arrow_forward_ios, color: foregroundColor),
+              Icon(SurgeIcons.forward, color: foregroundColor),
             ],
           ),
         );
@@ -585,7 +585,7 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
                   ),
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios),
+              const Icon(SurgeIcons.forward),
             ],
           ),
         );
@@ -628,7 +628,9 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
         ? globalState.container.read(viewSizeProvider).height * 0.60
         : double.maxFinite;
     return AdaptiveSheetScaffold(
-      actions: [IconButtonData(icon: Icons.check, onPressed: _handleSave)],
+      actions: [
+        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+      ],
       sheetTransparentToolBar: true,
       body: Container(
         constraints: BoxConstraints(maxHeight: height),
@@ -723,7 +725,7 @@ class _RuleTypeSelectedView extends ConsumerWidget {
                 subtitle: Text(ruleAction.getDesc(context)),
                 title: Text(ruleAction.name),
                 trailing: ruleAction == currentRuleAction
-                    ? const Icon(Icons.check)
+                    ? const Icon(SurgeIcons.confirm)
                     : null,
               ),
             );
@@ -755,7 +757,7 @@ class _RuleTargetSelectedView extends ConsumerWidget {
           text: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
         selected: isSelected,
-        trailing: isSelected ? const Icon(Icons.check) : null,
+        trailing: isSelected ? const Icon(SurgeIcons.confirm) : null,
       ),
     );
   }
@@ -894,7 +896,7 @@ class _RuleProviderSelectedView extends ConsumerWidget {
       margin: EdgeInsets.zero,
       onPressed: onPressed,
       selected: isSelected,
-      trailing: isSelected ? const Icon(Icons.check) : null,
+      trailing: isSelected ? const Icon(SurgeIcons.confirm) : null,
       title: title,
     );
   }
@@ -966,7 +968,7 @@ class _SubRuleSelectedView extends ConsumerWidget {
       selected: isSelected,
       onPressed: onPressed,
       title: title,
-      trailing: isSelected ? const Icon(Icons.check) : null,
+      trailing: isSelected ? const Icon(SurgeIcons.confirm) : null,
     );
   }
 

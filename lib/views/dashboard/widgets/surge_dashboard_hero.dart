@@ -474,7 +474,7 @@ class _HeroModeCardSurface extends StatelessWidget {
               borderRadius: BorderRadius.circular(layout.geometry(16)),
             ),
             child: Icon(
-              Icons.call_split_rounded,
+              SurgeIcons.outboundMode,
               color: Colors.white,
               size: layout.geometry(21),
             ),
@@ -805,7 +805,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
           AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             child: Icon(
-              Icons.keyboard_arrow_down_rounded,
+              SurgeIcons.expand,
               size: layout.legacy(18),
               color: statusColor,
             ),
@@ -896,7 +896,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
                           if (isSelected) ...[
                             const SizedBox(width: 8),
                             Icon(
-                              Icons.check_circle,
+                              SurgeIcons.success,
                               size: 18,
                               color: surge.primary,
                             ),
@@ -1272,7 +1272,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                   ),
                   SizedBox(width: layout.geometry(2)),
                   Icon(
-                    Icons.keyboard_arrow_down_rounded,
+                    SurgeIcons.expand,
                     size: layout.geometry(16),
                     color: surge.textSecondary,
                   ),
@@ -1320,7 +1320,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                   ),
                   SizedBox(width: layout.geometry(2)),
                   Icon(
-                    Icons.keyboard_arrow_down_rounded,
+                    SurgeIcons.expand,
                     size: layout.geometry(16),
                     color: surge.textSecondary,
                   ),
@@ -1415,7 +1415,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                             if (isSelected) ...[
                               const SizedBox(width: 8),
                               Icon(
-                                Icons.check_circle,
+                                SurgeIcons.success,
                                 size: 18,
                                 color: surge.primary,
                               ),
@@ -1565,7 +1565,7 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                     ),
                   ),
                   SoftOsActionButton(
-                    icon: normalizeSoftOsActionIcon(Icons.close),
+                    icon: SurgeIcons.close,
                     onPressed: () => Navigator.of(context).pop(),
                     compact: true,
                   ),
@@ -1585,7 +1585,7 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                 hintText: context.appLocalizations.search,
                 hintStyle: TextStyle(color: surge.textSecondary, fontSize: 14),
                 prefixIcon: Icon(
-                  Icons.search,
+                  SurgeIcons.search,
                   color: surge.textSecondary,
                   size: 20,
                 ),
@@ -1597,7 +1597,10 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                       padding: const EdgeInsets.all(4),
                       onPressed: _scrollToSelected,
                       iconSize: 20,
-                      icon: Icon(Icons.adjust, color: surge.textSecondary),
+                      icon: Icon(
+                        SurgeIcons.selector,
+                        color: surge.textSecondary,
+                      ),
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
@@ -1614,7 +1617,7 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                               ),
                             )
                           : Icon(
-                              Icons.network_ping_rounded,
+                              SurgeIcons.networkPing,
                               color: surge.textSecondary,
                             ),
                     ),
@@ -1799,7 +1802,11 @@ class _NodeCard extends ConsumerWidget {
                 ],
                 if (isSelected) ...[
                   const SizedBox(width: 8),
-                  Icon(Icons.check_circle, size: 18, color: surge.primary),
+                  Icon(
+                    SurgeIcons.success,
+                    size: SurgeIconSize.compact,
+                    color: surge.primary,
+                  ),
                 ],
               ],
             ),

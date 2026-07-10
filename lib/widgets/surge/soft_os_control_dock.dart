@@ -1,6 +1,5 @@
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/popup.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 const double _softOsActionTapSize = 48;
@@ -10,46 +9,10 @@ const double _softOsActionIconWidth = 40;
 const double _softOsActionCompactIconWidth = 38;
 const double _softOsActionDockButtonWidth = 44;
 const double _softOsActionCompactDockButtonWidth = 40;
-const double _softOsActionIconSize = 19;
-const double _softOsActionCompactIconSize = 18.5;
+const double _softOsActionIconSize = SurgeIconSize.compact;
+const double _softOsActionCompactIconSize = SurgeIconSize.compact;
 const double _softOsShortTextVisualWidth = 55;
 const double _softOsShortTextTapWidth = 56;
-
-IconData normalizeSoftOsActionIcon(IconData icon) {
-  return switch (icon) {
-    Icons.close || Icons.close_rounded => CupertinoIcons.xmark,
-    Icons.arrow_back ||
-    Icons.arrow_back_rounded ||
-    Icons.arrow_back_ios_new_rounded => CupertinoIcons.chevron_back,
-    Icons.search || Icons.search_rounded => CupertinoIcons.search,
-    Icons.check || Icons.check_rounded => CupertinoIcons.check_mark,
-    Icons.add || Icons.add_rounded => CupertinoIcons.plus,
-    Icons.save_as_outlined ||
-    Icons.save_as_rounded => CupertinoIcons.square_arrow_down,
-    Icons.delete ||
-    Icons.delete_rounded ||
-    Icons.delete_outline ||
-    Icons.delete_outline_rounded ||
-    Icons.delete_sweep_outlined ||
-    Icons.delete_sweep_rounded => CupertinoIcons.trash,
-    Icons.filter_alt_outlined ||
-    Icons.settings_outlined ||
-    Icons.tune ||
-    Icons.tune_rounded => CupertinoIcons.slider_horizontal_3,
-    Icons.sync || Icons.sync_rounded => CupertinoIcons.arrow_2_circlepath,
-    Icons.cloud_sync ||
-    Icons.cloud_sync_rounded => CupertinoIcons.cloud_download,
-    Icons.refresh ||
-    Icons.refresh_rounded ||
-    Icons.replay ||
-    Icons.replay_rounded => CupertinoIcons.arrow_counterclockwise,
-    Icons.more_horiz ||
-    Icons.more_horiz_rounded ||
-    Icons.more_vert ||
-    Icons.more_vert_rounded => CupertinoIcons.ellipsis,
-    _ => icon,
-  };
-}
 
 Color _softOsActionSurface(BuildContext context) {
   final surge = SurgeTheme.of(context);
@@ -543,13 +506,13 @@ class SoftOsPopupActionButton extends StatelessWidget {
 
         return inDock
             ? SoftOsActionDockButton(
-                icon: normalizeSoftOsActionIcon(Icons.more_vert),
+                icon: SurgeIcons.more,
                 onPressed: handleOpen,
                 tooltip: tooltip,
                 compact: compact,
               )
             : SoftOsActionButton(
-                icon: normalizeSoftOsActionIcon(Icons.more_vert),
+                icon: SurgeIcons.more,
                 onPressed: handleOpen,
                 tooltip: tooltip,
                 compact: compact,

@@ -29,7 +29,7 @@ class OutboundMode extends StatelessWidget {
           return SurgeDashboardCard(
             title: appLocalizations.outboundMode,
             subtitle: 'Outbound Mode',
-            icon: Icons.call_split_rounded,
+            icon: SurgeIcons.outboundMode,
             height: getWidgetHeight(2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,7 +71,7 @@ class OutboundModeV2 extends StatelessWidget {
           );
           return SurgeDashboardCard(
             title: appLocalizations.outboundMode,
-            icon: Icons.call_split_rounded,
+            icon: SurgeIcons.outboundMode,
             height: getWidgetHeight(1),
             child: Align(
               alignment: Alignment.topCenter,

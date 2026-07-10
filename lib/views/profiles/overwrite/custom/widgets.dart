@@ -23,7 +23,11 @@ class InfoMessageButton extends StatelessWidget {
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
         ),
-        icon: Icon(Icons.info, size: 20, color: surge.red),
+        icon: Icon(
+          SurgeIcons.info,
+          size: SurgeIconSize.regular,
+          color: surge.red,
+        ),
       ),
     );
   }

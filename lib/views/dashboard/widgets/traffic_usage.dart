@@ -92,7 +92,7 @@ class TrafficUsage extends StatelessWidget {
             return SurgeDashboardCard(
               title: appLocalizations.trafficUsage,
               subtitle: 'Traffic',
-              icon: Icons.data_saver_off_rounded,
+              icon: SurgeIcons.traffic,
               height: height,
               child: LayoutBuilder(
                 builder: (_, constraints) {
@@ -117,7 +117,7 @@ class TrafficUsage extends StatelessWidget {
                     children: [
                       _buildTrafficDataItem(
                         context: context,
-                        icon: Icons.arrow_upward_rounded,
+                        icon: SurgeIcons.arrowUp,
                         label: appLocalizations.upload,
                         trafficValue: upTotalTrafficValue,
                         color: primaryColor,
@@ -125,7 +125,7 @@ class TrafficUsage extends StatelessWidget {
                       const SizedBox(height: 8),
                       _buildTrafficDataItem(
                         context: context,
-                        icon: Icons.arrow_downward_rounded,
+                        icon: SurgeIcons.arrowDown,
                         label: appLocalizations.download,
                         trafficValue: downTotalTrafficValue,
                         color: secondaryColor,

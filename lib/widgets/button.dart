@@ -94,7 +94,7 @@ class MoreActionButton extends StatelessWidget {
             const SizedBox(width: 12),
             IconTheme.merge(
               data: IconThemeData(color: surge.textSecondary, size: 18),
-              child: trailing ?? const Icon(Icons.arrow_forward_ios),
+              child: trailing ?? const Icon(SurgeIcons.forward),
             ),
           ],
         ),

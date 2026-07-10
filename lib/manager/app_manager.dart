@@ -54,7 +54,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       if (enteredProxies) {
         final groupsEmpty = ref.read(groupsProvider).isEmpty;
         final lastRefresh = ref.read(lastGroupsRefreshAtProvider);
-        final expired = lastRefresh == null ||
+        final expired =
+            lastRefresh == null ||
             DateTime.now().difference(lastRefresh) >
                 const Duration(seconds: 30);
         if (groupsEmpty || expired) {
@@ -326,7 +327,7 @@ class AppSidebarContainer extends ConsumerWidget {
                         );
                   },
                   icon: Icon(
-                    Icons.menu,
+                    SurgeIcons.menu,
                     color: context.colorScheme.onSurfaceVariant,
                   ),
                 ),

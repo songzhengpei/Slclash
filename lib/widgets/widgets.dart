@@ -1,3 +1,4 @@
+export '../common/icons.dart';
 export 'activate_box.dart';
 export 'builder.dart';
 export 'button.dart';

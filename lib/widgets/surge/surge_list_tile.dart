@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/icons.dart';
 import 'package:flutter/material.dart';
 
 import 'surge_theme_extension.dart';
@@ -124,7 +125,7 @@ class SurgeListTile extends StatelessWidget {
                           if (showChevron) ...[
                             const SizedBox(width: 8),
                             Icon(
-                              Icons.chevron_right_rounded,
+                              SurgeIcons.chevronRight,
                               color: surge.textSecondary.withValues(alpha: 0.7),
                               size: 22,
                             ),

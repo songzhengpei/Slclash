@@ -133,7 +133,7 @@ class CommonAction extends _$CommonAction {
         child: _UpdateStatusDialog(
           title: currentAppLocalizations.checkUpdate,
           message: currentAppLocalizations.checkUpdateError,
-          icon: Icons.verified_rounded,
+          icon: SurgeIcons.verified,
         ),
       );
     }
@@ -268,7 +268,7 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
                             backgroundColor: surge.separator,
                           ),
                           Icon(
-                            Icons.download_rounded,
+                            SurgeIcons.download,
                             size: 18,
                             color: surge.primary,
                           ),
@@ -355,11 +355,7 @@ class _UpdateAvailableDialog extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.new_releases_rounded,
-                  color: surge.primary,
-                  size: 22,
-                ),
+                Icon(SurgeIcons.newRelease, color: surge.primary, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(

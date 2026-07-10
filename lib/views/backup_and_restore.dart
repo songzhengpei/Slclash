@@ -225,7 +225,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
             children: [
               if (dav == null)
                 ListItem(
-                  leading: const Icon(Icons.account_box),
+                  leading: const Icon(SurgeIcons.accountBox),
                   title: Text(appLocalizations.noInfo),
                   subtitle: Text(appLocalizations.pleaseBindWebDAV),
                   trailing: _BackupPillButton(
@@ -237,7 +237,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
                 )
               else ...[
                 ListItem(
-                  leading: const Icon(Icons.account_box),
+                  leading: const Icon(SurgeIcons.accountBox),
                   title: TooltipText(
                     text: Text(
                       dav.user,
@@ -481,7 +481,7 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
               decoration: surgeInputDecoration(
                 context,
                 hintText: appLocalizations.address,
-                prefixIcon: const Icon(Icons.link_rounded),
+                prefixIcon: const Icon(SurgeIcons.link),
               ),
               validator: (String? value) {
                 if (value == null || value.isEmpty || !value.isUrl) {
@@ -495,7 +495,7 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
               decoration: surgeInputDecoration(
                 context,
                 hintText: appLocalizations.account,
-                prefixIcon: const Icon(Icons.account_circle_rounded),
+                prefixIcon: const Icon(SurgeIcons.account),
               ),
               validator: (String? value) {
                 if (value == null || value.isEmpty) {
@@ -513,12 +513,12 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
                   decoration: surgeInputDecoration(
                     context,
                     hintText: appLocalizations.password,
-                    prefixIcon: const Icon(Icons.password_rounded),
+                    prefixIcon: const Icon(SurgeIcons.password),
                     suffixIcon: IconButton(
                       icon: Icon(
                         obscure
-                            ? Icons.visibility_rounded
-                            : Icons.visibility_off_rounded,
+                            ? SurgeIcons.visibility
+                            : SurgeIcons.visibilityOff,
                       ),
                       onPressed: () {
                         _obscureController.value = !obscure;

@@ -319,7 +319,7 @@ class GlobalState {
                           8,
                           14,
                         ),
-                        suffixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: const Icon(SurgeIcons.lock),
                       ).copyWith(
                         suffixIconConstraints: const BoxConstraints(
                           minWidth: 40,

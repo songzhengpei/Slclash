@@ -18,19 +18,19 @@ class AdvancedConfigView extends StatelessWidget {
         ListItem.open(
           title: Text(appLocalizations.accessControl),
           subtitle: Text(appLocalizations.accessControlDesc),
-          leading: const Icon(Icons.view_list),
+          leading: const Icon(SurgeIcons.list),
           delegate: const OpenDelegate(blur: false, widget: AccessView()),
         ),
       ListItem.open(
         title: Text(appLocalizations.addedRules),
         subtitle: Text(appLocalizations.controlGlobalAddedRules),
-        leading: const Icon(Icons.library_books),
+        leading: const Icon(SurgeIcons.library),
         delegate: const OpenDelegate(widget: AddedRulesView(), blur: false),
       ),
       ListItem.open(
         title: Text(appLocalizations.script),
         subtitle: Text(appLocalizations.overrideScript),
-        leading: const Icon(Icons.rocket, fontWeight: FontWeight.w900),
+        leading: const Icon(SurgeIcons.rocket),
         delegate: const OpenDelegate(widget: ScriptsView(), blur: false),
       ),
     ];

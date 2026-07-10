@@ -106,16 +106,16 @@ const _geoItems = <GeoItem>[
     label: 'GEOIP',
     fileName: GEOIP,
     key: 'geoip',
-    icon: Icons.public_rounded,
+    icon: SurgeIcons.network,
   ),
   GeoItem(
     label: 'GEOSITE',
     fileName: GEOSITE,
     key: 'geosite',
-    icon: Icons.travel_explore_rounded,
+    icon: SurgeIcons.explore,
   ),
-  GeoItem(label: 'MMDB', fileName: MMDB, key: 'mmdb', icon: Icons.map_rounded),
-  GeoItem(label: 'ASN', fileName: ASN, key: 'asn', icon: Icons.hub_rounded),
+  GeoItem(label: 'MMDB', fileName: MMDB, key: 'mmdb', icon: SurgeIcons.map),
+  GeoItem(label: 'ASN', fileName: ASN, key: 'asn', icon: SurgeIcons.hub),
 ];
 
 class ResourcesView extends ConsumerStatefulWidget {
@@ -259,11 +259,11 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
     return [
       IconButton(
         onPressed: () => _handleUpdateAll(),
-        icon: const Icon(Icons.sync_rounded),
+        icon: const Icon(SurgeIcons.sync),
       ),
       IconButton(
         onPressed: _showAutoUpdateSheet,
-        icon: const Icon(Icons.schedule_rounded),
+        icon: const Icon(SurgeIcons.schedule),
       ),
     ];
   }
@@ -338,8 +338,8 @@ class _ResourceStatusCard extends StatelessWidget {
               ),
               child: Icon(
                 mode == _ResourceAutoUpdateMode.off
-                    ? Icons.pause_circle_outline_rounded
-                    : Icons.update_rounded,
+                    ? SurgeIcons.pause
+                    : SurgeIcons.update,
                 size: 15,
                 color: surge.textPrimary.withValues(alpha: 0.72),
               ),
@@ -547,13 +547,13 @@ class _ResourceItemCard extends ConsumerWidget {
                   children: [
                     SoftOsDockButton(
                       tooltip: context.appLocalizations.edit,
-                      icon: Icons.edit_rounded,
+                      icon: SurgeIcons.edit,
                       onTap: () => _updateUrl(context, ref, url),
                     ),
                     const SoftOsDockDivider(height: 15),
                     SoftOsDockButton(
                       tooltip: context.appLocalizations.sync,
-                      icon: Icons.sync_rounded,
+                      icon: SurgeIcons.sync,
                       loading: updating,
                       onTap: onUpdate,
                     ),
@@ -642,8 +642,8 @@ class _ResourceAutoUpdateSheetState extends State<_ResourceAutoUpdateSheet> {
                 for (final mode in _ResourceAutoUpdateMode.values)
                   _ResourceSheetOption(
                     icon: mode == _ResourceAutoUpdateMode.off
-                        ? Icons.pause_circle_outline_rounded
-                        : Icons.update_rounded,
+                        ? SurgeIcons.pause
+                        : SurgeIcons.update,
                     title: mode.title,
                     subtitle: mode.subtitle,
                     selected: mode == _value,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:fl_clash/common/color.dart';
+import 'package:fl_clash/common/icons.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/activate_box.dart';
@@ -91,26 +92,26 @@ class _ScanPageState extends State<ScanPage> with WidgetsBindingObserver {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              icon: const Icon(Icons.close),
+              icon: const Icon(SurgeIcons.close),
             ),
             actions: [
               ValueListenableBuilder<MobileScannerState>(
                 valueListenable: controller,
                 builder: (context, state, _) {
-                  var icon = const Icon(Icons.flash_off);
+                  var icon = const Icon(SurgeIcons.flashOff);
                   var backgroundColor = Colors.black12;
                   switch (state.torchState) {
                     case TorchState.off:
-                      icon = const Icon(Icons.flash_off);
+                      icon = const Icon(SurgeIcons.flashOff);
                       backgroundColor = Colors.black12;
                     case TorchState.on:
-                      icon = const Icon(Icons.flash_on);
+                      icon = const Icon(SurgeIcons.flashOn);
                       backgroundColor = Colors.orange;
                     case TorchState.unavailable:
-                      icon = const Icon(Icons.flash_off);
+                      icon = const Icon(SurgeIcons.flashOff);
                       backgroundColor = Colors.transparent;
                     case TorchState.auto:
-                      icon = const Icon(Icons.flash_auto);
+                      icon = const Icon(SurgeIcons.flashAuto);
                       backgroundColor = Colors.orange;
                   }
                   return Container(
@@ -146,7 +147,7 @@ class _ScanPageState extends State<ScanPage> with WidgetsBindingObserver {
               onPressed: globalState.container
                   .read(profilesActionProvider.notifier)
                   .addProfileFormQrCode,
-              icon: const Icon(Icons.photo_camera_back),
+              icon: const Icon(SurgeIcons.camera),
             ),
           ),
         ],

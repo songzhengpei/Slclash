@@ -69,7 +69,7 @@ class CustomContent extends ConsumerWidget {
         SliverToBoxAdapter(
           child: OverwriteListItem(
             title: Text(appLocalizations.proxyGroup),
-            leading: const Icon(Icons.account_tree_rounded),
+            leading: const Icon(SurgeIcons.proxyGroup),
             onPressed: () {
               _handleToProxyGroupsView(context, profileId);
             },
@@ -78,7 +78,7 @@ class CustomContent extends ConsumerWidget {
               children: [
                 OverwriteCountPill(value: proxyGroupNum),
                 const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_ios),
+                const Icon(SurgeIcons.forward),
               ],
             ),
           ),
@@ -86,7 +86,7 @@ class CustomContent extends ConsumerWidget {
         SliverToBoxAdapter(
           child: OverwriteListItem(
             title: Text(appLocalizations.rule),
-            leading: const Icon(Icons.rule_rounded),
+            leading: const Icon(SurgeIcons.rule),
             onPressed: () {
               _handleToRulesView(context, profileId);
             },
@@ -95,7 +95,7 @@ class CustomContent extends ConsumerWidget {
               children: [
                 OverwriteCountPill(value: ruleNum),
                 const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_ios),
+                const Icon(SurgeIcons.forward),
               ],
             ),
           ),

@@ -79,14 +79,14 @@ class _ProfilesViewState extends State<ProfilesView> {
       if (profiles.isNotEmpty)
         IconButton(
           tooltip: context.appLocalizations.sync,
-          icon: const Icon(Icons.sync_rounded),
+          icon: const Icon(SurgeIcons.sync),
           onPressed: () {
             _updateProfiles(profiles);
           },
         ),
       IconButton(
         tooltip: context.appLocalizations.settings,
-        icon: const Icon(Icons.tune_rounded),
+        icon: const Icon(SurgeIcons.tune),
         onPressed: () {
           showSheet(
             context: context,
@@ -163,7 +163,9 @@ class _ProfilesViewState extends State<ProfilesView> {
                                     profileId == state.currentProfileId) {
                                   return;
                                 }
-                                ref.read(currentProfileIdProvider.notifier).value =
+                                ref
+                                        .read(currentProfileIdProvider.notifier)
+                                        .value =
                                     profileId;
                                 ref
                                     .read(setupActionProvider.notifier)
@@ -208,7 +210,7 @@ class _MediaCheckCompactRow extends StatelessWidget {
         child: Row(
           children: [
             _SoftOsIconSurface(
-              icon: Icons.fact_check_rounded,
+              icon: SurgeIcons.mediaCheck,
               color: surge.primary,
               size: 30,
               radius: 10,
@@ -236,9 +238,7 @@ class _MediaCheckCompactRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    profileCount > 1
-                        ? '按订阅手动检测 · 结果缓存'
-                        : '手动检测 · 结果缓存',
+                    profileCount > 1 ? '按订阅手动检测 · 结果缓存' : '手动检测 · 结果缓存',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: context.textTheme.labelSmall?.copyWith(
@@ -254,7 +254,7 @@ class _MediaCheckCompactRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             const SoftOsIconButton(
-              icon: Icons.chevron_right_rounded,
+              icon: SurgeIcons.chevronRight,
               onPressed: null,
               visualSize: 30,
               tapSize: 44,
@@ -431,7 +431,7 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
             children: [
               if (_profiles.isEmpty)
                 _ProfileSettingOption(
-                  icon: Icons.sort_rounded,
+                  icon: SurgeIcons.sort,
                   label: '暂无订阅',
                   enabled: false,
                   onTap: () {},
@@ -527,7 +527,9 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
     final appLocalizations = context.appLocalizations;
     return AdaptiveSheetScaffold(
       title: appLocalizations.importFromURL,
-      actions: [IconButtonData(icon: Icons.check, onPressed: _handleSubmit)],
+      actions: [
+        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSubmit),
+      ],
       body: Form(
         key: _formKey,
         autovalidateMode: AutovalidateMode.onUnfocus,
@@ -766,7 +768,7 @@ class _ProfileSettingOption extends StatelessWidget {
               ),
               if (enabled)
                 Icon(
-                  Icons.chevron_right_rounded,
+                  SurgeIcons.chevronRight,
                   color: surge.textSecondary.withValues(alpha: 0.75),
                   size: 20,
                 ),
@@ -815,7 +817,7 @@ class _ProfileSortOption extends StatelessWidget {
             ReorderableDragStartListener(
               index: index,
               child: Icon(
-                Icons.drag_handle_rounded,
+                SurgeIcons.dragHandle,
                 color: surge.textSecondary.withValues(alpha: 0.8),
               ),
             ),
@@ -994,7 +996,7 @@ class _CurrentProfileDetails extends StatelessWidget {
     return Row(
       children: [
         Icon(
-          Icons.schedule_rounded,
+          SurgeIcons.schedule,
           size: 14,
           color: surge.textSecondary.withValues(alpha: 0.82),
         ),
@@ -1031,20 +1033,20 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
             groupsOwnerProfileId == profileId &&
             (snapshot.freshness == ProxyGroupsFreshnessState.fresh ||
                 snapshot.freshness == ProxyGroupsFreshnessState.stale))) {
-      label = 'Active';
+      label = '当前使用';
       color = surge.green;
       loading = false;
     } else if (snapshot.freshness == ProxyGroupsFreshnessState.refreshing ||
         (groupsOwnerProfileId != null && groupsOwnerProfileId != profileId)) {
-      label = 'Switching';
+      label = '正在切换';
       color = surge.primary;
       loading = true;
     } else if (snapshot.freshness == ProxyGroupsFreshnessState.failed) {
-      label = 'Failed';
+      label = '不可用';
       color = surge.red;
       loading = false;
     } else {
-      label = 'Pending';
+      label = '未就绪';
       color = surge.textSecondary;
       loading = false;
     }
@@ -1056,10 +1058,10 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
       height: 30,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: loading ? 0.08 : 0.12),
+        color: color.withValues(alpha: loading ? 0.11 : 0.17),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: color.withValues(alpha: loading ? 0.18 : 0.24),
+          color: color.withValues(alpha: loading ? 0.20 : 0.31),
           width: surge.spacing.hairline,
         ),
       ),
@@ -1120,7 +1122,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
           child: Row(
             children: [
               _SoftOsIconSurface(
-                icon: Icons.hub_outlined,
+                icon: SurgeIcons.hub,
                 color: enabled ? surge.textPrimary : surge.textSecondary,
                 size: 30,
                 radius: 15,
@@ -1146,7 +1148,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
                   turns: expanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 180),
                   child: SoftOsIconButton(
-                    icon: Icons.keyboard_arrow_down_rounded,
+                    icon: SurgeIcons.expand,
                     onPressed: enabled ? onTap : null,
                     visualSize: 30,
                     tapSize: 44,
@@ -1300,7 +1302,7 @@ class _ProfileProxyTestAllButtonState
                     ),
                   )
                 : Icon(
-                    Icons.network_ping_rounded,
+                    SurgeIcons.networkPing,
                     key: const ValueKey('icon'),
                     size: 15,
                     color: surge.textSecondary,
@@ -1628,7 +1630,7 @@ class _ProfileListItem extends StatelessWidget {
                                 label: profile.type.name,
                                 color: surge.textSecondary,
                               ),
-                              ),
+                            ),
                             const SizedBox(width: 4),
                             Consumer(
                               builder: (_, ref, _) {
@@ -1987,39 +1989,39 @@ class _ProfileActionButton extends StatelessWidget {
       popup: _ProfileActionMenu(
         children: [
           _ProfileActionMenuItem(
-            icon: Icons.edit_outlined,
+            icon: SurgeIcons.editFilled,
             label: appLocalizations.edit,
             onTap: onEdit,
           ),
           _ProfileActionMenuItem(
-            icon: Icons.visibility_outlined,
+            icon: SurgeIcons.visibilityFilled,
             label: appLocalizations.preview,
             onTap: onPreview,
           ),
           if (onSync != null)
             _ProfileActionMenuItem(
-              icon: Icons.sync_rounded,
+              icon: SurgeIcons.sync,
               label: appLocalizations.sync,
               onTap: onSync!,
             ),
           _ProfileActionMenuItem(
-            icon: Icons.tune_rounded,
+            icon: SurgeIcons.tune,
             label: appLocalizations.override,
             onTap: onOverride,
           ),
           if (onCopyLink != null)
             _ProfileActionMenuItem(
-              icon: Icons.link_rounded,
+              icon: SurgeIcons.link,
               label: appLocalizations.copyLink,
               onTap: onCopyLink!,
             ),
           _ProfileActionMenuItem(
-            icon: Icons.ios_share_rounded,
+            icon: SurgeIcons.share,
             label: appLocalizations.exportFile,
             onTap: onExport,
           ),
           _ProfileActionMenuItem(
-            icon: Icons.delete_outline_rounded,
+            icon: SurgeIcons.delete,
             label: appLocalizations.delete,
             danger: true,
             onTap: onDelete,
@@ -2028,7 +2030,7 @@ class _ProfileActionButton extends StatelessWidget {
       ),
       targetBuilder: (open) {
         return SoftOsIconButton(
-          icon: Icons.more_horiz_rounded,
+          icon: SurgeIcons.more,
           onPressed: open,
           visualSize: 30,
           tapSize: 44,
@@ -2411,7 +2413,7 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
       child: DecorationListItem(
         trailing: ReorderableDelayedDragStartListener(
           index: index,
-          child: const Icon(Icons.drag_handle),
+          child: const Icon(SurgeIcons.dragHandle),
         ),
         title: Text(profile.realLabel),
       ),
@@ -2428,7 +2430,9 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
     final appLocalizations = context.appLocalizations;
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
-      actions: [IconButtonData(icon: Icons.check, onPressed: _handleSave)],
+      actions: [
+        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+      ],
       body: Padding(
         padding: const EdgeInsets.only(bottom: 32),
         child: ReorderableListView.builder(

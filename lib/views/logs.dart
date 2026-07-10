@@ -51,7 +51,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
         onPressed: () {
           _handleExport();
         },
-        icon: const Icon(Icons.save_as_outlined),
+        icon: const Icon(SurgeIcons.save),
       ),
     ];
   }
@@ -128,8 +128,8 @@ class _LogsViewState extends ConsumerState<LogsView> {
                 );
               },
               child: autoScrollToEnd
-                  ? const Icon(Icons.block)
-                  : const Icon(Icons.vertical_align_top),
+                  ? const Icon(SurgeIcons.block)
+                  : const Icon(SurgeIcons.verticalAlignTop),
             ),
           );
         },

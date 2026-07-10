@@ -66,7 +66,10 @@ class ProxyCard extends StatelessWidget {
         );
         final isSelected = selectedProxyName == proxy.name;
         final surface = isSelected
-            ? Color.alphaBlend(surge.primary.withValues(alpha: 0.045), surge.card)
+            ? Color.alphaBlend(
+                surge.primary.withValues(alpha: 0.045),
+                surge.card,
+              )
             : surge.card;
         final radius = BorderRadius.vertical(
           top:
@@ -350,11 +353,7 @@ class _ProxyComputedMark extends ConsumerWidget {
         shape: BoxShape.circle,
         color: surge.textSecondary.withValues(alpha: 0.12),
       ),
-      child: Icon(
-        Icons.auto_awesome_rounded,
-        size: 12,
-        color: surge.textPrimary,
-      ),
+      child: Icon(SurgeIcons.autoAwesome, size: 12, color: surge.textPrimary),
     );
   }
 }

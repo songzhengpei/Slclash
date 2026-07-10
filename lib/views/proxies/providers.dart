@@ -56,7 +56,7 @@ class _ProvidersViewState extends ConsumerState<ProvidersView> {
 
     return AdaptiveSheetScaffold(
       actions: [
-        IconButtonData(icon: Icons.sync_rounded, onPressed: _updateProviders),
+        IconButtonData(icon: SurgeIcons.sync, onPressed: _updateProviders),
       ],
       body: ColoredBox(
         color: surge.background,
@@ -351,14 +351,14 @@ class _ProviderActionDock extends ConsumerWidget {
       children: [
         SoftOsDockButton(
           tooltip: uploadLabel,
-          icon: Icons.upload_file_rounded,
+          icon: SurgeIcons.uploadFile,
           onTap: onUpload,
         ),
         if (canSync) ...[
           const SoftOsDockDivider(),
           SoftOsDockButton(
             tooltip: syncLabel,
-            icon: Icons.sync_rounded,
+            icon: SurgeIcons.sync,
             loading: isUpdating,
             onTap: onSync,
           ),

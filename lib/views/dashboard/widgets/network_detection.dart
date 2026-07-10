@@ -31,9 +31,7 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final surge = SurgeTheme.of(context);
-    final ipInfo = ref.watch(
-      networkDetectionProvider.select((s) => s.ipInfo),
-    );
+    final ipInfo = ref.watch(networkDetectionProvider.select((s) => s.ipInfo));
     final isLoading = ref.watch(
       networkDetectionProvider.select((s) => s.isLoading),
     );
@@ -56,7 +54,7 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
       child: SurgeDashboardCard(
         title: appLocalizations.networkDetection,
         subtitle: 'Network',
-        icon: Icons.network_check_rounded,
+        icon: SurgeIcons.networkCheck,
         height: getWidgetHeight(1),
         trailing: SizedBox.square(
           dimension: 28,
@@ -70,11 +68,7 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                 cancelable: false,
               );
             },
-            icon: Icon(
-              Icons.info_outline_rounded,
-              size: 17,
-              color: surge.textSecondary,
-            ),
+            icon: Icon(SurgeIcons.info, size: 17, color: surge.textSecondary),
           ),
         ),
         child: FadeThroughBox(

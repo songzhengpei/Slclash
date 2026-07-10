@@ -79,7 +79,11 @@ class _MemoryCardContent extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.memory, color: surge.primary, size: 20),
+            Icon(
+              SurgeIcons.memory,
+              color: surge.primary,
+              size: SurgeIconSize.regular,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

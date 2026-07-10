@@ -687,7 +687,7 @@ class _DeletableContainerState extends State<_DeletableContainer>
                   iconSize: 20,
                   padding: const EdgeInsets.all(2),
                   onPressed: _handleDel,
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(SurgeIcons.close),
                 ),
               ),
             ),

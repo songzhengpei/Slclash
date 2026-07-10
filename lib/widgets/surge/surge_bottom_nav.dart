@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:fl_clash/common/icons.dart';
 import 'package:flutter/material.dart';
 
 import 'surge_motion.dart';
@@ -40,12 +41,12 @@ class SurgeBottomNavLayout {
 class SurgeBottomNavItem {
   const SurgeBottomNavItem({
     required this.icon,
-    this.activeIcon,
+    required this.iconOutlined,
     required this.label,
   });
 
   final IconData icon;
-  final IconData? activeIcon;
+  final IconData iconOutlined;
   final String label;
 }
 
@@ -208,8 +209,7 @@ class _SurgeBottomNavTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final color = selected ? surge.textPrimary : surge.textSecondary;
-    final icon = selected ? item.activeIcon ?? item.icon : item.icon;
-
+    final iconData = selected ? item.icon : item.iconOutlined;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -224,7 +224,7 @@ class _SurgeBottomNavTile extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 24),
+              Icon(iconData, color: color, size: SurgeIconSize.navigation),
               const SizedBox(height: 5),
               Text(
                 item.label,

@@ -363,7 +363,10 @@ class TrackerInfoDetailView extends StatelessWidget {
                   child: IconButton(
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.content_copy, size: 18),
+                    icon: const Icon(
+                      SurgeIcons.copy,
+                      size: SurgeIconSize.compact,
+                    ),
                     onPressed: () {},
                   ),
                 ),

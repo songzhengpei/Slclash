@@ -19,9 +19,9 @@ class ProxiesSetting extends ConsumerWidget {
 
   IconData _sortIcon(ProxiesSortType type) {
     return switch (type) {
-      ProxiesSortType.none => Icons.sort_rounded,
-      ProxiesSortType.delay => Icons.network_ping_rounded,
-      ProxiesSortType.name => Icons.sort_by_alpha_rounded,
+      ProxiesSortType.none => SurgeIcons.sort,
+      ProxiesSortType.delay => SurgeIcons.networkPing,
+      ProxiesSortType.name => SurgeIcons.sortAlphabetically,
     };
   }
 
@@ -36,9 +36,9 @@ class ProxiesSetting extends ConsumerWidget {
 
   IconData _iconStyleIcon(ProxiesIconStyle style) {
     return switch (style) {
-      ProxiesIconStyle.standard => Icons.view_agenda_rounded,
-      ProxiesIconStyle.none => Icons.format_align_left_rounded,
-      ProxiesIconStyle.icon => Icons.apps_rounded,
+      ProxiesIconStyle.standard => SurgeIcons.agenda,
+      ProxiesIconStyle.none => SurgeIcons.alignLeft,
+      ProxiesIconStyle.icon => SurgeIcons.apps,
     };
   }
 

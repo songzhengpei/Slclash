@@ -136,17 +136,17 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
 
   IconData get backIconData {
     if (kIsWeb) {
-      return Icons.arrow_back;
+      return SurgeIcons.back;
     }
     switch (Theme.of(context).platform) {
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
-        return Icons.arrow_back;
+        return SurgeIcons.back;
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
-        return Icons.arrow_back_ios_new_rounded;
+        return SurgeIcons.back;
     }
   }
 
@@ -181,7 +181,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
 
     Widget buildIconButton(IconButtonData data) {
       return SoftOsActionButton(
-        icon: normalizeSoftOsActionIcon(data.icon),
+        icon: data.icon,
         onPressed: data.onPressed,
         compact: compact,
       );
@@ -201,7 +201,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         }
         children.add(
           SoftOsActionDockButton(
-            icon: normalizeSoftOsActionIcon(data[index].icon),
+            icon: data[index].icon,
             onPressed: data[index].onPressed,
             compact: compact,
           ),
@@ -216,7 +216,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         ? (useCloseIcon
               ? buildIconButton(
                   IconButtonData(
-                    icon: Icons.close,
+                    icon: SurgeIcons.close,
                     onPressed: context.safeNestedPop,
                   ),
                 )
