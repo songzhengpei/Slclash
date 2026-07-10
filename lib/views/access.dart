@@ -213,100 +213,61 @@ class _AccessViewState extends ConsumerState<AccessView> {
     });
   }
 
-  List<Widget> _buildActions(
+  Widget _buildAction(
     BuildContext context, {
     required bool enable,
     required bool hasChanges,
   }) {
     final appLocalizations = context.appLocalizations;
-    return [
-      SoftOsPopupActionButton(
-        popup: CommonPopupMenu(
-          items: [
-            if (hasChanges)
-              PopupMenuItemData(
-                icon: Icons.check,
-                label: appLocalizations.save,
-                onPressed: _handleSave,
-              ),
-            PopupMenuItemData(
-              icon: Icons.swap_horiz,
-              label: enable
-                  ? appLocalizations.turnOff
-                  : appLocalizations.turnOn,
-              onPressed: _handleToggle,
-            ),
-            PopupMenuItemData(
-              icon: Icons.search,
-              label: appLocalizations.search,
-              onPressed: _handleSearch,
-            ),
-            PopupMenuItemData(
-              icon: Icons.tune,
-              label: appLocalizations.settings,
-              onPressed: _handleToSetting,
-            ),
-            PopupMenuItemData(
-              icon: Icons.emergency_outlined,
-              label: appLocalizations.action,
-              subItems: [
-                PopupMenuItemData(
-                  icon: Icons.auto_awesome,
-                  label: appLocalizations.intelligentSelected,
-                  onPressed: _intelligentSelected,
-                ),
-                PopupMenuItemData(
-                  icon: Icons.content_copy,
-                  label: appLocalizations.clipboardExport,
-                  onPressed: _exportToClipboard,
-                ),
-                PopupMenuItemData(
-                  icon: Icons.paste,
-                  label: appLocalizations.clipboardImport,
-                  onPressed: _importFormClipboard,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ];
-  }
-
-  AppBar _buildAccessAppBar({required bool enable, required bool hasChanges}) {
-    final appLocalizations = context.appLocalizations;
-    final surge = SurgeTheme.of(context);
-    return AppBar(
-      automaticallyImplyLeading: false,
-      animateColor: true,
-      centerTitle: false,
-      leadingWidth: 56,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 8),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: SoftOsActionButton(
-            icon: normalizeSoftOsActionIcon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).maybePop();
-            },
+    if (hasChanges) {
+      return SoftOsActionTextButton(
+        label: appLocalizations.save,
+        onPressed: _handleSave,
+        tooltip: appLocalizations.save,
+      );
+    }
+    return SoftOsPopupActionButton(
+      popup: CommonPopupMenu(
+        items: [
+          PopupMenuItemData(
+            icon: Icons.swap_horiz,
+            label: enable
+                ? appLocalizations.turnOff
+                : appLocalizations.turnOn,
+            onPressed: _handleToggle,
           ),
-        ),
-      ),
-      title: Text(
-        appLocalizations.accessControl,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        softWrap: false,
-        style: context.textTheme.titleLarge?.copyWith(
-          color: surge.textPrimary,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
-        ),
-      ),
-      actions: genActions(
-        _buildActions(context, enable: enable, hasChanges: hasChanges),
-        endSpace: 16,
+          PopupMenuItemData(
+            icon: Icons.search,
+            label: appLocalizations.search,
+            onPressed: _handleSearch,
+          ),
+          PopupMenuItemData(
+            icon: Icons.tune,
+            label: appLocalizations.settings,
+            onPressed: _handleToSetting,
+          ),
+          PopupMenuItemData(
+            icon: Icons.emergency_outlined,
+            label: appLocalizations.action,
+            subItems: [
+              PopupMenuItemData(
+                icon: Icons.auto_awesome,
+                label: appLocalizations.intelligentSelected,
+                onPressed: _intelligentSelected,
+              ),
+              PopupMenuItemData(
+                icon: Icons.content_copy,
+                label: appLocalizations.clipboardExport,
+                onPressed: _exportToClipboard,
+              ),
+              PopupMenuItemData(
+                icon: Icons.paste,
+                label: appLocalizations.clipboardImport,
+                onPressed: _importFormClipboard,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -405,31 +366,9 @@ class _AccessViewState extends ConsumerState<AccessView> {
               ),
             ),
             const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: surge.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '${appLocalizations.selected} $count',
-                maxLines: 1,
-                style: context.textTheme.labelSmall?.copyWith(
-                  color: surge.primary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                ),
-              ),
+            _SelectedPill(
+              label: '${appLocalizations.selected} $count',
             ),
-            if (hasChanges) ...[
-              const SizedBox(width: 8),
-              SoftOsActionTextButton(
-                label: appLocalizations.save,
-                tooltip: appLocalizations.save,
-                onPressed: _handleSave,
-              ),
-            ],
           ],
         ),
       ),
@@ -488,10 +427,6 @@ class _AccessViewState extends ConsumerState<AccessView> {
       },
       child: CommonScaffold(
         key: _scaffoldKey,
-        appBar: _buildAccessAppBar(
-          enable: accessControl.enable,
-          hasChanges: hasChanges,
-        ),
         isLoading: isLoading,
         backgroundColor: SurgeTheme.of(context).background,
         searchState: AppBarSearchState(
@@ -499,6 +434,13 @@ class _AccessViewState extends ConsumerState<AccessView> {
           autoAddSearch: false,
         ),
         title: context.appLocalizations.accessControl,
+        actions: [
+          _buildAction(
+            context,
+            enable: accessControl.enable,
+            hasChanges: hasChanges,
+          ),
+        ],
         body: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -518,6 +460,44 @@ class _AccessViewState extends ConsumerState<AccessView> {
         floatingActionButton: _buildSelectedAllButton(
           isSelectedAll: valueList.length == viewPackageNameList.length,
           allValueList: viewPackageNameList,
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedPill extends StatelessWidget {
+  final String label;
+
+  const _SelectedPill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = Color.alphaBlend(
+      surge.primary.withValues(alpha: isDark ? 0.22 : 0.12),
+      surge.card,
+    );
+    final borderColor = surge.primary.withValues(alpha: isDark ? 0.34 : 0.22);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: borderColor,
+          width: surge.spacing.hairline,
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        style: context.textTheme.labelSmall?.copyWith(
+          color: surge.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
         ),
       ),
     );

@@ -95,7 +95,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
     return Theme(
       data: theme.copyWith(
         appBarTheme: theme.appBarTheme.copyWith(
-          backgroundColor: surge.card,
+          backgroundColor: surge.background,
           iconTheme: theme.primaryIconTheme.copyWith(
             color: surge.textSecondary,
           ),
@@ -188,6 +188,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
           child: SoftOsActionButton(
             icon: normalizeSoftOsActionIcon(icon),
             onPressed: onPressed,
+            compact: true,
           ),
         ),
       );
