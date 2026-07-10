@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('SurgeBottomNavLayout', () {
     test('has expected horizontal inset', () {
-      expect(SurgeBottomNavLayout.horizontalInset, 24);
+      expect(SurgeBottomNavLayout.horizontalInset, 21);
     });
 
     test('lifts no-gesture navigation to the gesture baseline', () {

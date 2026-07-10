@@ -4,6 +4,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/views/dashboard/dashboard_layout.dart';
 import 'package:fl_clash/views/dashboard/widgets/dashboard_palette.dart';
 import 'package:fl_clash/views/proxies/common.dart' as proxy_common;
 import 'package:fl_clash/widgets/surge/surge.dart';
@@ -15,9 +16,9 @@ const _heroFillDuration = Duration(milliseconds: 1500);
 const _statusLightPulseDuration = Duration(milliseconds: 112);
 
 class SurgeDashboardHero extends ConsumerStatefulWidget {
-  const SurgeDashboardHero({super.key, this.layoutScale = 1.0});
+  const SurgeDashboardHero({super.key, required this.layout});
 
-  final double layoutScale;
+  final DashboardResponsiveLayout layout;
 
   @override
   ConsumerState<SurgeDashboardHero> createState() => _SurgeDashboardHeroState();
@@ -33,8 +34,6 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
   late final AnimationController _fillController;
   late final AnimationController _sheenController;
   late final Animation<double> _fillAnimation;
-
-  double _scaled(double value) => value * widget.layoutScale;
 
   @override
   void initState() {
@@ -228,12 +227,47 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       });
     });
 
+    final layout = widget.layout;
+    final subscriptionSelector = _SubscriptionSelectorBar(
+      profileLabel: profileLabel,
+      currentProfileId: currentProfile?.id,
+      coreStatus: coreStatus,
+      isStart: isStart,
+      isSmartPaused: isSmartPaused,
+      showConnecting: _showConnecting,
+      showFailure: _showFailure,
+      layout: layout,
+    );
+    final actionButton = _HeroActionButton(
+      layout: layout,
+      isStart: isStart,
+      isSmartPaused: isSmartPaused,
+      isSmartResuming: isSmartResuming,
+      loading: buttonLoading,
+      label: buttonLabel,
+      sheenController: _sheenController,
+      onPressed: buttonLoading
+          ? null
+          : () {
+              if (isSmartPaused) {
+                ref.read(smartAutoStopManagerProvider.notifier).resumeNow();
+              } else {
+                _handleSwitchStart(ref);
+              }
+            },
+    );
+
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(18, _scaled(18), 18, _scaled(16)),
+      padding: EdgeInsets.fromLTRB(
+        layout.cardHorizontalPadding,
+        layout.legacy(18),
+        layout.cardHorizontalPadding,
+        layout.legacy(16),
+      ),
       decoration: BoxDecoration(
         color: surge.card,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(layout.cardRadius),
         border: Border.all(
           color: surge.separator,
           width: surge.spacing.hairline,
@@ -242,42 +276,24 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _SubscriptionSelectorBar(
-                profileLabel: profileLabel,
-                currentProfileId: currentProfile?.id,
-                coreStatus: coreStatus,
-                isStart: isStart,
-                isSmartPaused: isSmartPaused,
-                showConnecting: _showConnecting,
-                showFailure: _showFailure,
-                layoutScale: widget.layoutScale,
-              ),
-              const SizedBox(width: 12),
-              _HeroActionButton(
-                layoutScale: widget.layoutScale,
-                isStart: isStart,
-                isSmartPaused: isSmartPaused,
-                isSmartResuming: isSmartResuming,
-                loading: buttonLoading,
-                label: buttonLabel,
-                sheenController: _sheenController,
-                onPressed: buttonLoading
-                    ? null
-                    : () {
-                        if (isSmartPaused) {
-                          ref
-                              .read(smartAutoStopManagerProvider.notifier)
-                              .resumeNow();
-                        } else {
-                          _handleSwitchStart(ref);
-                        }
-                      },
-              ),
-            ],
-          ),
-          SizedBox(height: _scaled(16)),
+          if (layout.requiresReflow)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                subscriptionSelector,
+                SizedBox(height: layout.legacy(8)),
+                Align(alignment: Alignment.centerRight, child: actionButton),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(child: subscriptionSelector),
+                SizedBox(width: layout.geometry(12)),
+                actionButton,
+              ],
+            ),
+          SizedBox(height: layout.legacy(16)),
           AnimatedBuilder(
             animation: _fillAnimation,
             builder: (context, _) {
@@ -292,18 +308,18 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                     _showConnecting || coreStatus == CoreStatus.connecting,
                 failed: _showFailure,
                 statusLabel: statusLabel,
-                layoutScale: widget.layoutScale,
+                layout: layout,
               );
             },
           ),
-          SizedBox(height: _scaled(12)),
+          SizedBox(height: layout.legacy(12)),
           _ModeSwitch(
             value: mode,
             onChanged: (value) => _handleChangeMode(value, ref),
-            layoutScale: widget.layoutScale,
+            layout: layout,
           ),
-          SizedBox(height: _scaled(10)),
-          _HeroProxySelectorBar(layoutScale: widget.layoutScale),
+          SizedBox(height: layout.legacy(10)),
+          _HeroProxySelectorBar(layout: layout),
         ],
       ),
     );
@@ -321,7 +337,7 @@ class _HeroModeCard extends StatelessWidget {
     required this.connecting,
     required this.failed,
     required this.statusLabel,
-    this.layoutScale = 1.0,
+    required this.layout,
   });
 
   final double fillProgress;
@@ -333,12 +349,12 @@ class _HeroModeCard extends StatelessWidget {
   final bool connecting;
   final bool failed;
   final String statusLabel;
-  final double layoutScale;
+  final DashboardResponsiveLayout layout;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(layout.geometry(24)),
       child: _HeroModeCardSurface(
         title: title,
         modeLabel: modeLabel,
@@ -349,7 +365,7 @@ class _HeroModeCard extends StatelessWidget {
         failed: failed,
         statusLabel: statusLabel,
         fillProgress: fillProgress.clamp(0.0, 1.0),
-        layoutScale: layoutScale,
+        layout: layout,
       ),
     );
   }
@@ -366,7 +382,7 @@ class _HeroModeCardSurface extends StatelessWidget {
     required this.failed,
     required this.statusLabel,
     required this.fillProgress,
-    this.layoutScale = 1.0,
+    required this.layout,
   });
 
   final String title;
@@ -378,7 +394,7 @@ class _HeroModeCardSurface extends StatelessWidget {
   final bool failed;
   final String statusLabel;
   final double fillProgress;
-  final double layoutScale;
+  final DashboardResponsiveLayout layout;
 
   @override
   Widget build(BuildContext context) {
@@ -408,10 +424,11 @@ class _HeroModeCardSurface extends StatelessWidget {
         )!;
         return Container(
           width: double.infinity,
-          height: 80 * layoutScale,
+          constraints: BoxConstraints(minHeight: layout.legacy(80)),
+          height: layout.requiresReflow ? null : layout.legacy(80),
           padding: EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 10 * layoutScale,
+            horizontal: layout.geometry(18),
+            vertical: layout.legacy(10),
           ),
           decoration: BoxDecoration(
             color: fillColor,
@@ -429,58 +446,53 @@ class _HeroModeCardSurface extends StatelessWidget {
           child: child,
         );
       },
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
+      child: Builder(
+        builder: (context) {
+          final routeIcon = Container(
+            width: layout.geometry(38),
+            height: layout.geometry(38),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(layout.geometry(16)),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.call_split_rounded,
               color: Colors.white,
-              size: 21,
+              size: layout.geometry(21),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: context.textTheme.titleLarge?.copyWith(
-                    color: foregroundColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    height: 1.05,
-                    letterSpacing: 0,
-                  ),
+          );
+          final labels = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.titleLarge?.copyWith(
+                  color: foregroundColor,
+                  fontSize: layout.type(16),
+                  fontWeight: FontWeight.w600,
+                  height: 1.05,
+                  letterSpacing: 0,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  modeLabel,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    color: secondaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    height: 1.08,
-                    letterSpacing: 0,
-                  ),
+              ),
+              SizedBox(height: layout.geometry(4)),
+              Text(
+                modeLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: secondaryColor,
+                  fontSize: layout.type(13),
+                  fontWeight: FontWeight.w500,
+                  height: 1.08,
+                  letterSpacing: 0,
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          _StatusPill(
+              ),
+            ],
+          );
+          final status = _StatusPill(
             active: active,
             isSmartPaused: isSmartPaused,
             connecting: connecting,
@@ -488,9 +500,36 @@ class _HeroModeCardSurface extends StatelessWidget {
             label: statusLabel,
             dynamicColor: dynamicColor,
             onBlue: onBlue,
-            layoutScale: layoutScale,
-          ),
-        ],
+            layout: layout,
+          );
+          if (layout.requiresReflow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    routeIcon,
+                    SizedBox(width: layout.geometry(12)),
+                    Expanded(child: labels),
+                  ],
+                ),
+                SizedBox(height: layout.geometry(8)),
+                Align(alignment: Alignment.centerRight, child: status),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              routeIcon,
+              SizedBox(width: layout.geometry(12)),
+              Expanded(child: labels),
+              SizedBox(width: layout.geometry(10)),
+              status,
+            ],
+          );
+        },
       ),
     );
   }
@@ -505,7 +544,7 @@ class _HeroActionButton extends StatelessWidget {
     required this.label,
     required this.sheenController,
     required this.onPressed,
-    this.layoutScale = 1.0,
+    required this.layout,
   });
 
   final bool isStart;
@@ -515,7 +554,7 @@ class _HeroActionButton extends StatelessWidget {
   final String label;
   final AnimationController sheenController;
   final VoidCallback? onPressed;
-  final double layoutScale;
+  final DashboardResponsiveLayout layout;
 
   @override
   Widget build(BuildContext context) {
@@ -535,12 +574,12 @@ class _HeroActionButton extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(layout.geometry(18)),
         boxShadow: [
           BoxShadow(
             color: baseColor.withValues(alpha: 0.2),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+          blurRadius: layout.geometry(14),
+          offset: Offset(0, layout.geometry(6)),
           ),
         ],
       ),
@@ -548,16 +587,16 @@ class _HeroActionButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(layout.geometry(18)),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minWidth: 74,
-              minHeight: 28 * layoutScale,
+              minWidth: layout.geometry(74),
+              minHeight: layout.legacy(28),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4 * layoutScale,
+                horizontal: layout.geometry(12),
+                vertical: layout.legacy(4),
               ),
               child: Stack(
                 alignment: Alignment.center,
@@ -575,7 +614,7 @@ class _HeroActionButton extends StatelessWidget {
                         label,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: Colors.white,
-                          fontSize: 14 * layoutScale,
+                          fontSize: layout.legacyType(14),
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0,
                         ),
@@ -692,7 +731,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
     required this.isSmartPaused,
     required this.showConnecting,
     required this.showFailure,
-    this.layoutScale = 1.0,
+    required this.layout,
   });
 
   final String profileLabel;
@@ -702,7 +741,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
   final bool isSmartPaused;
   final bool showConnecting;
   final bool showFailure;
-  final double layoutScale;
+  final DashboardResponsiveLayout layout;
 
   Color _statusColor(SurgeTheme surge) {
     if (showFailure) return surge.red;
@@ -719,44 +758,41 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
     final profiles = ref.watch(profilesProvider);
     final statusColor = _statusColor(surge);
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _showSubscriptionSelectorSheet(
-          context,
-          ref,
-          profiles,
-          currentProfileId,
-        ),
-        behavior: HitTestBehavior.opaque,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                profileLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: surge.textPrimary,
-                  fontSize: 19 * layoutScale,
-                  fontWeight: FontWeight.w500,
-                  height: 1.0,
-                  letterSpacing: 0,
-                ),
+    return GestureDetector(
+      onTap: () => _showSubscriptionSelectorSheet(
+        context,
+        ref,
+        profiles,
+        currentProfileId,
+      ),
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              profileLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: surge.textPrimary,
+                fontSize: layout.legacyType(19),
+                fontWeight: FontWeight.w500,
+                height: 1.0,
+                letterSpacing: 0,
               ),
             ),
-            const SizedBox(width: 4),
-            // Dropdown arrow icon, color reflects connection status
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              child: Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 18 * layoutScale,
-                color: statusColor,
-              ),
+          ),
+          SizedBox(width: layout.geometry(4)),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: layout.legacy(18),
+              color: statusColor,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -870,7 +906,7 @@ class _StatusPill extends StatelessWidget {
     required this.label,
     required this.dynamicColor,
     required this.onBlue,
-    this.layoutScale = 1.0,
+    required this.layout,
   });
 
   final bool active;
@@ -880,7 +916,7 @@ class _StatusPill extends StatelessWidget {
   final String label;
   final bool dynamicColor;
   final bool onBlue;
-  final double layoutScale;
+  final DashboardResponsiveLayout layout;
 
   @override
   Widget build(BuildContext context) {
@@ -891,10 +927,13 @@ class _StatusPill extends StatelessWidget {
         : Colors.white.withValues(alpha: 0.18);
     const textColor = Colors.white;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9 * layoutScale),
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.geometry(12),
+        vertical: layout.legacy(9),
+      ),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(layout.geometry(20)),
         border: Border.all(color: borderColor),
       ),
       child: Row(
@@ -906,15 +945,16 @@ class _StatusPill extends StatelessWidget {
             connecting: connecting,
             failed: failed,
             onBlue: onBlue,
+            size: layout.geometry(8),
           ),
-          const SizedBox(width: 7),
+          SizedBox(width: layout.geometry(7)),
           Text(
             label,
             maxLines: 1,
             softWrap: false,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: textColor,
-              fontSize: 11,
+              fontSize: layout.type(11),
               fontWeight: FontWeight.w600,
               height: 1.0,
               letterSpacing: 0,
@@ -933,6 +973,7 @@ class _PillStatusLight extends StatefulWidget {
     required this.connecting,
     required this.failed,
     required this.onBlue,
+    required this.size,
   });
 
   final bool active;
@@ -940,6 +981,7 @@ class _PillStatusLight extends StatefulWidget {
   final bool connecting;
   final bool failed;
   final bool onBlue;
+  final double size;
 
   @override
   State<_PillStatusLight> createState() => _PillStatusLightState();
@@ -1004,8 +1046,8 @@ class _PillStatusLightState extends State<_PillStatusLight>
       opacity: _opacity,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 8,
-        height: 8,
+        width: widget.size,
+        height: widget.size,
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
@@ -1034,12 +1076,12 @@ class _ModeSwitch extends StatelessWidget {
   const _ModeSwitch({
     required this.value,
     required this.onChanged,
-    this.layoutScale = 1.0,
+    required this.layout,
   });
 
   final Mode value;
   final ValueChanged<Mode> onChanged;
-  final double layoutScale;
+  final DashboardResponsiveLayout layout;
 
   @override
   Widget build(BuildContext context) {
@@ -1049,11 +1091,11 @@ class _ModeSwitch extends StatelessWidget {
     final selectedIndex = modes.indexOf(value).clamp(0, modes.length - 1);
 
     return Container(
-      height: 34 * layoutScale,
-      padding: EdgeInsets.all(3 * layoutScale),
+      height: layout.legacy(34),
+      padding: EdgeInsets.all(layout.legacy(3)),
       decoration: BoxDecoration(
         color: surge.fill,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(layout.geometry(26)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -1070,7 +1112,7 @@ class _ModeSwitch extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: surge.elevatedCard,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(layout.geometry(24)),
                   ),
                 ),
               ),
@@ -1087,6 +1129,7 @@ class _ModeSwitch extends StatelessWidget {
                         selected: mode == value,
                         primary: surge.primary,
                         textSecondary: surge.textSecondary,
+                        layout: layout,
                         onTap: () => onChanged(mode),
                       ),
                     ),
@@ -1107,6 +1150,7 @@ class _ModeSwitchItem extends StatelessWidget {
     required this.primary,
     required this.textSecondary,
     required this.onTap,
+    required this.layout,
   });
 
   final String label;
@@ -1114,6 +1158,7 @@ class _ModeSwitchItem extends StatelessWidget {
   final Color primary;
   final Color textSecondary;
   final VoidCallback onTap;
+  final DashboardResponsiveLayout layout;
 
   @override
   Widget build(BuildContext context) {
@@ -1121,7 +1166,7 @@ class _ModeSwitchItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(layout.geometry(24)),
         child: Center(
           child: AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 160),
@@ -1129,14 +1174,14 @@ class _ModeSwitchItem extends StatelessWidget {
             style:
                 Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: selected ? primary : textSecondary,
-                  fontSize: 14,
+                  fontSize: layout.type(14),
                   fontWeight: FontWeight.w600,
                   height: 1.0,
                   letterSpacing: 0,
                 ) ??
                 TextStyle(
                   color: selected ? primary : textSecondary,
-                  fontSize: 14,
+                  fontSize: layout.type(14),
                   fontWeight: FontWeight.w600,
                   height: 1.0,
                 ),
@@ -1149,9 +1194,9 @@ class _ModeSwitchItem extends StatelessWidget {
 }
 
 class _HeroProxySelectorBar extends ConsumerWidget {
-  const _HeroProxySelectorBar({this.layoutScale = 1.0});
+  const _HeroProxySelectorBar({required this.layout});
 
-  final double layoutScale;
+  final DashboardResponsiveLayout layout;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1172,11 +1217,11 @@ class _HeroProxySelectorBar extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      height: 34 * layoutScale,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      height: layout.legacy(34),
+      padding: EdgeInsets.symmetric(horizontal: layout.geometry(14)),
       decoration: BoxDecoration(
         color: surge.fill,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(layout.geometry(22)),
       ),
       child: Row(
         children: [
@@ -1200,17 +1245,17 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 12,
+                        fontSize: layout.type(12),
                         fontWeight: FontWeight.w700,
                         height: 1.0,
                         letterSpacing: 0,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 2),
+                  SizedBox(width: layout.geometry(2)),
                   Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    size: 16,
+                    size: layout.geometry(16),
                     color: surge.textSecondary,
                   ),
                 ],
@@ -1220,8 +1265,8 @@ class _HeroProxySelectorBar extends ConsumerWidget {
           // Divider
           Container(
             width: 1,
-            height: 16,
-            margin: const EdgeInsets.symmetric(horizontal: 10),
+            height: layout.geometry(16),
+            margin: EdgeInsets.symmetric(horizontal: layout.geometry(10)),
             color: surge.separator,
           ),
           // Node selector (right)
@@ -1248,17 +1293,17 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 12,
+                        fontSize: layout.type(12),
                         fontWeight: FontWeight.w700,
                         height: 1.0,
                         letterSpacing: 0,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 2),
+                  SizedBox(width: layout.geometry(2)),
                   Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    size: 16,
+                    size: layout.geometry(16),
                     color: surge.textSecondary,
                   ),
                 ],
