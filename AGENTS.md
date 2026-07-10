@@ -19,6 +19,7 @@ $env:Path = "D:\Code\Tools\Go\go\bin;D:\Code\Tools\flutter\bin;D:\Code\Tools\And
 $env:GRADLE_USER_HOME = "D:\Code\Clash myself\FlClash-dev\.dev-tools\gradle"
 $env:GOPATH = "D:\Code\Clash myself\FlClash-dev\.dev-tools\go-pkg"
 $env:GOMODCACHE = "D:\Code\Clash myself\FlClash-dev\.dev-tools\go-pkg\mod"
+$env:GOCACHE = "D:\Code\Clash myself\FlClash-dev\.dev-tools\go-cache"
 $env:PUB_CACHE = "D:\Code\Clash myself\FlClash-dev\.dev-tools\pub-cache"
 $env:ANDROID_HOME = "D:\Code\Tools\Android\Sdk"
 $env:ANDROID_NDK = "D:\Code\Tools\Android\Sdk\ndk\28.2.13676358"
@@ -51,19 +52,38 @@ D:\Code\Tools\Android\Sdk\platform-tools\adb.exe install -r build\app\outputs\fl
 
 - Android build has two stages: Go core via `plugins/setup/buildkit/gradle/plugin.gradle`, then Flutter/APK packaging.
 - Direct Go core build: `dart run build_tool android --arch arm64`.
-- Go shared libraries:
-  - `libclash/android/arm64-v8a/libclash.so` for CI output.
-  - `android/core/src/main/jniLibs/arm64-v8a/libclash.so` for local Gradle packaging.
+- Go shared libraries and headers (all 4 paths must be present after build):
+  - `libclash/android/arm64-v8a/libclash.so`
+  - `libclash/android/includes/arm64-v8a/` (C headers)
+  - `android/core/src/main/jniLibs/arm64-v8a/libclash.so`
+  - `android/core/src/main/cpp/includes/arm64-v8a/` (C headers)
 
 ## CI
 
-Beta workflow: `.github/workflows/slclash-android-beta.yml`.
+**Beta 工作流：** `.github/workflows/slclash-android-beta.yml`
 
 ```powershell
 gh workflow run slclash-android-beta.yml --ref beta -f tag="YYYY.MM.DD-beta"
 ```
 
-Tag format must be `YYYY.MM.DD-beta`.
+Tag 格式必须为 `YYYY.MM.DD-beta`。构建完成后自动创建 prerelease。
+
+**Release 工作流：** `.github/workflows/slclash-android-release.yml`
+
+```powershell
+# 方式一：推送 tag 自动触发
+git tag v1.x.x && git push origin v1.x.x
+
+# 方式二：手动触发
+gh workflow run slclash-android-release.yml --ref main -f tag="v1.x.x"
+```
+
+Tag 格式：`v1.x.x` 或 `1.x.x`。构建完成后自动创建正式 Release。
+
+**缓存策略（2026-07-10 起）：**
+- Beta 缓存 `libclash.so` + 头文件（key 含 Go 源码 hash + 子模块 commit + Go/NDK 版本），仅改 Flutter 时跳过 Go core 编译 → **~2-3 min**
+- Release 始终现场编译 Go core，审计可追溯 → **~9 min**（仅 Gradle 缓存）
+- 两个工作流都有 Gradle 缓存（key 含 version catalog）。
 
 ## Behavior Notes
 

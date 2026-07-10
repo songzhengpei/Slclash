@@ -15,6 +15,10 @@ jobs:
   build-beta:
     name: Build Android arm64-v8a Beta APK
     runs-on: ubuntu-latest
+    env:
+      GO_VERSION: "1.24.0"
+      NDK_VERSION: "r28c"
+      CORE_CACHE_VERSION: "v1"
 
     steps:
       - name: Checkout
@@ -22,6 +26,11 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+
+      - name: Record submodule commit
+        id: submodule
+        shell: bash
+        run: echo "sha=$(git -C core/Clash.Meta rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Fetch submodule tags
         shell: bash
@@ -104,6 +113,27 @@ jobs:
           add-to-path: true
           link-to-sdk: true
 
+      - name: Resolve Go core cache key parts
+        id: gocore
+        shell: bash
+        run: |
+          echo "mihomo_sha=$(git -C core/Clash.Meta rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git ls-files -z core plugins/setup/buildkit ':!core/Clash.Meta' \
+            | xargs -0 sha256sum \
+            | sha256sum \
+            | awk '{print "local_sha="$1}' >> "$GITHUB_OUTPUT"
+
+      - name: Cache Go core artifact
+        id: cache-gocore
+        uses: actions/cache@v4
+        with:
+          path: |
+            libclash/android/arm64-v8a/libclash.so
+            libclash/android/includes/arm64-v8a
+            android/core/src/main/jniLibs/arm64-v8a/libclash.so
+            android/core/src/main/cpp/includes/arm64-v8a
+          key: gocore-${{ env.CORE_CACHE_VERSION }}-${{ runner.os }}-go${{ env.GO_VERSION }}-ndk${{ env.NDK_VERSION }}-${{ steps.gocore.outputs.local_sha }}-${{ steps.gocore.outputs.mihomo_sha }}
+
       - name: Prepare Android signing
         shell: bash
         env:
@@ -144,6 +174,7 @@ jobs:
           git diff --exit-code go.mod go.sum
 
       - name: Build Go core
+        if: steps.cache-gocore.outputs.cache-hit != 'true'
         shell: bash
         env:
           ANDROID_NDK: ${{ steps.setup_ndk.outputs.ndk-path }}
@@ -151,6 +182,14 @@ jobs:
           PROJECT_DIR: ${{ github.workspace }}
         run: |
           bash plugins/setup/buildkit/run_build_tool.sh android --arch arm64
+
+      - name: Verify Go core artifact
+        shell: bash
+        run: |
+          test -f libclash/android/arm64-v8a/libclash.so
+          test -f android/core/src/main/jniLibs/arm64-v8a/libclash.so
+          ls -lh libclash/android/arm64-v8a/libclash.so
+          ls -lh android/core/src/main/jniLibs/arm64-v8a/libclash.so
 
       - name: Resolve core metadata
         id: core
@@ -221,6 +260,21 @@ jobs:
 
           sed -i 's/^[[:space:]]*//' "$NOTES_FILE"
           echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles(
+            'android/**/*.gradle*',
+            'android/**/gradle-wrapper.properties',
+            'android/gradle/**/*.toml',
+            'android/gradle.properties'
+          ) }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: Build APK
         env:

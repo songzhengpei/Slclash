@@ -239,6 +239,21 @@ jobs:
           sed -i 's/^[[:space:]]*//' "$NOTES_FILE"
           echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
 
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles(
+            'android/**/*.gradle*',
+            'android/**/gradle-wrapper.properties',
+            'android/gradle/**/*.toml',
+            'android/gradle.properties'
+          ) }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
       - name: Build APK
         env:
           SLCLASH_SKIP_GO_CORE_BUILD: "true"

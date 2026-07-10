@@ -9,6 +9,7 @@ set PROJECT_DIR=%~dp0
 set GRADLE_USER_HOME=%PROJECT_DIR%.dev-tools\gradle
 set GOPATH=%PROJECT_DIR%.dev-tools\go-pkg
 set GOMODCACHE=%PROJECT_DIR%.dev-tools\go-pkg\mod
+set GOCACHE=%PROJECT_DIR%.dev-tools\go-cache
 set PUB_CACHE=%PROJECT_DIR%.dev-tools\pub-cache
 
 set PATH=D:\Code\Tools\Go\go\bin;D:\Code\Tools\flutter\bin;D:\Code\Tools\Android\Sdk\platform-tools;%PATH%
@@ -19,6 +20,7 @@ echo [SlClash] Dev environment loaded.
 echo   GRADLE_USER_HOME = %GRADLE_USER_HOME%
 echo   GOPATH           = %GOPATH%
 echo   GOMODCACHE       = %GOMODCACHE%
+echo   GOCACHE          = %GOCACHE%
 echo   PUB_CACHE        = %PUB_CACHE%
 echo   ANDROID_HOME     = %ANDROID_HOME%
 echo   ANDROID_NDK      = %ANDROID_NDK%
