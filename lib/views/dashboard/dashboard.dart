@@ -12,70 +12,82 @@ class DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
     final pageBackground = SurgeTheme.of(context).background;
     final bottomPadding = SurgeBottomNavLayout.mainPageBottomPadding(context);
 
-    return CommonScaffold(
-      title: context.appLocalizations.dashboard,
-      backgroundColor: pageBackground,
-      body: ColoredBox(
-        color: pageBackground,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final viewportSize = MediaQuery.sizeOf(context);
-            final layout = DashboardResponsiveLayout.fromViewport(
-              viewportWidth: constraints.maxWidth,
-              viewportHeight: viewportSize.height,
-              textScaler: MediaQuery.textScalerOf(context),
-            );
-            final availableContentHeight =
-                (constraints.maxHeight - layout.pageTopPadding - bottomPadding)
-                    .clamp(0.0, double.infinity)
-                    .toDouble();
-            final networkNaturalHeight =
-                NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
-                  layout,
-                );
-            final pageHeights = layout.resolvePageHeightAllocation(
-              availableContentHeight: availableContentHeight,
-              networkNaturalHeight: networkNaturalHeight,
-            );
+    return MediaQuery(
+      data: mediaQuery.copyWith(
+        textScaler: DashboardResponsiveLayout.textScalerForDashboard(
+          mediaQuery.textScaler,
+        ),
+      ),
+      child: CommonScaffold(
+        title: context.appLocalizations.dashboard,
+        backgroundColor: pageBackground,
+        body: ColoredBox(
+          color: pageBackground,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewportSize = MediaQuery.sizeOf(context);
+              final layout = DashboardResponsiveLayout.fromViewport(
+                viewportWidth: constraints.maxWidth,
+                viewportHeight: viewportSize.height,
+                textScaler: MediaQuery.textScalerOf(context),
+              );
+              final availableContentHeight =
+                  (constraints.maxHeight -
+                          layout.pageTopPadding -
+                          bottomPadding)
+                      .clamp(0.0, double.infinity)
+                      .toDouble();
+              final networkNaturalHeight =
+                  NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
+                    layout,
+                  );
+              final pageHeights = layout.resolvePageHeightAllocation(
+                availableContentHeight: availableContentHeight,
+                networkNaturalHeight: networkNaturalHeight,
+              );
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                layout.pageHorizontalPadding,
-                layout.pageTopPadding,
-                layout.pageHorizontalPadding,
-                bottomPadding,
-              ),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: layout.contentMaxWidth),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SurgeDashboardHero(
-                        layout: layout,
-                        allocatedHeight: pageHeights.hasHeroExpansion
-                            ? pageHeights.heroHeight
-                            : null,
-                      ),
-                      SizedBox(height: layout.cardGap),
-                      SizedBox(
-                        height: pageHeights.networkHeight,
-                        child: SurgeNetworkOverviewCard(
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  layout.pageHorizontalPadding,
+                  layout.pageTopPadding,
+                  layout.pageHorizontalPadding,
+                  bottomPadding + DashboardResponsiveLayout.scrollEndBottomGap,
+                ),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: layout.contentMaxWidth,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SurgeDashboardHero(
                           layout: layout,
-                          contentExpansionFraction:
-                              pageHeights.networkContentExpansionFraction,
+                          allocatedHeight: pageHeights.hasHeroExpansion
+                              ? pageHeights.heroHeight
+                              : null,
                         ),
-                      ),
-                    ],
+                        SizedBox(height: layout.cardGap),
+                        SizedBox(
+                          height: pageHeights.networkHeight,
+                          child: SurgeNetworkOverviewCard(
+                            layout: layout,
+                            contentExpansionFraction:
+                                pageHeights.networkContentExpansionFraction,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

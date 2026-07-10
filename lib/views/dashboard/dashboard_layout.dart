@@ -82,6 +82,8 @@ class DashboardResponsiveLayout {
   static const double wideBreakpoint = 600;
   static const double wideContentMaxWidth = 520;
   static const double reflowCardInnerWidth = 230;
+  static const double maxTextScale = 1.15;
+  static const double scrollEndBottomGap = 30;
   static const double viewportExpansionRampHeight = 48;
   static const double maxHeroExpansion = 24;
   static const double maxNetworkExpansion = 60;
@@ -102,6 +104,12 @@ class DashboardResponsiveLayout {
 
   bool get isCompact => density == DashboardDensity.compact;
   bool get isWide => density == DashboardDensity.wide;
+
+  /// This dense control surface preserves its single-line information
+  /// hierarchy when the app-wide text scaling preference is enlarged.
+  static TextScaler textScalerForDashboard(TextScaler textScaler) {
+    return textScaler.clamp(maxScaleFactor: maxTextScale);
+  }
 
   double get maxDashboardExpansion =>
       geometry(maxHeroExpansion + maxNetworkExpansion);
@@ -233,7 +241,9 @@ class DashboardResponsiveLayout {
       cardGap: 16 * geometryScale,
       contentMaxWidth: isWide ? wideContentMaxWidth : double.infinity,
       cardInnerWidth: cardInnerWidth,
-      requiresReflow: cardInnerWidth < reflowCardInnerWidth || textScale > 1.15,
+      // Enlarged text is capped by [textScalerForDashboard]. Only a genuinely
+      // narrow card may switch to the structural reflow fallback.
+      requiresReflow: cardInnerWidth < reflowCardInnerWidth,
     );
   }
 }

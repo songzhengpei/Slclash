@@ -188,23 +188,18 @@ void main() {
       expect(hero.switchToSelectorGap - layout.legacy(10), closeTo(14, 0.001));
     });
 
-    test('reflows for enlarged system text at any supported phone width', () {
+    test('caps enlarged dashboard text without changing the primary rows', () {
       final layout = _layout(384, textScale: 1.3);
 
       expect(layout.density, DashboardDensity.regular);
-      expect(layout.requiresReflow, isTrue);
+      expect(layout.requiresReflow, isFalse);
       expect(
-        layout.heroNaturalHeight,
-        greaterThan(_layout(384).heroNaturalHeight),
+        DashboardResponsiveLayout.textScalerForDashboard(
+          const TextScaler.linear(2),
+        ).scale(12),
+        closeTo(13.8, 0.001),
       );
-      expect(
-        NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(layout),
-        greaterThan(
-          NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
-            _layout(384),
-          ),
-        ),
-      );
+      expect(DashboardResponsiveLayout.scrollEndBottomGap, 30);
     });
   });
 
@@ -225,15 +220,11 @@ void main() {
         layout.chartHeight,
         NetworkOverviewCardLayoutCalculator.chartHeightFor(responsiveLayout),
       );
-      expect(
-        layout.detectionSlotHeight,
-        NetworkOverviewCardLayoutCalculator.detectionSlotHeightFor(
-          responsiveLayout,
-        ),
-      );
+      expect(layout.detectionTopGap, 16);
+      expect(layout.detectionBottomGap, 16);
     });
 
-    test('keeps compact-phone content at its original vertical positions', () {
+    test('keeps the detection bar vertically balanced on compact phones', () {
       final responsiveLayout = _layout(360, height: 800);
       final naturalOuterHeight =
           NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
@@ -253,13 +244,15 @@ void main() {
       expect(expanded.chartHeight, base.chartHeight);
       expect(expanded.headerToChartGap, base.headerToChartGap);
       expect(expanded.latencyRowGap, base.latencyRowGap);
+      expect(expanded.detectionTopGap, 16);
+      expect(expanded.detectionBottomGap, 16);
       expect(
-        expanded.detectionSlotHeight - base.detectionSlotHeight,
+        expanded.afterTrafficGap - base.afterTrafficGap,
         closeTo(100, 0.001),
       );
     });
 
-    test('gradually moves extra height out of network detection', () {
+    test('keeps detection padding fixed during partial expansion', () {
       final responsiveLayout = _layoutForViewportHeight(
         DashboardResponsiveLayout.referenceViewportHeight + 24,
       );
@@ -279,9 +272,11 @@ void main() {
       );
 
       expect(expanded.chartHeight - base.chartHeight, closeTo(20, 0.001));
+      expect(expanded.detectionTopGap, 16);
+      expect(expanded.detectionBottomGap, 16);
       expect(
-        expanded.detectionSlotHeight - base.detectionSlotHeight,
-        closeTo(57.5, 0.001),
+        expanded.afterTrafficGap - base.afterTrafficGap,
+        closeTo(58.5, 0.001),
       );
     });
 
@@ -308,9 +303,11 @@ void main() {
 
         expect(expanded.chartHeight - base.chartHeight, closeTo(40, 0.001));
         expect(
-          expanded.detectionSlotHeight - base.detectionSlotHeight,
-          closeTo(15, 0.001),
+          expanded.afterTrafficGap - base.afterTrafficGap,
+          closeTo(17, 0.001),
         );
+        expect(expanded.detectionTopGap, 16);
+        expect(expanded.detectionBottomGap, 16);
       },
     );
 
@@ -330,12 +327,8 @@ void main() {
         layout.chartHeight,
         NetworkOverviewCardLayoutCalculator.chartHeightFor(responsiveLayout),
       );
-      expect(
-        layout.detectionSlotHeight,
-        NetworkOverviewCardLayoutCalculator.detectionSlotHeightFor(
-          responsiveLayout,
-        ),
-      );
+      expect(layout.detectionTopGap, 16);
+      expect(layout.detectionBottomGap, 16);
     });
   });
 }

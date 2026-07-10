@@ -95,7 +95,8 @@ class NetworkOverviewCardLayout {
     required this.headerToChartGap,
     required this.chartToDividerGap,
     required this.dividerToTrafficGap,
-    required this.detectionSlotHeight,
+    required this.detectionTopGap,
+    required this.detectionBottomGap,
     required this.latencyRowGap,
   });
 
@@ -107,7 +108,8 @@ class NetworkOverviewCardLayout {
   final double headerToChartGap;
   final double chartToDividerGap;
   final double dividerToTrafficGap;
-  final double detectionSlotHeight;
+  final double detectionTopGap;
+  final double detectionBottomGap;
   final double latencyRowGap;
 }
 
@@ -136,8 +138,9 @@ class NetworkOverviewCardLayoutCalculator {
       layout.legacy(14);
   static double detectionBarHeightFor(DashboardResponsiveLayout layout) =>
       layout.legacy(34);
-  static double detectionSlotHeightFor(DashboardResponsiveLayout layout) =>
-      layout.legacy(14) + detectionBarHeightFor(layout);
+  static double detectionVerticalGapFor(DashboardResponsiveLayout layout) => 16;
+  static double detectionSectionHeightFor(DashboardResponsiveLayout layout) =>
+      detectionVerticalGapFor(layout) * 2 + detectionBarHeightFor(layout);
 
   static double _trafficSectionMinHeightFor(DashboardResponsiveLayout layout) {
     final donutColumn =
@@ -175,7 +178,7 @@ class NetworkOverviewCardLayoutCalculator {
         _trafficSectionMinHeightFor(layout) +
         trafficToDividerGapFor(layout) +
         dividerHeight +
-        detectionSlotHeightFor(layout);
+        detectionSectionHeightFor(layout);
   }
 
   @visibleForTesting
@@ -192,6 +195,7 @@ class NetworkOverviewCardLayoutCalculator {
     final extraHeight = resolvedOuterHeight - naturalOuterHeight;
     final distributedExtraHeight =
         extraHeight * contentExpansionFraction.clamp(0.0, 1.0);
+    final detectionExtraHeight = extraHeight - distributedExtraHeight * 0.85;
     return NetworkOverviewCardLayout(
       headerHeight: headerHeightFor(responsiveLayout),
       chartHeight:
@@ -214,11 +218,10 @@ class NetworkOverviewCardLayoutCalculator {
           latencyRowGapFor(responsiveLayout) + distributedExtraHeight * 0.02,
       afterTrafficGap:
           trafficToDividerGapFor(responsiveLayout) +
-          distributedExtraHeight * 0.02,
-      detectionSlotHeight:
-          detectionSlotHeightFor(responsiveLayout) +
-          extraHeight -
-          distributedExtraHeight * 0.85,
+          distributedExtraHeight * 0.02 +
+          detectionExtraHeight,
+      detectionTopGap: detectionVerticalGapFor(responsiveLayout),
+      detectionBottomGap: detectionVerticalGapFor(responsiveLayout),
     );
   }
 }
@@ -968,24 +971,21 @@ class _SurgeNetworkOverviewCardState
               trafficSection,
               SizedBox(height: layout.afterTrafficGap),
               Container(height: 1, color: surge.separator),
-              SizedBox(
-                height: layout.detectionSlotHeight,
-                child: Center(
-                  child: _NetworkDetectionBar(
-                    ipInfo: networkIpInfo,
-                    isLoading: networkIsLoading,
-                    hasChecked: networkHasChecked,
-                    shouldAnimate: shouldAnimateLoading,
-                    primaryColor: surge.primary,
-                    textColor: surge.textPrimary,
-                    secondaryTextColor: surge.textSecondary,
-                    fillColor: surge.fill,
-                    dangerColor: surge.red,
-                    label: appLocalizations.networkDetection,
-                    layout: responsiveLayout,
-                  ),
-                ),
+              SizedBox(height: layout.detectionTopGap),
+              _NetworkDetectionBar(
+                ipInfo: networkIpInfo,
+                isLoading: networkIsLoading,
+                hasChecked: networkHasChecked,
+                shouldAnimate: shouldAnimateLoading,
+                primaryColor: surge.primary,
+                textColor: surge.textPrimary,
+                secondaryTextColor: surge.textSecondary,
+                fillColor: surge.fill,
+                dangerColor: surge.red,
+                label: appLocalizations.networkDetection,
+                layout: responsiveLayout,
               ),
+              SizedBox(height: layout.detectionBottomGap),
             ],
           );
         },
@@ -1217,9 +1217,7 @@ class _NetworkDetectionBar extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      constraints: BoxConstraints(minHeight: height),
-      // A fixed visual height can be one physical pixel shorter than the
-      height: layout.requiresReflow ? null : height,
+      height: height,
       padding: EdgeInsets.symmetric(horizontal: layout.geometry(14)),
       decoration: BoxDecoration(
         color: fillColor,
@@ -1557,7 +1555,11 @@ class _PlatformLatencyRow extends StatelessWidget {
         SizedBox(width: layout.geometry(8)),
         SizedBox(
           width: layout.geometry(50),
-          child: Align(alignment: Alignment.centerRight, child: trailing),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: trailing,
+          ),
         ),
       ],
     );
