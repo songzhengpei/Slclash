@@ -189,23 +189,34 @@ class NetworkOverviewCardLayoutCalculator {
       naturalOuterHeight,
     );
     final extraHeight = resolvedOuterHeight - naturalOuterHeight;
+    final distributeExtraHeight = responsiveLayout.isWide;
     return NetworkOverviewCardLayout(
       headerHeight: headerHeightFor(responsiveLayout),
-      chartHeight: chartHeightFor(responsiveLayout) + extraHeight * 0.40,
+      chartHeight:
+          chartHeightFor(responsiveLayout) +
+          (distributeExtraHeight ? extraHeight * 0.40 : 0),
       headerToChartGap:
-          headerToChartGapFor(responsiveLayout) + extraHeight * 0.10,
+          headerToChartGapFor(responsiveLayout) +
+          (distributeExtraHeight ? extraHeight * 0.10 : 0),
       chartToDividerGap:
-          chartToDividerGapFor(responsiveLayout) + extraHeight * 0.075,
+          chartToDividerGapFor(responsiveLayout) +
+          (distributeExtraHeight ? extraHeight * 0.075 : 0),
       dividerToTrafficGap:
-          dividerToTrafficGapFor(responsiveLayout) + extraHeight * 0.075,
+          dividerToTrafficGapFor(responsiveLayout) +
+          (distributeExtraHeight ? extraHeight * 0.075 : 0),
       trafficTitleToChartGap:
-          trafficTitleToChartGapFor(responsiveLayout) + extraHeight * 0.10,
+          trafficTitleToChartGapFor(responsiveLayout) +
+          (distributeExtraHeight ? extraHeight * 0.10 : 0),
       latencyHeaderToRowsGap:
-          latencyHeaderToRowsGapFor(responsiveLayout) + extraHeight * 0.06,
-      latencyRowGap: latencyRowGapFor(responsiveLayout) + extraHeight * 0.02,
+          latencyHeaderToRowsGapFor(responsiveLayout) +
+          (distributeExtraHeight ? extraHeight * 0.06 : 0),
+      latencyRowGap:
+          latencyRowGapFor(responsiveLayout) +
+          (distributeExtraHeight ? extraHeight * 0.02 : 0),
       afterTrafficGap: trafficToDividerGapFor(responsiveLayout),
       detectionSlotHeight:
-          detectionSlotHeightFor(responsiveLayout) + extraHeight * 0.15,
+          detectionSlotHeightFor(responsiveLayout) +
+          (distributeExtraHeight ? extraHeight * 0.15 : extraHeight),
     );
   }
 }
@@ -951,8 +962,7 @@ class _SurgeNetworkOverviewCardState
               Container(height: 1, color: surge.separator),
               SizedBox(
                 height: layout.detectionSlotHeight,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
+                child: Center(
                   child: _NetworkDetectionBar(
                     ipInfo: networkIpInfo,
                     isLoading: networkIsLoading,

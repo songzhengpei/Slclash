@@ -7,7 +7,7 @@ enum DashboardDensity { compact, regular, wide }
 
 /// Immutable, page-level responsive contract for the dashboard.
 ///
-/// The reference viewport is the user's 450dp-wide phone.  Geometry and type
+/// The reference viewport is the user's 384dp-wide phone.  Geometry and type
 /// are deliberately scaled independently: compact phones keep readable type
 /// while their visual chrome does not become disproportionately large.
 @immutable
@@ -25,12 +25,11 @@ class DashboardResponsiveLayout {
     required this.requiresReflow,
   });
 
-  static const double referenceViewportWidth = 450;
-  static const double compactBreakpoint = 376;
+  static const double referenceViewportWidth = 384;
+  static const double compactBreakpoint = 360;
   static const double wideBreakpoint = 600;
   static const double wideContentMaxWidth = 520;
-  static const double reflowCardInnerWidth = 280;
-  static const double referenceLegacyScale = 450 / 384;
+  static const double reflowCardInnerWidth = 230;
 
   final DashboardDensity density;
   final double geometryScale;
@@ -46,7 +45,7 @@ class DashboardResponsiveLayout {
   bool get isCompact => density == DashboardDensity.compact;
   bool get isWide => density == DashboardDensity.wide;
 
-  /// Scales a visual token whose reference value is measured on the 450dp
+  /// Scales a visual token whose reference value is measured on the 384dp
   /// reference viewport.
   double geometry(double referenceValue) => referenceValue * geometryScale;
 
@@ -55,11 +54,10 @@ class DashboardResponsiveLayout {
 
   /// Preserves dimensions which previously used `value * layoutScale` at the
   /// reference viewport, while making that scaling shared by both cards.
-  double legacy(double value) => value * referenceLegacyScale * geometryScale;
+  double legacy(double value) => value * geometryScale;
 
   /// Equivalent to [legacy], but uses the more conservative type scale.
-  double legacyType(double value) =>
-      value * referenceLegacyScale * typographyScale;
+  double legacyType(double value) => value * typographyScale;
 
   double get cardRadius => geometry(26);
   double get cardHorizontalPadding => geometry(18);
@@ -95,7 +93,7 @@ class DashboardResponsiveLayout {
         ? DashboardDensity.compact
         : DashboardDensity.regular;
     final widthRatio = viewportWidth / referenceViewportWidth;
-    final geometryScale = widthRatio.clamp(0.82, 1.07).toDouble();
+    final geometryScale = widthRatio.clamp(0.86, 1.07).toDouble();
     final typographyScale = widthRatio.clamp(0.90, 1.05).toDouble();
     final pageHorizontalPadding = isWide ? 32.0 : 18 * geometryScale;
     final contentWidth = math
