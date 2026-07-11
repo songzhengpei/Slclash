@@ -245,12 +245,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles(
-            'android/**/*.gradle*',
-            'android/**/gradle-wrapper.properties',
-            'android/gradle/**/*.toml',
-            'android/gradle.properties'
-          ) }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties', 'android/gradle/**/*.toml', 'android/gradle.properties') }}
           restore-keys: |
             gradle-${{ runner.os }}-
 
