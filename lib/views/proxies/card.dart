@@ -235,7 +235,9 @@ class _DelayBadge extends ConsumerWidget {
         ? '$delay ms'
         : 'Timeout';
 
-    return GestureDetector(
+    return SurgePressable(
+      compact: true,
+      borderRadius: BorderRadius.circular(15),
       onTap: onTap,
       child: SizedBox(
         width: 64,

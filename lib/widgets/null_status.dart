@@ -1,7 +1,5 @@
-import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_svg/svg.dart';
 
 class NullStatus extends StatelessWidget {
   final String label;
@@ -23,10 +21,14 @@ class NullStatus extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           illustration,
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Text(
             label,
-            style: Theme.of(context).textTheme.titleMedium?.toBold.toLight,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: SurgeTheme.of(context).textSecondary,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
           ),
         ],
       ),
@@ -39,19 +41,7 @@ class LogEmptyIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: ShapeDecoration(
-        color: context.colorScheme.primaryContainer,
-        shape: const StarBorder(
-          points: 5,
-          innerRadiusRatio: 0.8,
-          pointRounding: 0.7,
-          valleyRounding: 0.1,
-          squash: 0.5,
-        ),
-      ),
-      child: const _ThemeAwareSvg('assets/images/empty/log.svg'),
-    );
+    return const _SoftOsEmptyIllustration(icon: SurgeIcons.logs);
   }
 }
 
@@ -60,19 +50,7 @@ class ProxyEmptyIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: ShapeDecoration(
-        color: context.colorScheme.secondaryContainer,
-        shape: const StarBorder(
-          points: 12,
-          innerRadiusRatio: 0.8,
-          pointRounding: 0.5,
-          valleyRounding: 0.4,
-          squash: 0.6,
-        ),
-      ),
-      child: const _ThemeAwareSvg('assets/images/empty/proxy.svg'),
-    );
+    return const _SoftOsEmptyIllustration(icon: SurgeIcons.proxyGroup);
   }
 }
 
@@ -81,19 +59,7 @@ class DataEmptyIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: ShapeDecoration(
-        color: context.colorScheme.secondaryContainer,
-        shape: const StarBorder(
-          points: 3,
-          innerRadiusRatio: 1,
-          pointRounding: 0.3,
-          valleyRounding: 0.5,
-          squash: 0.2,
-        ),
-      ),
-      child: const _ThemeAwareSvg('assets/images/empty/data.svg'),
-    );
+    return const _SoftOsEmptyIllustration(icon: SurgeIcons.info);
   }
 }
 
@@ -102,19 +68,7 @@ class ProfileEmptyIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: ShapeDecoration(
-        color: context.colorScheme.secondaryContainer,
-        shape: const StarBorder(
-          points: 8,
-          innerRadiusRatio: 0.6,
-          pointRounding: 1,
-          valleyRounding: 0,
-          squash: 1,
-        ),
-      ),
-      child: const _ThemeAwareSvg('assets/images/empty/profile.svg'),
-    );
+    return const _SoftOsEmptyIllustration(icon: SurgeIcons.profiles);
   }
 }
 
@@ -123,19 +77,7 @@ class ScriptEmptyIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: ShapeDecoration(
-        color: context.colorScheme.secondaryContainer,
-        shape: const StarBorder(
-          points: 3,
-          innerRadiusRatio: 0.6,
-          pointRounding: 0.6,
-          valleyRounding: 0.2,
-          squash: 0.1,
-        ),
-      ),
-      child: const _ThemeAwareSvg('assets/images/empty/script.svg'),
-    );
+    return const _SoftOsEmptyIllustration(icon: SurgeIcons.code);
   }
 }
 
@@ -144,19 +86,7 @@ class RuleEmptyIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: ShapeDecoration(
-        color: context.colorScheme.secondaryContainer,
-        shape: const StarBorder(
-          points: 7,
-          innerRadiusRatio: 0.3,
-          pointRounding: 0.9,
-          valleyRounding: 0.1,
-          squash: 0,
-        ),
-      ),
-      child: const _ThemeAwareSvg('assets/images/empty/rule.svg'),
-    );
+    return const _SoftOsEmptyIllustration(icon: SurgeIcons.rule);
   }
 }
 
@@ -165,64 +95,45 @@ class ConnectionEmptyIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: ShapeDecoration(
-        color: context.colorScheme.secondaryContainer,
-        shape: const StarBorder(
-          points: 4,
-          innerRadiusRatio: 0.1,
-          pointRounding: 1,
-          valleyRounding: 0,
-          squash: 1,
-          rotation: 45,
-        ),
-      ),
-      child: const _ThemeAwareSvg('assets/images/empty/connection.svg'),
-    );
+    return const _SoftOsEmptyIllustration(icon: SurgeIcons.connections);
   }
 }
 
-class _ThemeAwareSvg extends StatelessWidget {
-  final String assetPath;
+class _SoftOsEmptyIllustration extends StatelessWidget {
+  const _SoftOsEmptyIllustration({required this.icon});
 
-  const _ThemeAwareSvg(this.assetPath);
-
-  String _colorToHex(Color color) {
-    return color.toARGB32().toRadixString(16).substring(2);
-  }
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
-    return FutureBuilder<String>(
-      future: rootBundle.loadString(assetPath),
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          String svgString = snapshot.data!;
-          svgString = svgString.replaceAll(
-            '#E8DEF8',
-            '#${_colorToHex(colorScheme.secondaryContainer)}',
-          );
-          // primary ??
-          svgString = svgString.replaceAll(
-            '#6750A4',
-            '#${_colorToHex(colorScheme.outlineVariant)}',
-          );
-          // surface ??
-          svgString = svgString.replaceAll(
-            '#FDF7FF',
-            '#${_colorToHex(colorScheme.surface)}',
-          );
-          svgString = svgString.replaceAll(
-            '#C4C7C5',
-            '#${_colorToHex(colorScheme.outlineVariant)}',
-          );
-          return SvgPicture.string(svgString, width: 200, height: 200);
-        } else if (snapshot.hasError) {
-          return const Icon(SurgeIcons.error);
-        }
-        return const SizedBox(width: 200, height: 200);
-      },
+    final surge = SurgeTheme.of(context);
+    return Container(
+      width: 88,
+      height: 88,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: surge.card,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: surge.separator, width: surge.spacing.hairline),
+        boxShadow: [
+          BoxShadow(
+            color: surge.shadow.withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: surge.fill,
+          borderRadius: BorderRadius.circular(19),
+          border: Border.all(
+            color: surge.separator.withValues(alpha: 0.7),
+            width: surge.spacing.hairline,
+          ),
+        ),
+        child: Icon(icon, size: 28, color: surge.textSecondary),
+      ),
     );
   }
 }

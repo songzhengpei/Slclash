@@ -1537,7 +1537,8 @@ class _PlatformLatencyRow extends StatelessWidget {
         _RouteFlagBadge(countryCode: countryCode, layout: layout),
         SizedBox(width: layout.geometry(8)),
         Expanded(
-          child: GestureDetector(
+          child: SurgePressable(
+            compact: true,
             behavior: HitTestBehavior.opaque,
             onTap: onRetest,
             child: Padding(

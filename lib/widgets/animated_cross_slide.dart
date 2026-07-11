@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import 'surge/surge_motion.dart';
+
 enum CrossSlideState { showFirst, showSecond }
 
 typedef AnimatedCrossSlideBuilder =
@@ -16,9 +18,9 @@ class AnimatedCrossSlide extends StatefulWidget {
     super.key,
     required this.firstChild,
     required this.secondChild,
-    this.firstCurve = Curves.linear,
-    this.secondCurve = Curves.linear,
-    this.sizeCurve = Curves.linear,
+    this.firstCurve = SurgeMotion.enterCurve,
+    this.secondCurve = SurgeMotion.enterCurve,
+    this.sizeCurve = SurgeMotion.stateCurve,
     this.alignment = Alignment.topCenter,
     required this.crossSlideState,
     required this.duration,

@@ -776,7 +776,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
     final profiles = ref.watch(profilesProvider);
     final statusColor = _statusColor(surge);
 
-    return GestureDetector(
+    return SurgePressable(
       onTap: () => _showSubscriptionSelectorSheet(
         context,
         ref,
@@ -1245,7 +1245,11 @@ class _HeroProxySelectorBar extends ConsumerWidget {
         children: [
           // Group selector (left)
           Expanded(
-            child: GestureDetector(
+            child: SurgePressable(
+              compact: true,
+              scaleFeedback: false,
+              overlayOpacity: 0.04,
+              borderRadius: BorderRadius.circular(layout.geometry(18)),
               onTap: () => _showGroupSelectorSheet(
                 context,
                 ref,
@@ -1289,7 +1293,11 @@ class _HeroProxySelectorBar extends ConsumerWidget {
           ),
           // Node selector (right)
           Expanded(
-            child: GestureDetector(
+            child: SurgePressable(
+              compact: true,
+              scaleFeedback: false,
+              overlayOpacity: 0.04,
+              borderRadius: BorderRadius.circular(layout.geometry(18)),
               onTap: selectedGroupName.isNotEmpty
                   ? () => _showNodeSelectorSheet(
                       context,

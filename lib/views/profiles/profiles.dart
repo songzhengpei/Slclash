@@ -197,7 +197,8 @@ class _MediaCheckCompactRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final profileCount = profiles.length;
-    return GestureDetector(
+    return SurgePressable(
+      borderRadius: BorderRadius.circular(surge.radii.card),
       behavior: HitTestBehavior.opaque,
       onTap: () {
         BaseNavigator.push(
@@ -584,12 +585,9 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
               value: _autoUpdate,
               onChanged: _setAutoUpdate,
             ),
-            AnimatedSize(
-              duration: SurgeMotion.reveal,
-              curve: SurgeMotion.stateCurve,
-              alignment: Alignment.topCenter,
-              child: _autoUpdate
-                  ? Padding(
+            SurgeAnimatedReveal(
+              visible: _autoUpdate,
+              child: Padding(
                       padding: const EdgeInsets.only(top: 14),
                       child: SurgeField(
                         label: appLocalizations.autoUpdateInterval,
@@ -620,8 +618,7 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
                           },
                         ),
                       ),
-                    )
-                  : const SizedBox(width: double.infinity),
+                    ),
             ),
           ],
         ),
@@ -959,16 +956,12 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                 enabled: !isLoading,
                 onTap: widget.onExpandChanged,
               ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: widget.expanded && !isLoading
-                    ? Padding(
+              SurgeAnimatedReveal(
+                visible: widget.expanded && !isLoading,
+                child: Padding(
                         padding: const EdgeInsets.only(top: 12),
                         child: _CurrentProfileProxyPreview(proxies: proxies),
-                      )
-                    : const SizedBox(width: double.infinity),
+                      ),
               ),
             ],
           ),
@@ -1114,7 +1107,9 @@ class _CurrentProfileExpandButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
-      child: GestureDetector(
+      child: SurgePressable(
+        enabled: enabled,
+        compact: true,
         behavior: HitTestBehavior.opaque,
         onTap: enabled ? onTap : null,
         child: SizedBox(
@@ -1276,7 +1271,9 @@ class _ProfileProxyTestAllButtonState
     final surge = SurgeTheme.of(context);
     return Tooltip(
       message: '测试全部延迟',
-      child: GestureDetector(
+      child: SurgePressable(
+        compact: true,
+        borderRadius: BorderRadius.circular(8),
         onTap: _handleTestAll,
         child: Container(
           width: 28,
@@ -1407,61 +1404,46 @@ class _ProfileDelayBadge extends ConsumerWidget {
         ? '$delay ms'
         : 'Timeout';
 
-    return GestureDetector(
-      onTap: () {
+    return SoftOsStatusPill(
+      width: 68,
+      loading: delay == 0,
+      accentColor: delay == null || delay == 0 ? null : color,
+      onPressed: () {
         _handleTest(ref);
       },
-      child: SizedBox(
-        width: 64,
-        height: 30,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: delay == null ? surge.fill : color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: delay == null
-                  ? surge.separator.withValues(alpha: 0.55)
-                  : color.withValues(alpha: 0.18),
-              width: 0.5,
-            ),
-          ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 160),
-            layoutBuilder: (currentChild, previousChildren) {
-              return Stack(
-                alignment: Alignment.center,
-                children: [...previousChildren, ?currentChild],
-              );
-            },
-            child: Center(
-              key: ValueKey(label),
-              child: delay == 0
-                  ? SizedBox.square(
-                      dimension: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: color,
-                      ),
-                    )
-                  : Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      strutStyle: const StrutStyle(
-                        forceStrutHeight: true,
-                        height: 1,
-                      ),
-                      style: context.textTheme.labelSmall?.copyWith(
-                        color: color,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
-                        letterSpacing: 0,
-                      ),
-                    ),
-            ),
-          ),
+      child: AnimatedSwitcher(
+        duration: SurgeMotion.state,
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          alignment: Alignment.center,
+          children: [...previousChildren, ?currentChild],
+        ),
+        child: Center(
+          key: ValueKey(label),
+          child: delay == 0
+              ? SizedBox.square(
+                  dimension: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: color,
+                  ),
+                )
+              : Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  strutStyle: const StrutStyle(
+                    forceStrutHeight: true,
+                    height: 1,
+                  ),
+                  style: context.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                    letterSpacing: 0,
+                  ),
+                ),
         ),
       ),
     );

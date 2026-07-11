@@ -60,7 +60,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
         });
         ref.read(itemsProvider(key).notifier).update((state) => <dynamic>{});
       },
-      duration: const Duration(milliseconds: 450),
+      duration: SurgeMotion.container,
     );
   }
 
@@ -361,7 +361,7 @@ class _AddProxiesViewState extends ConsumerState<_AddProxiesView>
             .read(itemsProvider(realKey).notifier)
             .update((state) => <dynamic>{});
       },
-      duration: const Duration(milliseconds: 350),
+      duration: SurgeMotion.reveal,
     );
   }
 

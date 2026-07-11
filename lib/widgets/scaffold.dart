@@ -57,6 +57,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
   final ValueNotifier<bool> _isFabExtendedNotifier = ValueNotifier(true);
   final ValueNotifier<List<String>> _keywordsNotifier = ValueNotifier([]);
   final _textController = TextEditingController();
+  final _searchFocusNode = FocusNode(debugLabel: 'common_scaffold_search');
 
   bool get _isSearch {
     return _appBarState.value.searchState?.query != null;
@@ -87,6 +88,9 @@ class CommonScaffoldState extends State<CommonScaffold> {
 
   void handleToSearch() {
     _updateSearchState((state) => state?.copyWith(query: ''));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isSearch) _searchFocusNode.requestFocus();
+    });
   }
 
   Widget _buildSearchingAppBarTheme(Widget child) {
@@ -148,6 +152,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
     if (!_isSearch) {
       return;
     }
+    _searchFocusNode.unfocus();
     _handleClearInput();
     _updateSearchState((state) => state?.copyWith(query: null));
   }
@@ -156,6 +161,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
   void dispose() {
     _appBarState.dispose();
     _textController.dispose();
+    _searchFocusNode.dispose();
     _isFabExtendedNotifier.dispose();
     _loadingNotifier.dispose();
     super.dispose();
@@ -233,7 +239,8 @@ class CommonScaffoldState extends State<CommonScaffold> {
     final appLocalizations = context.appLocalizations;
     return _isSearch
         ? TextField(
-            autofocus: true,
+            autofocus: false,
+            focusNode: _searchFocusNode,
             controller: _textController,
             style: context.textTheme.titleLarge,
             onChanged: (value) {
@@ -241,6 +248,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
                 startState.onSearch(value);
               }
             },
+            onTapOutside: (_) => _searchFocusNode.unfocus(),
             decoration: InputDecoration(hintText: appLocalizations.search),
           )
         : Text(
@@ -418,9 +426,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
       if (hasSearch && widget.searchState?.autoAddSearch == true)
         _SoftOsScaffoldAction(
           icon: SurgeIcons.search,
-          onPressed: () {
-            _updateSearchState((state) => state?.copyWith(query: ''));
-          },
+          onPressed: handleToSearch,
         ),
       ...actions.map(_resolveAction).nonNulls,
     ];
@@ -451,8 +457,12 @@ class CommonScaffoldState extends State<CommonScaffold> {
       return SystemBackBlock(
         child: CommonPopScope(
           onPop: (context) {
+            if (_isSearch && MediaQuery.viewInsetsOf(context).bottom > 0) {
+              _searchFocusNode.unfocus();
+              return false;
+            }
             if (_isEdit || _isSearch) {
-              handleExitSearching();
+              if (_isSearch) handleExitSearching();
               _appBarState.value.editState?.onExit();
               return false;
             }
@@ -546,7 +556,13 @@ class CommonScaffoldState extends State<CommonScaffold> {
               );
             },
           ),
-          Expanded(child: widget.body),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _searchFocusNode.unfocus,
+              child: widget.body,
+            ),
+          ),
         ],
       ),
     );

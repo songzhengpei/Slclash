@@ -52,9 +52,10 @@ Future<T?> showSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   SheetProps props = const SheetProps(),
-}) {
+}) async {
+  FocusManager.instance.primaryFocus?.unfocus();
   final isMobile = globalState.container.read(isMobileViewProvider);
-  return switch (isMobile) {
+  final Future<T?> route = switch (isMobile) {
     true => showModalBottomSheet<T>(
       context: context,
       isScrollControlled: props.isScrollControlled,
@@ -65,6 +66,13 @@ Future<T?> showSheet<T>({
         );
       },
       backgroundColor: props.backgroundColor,
+      barrierColor: Colors.black.withValues(
+        alpha: SurgeMotion.modalBarrierOpacity,
+      ),
+      sheetAnimationStyle: const AnimationStyle(
+        duration: SurgeMotion.sheetEnter,
+        reverseDuration: SurgeMotion.sheetExit,
+      ),
       showDragHandle: false,
       useSafeArea: props.useSafeArea,
     ),
@@ -83,6 +91,9 @@ Future<T?> showSheet<T>({
       },
     ),
   };
+  final result = await route;
+  FocusManager.instance.primaryFocus?.unfocus();
+  return result;
 }
 
 Future<T?> showExtend<T>(

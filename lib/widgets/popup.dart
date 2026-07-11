@@ -3,6 +3,7 @@ import 'package:fl_clash/models/common.dart';
 import 'package:flutter/material.dart';
 
 import 'animated_cross_slide.dart';
+import 'surge/surge_motion.dart';
 
 class CommonPopupRoute<T> extends PopupRoute<T> {
   final WidgetBuilder builder;
@@ -40,9 +41,11 @@ class CommonPopupRoute<T> extends PopupRoute<T> {
     Widget child,
   ) {
     const align = Alignment.topRight;
-    final curveAnimation = animation
-        .drive(Tween(begin: 0.0, end: 1.0))
-        .drive(CurveTween(curve: Curves.easeOutBack));
+    final curveAnimation = CurvedAnimation(
+      parent: animation,
+      curve: SurgeMotion.enterCurve,
+      reverseCurve: SurgeMotion.exitCurve,
+    );
     return SafeArea(
       child: ValueListenableBuilder(
         valueListenable: offsetNotifier,
@@ -64,7 +67,7 @@ class CommonPopupRoute<T> extends PopupRoute<T> {
               opacity: curveAnimation,
               child: ScaleTransition(
                 alignment: align,
-                scale: curveAnimation,
+                scale: curveAnimation.drive(Tween(begin: 0.96, end: 1.0)),
                 child: SlideTransition(
                   position: curveAnimation.drive(
                     Tween(begin: const Offset(0, -0.02), end: Offset.zero),
@@ -81,7 +84,10 @@ class CommonPopupRoute<T> extends PopupRoute<T> {
   }
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 250);
+  Duration get transitionDuration => SurgeMotion.container;
+
+  @override
+  Duration get reverseTransitionDuration => SurgeMotion.state;
 }
 
 class PopupController extends ValueNotifier<bool> {

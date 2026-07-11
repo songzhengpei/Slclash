@@ -273,19 +273,27 @@ class SoftOsActionDockButton extends StatelessWidget {
   double get _width => compact
       ? _softOsActionCompactDockButtonWidth
       : _softOsActionDockButtonWidth;
+  double get _visualHeight =>
+      compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !loading;
     final foreground = _softOsActionForeground(context, enabled);
 
-    Widget result = Material(
-      color: Colors.transparent,
-      child: InkWell(
+    Widget result = SizedBox(
+      width: _width,
+      height: _softOsActionTapSize,
+      child: Center(
+        child: SurgePressable(
         onTap: loading ? null : onPressed,
+          enabled: enabled,
+          scaleFeedback: false,
+          overlayOpacity: 0.045,
+          borderRadius: BorderRadius.circular(_visualHeight / 2),
         child: SizedBox(
           width: _width,
-          height: _softOsActionTapSize,
+            height: _visualHeight,
           child: Center(
             child: loading
                 ? SizedBox.square(
@@ -300,6 +308,7 @@ class SoftOsActionDockButton extends StatelessWidget {
                     child:
                         child ?? Icon(icon, size: _iconSize, color: foreground),
                   ),
+          ),
           ),
         ),
       ),
@@ -473,6 +482,61 @@ class SoftOsActionDockTextButton extends StatelessWidget {
       child: DefaultTextStyle.merge(
         style: TextStyle(color: foreground),
         child: result,
+      ),
+    );
+  }
+}
+
+/// Compact status/action capsule used inside Soft OS cards and lists.
+class SoftOsStatusPill extends StatelessWidget {
+  const SoftOsStatusPill({
+    super.key,
+    required this.child,
+    this.onPressed,
+    this.accentColor,
+    this.width,
+    this.loading = false,
+  });
+
+  final Widget child;
+  final VoidCallback? onPressed;
+  final Color? accentColor;
+  final double? width;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final accent = accentColor ?? surge.textSecondary;
+    final active = accentColor != null;
+    final radius = BorderRadius.circular(15);
+    return SurgePressable(
+      onTap: loading ? null : onPressed,
+      enabled: onPressed != null && !loading,
+      compact: true,
+      borderRadius: radius,
+      overlayOpacity: 0.045,
+      child: AnimatedContainer(
+        duration: SurgeMotion.state,
+        curve: SurgeMotion.stateCurve,
+        width: width,
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: active
+              ? accent.withValues(alpha: 0.10)
+              : _softOsActionSurface(context),
+          borderRadius: radius,
+          border: Border.all(
+            color: active
+                ? accent.withValues(alpha: 0.22)
+                : _softOsActionBorder(context),
+            width: surge.spacing.hairline,
+          ),
+          boxShadow: active ? const [] : _softOsActionShadows(context),
+        ),
+        alignment: Alignment.center,
+        child: child,
       ),
     );
   }

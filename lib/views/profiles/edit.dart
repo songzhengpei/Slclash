@@ -294,12 +294,9 @@ class _EditProfileViewState extends State<EditProfileView> {
                   value: _autoUpdate,
                   onChanged: _setAutoUpdate,
                 ),
-                AnimatedSize(
-                  duration: SurgeMotion.reveal,
-                  curve: SurgeMotion.stateCurve,
-                  alignment: Alignment.topCenter,
-                  child: _autoUpdate
-                      ? Padding(
+                SurgeAnimatedReveal(
+                  visible: _autoUpdate,
+                  child: Padding(
                           padding: const EdgeInsets.only(top: 14),
                           child: SurgeField(
                             label: appLocalizations.autoUpdateInterval,
@@ -326,8 +323,7 @@ class _EditProfileViewState extends State<EditProfileView> {
                               },
                             ),
                           ),
-                        )
-                      : const SizedBox(width: double.infinity),
+                        ),
                 ),
               ],
               const SizedBox(height: 18),

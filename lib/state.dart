@@ -7,6 +7,7 @@ import 'package:fl_clash/common/theme.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/input.dart';
 import 'package:fl_clash/widgets/list.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -277,16 +278,23 @@ class GlobalState {
     bool? dismissible,
     bool filter = true,
   }) async {
-    return showModal<T>(
+    FocusManager.instance.primaryFocus?.unfocus();
+    final result = await showModal<T>(
       useRootNavigator: false,
       context: context ?? globalState.navigatorKey.currentContext!,
       configuration: FadeScaleTransitionConfiguration(
-        barrierColor: Colors.black38,
+        barrierColor: Colors.black.withValues(
+          alpha: SurgeMotion.modalBarrierOpacity,
+        ),
         barrierDismissible: dismissible ?? true,
+        transitionDuration: SurgeMotion.container,
+        reverseTransitionDuration: SurgeMotion.state,
       ),
       builder: (_) => child,
       filter: filter ? commonFilter : null,
     );
+    FocusManager.instance.primaryFocus?.unfocus();
+    return result;
   }
 
   void showNotifier(String text, {MessageActionState? actionState}) {

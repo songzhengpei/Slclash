@@ -1,4 +1,3 @@
-import 'package:animations/animations.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
@@ -31,11 +30,6 @@ class BaseNavigator {
   //   );
   // }
 }
-
-const commonSharedXPageTransitions = SharedAxisPageTransitionsBuilder(
-  transitionType: SharedAxisTransitionType.horizontal,
-  fillColor: Colors.transparent,
-);
 
 class CommonDesktopRoute<T> extends PageRoute<T> {
   final Widget Function(BuildContext context) builder;
