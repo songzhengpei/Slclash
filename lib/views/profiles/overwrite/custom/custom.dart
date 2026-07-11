@@ -67,36 +67,36 @@ class CustomContent extends ConsumerWidget {
           child: OverwriteSectionHeader(label: appLocalizations.custom),
         ),
         SliverToBoxAdapter(
-          child: OverwriteListItem(
-            title: Text(appLocalizations.proxyGroup),
-            leading: const Icon(SurgeIcons.proxyGroup),
-            onPressed: () {
-              _handleToProxyGroupsView(context, profileId);
-            },
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                OverwriteCountPill(value: proxyGroupNum),
-                const SizedBox(width: 8),
-                const Icon(SurgeIcons.forward),
-              ],
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: OverwriteListItem(
-            title: Text(appLocalizations.rule),
-            leading: const Icon(SurgeIcons.rule),
-            onPressed: () {
-              _handleToRulesView(context, profileId);
-            },
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                OverwriteCountPill(value: ruleNum),
-                const SizedBox(width: 8),
-                const Icon(SurgeIcons.forward),
-              ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SurgeCard(
+              shadow: false,
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _CustomNavigationRow(
+                    label: appLocalizations.proxyGroup,
+                    icon: SurgeIcons.proxyGroup,
+                    count: proxyGroupNum,
+                    onTap: () {
+                      _handleToProxyGroupsView(context, profileId);
+                    },
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 52,
+                    color: SurgeTheme.of(context).separator,
+                  ),
+                  _CustomNavigationRow(
+                    label: appLocalizations.rule,
+                    icon: SurgeIcons.rule,
+                    count: ruleNum,
+                    onTap: () {
+                      _handleToRulesView(context, profileId);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -122,7 +122,7 @@ class CustomContent extends ConsumerWidget {
                         child: Text(appLocalizations.configDataDetected),
                       ),
                       const SizedBox(width: 12),
-                      SurgeAddButton(
+                      SoftOsActionTextButton(
                         onPressed: () {
                           _handleUseDefault(ref, profileId);
                         },
@@ -135,6 +135,60 @@ class CustomContent extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _CustomNavigationRow extends StatelessWidget {
+  const _CustomNavigationRow({
+    required this.label,
+    required this.icon,
+    required this.count,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return SurgePressable(
+      onTap: onTap,
+      scaleFeedback: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: surge.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: surge.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            SoftOsStatusPill(
+              width: 44,
+              child: Text(
+                '$count',
+                style: context.textTheme.labelSmall?.copyWith(
+                  color: surge.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(SurgeIcons.forward, size: 18, color: surge.textSecondary),
+          ],
+        ),
+      ),
     );
   }
 }

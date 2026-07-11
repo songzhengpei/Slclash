@@ -1,6 +1,7 @@
 export '../../common/icons.dart';
 export 'soft_os_control_dock.dart';
 export 'soft_os_metrics.dart';
+export 'soft_os_select_pill.dart';
 export 'surge_bottom_nav.dart';
 export 'surge_action_card.dart';
 export 'surge_animated_reveal.dart';

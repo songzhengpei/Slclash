@@ -5,12 +5,12 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/profiles/preview.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'custom/custom.dart';
-import 'custom/widgets.dart';
 import 'script.dart';
 import 'standard.dart';
 
@@ -45,7 +45,7 @@ class _OverwriteViewState extends ConsumerState<OverwriteView> {
       child: CommonScaffold(
         title: appLocalizations.override,
         actions: [
-          SurgeAddButton(
+          SoftOsActionTextButton(
             onPressed: _handlePreview,
             label: appLocalizations.preview,
           ),
@@ -102,47 +102,65 @@ class _Title extends ConsumerWidget {
     final profileId = ProfileIdProvider.of(context)!.profileId;
     final overwriteType = ref.watch(overwriteTypeProvider(profileId));
     return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          OverwriteSectionHeader(label: appLocalizations.overrideMode),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                for (final type in OverwriteType.values) ...[
-                  Expanded(
-                    child: OverwriteListItem(
-                      margin: EdgeInsets.zero,
-                      selected: overwriteType == type,
-                      leading: Icon(_getIcon(type)),
-                      title: Text(_getTitle(context, type)),
-                      onPressed: () {
-                        _handleChangeType(ref, profileId, type);
-                      },
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 11,
-                      ),
-                    ),
-                  ),
-                  if (type != OverwriteType.values.last)
-                    const SizedBox(width: 8),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              _getDesc(context, overwriteType),
-              style: context.textTheme.bodySmall?.copyWith(
-                color: context.colorScheme.onSurfaceVariant.opacity80,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: SurgeCard(
+          shadow: false,
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                appLocalizations.overrideMode,
+                style: context.textTheme.labelMedium?.copyWith(
+                  color: SurgeTheme.of(context).textSecondary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
               ),
-            ),
+              const SizedBox(height: 10),
+              SurgeSegmentedControl<OverwriteType>(
+                value: overwriteType,
+                height: 42,
+                items: [
+                  for (final type in OverwriteType.values)
+                    SurgeSegmentedItem(
+                      value: type,
+                      label: _getTitle(context, type),
+                      icon: _getIcon(type),
+                    ),
+                ],
+                onChanged: (type) {
+                  _handleChangeType(ref, profileId, type);
+                },
+              ),
+              const SizedBox(height: 12),
+              AnimatedSwitcher(
+                duration: SurgeMotion.reveal,
+                switchInCurve: SurgeMotion.enterCurve,
+                switchOutCurve: SurgeMotion.exitCurve,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween(
+                      begin: const Offset(0, -0.08),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: Text(
+                  _getDesc(context, overwriteType),
+                  key: ValueKey(overwriteType),
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: SurgeTheme.of(context).textSecondary,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

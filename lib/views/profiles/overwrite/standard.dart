@@ -5,6 +5,7 @@ import 'package:fl_clash/models/clash_config.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/profiles/overwrite/custom/widgets.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -103,19 +104,18 @@ class _StandardContentState extends ConsumerState<StandardContent> {
               label: appLocalizations.addedRules,
               actions: [
                 if (selectedRules.isNotEmpty) ...[
-                  OverwriteIconButton(
+                  SoftOsActionButton(
                     icon: SurgeIcons.delete,
-                    destructive: true,
                     onPressed: _handleDelete,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                 ],
                 selectedRules.isNotEmpty
-                    ? SurgeAddButton(
+                    ? SoftOsActionTextButton(
                         onPressed: _handleSelectAll,
                         label: appLocalizations.selectAll,
                       )
-                    : SurgeAddButton(
+                    : SoftOsActionTextButton(
                         onPressed: () {
                           _handleAddOrUpdate();
                         },
@@ -125,6 +125,37 @@ class _StandardContentState extends ConsumerState<StandardContent> {
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          if (addedRules.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SurgeCard(
+                  shadow: false,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 18,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        SurgeIcons.rule,
+                        color: SurgeTheme.of(context).textSecondary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          appLocalizations.nullTip(appLocalizations.rule),
+                          style: context.textTheme.bodyMedium?.copyWith(
+                            color: SurgeTheme.of(context).textSecondary,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Consumer(
             builder: (_, ref, _) {
               return SliverReorderableList(
@@ -169,9 +200,55 @@ class _StandardContentState extends ConsumerState<StandardContent> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           SliverToBoxAdapter(
-            child: MoreActionButton(
-              label: appLocalizations.controlGlobalAddedRules,
-              onPressed: _handleToEditGlobalAddedRules,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SurgeActionCard(
+                onTap: _handleToEditGlobalAddedRules,
+                variant: SurgeActionCardVariant.plain,
+                borderRadius: SurgeTheme.of(context).radii.list,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      SurgeIcons.rule,
+                      color: SurgeTheme.of(context).primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            appLocalizations.controlGlobalAddedRules,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            appLocalizations.addedRules,
+                            style: context.textTheme.labelSmall?.copyWith(
+                              color: SurgeTheme.of(context).textSecondary,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      SurgeIcons.forward,
+                      color: SurgeTheme.of(context).textSecondary,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
