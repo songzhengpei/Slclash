@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'surge/surge_motion.dart';
+
 enum ExternalDismissibleEffect { normal, resize }
 
 class ExternalDismissible extends StatefulWidget {
@@ -36,7 +38,7 @@ class _ExternalDismissibleState extends State<ExternalDismissible>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: SurgeMotion.container,
     );
     _initAnimations();
     if (widget.dismiss) {

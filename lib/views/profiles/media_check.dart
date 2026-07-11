@@ -345,13 +345,6 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
     });
   }
 
-  _MediaCheckTarget? _targetOfKey(String key) {
-    for (final target in _targets) {
-      if (target.key == key) return target;
-    }
-    return null;
-  }
-
   bool _hasModeCache(_MediaCheckTarget target, _MediaCheckFilter mode) {
     final entry = _cache.entries[target.key];
     if (entry == null) return false;
@@ -542,10 +535,18 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
                     child: CircularProgressIndicator(),
                   ),
                 )
-              else if (rows.isEmpty && _running.isEmpty && _queued.isEmpty)
-                _EmptyMediaCheckState(targetCount: _targets.length)
-              else if (rows.isEmpty && _running.isEmpty && _queued.isEmpty)
-                _EmptyFilteredState(filter: _filter)
+              else if (rows.isEmpty && _allRows.isEmpty)
+                _MediaCheckEmptyResultCard(
+                  title: _filter.subtitle,
+                  message: _targets.isEmpty ? '没有可检测节点' : '检测结果会展示在这里',
+                )
+              else if (rows.isEmpty)
+                _MediaCheckEmptyResultCard(
+                  title: _filter.subtitle,
+                  message: _filter == _MediaCheckFilter.green
+                      ? '历史样本不足'
+                      : '暂无${_filter.label}结果',
+                )
               else if (rows.isNotEmpty)
                 _MediaCheckResultList(
                   rows: rows,
@@ -554,15 +555,6 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
                   lastCachedAt: _lastCachedAt,
                   onClear: _checking ? null : _clearCurrentModeCache,
                 ),
-              for (final key in _running)
-                if (_targetOfKey(key) case final target?)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _MediaCheckPendingCard(
-                      target: target,
-                      filter: _filter,
-                    ),
-                  ),
             ],
           ),
         ),
@@ -661,6 +653,7 @@ class _MediaCheckControlCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
+                flex: 11,
                 child: _ProfileSelector(
                   profiles: profiles,
                   profile: profile,
@@ -669,10 +662,13 @@ class _MediaCheckControlCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _ModeDropdown(
-                value: filter,
-                enabled: onFilterChanged != null,
-                onChanged: onFilterChanged,
+              Expanded(
+                flex: 9,
+                child: _ModeDropdown(
+                  value: filter,
+                  enabled: onFilterChanged != null,
+                  onChanged: onFilterChanged,
+                ),
               ),
             ],
           ),
@@ -852,45 +848,14 @@ class _ProfileSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: surge.fill,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: surge.separator, width: 0.5),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Profile>(
-          value: profile,
-          isExpanded: true,
-          borderRadius: BorderRadius.circular(surge.radii.card),
-          icon: Icon(SurgeIcons.expand, color: surge.textSecondary, size: 20),
-          items: [
-            for (final item in profiles)
-              DropdownMenuItem(
-                value: item,
-                child: Text(
-                  item.realLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.labelMedium?.copyWith(
-                    color: surge.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-          ],
-          onChanged: !enabled || onChanged == null
-              ? null
-              : (value) {
-                  if (value != null) onChanged!(value);
-                },
-        ),
-      ),
+    return SoftOsSelectPill<Profile>(
+      value: profile,
+      semanticLabel: '选择订阅',
+      items: [
+        for (final item in profiles)
+          SoftOsSelectItem(value: item, label: item.realLabel),
+      ],
+      onChanged: enabled ? onChanged : null,
     );
   }
 }
@@ -908,44 +873,19 @@ class _ModeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: surge.fill,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: surge.separator, width: 0.5),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<_MediaCheckFilter>(
-          value: value,
-          borderRadius: BorderRadius.circular(surge.radii.card),
-          icon: Icon(SurgeIcons.expand, color: surge.textSecondary, size: 20),
-          items: [
-            for (final item in _MediaCheckFilter.values)
-              DropdownMenuItem(
-                value: item,
-                child: Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.labelMedium?.copyWith(
-                    color: surge.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-          ],
-          onChanged: !enabled || onChanged == null
-              ? null
-              : (value) {
-                  if (value != null) onChanged!(value);
-                },
-        ),
-      ),
+    return SoftOsSelectPill<_MediaCheckFilter>(
+      value: value,
+      semanticLabel: '选择测试项',
+      items: [
+        for (final item in _MediaCheckFilter.values)
+          SoftOsSelectItem(
+            value: item,
+            label: item.label,
+            icon: item.icon,
+            subtitle: item.subtitle,
+          ),
+      ],
+      onChanged: enabled ? onChanged : null,
     );
   }
 }
@@ -1189,76 +1129,80 @@ class _MediaCheckResultList extends StatelessWidget {
     final cacheText = lastCachedAt == null
         ? '无缓存'
         : '上次 ${_formatCacheTime(lastCachedAt!)}';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                filter.subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.textTheme.labelMedium?.copyWith(
-                  color: surge.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+    return SurgeCard(
+      shadow: false,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    filter.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.labelMedium?.copyWith(
+                      color: surge.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                SoftOsIconButton(
+                  icon: SurgeIcons.delete,
+                  onPressed: cached ? onClear : null,
+                  visualSize: 30,
+                  tapSize: 40,
+                  iconSize: 15,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  cacheText,
+                  style: context.textTheme.labelSmall?.copyWith(
+                    color: surge.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: surge.separator),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: _resultPanelMaxHeight),
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                scrollbarTheme: const ScrollbarThemeData(
+                  mainAxisMargin: 8,
+                  crossAxisMargin: -8,
                 ),
               ),
-            ),
-            IconButton(
-              tooltip: '清除缓存',
-              onPressed: cached ? onClear : null,
-              icon: const Icon(SurgeIcons.delete, size: SurgeIconSize.compact),
-              style: IconButton.styleFrom(
-                fixedSize: const Size(32, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: surge.textSecondary,
-                disabledForegroundColor: surge.textSecondary.withValues(
-                  alpha: 0.35,
+              child: Scrollbar(
+                thumbVisibility: false,
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: rows.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    indent: 14,
+                    endIndent: 14,
+                    color: surge.separator.withValues(alpha: 0.7),
+                  ),
+                  itemBuilder: (_, index) =>
+                      _MediaCheckResultCard(row: rows[index], filter: filter),
                 ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              cacheText,
-              style: context.textTheme.labelSmall?.copyWith(
-                color: surge.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: _resultPanelMaxHeight),
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              scrollbarTheme: const ScrollbarThemeData(
-                mainAxisMargin: 8,
-                crossAxisMargin: -8,
-              ),
-            ),
-            child: Scrollbar(
-              thumbVisibility: false,
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.paddingOf(context).bottom + 24,
-                ),
-                itemCount: rows.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (_, index) =>
-                    _MediaCheckResultCard(row: rows[index], filter: filter),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1280,11 +1224,7 @@ class _MediaCheckResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final result = row.result;
-    return SurgeCard(
-      shadow: false,
-      backgroundColor: surge.card,
-      borderRadius: 12,
-      border: Border.all(color: surge.separator.withValues(alpha: 0.85)),
+    return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1490,66 +1430,6 @@ class _HealthResultLine extends StatelessWidget {
   }
 }
 
-class _MediaCheckPendingCard extends StatelessWidget {
-  const _MediaCheckPendingCard({required this.target, required this.filter});
-
-  final _MediaCheckTarget target;
-  final _MediaCheckFilter filter;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    return SurgeCard(
-      shadow: false,
-      backgroundColor: surge.card,
-      borderRadius: 12,
-      border: Border.all(color: surge.separator.withValues(alpha: 0.85)),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: EmojiText(
-                  target.proxy.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    color: surge.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-              if (target.profile.realLabel.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 136),
-                  child: Text(
-                    target.profile.realLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: context.textTheme.labelSmall?.copyWith(
-                      color: surge.textSecondary,
-                      fontSize: 10,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 8),
-          _PendingResultLine(filter: filter),
-        ],
-      ),
-    );
-  }
-}
-
 class _PendingResultLine extends StatelessWidget {
   const _PendingResultLine({required this.filter});
 
@@ -1604,47 +1484,49 @@ class _PendingResultLine extends StatelessWidget {
   }
 }
 
-class _EmptyMediaCheckState extends StatelessWidget {
-  const _EmptyMediaCheckState({required this.targetCount});
+class _MediaCheckEmptyResultCard extends StatelessWidget {
+  const _MediaCheckEmptyResultCard({
+    required this.title,
+    required this.message,
+  });
 
-  final int targetCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 28),
-      child: Text(
-        targetCount == 0 ? '没有可检测节点' : '检测结果会展示在这里',
-        textAlign: TextAlign.center,
-        style: context.textTheme.bodySmall?.copyWith(
-          color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyFilteredState extends StatelessWidget {
-  const _EmptyFilteredState({required this.filter});
-
-  final _MediaCheckFilter filter;
+  final String title;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Text(
-        filter == _MediaCheckFilter.green ? '历史样本不足' : '暂无${filter.label}结果',
-        textAlign: TextAlign.center,
-        style: context.textTheme.bodySmall?.copyWith(
-          color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
-        ),
+    return SurgeCard(
+      shadow: false,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 13, 14, 11),
+            child: Text(
+              title,
+              style: context.textTheme.labelMedium?.copyWith(
+                color: surge.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+          Divider(height: 1, color: surge.separator),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 14),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: context.textTheme.bodySmall?.copyWith(
+                color: surge.textSecondary,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1659,31 +1541,15 @@ class _MediaCheckRunButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final color = checking ? surge.red : surge.primary;
-    return Tooltip(
-      message: checking ? '取消检测' : '开始检测',
-      child: FilledButton.icon(
-        onPressed: onTap,
-        icon: Icon(checking ? SurgeIcons.stop : SurgeIcons.play, size: 15),
-        label: Text(checking ? '取消' : '开始'),
-        style: FilledButton.styleFrom(
-          backgroundColor: color,
-          disabledBackgroundColor: color.withValues(alpha: 0.45),
-          foregroundColor: surge.onPrimary,
-          disabledForegroundColor: surge.onPrimary.withValues(alpha: 0.7),
-          minimumSize: const Size(56, 30),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(surge.radii.button),
-          ),
-          textStyle: context.textTheme.labelMedium?.copyWith(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0,
-          ),
-        ),
-      ),
+    return SurgeStatusButton(
+      isActive: checking,
+      activeLabel: '停止',
+      inactiveLabel: '开始',
+      activeColor: surge.red,
+      inactiveColor: surge.primary,
+      compact: true,
+      height: 30,
+      onPressed: onTap,
     );
   }
 }

@@ -39,72 +39,61 @@ class ScriptContent extends ConsumerWidget {
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 8)),
-        Consumer(
-          builder: (_, ref, _) {
-            return SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList.builder(
-                itemCount: scripts.length,
-                itemBuilder: (_, index) {
-                  final script = scripts[index];
-                  final selected = script.id == scriptId;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: _ScriptOptionRow(
-                      label: script.label,
-                      selected: selected,
-                      onPressed: () {
-                        _handleChange(ref, profileId, script.id);
-                      },
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, scripts.isEmpty ? 4 : 8, 16, 4),
-            child: Column(
-              children: [
-                if (scripts.isEmpty) ...[
-                  SurgeActionCard(
-                    variant: SurgeActionCardVariant.filled,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 16,
-                    ),
-                    borderRadius: surge.radii.list,
-                    child: Row(
-                      children: [
-                        Icon(
-                          SurgeIcons.codeOff,
-                          color: surge.textSecondary,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            appLocalizations.nullTip(appLocalizations.script),
-                            style: context.textTheme.bodyMedium?.copyWith(
-                              color: surge.textSecondary,
-                              letterSpacing: 0,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: SurgeCard(
+              shadow: false,
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  if (scripts.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            SurgeIcons.codeOff,
+                            color: surge.textSecondary,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              appLocalizations.nullTip(appLocalizations.script),
+                              style: context.textTheme.bodyMedium?.copyWith(
+                                color: surge.textSecondary,
+                                letterSpacing: 0,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    )
+                  else
+                    for (var index = 0; index < scripts.length; index++) ...[
+                      _ScriptOptionRow(
+                        label: scripts[index].label,
+                        selected: scripts[index].id == scriptId,
+                        onPressed: () {
+                          _handleChange(ref, profileId, scripts[index].id);
+                        },
+                      ),
+                      if (index != scripts.length - 1)
+                        Divider(height: 1, indent: 48, color: surge.separator),
+                    ],
+                  Divider(height: 1, color: surge.separator),
+                  _ConfigureScriptButton(
+                    label: appLocalizations.goToConfigureScript,
+                    onPressed: () {
+                      BaseNavigator.push(context, const ScriptsView());
+                    },
                   ),
-                  const SizedBox(height: 8),
                 ],
-                _ConfigureScriptButton(
-                  label: appLocalizations.goToConfigureScript,
-                  onPressed: () {
-                    BaseNavigator.push(context, const ScriptsView());
-                  },
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -127,29 +116,29 @@ class _ScriptOptionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return SurgeActionCard(
-      selected: selected,
-      variant: SurgeActionCardVariant.filled,
+    return SurgePressable(
       onTap: onPressed,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      borderRadius: surge.radii.list,
-      child: Row(
-        children: [
-          SurgeSelectIndicator(selected: selected),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: context.textTheme.bodyMedium?.copyWith(
-                color: selected ? surge.primary : surge.textPrimary,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                letterSpacing: 0,
+      scaleFeedback: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
+          children: [
+            SurgeSelectIndicator(selected: selected),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: selected ? surge.primary : surge.textPrimary,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  letterSpacing: 0,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -164,46 +153,47 @@ class _ConfigureScriptButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return SurgeActionCard(
+    return SurgePressable(
       onTap: onPressed,
-      variant: SurgeActionCardVariant.tonal,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      borderRadius: surge.radii.list,
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: surge.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              SurgeIcons.tune,
-              size: SurgeIconSize.compact,
-              color: surge.primary,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: context.textTheme.bodyMedium?.copyWith(
-                color: surge.textPrimary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
+      scaleFeedback: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: surge.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                SurgeIcons.tune,
+                size: SurgeIconSize.compact,
+                color: surge.primary,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Icon(
-            SurgeIcons.forward,
-            size: SurgeIconSize.inline,
-            color: surge.textSecondary,
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: surge.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              SurgeIcons.forward,
+              size: SurgeIconSize.inline,
+              color: surge.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }

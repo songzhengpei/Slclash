@@ -8,6 +8,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/profiles/overwrite/custom/proxy_providers.dart';
 import 'package:fl_clash/widgets/widgets.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -381,7 +382,7 @@ class _AddOrEditProxyGroupNestedSheetState
                 child: PagedSheetRouteTheme(
                   data: const PagedSheetRouteThemeData(
                     transitionsBuilder: fadeAndSlideTransition,
-                    transitionDuration: Duration(milliseconds: 400),
+                    transitionDuration: SurgeMotion.container,
                   ),
                   child: PagedSheet(
                     decoration: MaterialSheetDecoration(

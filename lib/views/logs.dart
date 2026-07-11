@@ -231,7 +231,9 @@ class LogItem extends StatelessWidget {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      GestureDetector(
+                      SurgePressable(
+                        compact: true,
+                        borderRadius: BorderRadius.circular(4),
                         onTap: () {
                           if (onClick == null) return;
                           onClick!(log.logLevel.name);

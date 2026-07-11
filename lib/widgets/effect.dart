@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:fl_clash/common/icons.dart';
 import 'package:fl_clash/widgets/inherited.dart';
+import 'package:fl_clash/widgets/surge/surge_motion.dart';
 import 'package:flutter/material.dart';
 
 class EffectGestureDetector extends StatefulWidget {
@@ -42,13 +43,13 @@ class _EffectGestureDetectorState extends State<EffectGestureDetector>
   Widget build(BuildContext context) {
     return AnimatedScale(
       scale: _scale,
-      duration: kThemeAnimationDuration,
-      curve: Curves.easeOut,
+      duration: SurgeMotion.press,
+      curve: SurgeMotion.stateCurve,
       child: GestureDetector(
         onLongPress: widget.onLongPress,
         onLongPressStart: (_) {
           setState(() {
-            _scale = 0.95;
+            _scale = SurgeMotion.pressedScale;
           });
         },
         onTap: widget.onTap,

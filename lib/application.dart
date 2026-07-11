@@ -32,10 +32,10 @@ class ApplicationState extends ConsumerState<Application> {
 
   final _pageTransitionsTheme = const PageTransitionsTheme(
     builders: <TargetPlatform, PageTransitionsBuilder>{
-      TargetPlatform.android: commonSharedXPageTransitions,
-      TargetPlatform.windows: commonSharedXPageTransitions,
-      TargetPlatform.linux: commonSharedXPageTransitions,
-      TargetPlatform.macOS: commonSharedXPageTransitions,
+      TargetPlatform.android: CommonPageTransitionsBuilder(),
+      TargetPlatform.windows: CommonPageTransitionsBuilder(),
+      TargetPlatform.linux: CommonPageTransitionsBuilder(),
+      TargetPlatform.macOS: CommonPageTransitionsBuilder(),
     },
   );
 

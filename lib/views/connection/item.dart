@@ -209,7 +209,9 @@ class _TrackerProcessIcon extends StatelessWidget {
         }
         return Padding(
           padding: const EdgeInsets.only(right: 10),
-          child: GestureDetector(
+          child: SurgePressable(
+            compact: true,
+            borderRadius: BorderRadius.circular(8),
             onTap: onTap,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),

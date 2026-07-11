@@ -63,7 +63,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
         });
         ref.read(itemsProvider(key).notifier).update((state) => <dynamic>{});
       },
-      duration: const Duration(milliseconds: 450),
+      duration: SurgeMotion.container,
     );
   }
 
@@ -338,7 +338,7 @@ class _AddProxyProvidersViewState extends ConsumerState<_AddProxyProvidersView>
         });
         ref.read(itemsProvider(key).notifier).update((state) => <dynamic>{});
       },
-      duration: const Duration(milliseconds: 350),
+      duration: SurgeMotion.reveal,
     );
   }
 
