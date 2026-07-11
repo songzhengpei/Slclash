@@ -132,10 +132,16 @@ class ProxyCard extends StatelessWidget {
                           ),
                         ],
                         const SizedBox(width: 12),
-                        _DelayBadge(
-                          proxyName: proxy.name,
-                          testUrl: testUrl,
-                          onTap: _handleTestCurrentDelay,
+                        Consumer(
+                          builder: (context, ref, child) => SurgeDelayPill(
+                            delay: ref.watch(
+                              delayProvider(
+                                proxyName: proxy.name,
+                                testUrl: testUrl,
+                              ),
+                            ),
+                            onTap: _handleTestCurrentDelay,
+                          ),
                         ),
                       ],
                     ),
@@ -173,120 +179,6 @@ class ProxyCard extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _DelayBadge extends ConsumerWidget {
-  const _DelayBadge({
-    required this.proxyName,
-    required this.testUrl,
-    required this.onTap,
-  });
-
-  final String proxyName;
-  final String? testUrl;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final surge = SurgeTheme.of(context);
-    final delay = ref.watch(
-      delayProvider(proxyName: proxyName, testUrl: testUrl),
-    );
-
-    final bool isTesting = delay == 0;
-    final bool isUntested = delay == null;
-    final bool isTimeout = delay != null && delay < 0;
-    final bool isSuccess = delay != null && delay > 0;
-
-    final Color bg;
-    final Color border;
-    final Color fg;
-
-    if (isUntested) {
-      bg = surge.textSecondary.withValues(alpha: 0.052);
-      border = surge.separator.withValues(alpha: 0.42);
-      fg = surge.textPrimary.withValues(alpha: 0.72);
-    } else if (isTesting) {
-      bg = surge.textSecondary.withValues(alpha: 0.052);
-      border = surge.separator.withValues(alpha: 0.42);
-      fg = surge.textSecondary.withValues(alpha: 0.85);
-    } else if (isSuccess) {
-      final delayColor = utils.getDelayColor(delay) ?? surge.green;
-      bg = delayColor.withValues(alpha: 0.085);
-      border = delayColor.withValues(alpha: 0.14);
-      fg = delayColor.withValues(alpha: 0.92);
-    } else if (isTimeout) {
-      bg = surge.red.withValues(alpha: 0.085);
-      border = surge.red.withValues(alpha: 0.14);
-      fg = surge.red.withValues(alpha: 0.92);
-    } else {
-      bg = surge.fill;
-      border = surge.separator;
-      fg = surge.textSecondary;
-    }
-
-    final label = isUntested
-        ? 'Test'
-        : isTesting
-        ? ''
-        : isSuccess
-        ? '$delay ms'
-        : 'Timeout';
-
-    return SurgePressable(
-      compact: true,
-      borderRadius: BorderRadius.circular(15),
-      onTap: onTap,
-      child: SizedBox(
-        width: 64,
-        height: 30,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: border, width: 0.5),
-          ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 160),
-            layoutBuilder: (currentChild, previousChildren) {
-              return Stack(
-                alignment: Alignment.center,
-                children: [...previousChildren, ?currentChild],
-              );
-            },
-            child: Center(
-              key: ValueKey(label),
-              child: isTesting
-                  ? SizedBox.square(
-                      dimension: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.6,
-                        color: fg,
-                      ),
-                    )
-                  : Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      strutStyle: const StrutStyle(
-                        forceStrutHeight: true,
-                        height: 1,
-                      ),
-                      style: context.textTheme.labelSmall?.copyWith(
-                        color: fg,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                        letterSpacing: 0,
-                      ),
-                    ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

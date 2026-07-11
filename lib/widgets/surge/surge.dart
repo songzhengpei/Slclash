@@ -1,10 +1,12 @@
 export '../../common/icons.dart';
 export 'soft_os_control_dock.dart';
+export 'soft_os_metrics.dart';
 export 'surge_bottom_nav.dart';
 export 'surge_action_card.dart';
 export 'surge_animated_reveal.dart';
 export 'surge_card.dart';
 export 'surge_data_list.dart';
+export 'surge_delay_pill.dart';
 export 'surge_feature_card.dart';
 export 'surge_list_tile.dart';
 export 'surge_motion.dart';

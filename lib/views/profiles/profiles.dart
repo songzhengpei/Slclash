@@ -588,37 +588,37 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
             SurgeAnimatedReveal(
               visible: _autoUpdate,
               child: Padding(
-                      padding: const EdgeInsets.only(top: 14),
-                      child: SurgeField(
-                        label: appLocalizations.autoUpdateInterval,
-                        child: TextFormField(
-                          textInputAction: TextInputAction.done,
-                          keyboardType: TextInputType.number,
-                          controller: _autoUpdateDurationController,
-                          decoration: surgeInputDecoration(
-                            context,
-                            hintText: appLocalizations.autoUpdateInterval,
-                          ),
-                          onFieldSubmitted: (_) {
-                            _handleSubmit();
-                          },
-                          validator: (value) {
-                            if (!_autoUpdate) return null;
-                            if (value == null || value.isEmpty) {
-                              return appLocalizations
-                                  .profileAutoUpdateIntervalNullValidationDesc;
-                            }
-                            try {
-                              int.parse(value);
-                            } catch (_) {
-                              return appLocalizations
-                                  .profileAutoUpdateIntervalInvalidValidationDesc;
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
+                padding: const EdgeInsets.only(top: 14),
+                child: SurgeField(
+                  label: appLocalizations.autoUpdateInterval,
+                  child: TextFormField(
+                    textInputAction: TextInputAction.done,
+                    keyboardType: TextInputType.number,
+                    controller: _autoUpdateDurationController,
+                    decoration: surgeInputDecoration(
+                      context,
+                      hintText: appLocalizations.autoUpdateInterval,
                     ),
+                    onFieldSubmitted: (_) {
+                      _handleSubmit();
+                    },
+                    validator: (value) {
+                      if (!_autoUpdate) return null;
+                      if (value == null || value.isEmpty) {
+                        return appLocalizations
+                            .profileAutoUpdateIntervalNullValidationDesc;
+                      }
+                      try {
+                        int.parse(value);
+                      } catch (_) {
+                        return appLocalizations
+                            .profileAutoUpdateIntervalInvalidValidationDesc;
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -959,9 +959,9 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
               SurgeAnimatedReveal(
                 visible: widget.expanded && !isLoading,
                 child: Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: _CurrentProfileProxyPreview(proxies: proxies),
-                      ),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _CurrentProfileProxyPreview(proxies: proxies),
+                ),
               ),
             ],
           ),
@@ -1385,68 +1385,10 @@ class _ProfileDelayBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final surge = SurgeTheme.of(context);
     final delay = ref.watch(
       delayProvider(proxyName: proxy.name, testUrl: null),
     );
-    final color = delay == null
-        ? surge.textSecondary
-        : delay == 0
-        ? surge.textSecondary
-        : delay < 0
-        ? surge.red
-        : utils.getDelayColor(delay) ?? surge.textSecondary;
-    final label = delay == null
-        ? 'Test'
-        : delay == 0
-        ? ''
-        : delay > 0
-        ? '$delay ms'
-        : 'Timeout';
-
-    return SoftOsStatusPill(
-      width: 68,
-      loading: delay == 0,
-      accentColor: delay == null || delay == 0 ? null : color,
-      onPressed: () {
-        _handleTest(ref);
-      },
-      child: AnimatedSwitcher(
-        duration: SurgeMotion.state,
-        layoutBuilder: (currentChild, previousChildren) => Stack(
-          alignment: Alignment.center,
-          children: [...previousChildren, ?currentChild],
-        ),
-        child: Center(
-          key: ValueKey(label),
-          child: delay == 0
-              ? SizedBox.square(
-                  dimension: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: color,
-                  ),
-                )
-              : Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  strutStyle: const StrutStyle(
-                    forceStrutHeight: true,
-                    height: 1,
-                  ),
-                  style: context.textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                    letterSpacing: 0,
-                  ),
-                ),
-        ),
-      ),
-    );
+    return SurgeDelayPill(delay: delay, onTap: () => _handleTest(ref));
   }
 }
 
@@ -2308,32 +2250,40 @@ class _ProfilePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final metrics = SoftOsMetrics.of(context);
     const backgroundAlpha = 0.055;
     const borderAlpha = 0.38;
     final textColor = surge.textPrimary.withValues(alpha: 0.68);
+    final height = metrics.value(26);
     return Container(
-      constraints: const BoxConstraints(maxWidth: 68),
-      height: 26,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
+      constraints: BoxConstraints(
+        minWidth: metrics.value(46),
+        maxWidth: metrics.value(68),
+      ),
+      height: height,
+      padding: EdgeInsets.symmetric(horizontal: metrics.value(9)),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: backgroundAlpha),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(height / 2),
         border: Border.all(
           color: surge.separator.withValues(alpha: borderAlpha),
           width: surge.spacing.hairline,
         ),
       ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: context.textTheme.labelSmall?.copyWith(
-          color: textColor,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          height: 1,
-          letterSpacing: 0,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          maxLines: 1,
+          textScaler: TextScaler.noScaling,
+          style: context.textTheme.labelSmall?.copyWith(
+            color: textColor,
+            fontSize: metrics.value(11),
+            fontWeight: FontWeight.w600,
+            height: 1.1,
+            letterSpacing: 0,
+          ),
         ),
       ),
     );
