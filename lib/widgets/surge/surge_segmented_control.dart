@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'surge_motion.dart';
+import 'surge_pressable.dart';
 import 'surge_theme_extension.dart';
 
 @immutable
@@ -47,6 +48,7 @@ class SurgeSegmentedControl<T> extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final item in items)
             Expanded(
@@ -82,48 +84,46 @@ class _SurgeSegment<T> extends StatelessWidget {
       duration: SurgeMotion.reveal,
       curve: SurgeMotion.stateCurve,
       decoration: BoxDecoration(
-        color: selected ? surge.elevatedCard : Colors.transparent,
+        color: selected
+            ? surge.card.withValues(alpha: 0.92)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(surge.radii.button),
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: surge.shadow.withValues(alpha: 0.7),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
+        border: Border.all(
+          color: selected
+              ? surge.separator.withValues(alpha: 0.72)
+              : Colors.transparent,
+          width: surge.spacing.hairline,
+        ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => onChanged(item.value),
-          borderRadius: BorderRadius.circular(surge.radii.button),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (item.icon != null) ...[
-                  Icon(item.icon, color: foreground, size: 15),
-                  const SizedBox(width: 5),
-                ],
-                Flexible(
-                  child: Text(
-                    item.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: foreground,
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                      letterSpacing: 0,
-                    ),
+      child: SurgePressable(
+        onTap: () => onChanged(item.value),
+        scaleFeedback: false,
+        overlayFeedback: false,
+        borderRadius: BorderRadius.circular(surge.radii.button),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (item.icon != null) ...[
+                Icon(item.icon, color: foreground, size: 15),
+                const SizedBox(width: 5),
+              ],
+              Flexible(
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: foreground,
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    letterSpacing: 0,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

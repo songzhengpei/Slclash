@@ -653,6 +653,7 @@ class _MediaCheckControlCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
+                flex: 11,
                 child: _ProfileSelector(
                   profiles: profiles,
                   profile: profile,
@@ -661,10 +662,13 @@ class _MediaCheckControlCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _ModeDropdown(
-                value: filter,
-                enabled: onFilterChanged != null,
-                onChanged: onFilterChanged,
+              Expanded(
+                flex: 9,
+                child: _ModeDropdown(
+                  value: filter,
+                  enabled: onFilterChanged != null,
+                  onChanged: onFilterChanged,
+                ),
               ),
             ],
           ),
@@ -869,22 +873,19 @@ class _ModeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 118,
-      child: SoftOsSelectPill<_MediaCheckFilter>(
-        value: value,
-        semanticLabel: '选择测试项',
-        items: [
-          for (final item in _MediaCheckFilter.values)
-            SoftOsSelectItem(
-              value: item,
-              label: item.label,
-              icon: item.icon,
-              subtitle: item.subtitle,
-            ),
-        ],
-        onChanged: enabled ? onChanged : null,
-      ),
+    return SoftOsSelectPill<_MediaCheckFilter>(
+      value: value,
+      semanticLabel: '选择测试项',
+      items: [
+        for (final item in _MediaCheckFilter.values)
+          SoftOsSelectItem(
+            value: item,
+            label: item.label,
+            icon: item.icon,
+            subtitle: item.subtitle,
+          ),
+      ],
+      onChanged: enabled ? onChanged : null,
     );
   }
 }
@@ -1544,11 +1545,10 @@ class _MediaCheckRunButton extends StatelessWidget {
       isActive: checking,
       activeLabel: '停止',
       inactiveLabel: '开始',
-      activeIcon: SurgeIcons.stop,
-      inactiveIcon: SurgeIcons.play,
       activeColor: surge.red,
       inactiveColor: surge.primary,
       compact: true,
+      height: 30,
       onPressed: onTap,
     );
   }

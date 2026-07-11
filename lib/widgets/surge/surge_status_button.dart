@@ -17,6 +17,7 @@ class SurgeStatusButton extends StatelessWidget {
     this.inactiveIcon,
     this.activeColor,
     this.inactiveColor,
+    this.height,
   });
 
   final bool isActive;
@@ -30,6 +31,7 @@ class SurgeStatusButton extends StatelessWidget {
   final IconData? inactiveIcon;
   final Color? activeColor;
   final Color? inactiveColor;
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +42,7 @@ class SurgeStatusButton extends StatelessWidget {
         : inactiveColor ?? surge.primary;
     final text = label ?? (isActive ? activeLabel : inactiveLabel);
     final icon = isActive ? activeIcon : inactiveIcon;
-    final height = metrics.value(compact ? 34 : 40);
+    final effectiveHeight = metrics.value(height ?? (compact ? 34 : 40));
 
     return FilledButton(
       onPressed: loading ? null : onPressed,
@@ -49,7 +51,8 @@ class SurgeStatusButton extends StatelessWidget {
         disabledBackgroundColor: background.withValues(alpha: 0.55),
         foregroundColor: surge.onPrimary,
         disabledForegroundColor: surge.onPrimary.withValues(alpha: 0.8),
-        minimumSize: Size(compact ? 0 : metrics.value(96), height),
+        minimumSize: Size(compact ? 0 : metrics.value(96), effectiveHeight),
+        maximumSize: Size(double.infinity, effectiveHeight),
         padding: EdgeInsets.symmetric(
           horizontal: metrics.value(compact ? 12 : 16),
           vertical: 0,

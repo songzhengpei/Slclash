@@ -43,25 +43,36 @@ class SoftOsSelectPill<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = items.firstWhere((item) => item.value == value);
-    return CommonPopupBox(
-      popup: _SoftOsSelectPopup<T>(
-        value: value,
-        items: items,
-        onChanged: onChanged,
-        maxHeight: maxPopupHeight,
-      ),
-      targetBuilder: (open) => Semantics(
-        button: true,
-        enabled: onChanged != null,
-        label: semanticLabel,
-        value: selected.label,
-        child: _SoftOsSelectTarget(
-          item: selected,
-          enabled: onChanged != null,
-          width: width,
-          onTap: onChanged == null ? null : open,
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final resolvedWidth =
+            width ??
+            (constraints.hasBoundedWidth ? constraints.maxWidth : null);
+        return CommonPopupBox(
+          belowTarget: true,
+          popup: _SoftOsSelectPopup<T>(
+            value: value,
+            items: items,
+            onChanged: onChanged,
+            maxHeight: maxPopupHeight,
+            width: resolvedWidth,
+          ),
+          targetBuilder: (open) => Semantics(
+            button: true,
+            enabled: onChanged != null,
+            label: semanticLabel,
+            value: selected.label,
+            child: _SoftOsSelectTarget(
+              item: selected,
+              enabled: onChanged != null,
+              width: resolvedWidth,
+              onTap: onChanged == null
+                  ? null
+                  : () => open(offset: const Offset(0, 3)),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -141,12 +152,14 @@ class _SoftOsSelectPopup<T> extends StatelessWidget {
     required this.items,
     required this.onChanged,
     required this.maxHeight,
+    required this.width,
   });
 
   final T value;
   final List<SoftOsSelectItem<T>> items;
   final ValueChanged<T>? onChanged;
   final double maxHeight;
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
@@ -154,8 +167,8 @@ class _SoftOsSelectPopup<T> extends StatelessWidget {
     final metrics = SoftOsMetrics.of(context);
     return ConstrainedBox(
       constraints: BoxConstraints(
-        minWidth: metrics.value(188),
-        maxWidth: metrics.value(280),
+        minWidth: width ?? metrics.value(188),
+        maxWidth: width ?? metrics.value(280),
         maxHeight: metrics.value(maxHeight),
       ),
       child: DecoratedBox(

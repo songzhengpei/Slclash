@@ -8,11 +8,13 @@ import 'surge/surge_motion.dart';
 class CommonPopupRoute<T> extends PopupRoute<T> {
   final WidgetBuilder builder;
   ValueNotifier<Offset> offsetNotifier;
+  final bool belowTarget;
 
   CommonPopupRoute({
     required this.barrierLabel,
     required this.builder,
     required this.offsetNotifier,
+    this.belowTarget = false,
   });
 
   @override
@@ -40,47 +42,47 @@ class CommonPopupRoute<T> extends PopupRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    const align = Alignment.topRight;
+    final align = belowTarget ? Alignment.topLeft : Alignment.topRight;
     final curveAnimation = CurvedAnimation(
       parent: animation,
       curve: SurgeMotion.enterCurve,
       reverseCurve: SurgeMotion.exitCurve,
     );
-    return SafeArea(
-      child: ValueListenableBuilder(
-        valueListenable: offsetNotifier,
-        builder: (_, value, child) {
-          return Align(
-            alignment: align,
-            child: CustomSingleChildLayout(
-              delegate: OverflowAwareLayoutDelegate(
-                offset: value.translate(48, -8),
+    final positioned = ValueListenableBuilder(
+      valueListenable: offsetNotifier,
+      builder: (_, value, child) {
+        return Align(
+          alignment: align,
+          child: CustomSingleChildLayout(
+            delegate: OverflowAwareLayoutDelegate(
+              offset: belowTarget ? value : value.translate(48, -8),
+              alignToLeft: belowTarget,
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (_, child) {
+          return FadeTransition(
+            opacity: curveAnimation,
+            child: ScaleTransition(
+              alignment: align,
+              scale: curveAnimation.drive(Tween(begin: 0.96, end: 1.0)),
+              child: SlideTransition(
+                position: curveAnimation.drive(
+                  Tween(begin: const Offset(0, -0.02), end: Offset.zero),
+                ),
+                child: child,
               ),
-              child: child,
             ),
           );
         },
-        child: AnimatedBuilder(
-          animation: animation,
-          builder: (_, child) {
-            return FadeTransition(
-              opacity: curveAnimation,
-              child: ScaleTransition(
-                alignment: align,
-                scale: curveAnimation.drive(Tween(begin: 0.96, end: 1.0)),
-                child: SlideTransition(
-                  position: curveAnimation.drive(
-                    Tween(begin: const Offset(0, -0.02), end: Offset.zero),
-                  ),
-                  child: child,
-                ),
-              ),
-            );
-          },
-          child: builder(context),
-        ),
+        child: builder(context),
       ),
     );
+    return belowTarget ? positioned : SafeArea(child: positioned);
   }
 
   @override
@@ -107,11 +109,13 @@ typedef PopupOpen = Function({Offset offset});
 class CommonPopupBox extends StatefulWidget {
   final Widget Function(PopupOpen open) targetBuilder;
   final Widget popup;
+  final bool belowTarget;
 
   const CommonPopupBox({
     super.key,
     required this.targetBuilder,
     required this.popup,
+    this.belowTarget = false,
   });
 
   @override
@@ -135,6 +139,7 @@ class _CommonPopupBoxState extends State<CommonPopupBox> {
               return widget.popup;
             },
             offsetNotifier: _targetOffsetValueNotifier,
+            belowTarget: widget.belowTarget,
           ),
         )
         .then((_) {
@@ -147,12 +152,22 @@ class _CommonPopupBoxState extends State<CommonPopupBox> {
     if (renderBox == null) {
       return;
     }
-    final viewPadding = MediaQuery.of(context).viewPadding;
-    _targetOffsetValueNotifier.value = renderBox
-        .localToGlobal(
-          Offset.zero.translate(viewPadding.right, viewPadding.top),
-        )
-        .translate(_offset.dx, _offset.dy);
+    final viewPadding = MediaQuery.viewPaddingOf(context);
+    if (widget.belowTarget) {
+      final bottomLeft = renderBox.localToGlobal(
+        Offset(0, renderBox.size.height),
+      );
+      _targetOffsetValueNotifier.value = Offset(
+        bottomLeft.dx + _offset.dx,
+        bottomLeft.dy + _offset.dy,
+      );
+    } else {
+      _targetOffsetValueNotifier.value = renderBox
+          .localToGlobal(
+            Offset.zero.translate(viewPadding.right, viewPadding.top),
+          )
+          .translate(_offset.dx, _offset.dy);
+    }
   }
 
   @override
@@ -172,8 +187,9 @@ class _CommonPopupBoxState extends State<CommonPopupBox> {
 
 class OverflowAwareLayoutDelegate extends SingleChildLayoutDelegate {
   final Offset offset;
+  final bool alignToLeft;
 
-  OverflowAwareLayoutDelegate({required this.offset});
+  OverflowAwareLayoutDelegate({required this.offset, this.alignToLeft = false});
 
   @override
   Size getSize(BoxConstraints constraints) {
@@ -183,10 +199,8 @@ class OverflowAwareLayoutDelegate extends SingleChildLayoutDelegate {
   @override
   Offset getPositionForChild(Size size, Size childSize) {
     const safeOffset = Offset(16, 16);
-    final double x = (offset.dx - childSize.width).clamp(
-      0,
-      size.width - safeOffset.dx - childSize.width,
-    );
+    final double x = (alignToLeft ? offset.dx : offset.dx - childSize.width)
+        .clamp(0, size.width - safeOffset.dx - childSize.width);
     final double y = (offset.dy).clamp(
       0,
       size.height - safeOffset.dy - childSize.height,
@@ -196,7 +210,8 @@ class OverflowAwareLayoutDelegate extends SingleChildLayoutDelegate {
 
   @override
   bool shouldRelayout(covariant OverflowAwareLayoutDelegate oldDelegate) {
-    return oldDelegate.offset != offset;
+    return oldDelegate.offset != offset ||
+        oldDelegate.alignToLeft != alignToLeft;
   }
 }
 
