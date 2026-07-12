@@ -95,6 +95,24 @@ void main() {
   });
 
   group('Surge reusable controls', () {
+    testWidgets('list surface keeps the established card geometry', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(
+            width: 280,
+            child: SurgeListSurface(child: SizedBox(height: 44)),
+          ),
+        ),
+      );
+
+      final card = tester.widget<SurgeCard>(find.byType(SurgeCard));
+      expect(card.padding, EdgeInsets.zero);
+      expect(card.borderRadius, 18);
+      expect(card.shadow, isFalse);
+    });
+
     testWidgets('selectable rows preserve selected semantics and callbacks', (
       tester,
     ) async {

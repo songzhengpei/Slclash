@@ -74,3 +74,22 @@ class SurgeCard extends StatelessWidget {
     );
   }
 }
+
+/// Shared no-shadow list surface for grouped rows. [SurgeCard] owns clipping,
+/// so callers do not need to duplicate a matching [ClipRRect].
+class SurgeListSurface extends StatelessWidget {
+  const SurgeListSurface({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return SurgeCard(
+      padding: EdgeInsets.zero,
+      borderRadius: surge.radii.card,
+      shadow: false,
+      child: child,
+    );
+  }
+}

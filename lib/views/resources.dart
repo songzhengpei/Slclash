@@ -393,12 +393,7 @@ class _ResourceListSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SurgeCard(
-      padding: EdgeInsets.zero,
-      borderRadius: 18,
-      shadow: false,
-      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
-    );
+    return SurgeListSurface(child: child);
   }
 }
 
