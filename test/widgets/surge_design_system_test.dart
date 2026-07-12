@@ -29,6 +29,10 @@ void main() {
       expect(surge.typography.dashboardTiny.fontSize, 10);
       expect(surge.controls.minimumTapExtent, 44);
       expect(surge.opacity.selectedSurface, 0.045);
+      expect(surge.radii.menuRow, 12);
+      expect(surge.radii.input, 10);
+      expect(surge.radii.metric, 10);
+      expect(surge.radii.chart, 4);
     });
 
     testWidgets('text compatibility facade reads the active theme', (

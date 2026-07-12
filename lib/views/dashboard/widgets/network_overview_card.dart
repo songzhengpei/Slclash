@@ -1744,9 +1744,10 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return RepaintBoundary(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(surge.radii.chart),
         child: SizedBox(
           height: widget.layout.legacy(8),
           child: Stack(

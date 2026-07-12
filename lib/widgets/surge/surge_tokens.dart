@@ -198,28 +198,53 @@ class SurgeRadii {
     required this.card,
     required this.smallCard,
     required this.list,
+    required this.menuRow,
+    required this.input,
+    required this.metric,
+    required this.chart,
     required this.button,
   });
 
   factory SurgeRadii.regular() {
-    return const SurgeRadii(card: 18, smallCard: 14, list: 16, button: 999);
+    return const SurgeRadii(
+      card: 18,
+      smallCard: 14,
+      list: 16,
+      menuRow: 12,
+      input: 10,
+      metric: 10,
+      chart: 4,
+      button: 999,
+    );
   }
 
   final double card;
   final double smallCard;
   final double list;
+  final double menuRow;
+  final double input;
+  final double metric;
+  final double chart;
   final double button;
 
   SurgeRadii copyWith({
     double? card,
     double? smallCard,
     double? list,
+    double? menuRow,
+    double? input,
+    double? metric,
+    double? chart,
     double? button,
   }) {
     return SurgeRadii(
       card: card ?? this.card,
       smallCard: smallCard ?? this.smallCard,
       list: list ?? this.list,
+      menuRow: menuRow ?? this.menuRow,
+      input: input ?? this.input,
+      metric: metric ?? this.metric,
+      chart: chart ?? this.chart,
       button: button ?? this.button,
     );
   }
@@ -229,6 +254,10 @@ class SurgeRadii {
       card: lerpDouble(a.card, b.card, t),
       smallCard: lerpDouble(a.smallCard, b.smallCard, t),
       list: lerpDouble(a.list, b.list, t),
+      menuRow: lerpDouble(a.menuRow, b.menuRow, t),
+      input: lerpDouble(a.input, b.input, t),
+      metric: lerpDouble(a.metric, b.metric, t),
+      chart: lerpDouble(a.chart, b.chart, t),
       button: lerpDouble(a.button, b.button, t),
     );
   }

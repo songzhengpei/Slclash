@@ -836,73 +836,69 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
               final isSelected = profile.id == currentProfileId;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      ref.read(currentProfileIdProvider.notifier).value =
-                          profile.id;
-                      Navigator.of(context).pop();
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected ? surge.selectedFill : surge.fill,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? surge.primary.withValues(alpha: 0.48)
-                              : surge.separator,
-                          width: isSelected ? 1 : 0.5,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          if (isSelected) ...[
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: surge.semantic.connected,
-                                shape: BoxShape.circle,
-                              ),
-                              margin: const EdgeInsets.only(right: 8),
+                child: SurgeSelectableRow(
+                  selected: isSelected,
+                  onTap: () {
+                    ref.read(currentProfileIdProvider.notifier).value =
+                        profile.id;
+                    Navigator.of(context).pop();
+                  },
+                  presentation: SurgeSelectionPresentation.menu,
+                  showBorder: true,
+                  radius: surge.radii.menuRow,
+                  selectedSurfaceColor: surge.selectedFill,
+                  unselectedSurfaceColor: surge.fill,
+                  selectedBorderColor: surge.primary.withValues(alpha: 0.48),
+                  unselectedBorderColor: surge.separator,
+                  selectedBorderWidth: 1,
+                  unselectedBorderWidth: surge.spacing.hairline,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        if (isSelected) ...[
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: surge.semantic.connected,
+                              shape: BoxShape.circle,
                             ),
-                          ],
-                          Expanded(
-                            child: Text(
-                              profile.realLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: context.textTheme.bodyMedium?.copyWith(
-                                color: surge.textPrimary,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                              ),
-                            ),
+                            margin: const EdgeInsets.only(right: 8),
                           ),
-                          Text(
-                            profile.type == ProfileType.url ? 'URL' : '本地',
-                            style: context.textTheme.labelSmall?.copyWith(
-                              color: surge.textSecondary,
-                              fontSize: 11,
-                            ),
-                          ),
-                          if (isSelected) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              SurgeIcons.success,
-                              size: 18,
-                              color: surge.primary,
-                            ),
-                          ],
                         ],
-                      ),
+                        Expanded(
+                          child: Text(
+                            profile.realLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.textTheme.bodyMedium?.copyWith(
+                              color: surge.textPrimary,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          profile.type == ProfileType.url ? 'URL' : '本地',
+                          style: context.textTheme.labelSmall?.copyWith(
+                            color: surge.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (isSelected) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            SurgeIcons.success,
+                            size: 18,
+                            color: surge.primary,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
@@ -1218,72 +1214,68 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                 final isSelected = group.name == selectedGroupName;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        proxy_common.updateCurrentGroupName(group.name);
-                        Navigator.of(context).pop();
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected ? surge.selectedFill : surge.fill,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? surge.primary.withValues(alpha: 0.48)
-                                : surge.separator,
-                            width: isSelected ? 1 : 0.5,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            if (isSelected) ...[
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: surge.semantic.connected,
-                                  shape: BoxShape.circle,
-                                ),
-                                margin: const EdgeInsets.only(right: 8),
+                  child: SurgeSelectableRow(
+                    selected: isSelected,
+                    onTap: () {
+                      proxy_common.updateCurrentGroupName(group.name);
+                      Navigator.of(context).pop();
+                    },
+                    presentation: SurgeSelectionPresentation.menu,
+                    showBorder: true,
+                    radius: surge.radii.menuRow,
+                    selectedSurfaceColor: surge.selectedFill,
+                    unselectedSurfaceColor: surge.fill,
+                    selectedBorderColor: surge.primary.withValues(alpha: 0.48),
+                    unselectedBorderColor: surge.separator,
+                    selectedBorderWidth: 1,
+                    unselectedBorderWidth: surge.spacing.hairline,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          if (isSelected) ...[
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: surge.semantic.connected,
+                                shape: BoxShape.circle,
                               ),
-                            ],
-                            Expanded(
-                              child: Text(
-                                group.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: context.textTheme.bodyMedium?.copyWith(
-                                  color: surge.textPrimary,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                ),
-                              ),
+                              margin: const EdgeInsets.only(right: 8),
                             ),
-                            Text(
-                              group.type.name,
-                              style: context.textTheme.labelSmall?.copyWith(
-                                color: surge.textSecondary,
-                                fontSize: 11,
-                              ),
-                            ),
-                            if (isSelected) ...[
-                              const SizedBox(width: 8),
-                              Icon(
-                                SurgeIcons.success,
-                                size: 18,
-                                color: surge.primary,
-                              ),
-                            ],
                           ],
-                        ),
+                          Expanded(
+                            child: Text(
+                              group.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.textTheme.bodyMedium?.copyWith(
+                                color: surge.textPrimary,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            group.type.name,
+                            style: context.textTheme.labelSmall?.copyWith(
+                              color: surge.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (isSelected) ...[
+                            const SizedBox(width: 8),
+                            Icon(
+                              SurgeIcons.success,
+                              size: 18,
+                              color: surge.primary,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -1493,15 +1485,15 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                   vertical: 8,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(surge.radii.input),
                   borderSide: BorderSide(color: surge.separator),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(surge.radii.input),
                   borderSide: BorderSide(color: surge.separator),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(surge.radii.input),
                   borderSide: BorderSide(color: surge.primary, width: 1.5),
                 ),
               ),
@@ -1603,7 +1595,7 @@ class _NodeCard extends ConsumerWidget {
         onTap: onTap,
         presentation: SurgeSelectionPresentation.menu,
         showBorder: true,
-        radius: 12,
+        radius: surge.radii.menuRow,
         selectedSurfaceColor: surge.selectedFill,
         unselectedSurfaceColor: surge.fill,
         selectedBorderColor: surge.primary.withValues(alpha: 0.48),
@@ -1648,7 +1640,7 @@ class _NodeCard extends ConsumerWidget {
                     ),
                     decoration: BoxDecoration(
                       color: delayColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(surge.radii.metric),
                     ),
                     child: Text(
                       delayLabel,
