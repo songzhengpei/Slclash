@@ -2,23 +2,15 @@ import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/popup.dart';
 import 'package:flutter/material.dart';
 
-const double _softOsActionTapSize = 48;
-const double _softOsActionVisualHeight = 34;
-const double _softOsActionCompactVisualHeight = 32;
-const double _softOsActionIconWidth = 40;
-const double _softOsActionCompactIconWidth = 38;
-const double _softOsActionDockButtonWidth = 44;
-const double _softOsActionCompactDockButtonWidth = 40;
-const double _softOsActionIconSize = SurgeIconSize.compact;
-const double _softOsActionCompactIconSize = SurgeIconSize.compact;
-const double _softOsShortTextVisualWidth = 55;
-const double _softOsShortTextTapWidth = 56;
-
 Color _softOsActionSurface(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return Color.alphaBlend(
-    surge.textPrimary.withValues(alpha: isDark ? 0.22 : 0.12),
+    surge.textPrimary.withValues(
+      alpha: isDark
+          ? surge.opacity.actionSurfaceDark
+          : surge.opacity.actionSurfaceLight,
+    ),
     surge.card,
   );
 }
@@ -26,14 +18,20 @@ Color _softOsActionSurface(BuildContext context) {
 Color _softOsActionBorder(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  return surge.textPrimary.withValues(alpha: isDark ? 0.34 : 0.22);
+  return surge.textPrimary.withValues(
+    alpha: isDark
+        ? surge.opacity.actionBorderDark
+        : surge.opacity.actionBorderLight,
+  );
 }
 
 Color _softOsActionForeground(BuildContext context, bool enabled) {
   final surge = SurgeTheme.of(context);
   return enabled
-      ? surge.textPrimary.withValues(alpha: 0.96)
-      : surge.textSecondary.withValues(alpha: 0.46);
+      ? surge.textPrimary.withValues(alpha: surge.opacity.actionForeground)
+      : surge.textSecondary.withValues(
+          alpha: surge.opacity.actionDisabledForeground,
+        );
 }
 
 List<BoxShadow> _softOsActionShadows(BuildContext context) {
@@ -41,9 +39,13 @@ List<BoxShadow> _softOsActionShadows(BuildContext context) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return [
     BoxShadow(
-      color: surge.shadow.withValues(alpha: isDark ? 0.12 : 0.04),
-      blurRadius: 4,
-      offset: const Offset(0, 1),
+      color: surge.shadow.withValues(
+        alpha: isDark
+            ? surge.opacity.actionShadowDark
+            : surge.opacity.actionShadowLight,
+      ),
+      blurRadius: surge.controls.actionShadowBlur,
+      offset: Offset(0, surge.controls.actionShadowOffsetY),
     ),
   ];
 }
@@ -57,40 +59,52 @@ class SoftOsIconButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.onPressed,
-    this.iconSize = 16,
-    this.visualSize = 32,
-    this.tapSize = 44,
+    this.iconSize,
+    this.visualSize,
+    this.tapSize,
   });
 
   final IconData icon;
   final VoidCallback? onPressed;
-  final double iconSize;
-  final double visualSize;
-  final double tapSize;
+  final double? iconSize;
+  final double? visualSize;
+  final double? tapSize;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
-    final effectiveTapSize = metrics.tap(tapSize);
+    final effectiveTapSize = metrics.tap(
+      tapSize ?? surge.controls.iconButtonTapExtent,
+    );
+    final effectiveVisualSize = metrics.value(
+      visualSize ?? surge.controls.iconButtonVisualSize,
+    );
+    final effectiveIconSize = metrics.value(
+      iconSize ?? surge.controls.iconButtonIconSize,
+    );
     return SizedBox(
       width: effectiveTapSize,
       height: effectiveTapSize,
       child: Center(
         child: Material(
-          color: surge.textSecondary.withValues(alpha: 0.06),
+          color: surge.textSecondary.withValues(
+            alpha: surge.opacity.iconButtonSurface,
+          ),
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onPressed,
             customBorder: const CircleBorder(),
             child: SizedBox.square(
-              dimension: metrics.value(visualSize),
+              dimension: effectiveVisualSize,
               child: Center(
                 child: Icon(
                   icon,
-                  size: metrics.value(iconSize),
-                  color: surge.textPrimary.withValues(alpha: 0.75),
+                  size: effectiveIconSize,
+                  color: surge.textPrimary.withValues(
+                    alpha: surge.opacity.iconButtonForeground,
+                  ),
                 ),
               ),
             ),
@@ -123,19 +137,22 @@ class SoftOsActionButton extends StatelessWidget {
   final bool loading;
   final bool compact;
 
-  double get _visualWidth =>
-      compact ? _softOsActionCompactIconWidth : _softOsActionIconWidth;
-  double get _visualHeight =>
-      compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
-  double get _iconSize =>
-      compact ? _softOsActionCompactIconSize : _softOsActionIconSize;
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
-    final visualWidth = metrics.value(_visualWidth);
-    final visualHeight = metrics.value(_visualHeight);
-    final tapSize = metrics.tap(_softOsActionTapSize);
+    final visualWidth = metrics.value(
+      compact
+          ? surge.controls.compactActionVisualWidth
+          : surge.controls.actionVisualWidth,
+    );
+    final visualHeight = metrics.value(
+      compact
+          ? surge.controls.compactActionVisualHeight
+          : surge.controls.actionVisualHeight,
+    );
+    final iconSize = metrics.value(surge.controls.actionIconSize);
+    final tapSize = metrics.tap(surge.controls.actionTapExtent);
     final enabled = onPressed != null && !loading;
     final foreground = _softOsActionForeground(context, enabled);
     final radius = BorderRadius.circular(visualHeight / 2);
@@ -160,32 +177,30 @@ class SoftOsActionButton extends StatelessWidget {
           Positioned.fill(
             child: Material(
               color: Colors.transparent,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(surge.radii.button),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: loading ? null : onPressed,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(surge.radii.button),
                 child: Center(
                   child: loading
                       ? SizedBox.square(
-                          dimension: 15,
+                          dimension: metrics.value(
+                            surge.controls.actionLoaderSize,
+                          ),
                           child: CircularProgressIndicator(
-                            strokeWidth: 1.7,
+                            strokeWidth: surge.controls.actionLoaderStrokeWidth,
                             color: foreground,
                           ),
                         )
                       : IconTheme.merge(
                           data: IconThemeData(
-                            size: metrics.value(_iconSize),
+                            size: iconSize,
                             color: foreground,
                           ),
                           child:
                               child ??
-                              Icon(
-                                icon,
-                                size: metrics.value(_iconSize),
-                                color: foreground,
-                              ),
+                              Icon(icon, size: iconSize, color: foreground),
                         ),
                 ),
               ),
@@ -213,14 +228,16 @@ class SoftOsActionDock extends StatelessWidget {
   final List<Widget> children;
   final bool compact;
 
-  double get _height =>
-      compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
-    final height = metrics.value(_height);
-    final tapSize = metrics.tap(_softOsActionTapSize);
+    final height = metrics.value(
+      compact
+          ? surge.controls.compactActionVisualHeight
+          : surge.controls.actionVisualHeight,
+    );
+    final tapSize = metrics.tap(surge.controls.actionTapExtent);
     return SizedBox(
       height: tapSize,
       child: IntrinsicWidth(
@@ -277,20 +294,22 @@ class SoftOsActionDockButton extends StatelessWidget {
   final bool loading;
   final bool compact;
 
-  double get _iconSize =>
-      compact ? _softOsActionCompactIconSize : _softOsActionIconSize;
-  double get _width => compact
-      ? _softOsActionCompactDockButtonWidth
-      : _softOsActionDockButtonWidth;
-  double get _visualHeight =>
-      compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
-
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
-    final width = metrics.value(_width);
-    final visualHeight = metrics.value(_visualHeight);
-    final tapSize = metrics.tap(_softOsActionTapSize);
+    final width = metrics.value(
+      compact
+          ? surge.controls.compactActionDockButtonWidth
+          : surge.controls.actionDockButtonWidth,
+    );
+    final visualHeight = metrics.value(
+      compact
+          ? surge.controls.compactActionVisualHeight
+          : surge.controls.actionVisualHeight,
+    );
+    final iconSize = metrics.value(surge.controls.actionIconSize);
+    final tapSize = metrics.tap(surge.controls.actionTapExtent);
     final enabled = onPressed != null && !loading;
     final foreground = _softOsActionForeground(context, enabled);
 
@@ -302,7 +321,7 @@ class SoftOsActionDockButton extends StatelessWidget {
           onTap: loading ? null : onPressed,
           enabled: enabled,
           scaleFeedback: false,
-          overlayOpacity: 0.045,
+          overlayOpacity: surge.opacity.selectedSurface,
           borderRadius: BorderRadius.circular(visualHeight / 2),
           child: SizedBox(
             width: width,
@@ -310,24 +329,17 @@ class SoftOsActionDockButton extends StatelessWidget {
             child: Center(
               child: loading
                   ? SizedBox.square(
-                      dimension: 15,
+                      dimension: metrics.value(surge.controls.actionLoaderSize),
                       child: CircularProgressIndicator(
-                        strokeWidth: 1.7,
+                        strokeWidth: surge.controls.actionLoaderStrokeWidth,
                         color: foreground,
                       ),
                     )
                   : IconTheme.merge(
-                      data: IconThemeData(
-                        size: metrics.value(_iconSize),
-                        color: foreground,
-                      ),
+                      data: IconThemeData(size: iconSize, color: foreground),
                       child:
                           child ??
-                          Icon(
-                            icon,
-                            size: metrics.value(_iconSize),
-                            color: foreground,
-                          ),
+                          Icon(icon, size: iconSize, color: foreground),
                     ),
             ),
           ),
@@ -344,9 +356,9 @@ class SoftOsActionDockButton extends StatelessWidget {
 
 /// A thin divider for [SoftOsActionDock].
 class SoftOsActionDivider extends StatelessWidget {
-  const SoftOsActionDivider({super.key, this.height = 18, this.alpha = 0.28});
+  const SoftOsActionDivider({super.key, this.height, this.alpha = 0.28});
 
-  final double height;
+  final double? height;
   final double alpha;
 
   @override
@@ -354,10 +366,10 @@ class SoftOsActionDivider extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
     return SizedBox(
-      height: metrics.tap(_softOsActionTapSize),
+      height: metrics.tap(surge.controls.actionTapExtent),
       child: Center(
         child: SizedBox(
-          height: metrics.value(height),
+          height: metrics.value(height ?? surge.controls.actionDividerHeight),
           child: VerticalDivider(
             width: 1,
             thickness: surge.spacing.hairline,
@@ -384,25 +396,36 @@ class SoftOsActionTextButton extends StatelessWidget {
   final String? tooltip;
   final bool compact;
 
-  double get _visualHeight =>
-      compact ? _softOsActionCompactVisualHeight : _softOsActionVisualHeight;
   bool get _isShortLabel => label.trim().runes.length <= 2;
-  double get _minWidth => _isShortLabel ? _softOsShortTextVisualWidth : 50;
-  double? get _tapWidth => _isShortLabel ? _softOsShortTextTapWidth : null;
-  double? get _visualWidth =>
-      _isShortLabel ? _softOsShortTextVisualWidth : null;
-  double get _horizontalPadding => _isShortLabel ? 0 : (compact ? 10 : 12);
+
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
-    final visualHeight = metrics.value(_visualHeight);
-    final minWidth = metrics.value(_minWidth);
-    final tapWidth = _tapWidth == null ? null : metrics.value(_tapWidth!);
-    final visualWidth = _visualWidth == null
-        ? null
-        : metrics.value(_visualWidth!);
-    final tapHeight = metrics.tap(_softOsActionTapSize);
+    final visualHeight = metrics.value(
+      compact
+          ? surge.controls.compactActionVisualHeight
+          : surge.controls.actionVisualHeight,
+    );
+    final minWidth = metrics.value(
+      _isShortLabel
+          ? surge.controls.shortTextActionVisualWidth
+          : surge.controls.textActionMinWidth,
+    );
+    final tapWidth = _isShortLabel
+        ? metrics.value(surge.controls.shortTextActionTapWidth)
+        : null;
+    final visualWidth = _isShortLabel
+        ? metrics.value(surge.controls.shortTextActionVisualWidth)
+        : null;
+    final horizontalPadding = _isShortLabel
+        ? 0.0
+        : metrics.value(
+            compact
+                ? surge.controls.compactTextActionHorizontalPadding
+                : surge.controls.textActionHorizontalPadding,
+          );
+    final tapHeight = metrics.tap(surge.controls.actionTapExtent);
     final enabled = onPressed != null;
     final foreground = _softOsActionForeground(context, enabled);
     final radius = BorderRadius.circular(visualHeight / 2);
@@ -438,7 +461,7 @@ class SoftOsActionTextButton extends StatelessWidget {
                   height: visualHeight,
                   child: Padding(
                     padding: EdgeInsets.symmetric(
-                      horizontal: metrics.value(_horizontalPadding),
+                      horizontal: horizontalPadding,
                     ),
                     child: Center(child: _SoftOsActionText(label: label)),
                   ),
@@ -478,24 +501,31 @@ class SoftOsActionDockTextButton extends StatelessWidget {
   final String? tooltip;
   final bool compact;
 
-  double get _minWidth => compact ? 46 : 50;
-
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
     final enabled = onPressed != null;
     final foreground = _softOsActionForeground(context, enabled);
+    final minWidth = metrics.value(
+      compact
+          ? surge.controls.compactTextActionMinWidth
+          : surge.controls.textActionMinWidth,
+    );
+    final horizontalPadding = metrics.value(
+      surge.controls.compactTextActionHorizontalPadding,
+    );
 
     Widget result = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: metrics.value(_minWidth)),
+          constraints: BoxConstraints(minWidth: minWidth),
           child: SizedBox(
-            height: metrics.tap(_softOsActionTapSize),
+            height: metrics.tap(surge.controls.actionTapExtent),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: metrics.value(10)),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: Center(child: _SoftOsActionText(label: label)),
             ),
           ),
@@ -575,7 +605,12 @@ class SoftOsStatusPill extends StatelessWidget {
           width: width == null ? null : metrics.value(width!),
           height: resolvedHeight,
           padding:
-              padding ?? EdgeInsets.symmetric(horizontal: metrics.value(12)),
+              padding ??
+              EdgeInsets.symmetric(
+                horizontal: metrics.value(
+                  surge.controls.statusPillHorizontalPadding,
+                ),
+              ),
           decoration: BoxDecoration(
             color: active
                 ? accent.withValues(
@@ -680,18 +715,18 @@ class _SoftOsActionText extends StatelessWidget {
 class SoftOsControlDock extends StatelessWidget {
   const SoftOsControlDock({
     super.key,
-    this.height = 34,
-    this.tapHeight = 44,
-    this.surfaceAlpha = 0.052,
-    this.borderAlpha = 0.38,
+    this.height,
+    this.tapHeight,
+    this.surfaceAlpha,
+    this.borderAlpha,
     this.borderRadius,
     required this.children,
   });
 
-  final double height;
-  final double tapHeight;
-  final double surfaceAlpha;
-  final double borderAlpha;
+  final double? height;
+  final double? tapHeight;
+  final double? surfaceAlpha;
+  final double? borderAlpha;
   final double? borderRadius;
   final List<Widget> children;
 
@@ -700,17 +735,25 @@ class SoftOsControlDock extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final effectiveHeight = metrics.value(height);
-    final effectiveTapHeight = metrics.tap(tapHeight);
+    final effectiveHeight = metrics.value(
+      height ?? surge.controls.actionVisualHeight,
+    );
+    final effectiveTapHeight = metrics.tap(
+      tapHeight ?? surge.controls.minimumTapExtent,
+    );
     final radius = borderRadius == null
         ? effectiveHeight / 2
         : metrics.value(borderRadius!);
     final effectiveSurfaceAlpha = isDark
-        ? surfaceAlpha.clamp(0.09, 1.0).toDouble()
-        : surfaceAlpha;
+        ? (surfaceAlpha ?? surge.opacity.controlSurface)
+              .clamp(0.09, 1.0)
+              .toDouble()
+        : surfaceAlpha ?? surge.opacity.controlSurface;
     final effectiveBorderAlpha = isDark
-        ? borderAlpha.clamp(0.48, 1.0).toDouble()
-        : borderAlpha;
+        ? (borderAlpha ?? surge.opacity.controlBorder)
+              .clamp(0.48, 1.0)
+              .toDouble()
+        : borderAlpha ?? surge.opacity.controlBorder;
     return SizedBox(
       height: effectiveTapHeight,
       child: Center(
@@ -744,16 +787,16 @@ class SoftOsDockButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.loading = false,
-    this.iconSize = 15.5,
-    this.foregroundAlpha = 0.70,
+    this.iconSize,
+    this.foregroundAlpha,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback? onTap;
   final bool loading;
-  final double iconSize;
-  final double foregroundAlpha;
+  final double? iconSize;
+  final double? foregroundAlpha;
 
   @override
   Widget build(BuildContext context) {
@@ -761,7 +804,9 @@ class SoftOsDockButton extends StatelessWidget {
     final metrics = SoftOsMetrics.of(context);
     final foreground = loading
         ? surge.textSecondary
-        : surge.textPrimary.withValues(alpha: foregroundAlpha);
+        : surge.textPrimary.withValues(
+            alpha: foregroundAlpha ?? surge.opacity.dockForeground,
+          );
     return Tooltip(
       message: tooltip,
       child: Material(
@@ -770,20 +815,24 @@ class SoftOsDockButton extends StatelessWidget {
           onTap: loading ? null : onTap,
           customBorder: const CircleBorder(),
           child: SizedBox(
-            width: metrics.value(36),
-            height: metrics.tap(44),
+            width: metrics.value(surge.controls.dockButtonWidth),
+            height: metrics.tap(surge.controls.minimumTapExtent),
             child: Center(
               child: loading
                   ? SizedBox.square(
-                      dimension: 13,
+                      dimension: metrics.value(
+                        surge.controls.dockButtonLoaderSize,
+                      ),
                       child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
+                        strokeWidth: surge.controls.dockButtonLoaderStrokeWidth,
                         color: foreground,
                       ),
                     )
                   : Icon(
                       icon,
-                      size: metrics.value(iconSize),
+                      size: metrics.value(
+                        iconSize ?? surge.controls.dockButtonIconSize,
+                      ),
                       color: foreground,
                     ),
             ),
@@ -796,28 +845,26 @@ class SoftOsDockButton extends StatelessWidget {
 
 /// A thin vertical divider inside [SoftOsControlDock], centered in the tap area.
 class SoftOsDockDivider extends StatelessWidget {
-  const SoftOsDockDivider({
-    super.key,
-    this.height = 17,
-    this.dividerAlpha = 0.34,
-  });
+  const SoftOsDockDivider({super.key, this.height, this.dividerAlpha});
 
-  final double height;
-  final double dividerAlpha;
+  final double? height;
+  final double? dividerAlpha;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
     return SizedBox(
-      height: metrics.tap(44),
+      height: metrics.tap(surge.controls.minimumTapExtent),
       child: Center(
         child: SizedBox(
-          height: metrics.value(height),
+          height: metrics.value(height ?? surge.controls.dockDividerHeight),
           child: VerticalDivider(
             width: 1,
             thickness: surge.spacing.hairline,
-            color: surge.separator.withValues(alpha: dividerAlpha),
+            color: surge.separator.withValues(
+              alpha: dividerAlpha ?? surge.opacity.dockDivider,
+            ),
           ),
         ),
       ),

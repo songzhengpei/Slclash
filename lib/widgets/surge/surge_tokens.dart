@@ -632,36 +632,108 @@ class SurgeSemanticColors {
 class SurgeControlSizes {
   const SurgeControlSizes({
     required this.minimumTapExtent,
+    required this.iconButtonTapExtent,
+    required this.iconButtonVisualSize,
+    required this.iconButtonIconSize,
     required this.actionTapExtent,
     required this.actionVisualHeight,
     required this.compactActionVisualHeight,
+    required this.actionVisualWidth,
+    required this.compactActionVisualWidth,
+    required this.actionDockButtonWidth,
+    required this.compactActionDockButtonWidth,
+    required this.actionIconSize,
+    required this.actionLoaderSize,
+    required this.actionLoaderStrokeWidth,
+    required this.actionDividerHeight,
+    required this.actionShadowBlur,
+    required this.actionShadowOffsetY,
+    required this.shortTextActionVisualWidth,
+    required this.shortTextActionTapWidth,
+    required this.textActionMinWidth,
+    required this.compactTextActionMinWidth,
+    required this.textActionHorizontalPadding,
+    required this.compactTextActionHorizontalPadding,
     required this.statusPillHeight,
+    required this.statusPillHorizontalPadding,
     required this.selectPillHeight,
     required this.segmentedHeight,
     required this.dockButtonWidth,
+    required this.dockButtonIconSize,
+    required this.dockButtonLoaderSize,
+    required this.dockButtonLoaderStrokeWidth,
+    required this.dockDividerHeight,
   });
 
   factory SurgeControlSizes.regular() {
     return const SurgeControlSizes(
       minimumTapExtent: 44,
+      iconButtonTapExtent: 44,
+      iconButtonVisualSize: 32,
+      iconButtonIconSize: 16,
       actionTapExtent: 48,
       actionVisualHeight: 34,
       compactActionVisualHeight: 32,
+      actionVisualWidth: 40,
+      compactActionVisualWidth: 38,
+      actionDockButtonWidth: 44,
+      compactActionDockButtonWidth: 40,
+      actionIconSize: 16,
+      actionLoaderSize: 15,
+      actionLoaderStrokeWidth: 1.7,
+      actionDividerHeight: 18,
+      actionShadowBlur: 4,
+      actionShadowOffsetY: 1,
+      shortTextActionVisualWidth: 55,
+      shortTextActionTapWidth: 56,
+      textActionMinWidth: 50,
+      compactTextActionMinWidth: 46,
+      textActionHorizontalPadding: 12,
+      compactTextActionHorizontalPadding: 10,
       statusPillHeight: 30,
+      statusPillHorizontalPadding: 12,
       selectPillHeight: 38,
       segmentedHeight: 34,
       dockButtonWidth: 36,
+      dockButtonIconSize: 15.5,
+      dockButtonLoaderSize: 13,
+      dockButtonLoaderStrokeWidth: 1.5,
+      dockDividerHeight: 17,
     );
   }
 
   final double minimumTapExtent;
+  final double iconButtonTapExtent;
+  final double iconButtonVisualSize;
+  final double iconButtonIconSize;
   final double actionTapExtent;
   final double actionVisualHeight;
   final double compactActionVisualHeight;
+  final double actionVisualWidth;
+  final double compactActionVisualWidth;
+  final double actionDockButtonWidth;
+  final double compactActionDockButtonWidth;
+  final double actionIconSize;
+  final double actionLoaderSize;
+  final double actionLoaderStrokeWidth;
+  final double actionDividerHeight;
+  final double actionShadowBlur;
+  final double actionShadowOffsetY;
+  final double shortTextActionVisualWidth;
+  final double shortTextActionTapWidth;
+  final double textActionMinWidth;
+  final double compactTextActionMinWidth;
+  final double textActionHorizontalPadding;
+  final double compactTextActionHorizontalPadding;
   final double statusPillHeight;
+  final double statusPillHorizontalPadding;
   final double selectPillHeight;
   final double segmentedHeight;
   final double dockButtonWidth;
+  final double dockButtonIconSize;
+  final double dockButtonLoaderSize;
+  final double dockButtonLoaderStrokeWidth;
+  final double dockDividerHeight;
 
   static SurgeControlSizes lerp(
     SurgeControlSizes a,
@@ -670,6 +742,21 @@ class SurgeControlSizes {
   ) {
     return SurgeControlSizes(
       minimumTapExtent: lerpDouble(a.minimumTapExtent, b.minimumTapExtent, t),
+      iconButtonTapExtent: lerpDouble(
+        a.iconButtonTapExtent,
+        b.iconButtonTapExtent,
+        t,
+      ),
+      iconButtonVisualSize: lerpDouble(
+        a.iconButtonVisualSize,
+        b.iconButtonVisualSize,
+        t,
+      ),
+      iconButtonIconSize: lerpDouble(
+        a.iconButtonIconSize,
+        b.iconButtonIconSize,
+        t,
+      ),
       actionTapExtent: lerpDouble(a.actionTapExtent, b.actionTapExtent, t),
       actionVisualHeight: lerpDouble(
         a.actionVisualHeight,
@@ -681,10 +768,103 @@ class SurgeControlSizes {
         b.compactActionVisualHeight,
         t,
       ),
+      actionVisualWidth: lerpDouble(
+        a.actionVisualWidth,
+        b.actionVisualWidth,
+        t,
+      ),
+      compactActionVisualWidth: lerpDouble(
+        a.compactActionVisualWidth,
+        b.compactActionVisualWidth,
+        t,
+      ),
+      actionDockButtonWidth: lerpDouble(
+        a.actionDockButtonWidth,
+        b.actionDockButtonWidth,
+        t,
+      ),
+      compactActionDockButtonWidth: lerpDouble(
+        a.compactActionDockButtonWidth,
+        b.compactActionDockButtonWidth,
+        t,
+      ),
+      actionIconSize: lerpDouble(a.actionIconSize, b.actionIconSize, t),
+      actionLoaderSize: lerpDouble(a.actionLoaderSize, b.actionLoaderSize, t),
+      actionLoaderStrokeWidth: lerpDouble(
+        a.actionLoaderStrokeWidth,
+        b.actionLoaderStrokeWidth,
+        t,
+      ),
+      actionDividerHeight: lerpDouble(
+        a.actionDividerHeight,
+        b.actionDividerHeight,
+        t,
+      ),
+      actionShadowBlur: lerpDouble(a.actionShadowBlur, b.actionShadowBlur, t),
+      actionShadowOffsetY: lerpDouble(
+        a.actionShadowOffsetY,
+        b.actionShadowOffsetY,
+        t,
+      ),
+      shortTextActionVisualWidth: lerpDouble(
+        a.shortTextActionVisualWidth,
+        b.shortTextActionVisualWidth,
+        t,
+      ),
+      shortTextActionTapWidth: lerpDouble(
+        a.shortTextActionTapWidth,
+        b.shortTextActionTapWidth,
+        t,
+      ),
+      textActionMinWidth: lerpDouble(
+        a.textActionMinWidth,
+        b.textActionMinWidth,
+        t,
+      ),
+      compactTextActionMinWidth: lerpDouble(
+        a.compactTextActionMinWidth,
+        b.compactTextActionMinWidth,
+        t,
+      ),
+      textActionHorizontalPadding: lerpDouble(
+        a.textActionHorizontalPadding,
+        b.textActionHorizontalPadding,
+        t,
+      ),
+      compactTextActionHorizontalPadding: lerpDouble(
+        a.compactTextActionHorizontalPadding,
+        b.compactTextActionHorizontalPadding,
+        t,
+      ),
       statusPillHeight: lerpDouble(a.statusPillHeight, b.statusPillHeight, t),
+      statusPillHorizontalPadding: lerpDouble(
+        a.statusPillHorizontalPadding,
+        b.statusPillHorizontalPadding,
+        t,
+      ),
       selectPillHeight: lerpDouble(a.selectPillHeight, b.selectPillHeight, t),
       segmentedHeight: lerpDouble(a.segmentedHeight, b.segmentedHeight, t),
       dockButtonWidth: lerpDouble(a.dockButtonWidth, b.dockButtonWidth, t),
+      dockButtonIconSize: lerpDouble(
+        a.dockButtonIconSize,
+        b.dockButtonIconSize,
+        t,
+      ),
+      dockButtonLoaderSize: lerpDouble(
+        a.dockButtonLoaderSize,
+        b.dockButtonLoaderSize,
+        t,
+      ),
+      dockButtonLoaderStrokeWidth: lerpDouble(
+        a.dockButtonLoaderStrokeWidth,
+        b.dockButtonLoaderStrokeWidth,
+        t,
+      ),
+      dockDividerHeight: lerpDouble(
+        a.dockDividerHeight,
+        b.dockDividerHeight,
+        t,
+      ),
     );
   }
 }
@@ -697,6 +877,16 @@ class SurgeOpacity {
     required this.actionSurfaceDark,
     required this.actionBorderLight,
     required this.actionBorderDark,
+    required this.actionForeground,
+    required this.actionDisabledForeground,
+    required this.actionShadowLight,
+    required this.actionShadowDark,
+    required this.iconButtonSurface,
+    required this.iconButtonForeground,
+    required this.controlSurface,
+    required this.controlBorder,
+    required this.dockForeground,
+    required this.dockDivider,
     required this.statusSurface,
     required this.statusBorder,
   });
@@ -708,6 +898,16 @@ class SurgeOpacity {
       actionSurfaceDark: 0.22,
       actionBorderLight: 0.22,
       actionBorderDark: 0.34,
+      actionForeground: 0.96,
+      actionDisabledForeground: 0.46,
+      actionShadowLight: 0.04,
+      actionShadowDark: 0.12,
+      iconButtonSurface: 0.06,
+      iconButtonForeground: 0.75,
+      controlSurface: 0.052,
+      controlBorder: 0.38,
+      dockForeground: 0.70,
+      dockDivider: 0.34,
       statusSurface: 0.10,
       statusBorder: 0.22,
     );
@@ -718,6 +918,16 @@ class SurgeOpacity {
   final double actionSurfaceDark;
   final double actionBorderLight;
   final double actionBorderDark;
+  final double actionForeground;
+  final double actionDisabledForeground;
+  final double actionShadowLight;
+  final double actionShadowDark;
+  final double iconButtonSurface;
+  final double iconButtonForeground;
+  final double controlSurface;
+  final double controlBorder;
+  final double dockForeground;
+  final double dockDivider;
   final double statusSurface;
   final double statusBorder;
 
@@ -740,6 +950,32 @@ class SurgeOpacity {
         t,
       ),
       actionBorderDark: lerpDouble(a.actionBorderDark, b.actionBorderDark, t),
+      actionForeground: lerpDouble(a.actionForeground, b.actionForeground, t),
+      actionDisabledForeground: lerpDouble(
+        a.actionDisabledForeground,
+        b.actionDisabledForeground,
+        t,
+      ),
+      actionShadowLight: lerpDouble(
+        a.actionShadowLight,
+        b.actionShadowLight,
+        t,
+      ),
+      actionShadowDark: lerpDouble(a.actionShadowDark, b.actionShadowDark, t),
+      iconButtonSurface: lerpDouble(
+        a.iconButtonSurface,
+        b.iconButtonSurface,
+        t,
+      ),
+      iconButtonForeground: lerpDouble(
+        a.iconButtonForeground,
+        b.iconButtonForeground,
+        t,
+      ),
+      controlSurface: lerpDouble(a.controlSurface, b.controlSurface, t),
+      controlBorder: lerpDouble(a.controlBorder, b.controlBorder, t),
+      dockForeground: lerpDouble(a.dockForeground, b.dockForeground, t),
+      dockDivider: lerpDouble(a.dockDivider, b.dockDivider, t),
       statusSurface: lerpDouble(a.statusSurface, b.statusSurface, t),
       statusBorder: lerpDouble(a.statusBorder, b.statusBorder, t),
     );

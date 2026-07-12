@@ -39,7 +39,17 @@ void main() {
       expect(surge.typography.fieldHint.color, surge.textSecondary);
       expect(surge.typography.emptyState.color, surge.textSecondary);
       expect(surge.controls.minimumTapExtent, 44);
+      expect(surge.controls.actionTapExtent, 48);
+      expect(surge.controls.actionVisualHeight, 34);
+      expect(surge.controls.actionVisualWidth, 40);
+      expect(surge.controls.compactActionVisualWidth, 38);
+      expect(surge.controls.actionDockButtonWidth, 44);
+      expect(surge.controls.shortTextActionVisualWidth, 55);
+      expect(surge.controls.shortTextActionTapWidth, 56);
+      expect(surge.controls.dockButtonWidth, 36);
       expect(surge.opacity.selectedSurface, 0.045);
+      expect(surge.opacity.actionForeground, 0.96);
+      expect(surge.opacity.actionDisabledForeground, 0.46);
       expect(surge.radii.menuRow, 12);
       expect(surge.radii.input, 10);
       expect(surge.radii.metric, 10);
@@ -113,6 +123,54 @@ void main() {
       expect(card.padding, EdgeInsets.zero);
       expect(card.borderRadius, 18);
       expect(card.shadow, isFalse);
+    });
+
+    testWidgets('Soft OS actions keep their established tap targets', (
+      tester,
+    ) async {
+      var actionTaps = 0;
+      var iconTaps = 0;
+
+      await tester.pumpWidget(
+        _host(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SoftOsActionButton(
+                icon: SurgeIcons.confirm,
+                onPressed: () => actionTaps += 1,
+              ),
+              SoftOsIconButton(
+                icon: SurgeIcons.close,
+                onPressed: () => iconTaps += 1,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final actionContext = tester.element(find.byType(SoftOsActionButton));
+      final surge = SurgeTheme.of(actionContext);
+      final metrics = SoftOsMetrics.of(actionContext);
+      final actionTarget = metrics.tap(surge.controls.actionTapExtent);
+      final iconTarget = metrics.tap(surge.controls.iconButtonTapExtent);
+      expect(
+        tester.getSize(find.byType(SoftOsActionButton)),
+        Size.square(actionTarget),
+      );
+      expect(
+        tester.getSize(find.byType(SoftOsIconButton)),
+        Size.square(iconTarget),
+      );
+      expect(
+        actionTarget,
+        greaterThanOrEqualTo(surge.controls.minimumTapExtent),
+      );
+      expect(iconTarget, greaterThanOrEqualTo(surge.controls.minimumTapExtent));
+      await tester.tap(find.byType(SoftOsActionButton));
+      await tester.tap(find.byType(SoftOsIconButton));
+      expect(actionTaps, 1);
+      expect(iconTaps, 1);
     });
 
     testWidgets('selectable rows preserve selected semantics and callbacks', (

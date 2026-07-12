@@ -662,8 +662,9 @@ class _ActionButtonSheen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(surge.radii.card),
       child: AnimatedBuilder(
         animation: controller,
         builder: (context, child) {
