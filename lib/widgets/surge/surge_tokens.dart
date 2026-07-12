@@ -338,6 +338,9 @@ class SurgeTypography {
     required this.micro,
     required this.dashboardMicro,
     required this.dashboardTiny,
+    required this.dashboardValue,
+    required this.dashboardLabel,
+    required this.dashboardLoading,
   });
 
   factory SurgeTypography.regular(SurgeColors colors) {
@@ -421,6 +424,26 @@ class SurgeTypography {
         fontSize: 10,
         letterSpacing: 0,
       ),
+      dashboardValue: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        height: 1,
+        letterSpacing: 0,
+      ),
+      dashboardLabel: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        height: 1,
+        letterSpacing: 0,
+      ),
+      dashboardLoading: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 10,
+        fontWeight: FontWeight.w400,
+        height: 1,
+      ),
     );
   }
 
@@ -438,6 +461,9 @@ class SurgeTypography {
   final TextStyle micro;
   final TextStyle dashboardMicro;
   final TextStyle dashboardTiny;
+  final TextStyle dashboardValue;
+  final TextStyle dashboardLabel;
+  final TextStyle dashboardLoading;
 
   static SurgeTypography lerp(SurgeTypography a, SurgeTypography b, double t) {
     return SurgeTypography(
@@ -455,6 +481,13 @@ class SurgeTypography {
       micro: TextStyle.lerp(a.micro, b.micro, t)!,
       dashboardMicro: TextStyle.lerp(a.dashboardMicro, b.dashboardMicro, t)!,
       dashboardTiny: TextStyle.lerp(a.dashboardTiny, b.dashboardTiny, t)!,
+      dashboardValue: TextStyle.lerp(a.dashboardValue, b.dashboardValue, t)!,
+      dashboardLabel: TextStyle.lerp(a.dashboardLabel, b.dashboardLabel, t)!,
+      dashboardLoading: TextStyle.lerp(
+        a.dashboardLoading,
+        b.dashboardLoading,
+        t,
+      )!,
     );
   }
 }

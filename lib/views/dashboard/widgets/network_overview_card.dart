@@ -1063,6 +1063,7 @@ class _LiveSpeedLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1070,12 +1071,9 @@ class _LiveSpeedLine extends StatelessWidget {
         SizedBox(width: layout.geometry(4)),
         Text(
           value,
-          style: context.textTheme.labelMedium?.copyWith(
+          style: surge.typography.dashboardValue.copyWith(
             color: color,
             fontSize: layout.type(13),
-            fontWeight: FontWeight.w700,
-            height: 1.0,
-            letterSpacing: 0,
           ),
         ),
       ],
@@ -1123,6 +1121,7 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final height = NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
       layout,
     );
@@ -1163,13 +1162,10 @@ class _NetworkDetectionBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
-                style: TextStyle(
+                style: surge.typography.dashboardValue.copyWith(
                   color: textColor,
                   fontSize: layout.type(12),
-                  fontWeight: FontWeight.w700,
-                  height: 1.0,
                   leadingDistribution: TextLeadingDistribution.even,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -1194,11 +1190,9 @@ class _NetworkDetectionBar extends StatelessWidget {
           Text(
             context.appLocalizations.loading,
             maxLines: 1,
-            style: TextStyle(
+            style: surge.typography.dashboardLoading.copyWith(
               color: secondaryTextColor,
               fontSize: layout.type(10),
-              fontWeight: FontWeight.w400,
-              height: 1.0,
             ),
           ),
         ],
@@ -1207,11 +1201,9 @@ class _NetworkDetectionBar extends StatelessWidget {
       valueWidget = Text(
         'Timeout',
         maxLines: 1,
-        style: TextStyle(
+        style: surge.typography.dashboardValue.copyWith(
           color: dangerColor,
           fontSize: layout.type(12),
-          fontWeight: FontWeight.w700,
-          height: 1.0,
         ),
       );
     } else {
@@ -1238,12 +1230,9 @@ class _NetworkDetectionBar extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: TextStyle(
+            style: surge.typography.dashboardLabel.copyWith(
               color: secondaryTextColor,
               fontSize: layout.type(12),
-              fontWeight: FontWeight.w500,
-              height: 1.0,
-              letterSpacing: 0,
             ),
           ),
           SizedBox(width: layout.geometry(12)),
@@ -1470,13 +1459,9 @@ class _PlatformLatencyPanel extends StatelessWidget {
   }
 
   TextStyle _valueStyle(BuildContext context) {
-    return context.textTheme.labelMedium?.copyWith(
-          fontSize: layout.type(12),
-          fontWeight: FontWeight.w500,
-          height: 1.0,
-          letterSpacing: 0,
-        ) ??
-        TextStyle(fontSize: layout.type(12), fontWeight: FontWeight.w500);
+    return SurgeTheme.of(
+      context,
+    ).typography.dashboardLabel.copyWith(fontSize: layout.type(12));
   }
 
   @override

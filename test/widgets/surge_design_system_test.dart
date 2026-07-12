@@ -27,6 +27,10 @@ void main() {
       expect(surge.semantic.latencyBad, const Color(0xFFFFBBBD));
       expect(surge.typography.dashboardMicro.fontSize, 8);
       expect(surge.typography.dashboardTiny.fontSize, 10);
+      expect(surge.typography.dashboardValue.fontSize, 12);
+      expect(surge.typography.dashboardValue.fontWeight, FontWeight.w700);
+      expect(surge.typography.dashboardLabel.fontWeight, FontWeight.w500);
+      expect(surge.typography.dashboardLoading.fontSize, 10);
       expect(surge.controls.minimumTapExtent, 44);
       expect(surge.opacity.selectedSurface, 0.045);
       expect(surge.radii.menuRow, 12);
