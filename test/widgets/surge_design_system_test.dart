@@ -44,6 +44,7 @@ void main() {
       expect(surge.radii.input, 10);
       expect(surge.radii.metric, 10);
       expect(surge.radii.chart, 4);
+      expect(surge.radii.button, 999);
     });
 
     testWidgets('text compatibility facade reads the active theme', (

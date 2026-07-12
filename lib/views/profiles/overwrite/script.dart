@@ -165,7 +165,7 @@ class _ConfigureScriptButton extends StatelessWidget {
               height: 32,
               decoration: BoxDecoration(
                 color: surge.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(surge.radii.input),
               ),
               child: Icon(
                 SurgeIcons.tune,
