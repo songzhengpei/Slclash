@@ -722,7 +722,7 @@ class _ProfileSettingOption extends StatelessWidget {
                   height: 30,
                   decoration: BoxDecoration(
                     color: foreground.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(surge.radii.input),
                   ),
                   child: Icon(icon, size: 17, color: foreground),
                 ),
@@ -1277,7 +1277,7 @@ class _ProfileProxyTestAllButtonState
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: surge.textSecondary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(surge.radii.menuRow),
             border: Border.all(
               color: surge.separator.withValues(alpha: 0.55),
               width: 0.5,
@@ -1734,7 +1734,7 @@ class ProfileItem extends StatelessWidget {
           themeSettingProvider.select((state) => state.dynamicColor),
         );
         final selectedBorderColor = !dynamicColor
-            ? const Color(0xFFD8DAE0)
+            ? surge.semantic.profileSelectionBorderFixed
             : surge.primary;
         return Stack(
           clipBehavior: Clip.none,

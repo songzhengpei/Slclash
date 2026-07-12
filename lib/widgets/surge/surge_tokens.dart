@@ -524,6 +524,7 @@ class SurgeSemanticColors {
     required this.latencyBad,
     required this.statusLightActive,
     required this.statusLightError,
+    required this.profileSelectionBorderFixed,
   });
 
   factory SurgeSemanticColors.regular(SurgeColors colors) {
@@ -542,6 +543,7 @@ class SurgeSemanticColors {
       latencyBad: const Color(0xFFFFBBBD),
       statusLightActive: const Color(0xFF7BFFB2),
       statusLightError: const Color(0xFFFF8A80),
+      profileSelectionBorderFixed: const Color(0xFFD8DAE0),
     );
   }
 
@@ -559,6 +561,7 @@ class SurgeSemanticColors {
   final Color latencyBad;
   final Color statusLightActive;
   final Color statusLightError;
+  final Color profileSelectionBorderFixed;
 
   static SurgeSemanticColors lerp(
     SurgeSemanticColors a,
@@ -600,6 +603,11 @@ class SurgeSemanticColors {
         t,
       )!,
       statusLightError: Color.lerp(a.statusLightError, b.statusLightError, t)!,
+      profileSelectionBorderFixed: Color.lerp(
+        a.profileSelectionBorderFixed,
+        b.profileSelectionBorderFixed,
+        t,
+      )!,
     );
   }
 }

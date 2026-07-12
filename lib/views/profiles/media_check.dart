@@ -1042,7 +1042,7 @@ class _InlineFilterMetric extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(surge.radii.input),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Column(
@@ -1334,7 +1334,7 @@ class _SingleResultLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(surge.radii.metric),
       ),
       child: Row(
         children: [
@@ -1386,7 +1386,7 @@ class _HealthResultLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(surge.radii.metric),
       ),
       child: Row(
         children: [
@@ -1444,7 +1444,7 @@ class _PendingResultLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: surge.fill,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(surge.radii.metric),
       ),
       child: Row(
         children: [
