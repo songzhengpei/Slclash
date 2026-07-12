@@ -1434,10 +1434,10 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
             child: TextField(
               controller: _searchController,
               onChanged: (value) => setState(() => _searchQuery = value),
-              style: TextStyle(color: surge.textPrimary, fontSize: 14),
+              style: surge.typography.fieldInput,
               decoration: InputDecoration(
                 hintText: context.appLocalizations.search,
-                hintStyle: TextStyle(color: surge.textSecondary, fontSize: 14),
+                hintStyle: surge.typography.fieldHint,
                 prefixIcon: Icon(
                   SurgeIcons.search,
                   color: surge.textSecondary,
@@ -1505,7 +1505,7 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                 ? Center(
                     child: Text(
                       context.appLocalizations.noData,
-                      style: TextStyle(color: surge.textSecondary),
+                      style: surge.typography.emptyState,
                     ),
                   )
                 : ListView.builder(

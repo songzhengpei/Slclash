@@ -31,6 +31,9 @@ void main() {
       expect(surge.typography.dashboardValue.fontWeight, FontWeight.w700);
       expect(surge.typography.dashboardLabel.fontWeight, FontWeight.w500);
       expect(surge.typography.dashboardLoading.fontSize, 10);
+      expect(surge.typography.fieldInput.fontSize, 14);
+      expect(surge.typography.fieldHint.color, surge.textSecondary);
+      expect(surge.typography.emptyState.color, surge.textSecondary);
       expect(surge.controls.minimumTapExtent, 44);
       expect(surge.opacity.selectedSurface, 0.045);
       expect(surge.radii.menuRow, 12);

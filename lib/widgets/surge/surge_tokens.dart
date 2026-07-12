@@ -333,6 +333,9 @@ class SurgeTypography {
     required this.cardTitle,
     required this.rowTitle,
     required this.rowSubtitle,
+    required this.fieldInput,
+    required this.fieldHint,
+    required this.emptyState,
     required this.metric,
     required this.badge,
     required this.micro,
@@ -396,6 +399,9 @@ class SurgeTypography {
         fontSize: 13,
         letterSpacing: 0,
       ),
+      fieldInput: TextStyle(color: colors.textPrimary, fontSize: 14),
+      fieldHint: TextStyle(color: colors.textSecondary, fontSize: 14),
+      emptyState: TextStyle(color: colors.textSecondary),
       metric: TextStyle(
         color: colors.textPrimary,
         fontSize: 18,
@@ -456,6 +462,9 @@ class SurgeTypography {
   final TextStyle cardTitle;
   final TextStyle rowTitle;
   final TextStyle rowSubtitle;
+  final TextStyle fieldInput;
+  final TextStyle fieldHint;
+  final TextStyle emptyState;
   final TextStyle metric;
   final TextStyle badge;
   final TextStyle micro;
@@ -476,6 +485,9 @@ class SurgeTypography {
       cardTitle: TextStyle.lerp(a.cardTitle, b.cardTitle, t)!,
       rowTitle: TextStyle.lerp(a.rowTitle, b.rowTitle, t)!,
       rowSubtitle: TextStyle.lerp(a.rowSubtitle, b.rowSubtitle, t)!,
+      fieldInput: TextStyle.lerp(a.fieldInput, b.fieldInput, t)!,
+      fieldHint: TextStyle.lerp(a.fieldHint, b.fieldHint, t)!,
+      emptyState: TextStyle.lerp(a.emptyState, b.emptyState, t)!,
       metric: TextStyle.lerp(a.metric, b.metric, t)!,
       badge: TextStyle.lerp(a.badge, b.badge, t)!,
       micro: TextStyle.lerp(a.micro, b.micro, t)!,
