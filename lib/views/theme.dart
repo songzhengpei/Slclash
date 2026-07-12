@@ -232,7 +232,7 @@ class _SurgeSegmentedControl<T> extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: surge.fill,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(surge.radii.list),
       ),
       child: SizedBox(
         height: 40,
@@ -242,8 +242,8 @@ class _SurgeSegmentedControl<T> extends StatelessWidget {
             return Stack(
               children: [
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
+                  duration: SurgeMotion.container,
+                  curve: SurgeMotion.stateCurve,
                   left: itemWidth * selectedIndex,
                   top: 0,
                   bottom: 0,
@@ -251,7 +251,9 @@ class _SurgeSegmentedControl<T> extends StatelessWidget {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: surge.elevatedCard,
-                      borderRadius: BorderRadius.circular(13),
+                      borderRadius: BorderRadius.circular(
+                        surge.radii.segmentedIndicator,
+                      ),
                     ),
                   ),
                 ),
@@ -294,7 +296,7 @@ class _SurgeSegmentedButton<T> extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(surge.radii.segmentedIndicator),
         child: SizedBox(
           height: 40,
           child: Row(
@@ -308,8 +310,8 @@ class _SurgeSegmentedButton<T> extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOutCubic,
+                duration: SurgeMotion.state,
+                curve: SurgeMotion.stateCurve,
                 style:
                     context.textTheme.labelMedium?.copyWith(
                       color: selected ? surge.textPrimary : surge.textSecondary,
@@ -799,7 +801,7 @@ class _TextScaleFactorItem extends ConsumerWidget {
                   ),
                   decoration: BoxDecoration(
                     color: surge.textSecondary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(surge.radii.button),
                   ),
                   child: Text(
                     process,

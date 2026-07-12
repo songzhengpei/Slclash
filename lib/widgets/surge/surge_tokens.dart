@@ -202,6 +202,7 @@ class SurgeRadii {
     required this.input,
     required this.metric,
     required this.chart,
+    required this.segmentedIndicator,
     required this.button,
   });
 
@@ -214,6 +215,7 @@ class SurgeRadii {
       input: 10,
       metric: 10,
       chart: 4,
+      segmentedIndicator: 13,
       button: 999,
     );
   }
@@ -225,6 +227,7 @@ class SurgeRadii {
   final double input;
   final double metric;
   final double chart;
+  final double segmentedIndicator;
   final double button;
 
   SurgeRadii copyWith({
@@ -235,6 +238,7 @@ class SurgeRadii {
     double? input,
     double? metric,
     double? chart,
+    double? segmentedIndicator,
     double? button,
   }) {
     return SurgeRadii(
@@ -245,6 +249,7 @@ class SurgeRadii {
       input: input ?? this.input,
       metric: metric ?? this.metric,
       chart: chart ?? this.chart,
+      segmentedIndicator: segmentedIndicator ?? this.segmentedIndicator,
       button: button ?? this.button,
     );
   }
@@ -258,6 +263,11 @@ class SurgeRadii {
       input: lerpDouble(a.input, b.input, t),
       metric: lerpDouble(a.metric, b.metric, t),
       chart: lerpDouble(a.chart, b.chart, t),
+      segmentedIndicator: lerpDouble(
+        a.segmentedIndicator,
+        b.segmentedIndicator,
+        t,
+      ),
       button: lerpDouble(a.button, b.button, t),
     );
   }
