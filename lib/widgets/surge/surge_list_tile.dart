@@ -89,14 +89,9 @@ class SurgeListTile extends StatelessWidget {
                                     title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: titleColor,
-                                          fontSize: 16,
-                                          letterSpacing: 0,
-                                        ),
+                                    style: surge.typography.rowTitle.copyWith(
+                                      color: titleColor,
+                                    ),
                                   ),
                                   if (hasSubtitle) ...[
                                     const SizedBox(height: 3),
@@ -104,14 +99,7 @@ class SurgeListTile extends StatelessWidget {
                                       subtitle!,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: surge.textSecondary,
-                                            fontSize: 13,
-                                            letterSpacing: 0,
-                                          ),
+                                      style: surge.typography.rowSubtitle,
                                     ),
                                   ],
                                 ],

@@ -26,6 +26,10 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
     required this.inactiveVariant,
     required this.radii,
     required this.spacing,
+    required this.typography,
+    required this.semantic,
+    required this.controls,
+    required this.opacity,
   });
 
   factory SurgeTheme.light() {
@@ -52,6 +56,10 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
       inactiveVariant: colors.inactiveVariant,
       radii: SurgeRadii.regular(),
       spacing: SurgeSpacing.regular(),
+      typography: SurgeTypography.regular(colors),
+      semantic: SurgeSemanticColors.regular(colors),
+      controls: SurgeControlSizes.regular(),
+      opacity: SurgeOpacity.regular(),
     );
   }
 
@@ -79,6 +87,10 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
       inactiveVariant: colors.inactiveVariant,
       radii: SurgeRadii.regular(),
       spacing: SurgeSpacing.regular(),
+      typography: SurgeTypography.regular(colors),
+      semantic: SurgeSemanticColors.regular(colors),
+      controls: SurgeControlSizes.regular(),
+      opacity: SurgeOpacity.regular(),
     );
   }
 
@@ -106,6 +118,10 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
       inactiveVariant: colors.inactiveVariant,
       radii: SurgeRadii.regular(),
       spacing: SurgeSpacing.regular(),
+      typography: SurgeTypography.regular(colors),
+      semantic: SurgeSemanticColors.regular(colors),
+      controls: SurgeControlSizes.regular(),
+      opacity: SurgeOpacity.regular(),
     );
   }
 
@@ -130,6 +146,10 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
   final Color inactiveVariant;
   final SurgeRadii radii;
   final SurgeSpacing spacing;
+  final SurgeTypography typography;
+  final SurgeSemanticColors semantic;
+  final SurgeControlSizes controls;
+  final SurgeOpacity opacity;
 
   static SurgeTheme of(BuildContext context) {
     return Theme.of(context).extension<SurgeTheme>() ?? SurgeTheme.light();
@@ -158,6 +178,10 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
     Color? inactiveVariant,
     SurgeRadii? radii,
     SurgeSpacing? spacing,
+    SurgeTypography? typography,
+    SurgeSemanticColors? semantic,
+    SurgeControlSizes? controls,
+    SurgeOpacity? opacity,
   }) {
     return SurgeTheme(
       background: background ?? this.background,
@@ -181,6 +205,10 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
       inactiveVariant: inactiveVariant ?? this.inactiveVariant,
       radii: radii ?? this.radii,
       spacing: spacing ?? this.spacing,
+      typography: typography ?? this.typography,
+      semantic: semantic ?? this.semantic,
+      controls: controls ?? this.controls,
+      opacity: opacity ?? this.opacity,
     );
   }
 
@@ -211,6 +239,28 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
       inactiveVariant: Color.lerp(inactiveVariant, other.inactiveVariant, t)!,
       radii: SurgeRadii.lerp(radii, other.radii, t),
       spacing: SurgeSpacing.lerp(spacing, other.spacing, t),
+      typography: SurgeTypography.lerp(typography, other.typography, t),
+      semantic: SurgeSemanticColors.lerp(semantic, other.semantic, t),
+      controls: SurgeControlSizes.lerp(controls, other.controls, t),
+      opacity: SurgeOpacity.lerp(opacity, other.opacity, t),
     );
   }
+}
+
+/// Compatibility facade for older callers that imported text styles directly.
+/// It now reads the active [SurgeTheme] instead of a hard-coded light palette.
+class SurgeTextStyles {
+  const SurgeTextStyles._();
+
+  static TextStyle title(BuildContext context) =>
+      SurgeTheme.of(context).typography.title;
+
+  static TextStyle body(BuildContext context) =>
+      SurgeTheme.of(context).typography.body;
+
+  static TextStyle caption(BuildContext context) =>
+      SurgeTheme.of(context).typography.caption;
+
+  static TextStyle sectionTitle(BuildContext context) =>
+      SurgeTheme.of(context).typography.sectionTitle;
 }

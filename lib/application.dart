@@ -217,12 +217,7 @@ class ApplicationState extends ConsumerState<Application> {
         shadowColor: Colors.transparent,
         iconTheme: IconThemeData(color: surge.textPrimary),
         actionsIconTheme: IconThemeData(color: surge.textPrimary),
-        titleTextStyle: TextStyle(
-          color: surge.textPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
-        ),
+        titleTextStyle: surge.typography.appBarTitle,
       ),
       navigationBarTheme: _getNavigationBarTheme(surge),
       switchTheme: _getSwitchTheme(surge),

@@ -524,14 +524,28 @@ class SoftOsStatusPill extends StatelessWidget {
     this.onPressed,
     this.accentColor,
     this.width,
+    this.minWidth,
     this.loading = false,
+    this.semanticLabel,
+    this.surfaceAlpha,
+    this.borderAlpha,
+    this.height,
+    this.padding,
+    this.duration = SurgeMotion.state,
   });
 
   final Widget child;
   final VoidCallback? onPressed;
   final Color? accentColor;
   final double? width;
+  final double? minWidth;
   final bool loading;
+  final String? semanticLabel;
+  final double? surfaceAlpha;
+  final double? borderAlpha;
+  final double? height;
+  final EdgeInsetsGeometry? padding;
+  final Duration duration;
 
   @override
   Widget build(BuildContext context) {
@@ -539,35 +553,49 @@ class SoftOsStatusPill extends StatelessWidget {
     final metrics = SoftOsMetrics.of(context);
     final accent = accentColor ?? surge.textSecondary;
     final active = accentColor != null;
-    final height = metrics.value(30);
-    final radius = BorderRadius.circular(height / 2);
-    return SurgePressable(
-      onTap: loading ? null : onPressed,
+    final resolvedHeight = metrics.value(
+      height ?? surge.controls.statusPillHeight,
+    );
+    final radius = BorderRadius.circular(resolvedHeight / 2);
+    return Semantics(
+      label: semanticLabel,
       enabled: onPressed != null && !loading,
-      compact: true,
-      borderRadius: radius,
-      overlayOpacity: 0.045,
-      child: AnimatedContainer(
-        duration: SurgeMotion.state,
-        curve: SurgeMotion.stateCurve,
-        width: width == null ? null : metrics.value(width!),
-        height: height,
-        padding: EdgeInsets.symmetric(horizontal: metrics.value(12)),
-        decoration: BoxDecoration(
-          color: active
-              ? accent.withValues(alpha: 0.10)
-              : _softOsActionSurface(context),
-          borderRadius: radius,
-          border: Border.all(
+      child: SurgePressable(
+        onTap: loading ? null : onPressed,
+        enabled: onPressed != null && !loading,
+        compact: true,
+        borderRadius: radius,
+        overlayOpacity: surge.opacity.selectedSurface,
+        child: AnimatedContainer(
+          duration: duration,
+          curve: SurgeMotion.stateCurve,
+          constraints: minWidth == null
+              ? null
+              : BoxConstraints(minWidth: metrics.value(minWidth!)),
+          width: width == null ? null : metrics.value(width!),
+          height: resolvedHeight,
+          padding:
+              padding ?? EdgeInsets.symmetric(horizontal: metrics.value(12)),
+          decoration: BoxDecoration(
             color: active
-                ? accent.withValues(alpha: 0.22)
-                : _softOsActionBorder(context),
-            width: surge.spacing.hairline,
+                ? accent.withValues(
+                    alpha: surfaceAlpha ?? surge.opacity.statusSurface,
+                  )
+                : _softOsActionSurface(context),
+            borderRadius: radius,
+            border: Border.all(
+              color: active
+                  ? accent.withValues(
+                      alpha: borderAlpha ?? surge.opacity.statusBorder,
+                    )
+                  : _softOsActionBorder(context),
+              width: surge.spacing.hairline,
+            ),
+            boxShadow: active ? const [] : _softOsActionShadows(context),
           ),
-          boxShadow: active ? const [] : _softOsActionShadows(context),
+          alignment: Alignment.center,
+          child: child,
         ),
-        alignment: Alignment.center,
-        child: child,
       ),
     );
   }

@@ -310,7 +310,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           _controller.position.minScrollExtent,
           _controller.position.maxScrollExtent,
         ),
-        duration: const Duration(milliseconds: 300),
+        duration: SurgeMotion.scroll,
         curve: Curves.easeIn,
       );
     }

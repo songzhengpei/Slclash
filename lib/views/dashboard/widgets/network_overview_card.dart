@@ -8,7 +8,6 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/views/dashboard/dashboard_layout.dart';
-import 'package:fl_clash/views/dashboard/widgets/dashboard_palette.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -652,6 +651,7 @@ class _SurgeNetworkOverviewCardState
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final semantic = surge.semantic;
     final appLocalizations = context.appLocalizations;
     final traffics = ref.watch(trafficsProvider).list;
     final totalTraffic = ref.watch(totalTrafficProvider);
@@ -696,11 +696,11 @@ class _SurgeNetworkOverviewCardState
       const [0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077],
     );
     final uploadColor = isStart
-        ? dashboardDynamicActiveFill
-        : dashboardInactiveFill;
+        ? semantic.dashboardDynamicActive
+        : semantic.dashboardInactive;
     final downloadColor = isStart
-        ? dashboardActiveGreenFill
-        : dashboardInactiveVariantFill;
+        ? semantic.dashboardActiveGreen
+        : semantic.dashboardInactiveVariant;
     final lineFillStartAlpha = isStart ? 0.16 : 1.0;
     final lineFillEndAlpha = isStart ? 0.03 : 0.08;
     final responsiveLayout = widget.layout;
@@ -898,11 +898,14 @@ class _SurgeNetworkOverviewCardState
                 targets: _latencyTargets,
                 results: _latencyResults,
                 fallbackCountryCode: countryCode,
-                activeColor: dashboardDynamicActiveFill,
+                activeColor: semantic.dashboardDynamicActive,
                 fillColor: surge.fill,
                 textColor: surge.textPrimary,
                 secondaryTextColor: surge.textSecondary,
                 dangerColor: surge.red,
+                latencyGood: semantic.latencyGood,
+                latencyMedium: semantic.latencyMedium,
+                latencyBad: semantic.latencyBad,
                 onRetest: () => unawaited(_testLatencies(force: true)),
                 shouldAnimatePending: shouldAnimatePending,
                 rowGap: layout.latencyRowGap,
@@ -1377,6 +1380,9 @@ class _PlatformLatencyPanel extends StatelessWidget {
     required this.textColor,
     required this.secondaryTextColor,
     required this.dangerColor,
+    required this.latencyGood,
+    required this.latencyMedium,
+    required this.latencyBad,
     required this.onRetest,
     required this.shouldAnimatePending,
     required this.rowGap,
@@ -1391,6 +1397,9 @@ class _PlatformLatencyPanel extends StatelessWidget {
   final Color textColor;
   final Color secondaryTextColor;
   final Color dangerColor;
+  final Color latencyGood;
+  final Color latencyMedium;
+  final Color latencyBad;
   final VoidCallback onRetest;
   final bool shouldAnimatePending;
   final double rowGap;
@@ -1399,10 +1408,10 @@ class _PlatformLatencyPanel extends StatelessWidget {
   Color _flowColor(_LatencyResult? result) {
     if (result == null || result.pending) return activeColor;
     final latency = result.latency;
-    if (latency == null) return dashboardSunsetError;
-    if (latency < 180) return dashboardSunsetSuccess;
-    if (latency < 420) return dashboardSunsetWarning;
-    return dashboardSunsetError;
+    if (latency == null) return latencyBad;
+    if (latency < 180) return latencyGood;
+    if (latency < 420) return latencyMedium;
+    return latencyBad;
   }
 
   Color _trackColor(_LatencyResult? result) {
@@ -1710,7 +1719,7 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1300),
+      duration: SurgeMotion.latencyFlow,
     );
     if (widget.active) {
       _controller.repeat();

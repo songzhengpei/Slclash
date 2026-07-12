@@ -60,13 +60,7 @@ class SurgeSection extends StatelessWidget {
                         title!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: surge.textSecondary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0,
-                            ),
+                        style: surge.typography.sectionTitle,
                       ),
                     )
                   else
@@ -90,11 +84,7 @@ class SurgeSection extends StatelessWidget {
               padding: const EdgeInsets.only(left: 4, top: 8, right: 4),
               child: Text(
                 footer!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: surge.textSecondary,
-                  fontSize: 12,
-                  letterSpacing: 0,
-                ),
+                style: surge.typography.micro.copyWith(fontSize: 12),
               ),
             ),
           ],

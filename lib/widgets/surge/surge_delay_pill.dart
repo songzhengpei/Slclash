@@ -5,6 +5,86 @@ import 'package:fl_clash/widgets/surge/surge_pressable.dart';
 import 'package:fl_clash/widgets/surge/surge_theme_extension.dart';
 import 'package:flutter/material.dart';
 
+enum SurgeMetricState { idle, loading, value, error }
+
+/// Shared compact metric shell used by delay and future status metrics.
+class SurgeMetricBadge extends StatelessWidget {
+  const SurgeMetricBadge({
+    super.key,
+    required this.state,
+    required this.label,
+    required this.background,
+    required this.border,
+    required this.foreground,
+    this.onTap,
+    this.width = 64,
+  });
+
+  final SurgeMetricState state;
+  final String label;
+  final Color background;
+  final Color border;
+  final Color foreground;
+  final VoidCallback? onTap;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final metrics = SoftOsMetrics.of(context);
+    final height = metrics.value(surge.controls.statusPillHeight);
+    return SurgePressable(
+      compact: true,
+      borderRadius: BorderRadius.circular(height / 2),
+      onTap: onTap,
+      child: SizedBox(
+        width: metrics.value(width),
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(height / 2),
+            border: Border.all(color: border, width: surge.spacing.hairline),
+          ),
+          child: AnimatedSwitcher(
+            duration: SurgeMotion.state,
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              alignment: Alignment.center,
+              children: [...previousChildren, ?currentChild],
+            ),
+            child: Center(
+              key: ValueKey(label),
+              child: state == SurgeMetricState.loading
+                  ? SizedBox.square(
+                      dimension: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.6,
+                        color: foreground,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      strutStyle: const StrutStyle(
+                        forceStrutHeight: true,
+                        height: 1,
+                      ),
+                      style: surge.typography.micro.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.w600,
+                        height: 1,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Shared Soft OS delay-test control for a single proxy.
 class SurgeDelayPill extends StatelessWidget {
   const SurgeDelayPill({super.key, required this.delay, required this.onTap});
@@ -15,7 +95,6 @@ class SurgeDelayPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final metrics = SoftOsMetrics.of(context);
     final isTesting = delay == 0;
     final isUntested = delay == null;
     final isTimeout = delay != null && delay! < 0;
@@ -55,56 +134,19 @@ class SurgeDelayPill extends StatelessWidget {
         ? '$delay ms'
         : 'Timeout';
 
-    return SurgePressable(
-      compact: true,
-      borderRadius: BorderRadius.circular(15),
+    return SurgeMetricBadge(
+      state: isTesting
+          ? SurgeMetricState.loading
+          : isTimeout
+          ? SurgeMetricState.error
+          : isSuccess
+          ? SurgeMetricState.value
+          : SurgeMetricState.idle,
+      label: label,
+      background: background,
+      border: border,
+      foreground: foreground,
       onTap: onTap,
-      child: SizedBox(
-        width: metrics.value(64),
-        height: metrics.value(30),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: border, width: 0.5),
-          ),
-          child: AnimatedSwitcher(
-            duration: SurgeMotion.state,
-            layoutBuilder: (currentChild, previousChildren) => Stack(
-              alignment: Alignment.center,
-              children: [...previousChildren, ?currentChild],
-            ),
-            child: Center(
-              key: ValueKey(label),
-              child: isTesting
-                  ? SizedBox.square(
-                      dimension: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.6,
-                        color: foreground,
-                      ),
-                    )
-                  : Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      strutStyle: const StrutStyle(
-                        forceStrutHeight: true,
-                        height: 1,
-                      ),
-                      style: context.textTheme.labelSmall?.copyWith(
-                        color: foreground,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                        letterSpacing: 0,
-                      ),
-                    ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

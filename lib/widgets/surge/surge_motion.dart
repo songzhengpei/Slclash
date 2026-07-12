@@ -7,6 +7,11 @@ class SurgeMotion {
   static const state = Duration(milliseconds: 160);
   static const reveal = Duration(milliseconds: 180);
   static const container = Duration(milliseconds: 220);
+  static const scroll = Duration(milliseconds: 300);
+  static const heroFill = Duration(milliseconds: 1500);
+  static const heroSheen = Duration(milliseconds: 1400);
+  static const latencyFlow = Duration(milliseconds: 1300);
+  static const statusLightPulse = Duration(milliseconds: 112);
   static const pageEnter = Duration(milliseconds: 280);
   static const pageExit = Duration(milliseconds: 210);
   static const sheetEnter = Duration(milliseconds: 300);

@@ -58,123 +58,47 @@ class ProxyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
     return Consumer(
       builder: (_, ref, _) {
         final selectedProxyName = ref.watch(
           selectedProxyNameProvider(groupName),
         );
         final isSelected = selectedProxyName == proxy.name;
-        final surface = isSelected
-            ? Color.alphaBlend(
-                surge.primary.withValues(alpha: 0.045),
-                surge.card,
-              )
-            : surge.card;
-        final radius = BorderRadius.vertical(
-          top:
-              rowPosition == ProxyListRowPosition.first ||
-                  rowPosition == ProxyListRowPosition.single
-              ? Radius.circular(surge.radii.card)
-              : Radius.zero,
-          bottom:
-              rowPosition == ProxyListRowPosition.last ||
-                  rowPosition == ProxyListRowPosition.single
-              ? Radius.circular(surge.radii.card)
-              : Radius.zero,
-        );
-        final borderColor = surge.separator.withValues(alpha: 0.74);
-        final border = Border(
-          left: BorderSide(color: borderColor, width: 0.5),
-          right: BorderSide(color: borderColor, width: 0.5),
-          top:
-              rowPosition == ProxyListRowPosition.first ||
-                  rowPosition == ProxyListRowPosition.single
-              ? BorderSide(color: borderColor, width: 0.5)
-              : BorderSide.none,
-          bottom:
-              rowPosition == ProxyListRowPosition.last ||
-                  rowPosition == ProxyListRowPosition.single
-              ? BorderSide(color: borderColor, width: 0.5)
-              : BorderSide.none,
-        );
-
-        return Material(
+        return SurgeSelectableRow(
           key: key,
-          color: Colors.transparent,
-          clipBehavior: Clip.none,
-          borderRadius: radius,
-          child: InkWell(
-            onTap: () {
-              _changeProxy(ref);
-            },
-            child: Ink(
-              decoration: BoxDecoration(
-                color: surface,
-                borderRadius: radius,
-                border: border,
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(32, 7, 12, 7),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _ProxyTextBlock(proxy: proxy, type: type),
-                        ),
-                        if (groupType.isComputedSelected) ...[
-                          const SizedBox(width: 8),
-                          _ProxyComputedMark(
-                            groupName: groupName,
-                            proxy: proxy,
-                          ),
-                        ],
-                        const SizedBox(width: 12),
-                        Consumer(
-                          builder: (context, ref, child) => SurgeDelayPill(
-                            delay: ref.watch(
-                              delayProvider(
-                                proxyName: proxy.name,
-                                testUrl: testUrl,
-                              ),
-                            ),
-                            onTap: _handleTestCurrentDelay,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (showDivider)
-                    Positioned(
-                      left: 32,
-                      right: 16,
-                      bottom: 0,
-                      child: Divider(
-                        height: 0,
-                        thickness: surge.spacing.hairline,
-                        color: surge.separator.withValues(alpha: 0.35),
-                      ),
-                    ),
-                  if (isSelected)
-                    Positioned(
-                      left: 14,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: Container(
-                          width: 3,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: surge.primary.withValues(alpha: 0.64),
-                            borderRadius: BorderRadius.circular(1.5),
-                          ),
-                        ),
-                      ),
-                    ),
+          selected: isSelected,
+          onTap: () => _changeProxy(ref),
+          position: switch (rowPosition) {
+            ProxyListRowPosition.single => SurgeSelectableRowPosition.single,
+            ProxyListRowPosition.first => SurgeSelectableRowPosition.first,
+            ProxyListRowPosition.middle => SurgeSelectableRowPosition.middle,
+            ProxyListRowPosition.last => SurgeSelectableRowPosition.last,
+          },
+          showBorder: true,
+          showDivider: showDivider,
+          dividerInsets: const EdgeInsets.only(left: 32, right: 16),
+          dividerOpacity: 0.35,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(32, 7, 12, 7),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ProxyTextBlock(proxy: proxy, type: type),
+                ),
+                if (groupType.isComputedSelected) ...[
+                  const SizedBox(width: 8),
+                  _ProxyComputedMark(groupName: groupName, proxy: proxy),
                 ],
-              ),
+                const SizedBox(width: 12),
+                Consumer(
+                  builder: (context, ref, child) => SurgeDelayPill(
+                    delay: ref.watch(
+                      delayProvider(proxyName: proxy.name, testUrl: testUrl),
+                    ),
+                    onTap: _handleTestCurrentDelay,
+                  ),
+                ),
+              ],
             ),
           ),
         );
