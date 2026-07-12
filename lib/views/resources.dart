@@ -472,7 +472,7 @@ class _ResourceItemCard extends ConsumerWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     color: surge.textSecondary.withValues(alpha: 0.055),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(surge.radii.menuRow),
                     border: Border.all(
                       color: surge.separator.withValues(alpha: 0.38),
                       width: surge.spacing.hairline,

@@ -1269,7 +1269,9 @@ class _ProfileProxyTestAllButtonState
       message: '测试全部延迟',
       child: SurgePressable(
         compact: true,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(
+          SurgeTheme.of(context).radii.compact,
+        ),
         onTap: _handleTestAll,
         child: Container(
           width: 28,

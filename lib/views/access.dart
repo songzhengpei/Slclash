@@ -480,7 +480,7 @@ class _SelectedPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: surfaceColor,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(surge.radii.button),
         border: Border.all(color: borderColor, width: surge.spacing.hairline),
       ),
       child: Text(
