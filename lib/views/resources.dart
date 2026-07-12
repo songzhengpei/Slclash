@@ -334,7 +334,7 @@ class _ResourceStatusCard extends StatelessWidget {
               height: 30,
               decoration: BoxDecoration(
                 color: surge.textSecondary.withValues(alpha: 0.055),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(surge.radii.button),
               ),
               child: Icon(
                 mode == _ResourceAutoUpdateMode.off
@@ -692,7 +692,7 @@ class _ResourceSheetOption extends StatelessWidget {
                   color: selected
                       ? surge.primary.withValues(alpha: 0.1)
                       : surge.textSecondary.withValues(alpha: 0.055),
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(surge.radii.button),
                   border: Border.all(
                     color: surge.separator.withValues(alpha: 0.38),
                     width: surge.spacing.hairline,

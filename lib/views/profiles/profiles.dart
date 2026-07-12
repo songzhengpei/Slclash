@@ -2000,7 +2000,7 @@ class _ProfileActionMenuItem extends StatelessWidget {
                 color: danger
                     ? surge.red.withValues(alpha: 0.075)
                     : surge.textSecondary.withValues(alpha: 0.055),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(surge.radii.button),
               ),
               child: Icon(icon, size: 15.5, color: color),
             ),
