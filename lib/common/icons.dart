@@ -87,6 +87,7 @@ abstract final class SurgeIcons {
   static const replay = Icons.replay_rounded;
   static const sync = Icons.sync_rounded;
   static const cloudSync = Icons.cloud_sync_rounded;
+  static const providerDownload = Icons.cloud_download_outlined;
   static const download = Icons.download_rounded;
   static const upload = Icons.upload_rounded;
   static const uploadFile = Icons.upload_file_rounded;

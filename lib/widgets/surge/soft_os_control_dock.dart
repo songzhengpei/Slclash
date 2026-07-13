@@ -2,9 +2,30 @@ import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/popup.dart';
 import 'package:flutter/material.dart';
 
+/// Applies the dedicated top app-bar capsule treatment without changing the
+/// shared Soft OS controls used by sheets, cards, and lists.
+class SoftOsAppBarActionTemplate extends InheritedWidget {
+  const SoftOsAppBarActionTemplate({super.key, required super.child});
+
+  static bool active(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<SoftOsAppBarActionTemplate>() !=
+        null;
+  }
+
+  @override
+  bool updateShouldNotify(SoftOsAppBarActionTemplate oldWidget) => false;
+}
+
 Color _softOsActionSurface(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
+  if (SoftOsAppBarActionTemplate.active(context)) {
+    return Color.alphaBlend(
+      surge.textPrimary.withValues(alpha: isDark ? 0.10 : 0.025),
+      surge.background,
+    );
+  }
   return Color.alphaBlend(
     surge.textPrimary.withValues(
       alpha: isDark
@@ -18,6 +39,9 @@ Color _softOsActionSurface(BuildContext context) {
 Color _softOsActionBorder(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
+  if (SoftOsAppBarActionTemplate.active(context)) {
+    return surge.separator;
+  }
   return surge.textPrimary.withValues(
     alpha: isDark
         ? surge.opacity.actionBorderDark
@@ -37,6 +61,20 @@ Color _softOsActionForeground(BuildContext context, bool enabled) {
 List<BoxShadow> _softOsActionShadows(BuildContext context) {
   final surge = SurgeTheme.of(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
+  if (SoftOsAppBarActionTemplate.active(context)) {
+    return [
+      BoxShadow(
+        color: surge.shadow.withValues(alpha: 0.08),
+        blurRadius: 3,
+        offset: const Offset(0, 0.5),
+      ),
+      BoxShadow(
+        color: surge.shadow.withValues(alpha: 0.035),
+        blurRadius: 6,
+        offset: const Offset(0, 2),
+      ),
+    ];
+  }
   return [
     BoxShadow(
       color: surge.shadow.withValues(
@@ -151,7 +189,10 @@ class SoftOsActionButton extends StatelessWidget {
           ? surge.controls.compactActionVisualHeight
           : surge.controls.actionVisualHeight,
     );
-    final iconSize = metrics.value(surge.controls.actionIconSize);
+    final appBarTemplate = SoftOsAppBarActionTemplate.active(context);
+    final iconSize = metrics.value(
+      appBarTemplate ? 18 : surge.controls.actionIconSize,
+    );
     final tapSize = metrics.tap(surge.controls.actionTapExtent);
     final enabled = onPressed != null && !loading;
     final foreground = _softOsActionForeground(context, enabled);
@@ -197,6 +238,7 @@ class SoftOsActionButton extends StatelessWidget {
                           data: IconThemeData(
                             size: iconSize,
                             color: foreground,
+                            weight: appBarTemplate ? 600 : null,
                           ),
                           child:
                               child ??
@@ -308,7 +350,10 @@ class SoftOsActionDockButton extends StatelessWidget {
           ? surge.controls.compactActionVisualHeight
           : surge.controls.actionVisualHeight,
     );
-    final iconSize = metrics.value(surge.controls.actionIconSize);
+    final appBarTemplate = SoftOsAppBarActionTemplate.active(context);
+    final iconSize = metrics.value(
+      appBarTemplate ? 18 : surge.controls.actionIconSize,
+    );
     final tapSize = metrics.tap(surge.controls.actionTapExtent);
     final enabled = onPressed != null && !loading;
     final foreground = _softOsActionForeground(context, enabled);
@@ -336,7 +381,11 @@ class SoftOsActionDockButton extends StatelessWidget {
                       ),
                     )
                   : IconTheme.merge(
-                      data: IconThemeData(size: iconSize, color: foreground),
+                      data: IconThemeData(
+                        size: iconSize,
+                        color: foreground,
+                        weight: appBarTemplate ? 600 : null,
+                      ),
                       child:
                           child ??
                           Icon(icon, size: iconSize, color: foreground),

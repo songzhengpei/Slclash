@@ -736,14 +736,14 @@ class _SurgeNetworkOverviewCardState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: responsiveLayout.geometry(18),
+                width: responsiveLayout.geometry(16),
                 height: layout.headerHeight,
                 child: Align(
                   alignment: Alignment.topLeft,
                   child: Icon(
                     SurgeIcons.network,
                     color: isStart ? surge.primary : surge.inactive,
-                    size: responsiveLayout.geometry(18),
+                    size: responsiveLayout.geometry(16),
                   ),
                 ),
               ),
@@ -759,17 +759,6 @@ class _SurgeNetworkOverviewCardState
                         fontSize: responsiveLayout.type(14),
                         fontWeight: FontWeight.w700,
                         height: 1.08,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    SizedBox(height: responsiveLayout.geometry(2)),
-                    Text(
-                      'Network Overview',
-                      style: context.textTheme.bodySmall?.copyWith(
-                        color: surge.textSecondary,
-                        fontSize: responsiveLayout.type(8),
-                        fontWeight: FontWeight.w400,
-                        height: 1.12,
                         letterSpacing: 0,
                       ),
                     ),
@@ -813,13 +802,13 @@ class _SurgeNetworkOverviewCardState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: responsiveLayout.geometry(18),
+                    width: responsiveLayout.geometry(16),
                     height: layout.headerHeight,
                     child: Align(
                       alignment: Alignment.topLeft,
                       child: Icon(
                         SurgeIcons.traffic,
-                        size: responsiveLayout.geometry(18),
+                        size: responsiveLayout.geometry(16),
                         color: surge.textSecondary,
                       ),
                     ),
@@ -838,17 +827,6 @@ class _SurgeNetworkOverviewCardState
                             fontSize: responsiveLayout.type(14),
                             fontWeight: FontWeight.w700,
                             height: 1.08,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        SizedBox(height: responsiveLayout.geometry(2)),
-                        Text(
-                          'Traffic',
-                          style: context.textTheme.bodySmall?.copyWith(
-                            color: surge.textSecondary,
-                            fontSize: responsiveLayout.type(8),
-                            fontWeight: FontWeight.w400,
-                            height: 1.12,
                             letterSpacing: 0,
                           ),
                         ),

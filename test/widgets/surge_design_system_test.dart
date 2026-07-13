@@ -173,6 +173,37 @@ void main() {
       expect(iconTaps, 1);
     });
 
+    testWidgets('app-bar action template is scoped to its capsule icons', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SoftOsAppBarActionTemplate(
+                child: SoftOsActionButton(
+                  icon: SurgeIcons.search,
+                  onPressed: () {},
+                ),
+              ),
+              SoftOsActionButton(icon: SurgeIcons.search, onPressed: () {}),
+            ],
+          ),
+        ),
+      );
+
+      final icons = tester.widgetList<Icon>(find.byIcon(SurgeIcons.search));
+      final templateContext = tester.element(
+        find.byType(SoftOsAppBarActionTemplate),
+      );
+      final metrics = SoftOsMetrics.of(templateContext);
+      expect(icons.map((icon) => icon.size), [
+        metrics.value(18),
+        metrics.value(16),
+      ]);
+    });
+
     testWidgets('selectable rows preserve selected semantics and callbacks', (
       tester,
     ) async {

@@ -57,7 +57,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       if (hasProviders)
         IconButton(
           tooltip: appLocalizations.providers,
-          icon: const Icon(SurgeIcons.cloudSync),
+          icon: const Icon(SurgeIcons.providerDownload),
           onPressed: () {
             unawaited(_handleProvidersPressed(context));
           },
