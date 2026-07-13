@@ -1,6 +1,5 @@
 package com.follow.clash.plugins
 
-import com.follow.clash.RunState
 import com.follow.clash.Service
 import com.follow.clash.State
 import com.follow.clash.common.Components
@@ -125,7 +124,7 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     }
 
     private fun onServiceDisconnected(message: String) {
-        State.runStateFlow.tryEmit(RunState.STOP)
+        launch { State.handleSyncState() }
         flutterMethodChannel.invokeMethodOnMainThread<Any>("crash", message)
     }
 
@@ -188,6 +187,7 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     private fun handleSmartStop(result: MethodChannel.Result) {
         launch {
             val res = Service.smartStop()
+            State.handleSyncState()
             result.success(res != 0L)
         }
     }
@@ -195,6 +195,7 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     private fun handleSmartResume(result: MethodChannel.Result) {
         launch {
             val res = Service.smartResume()
+            State.handleSyncState()
             result.success(res > 0L)
         }
     }
@@ -203,6 +204,7 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         launch {
             val value = call.arguments<Boolean>() ?: false
             Service.setSmartStopped(value)
+            State.handleSyncState()
             result.success(true)
         }
     }

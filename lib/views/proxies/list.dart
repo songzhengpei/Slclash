@@ -310,7 +310,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           _controller.position.minScrollExtent,
           _controller.position.maxScrollExtent,
         ),
-        duration: const Duration(milliseconds: 300),
+        duration: SurgeMotion.scroll,
         curve: Curves.easeIn,
       );
     }
@@ -541,7 +541,7 @@ class _ListHeaderState extends State<ListHeader> {
                     alignment: Alignment.center,
                     padding: EdgeInsets.all(5.ap),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(surge.radii.input),
                       color: surge.textSecondary.withValues(alpha: 0.08),
                     ),
                     clipBehavior: Clip.antiAlias,

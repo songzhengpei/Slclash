@@ -168,12 +168,7 @@ class SoftOsListSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SurgeCard(
-      padding: EdgeInsets.zero,
-      borderRadius: 18,
-      shadow: false,
-      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
-    );
+    return SurgeListSurface(child: child);
   }
 }
 
@@ -201,6 +196,7 @@ class _TrackerProcessIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return FutureBuilder<ImageProvider?>(
       future: TrackerInfoItem._getPackageIcon(trackerInfo),
       builder: (_, snapshot) {
@@ -211,10 +207,10 @@ class _TrackerProcessIcon extends StatelessWidget {
           padding: const EdgeInsets.only(right: 10),
           child: SurgePressable(
             compact: true,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(surge.radii.compact),
             onTap: onTap,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(surge.radii.compact),
               child: Image(
                 image: snapshot.data!,
                 gaplessPlayback: true,
@@ -242,13 +238,13 @@ class _TrackerChainPill extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(surge.radii.smallCard),
         child: Ink(
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: surge.textSecondary.withValues(alpha: 0.055),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(surge.radii.smallCard),
             border: Border.all(
               color: surge.separator.withValues(alpha: 0.35),
               width: surge.spacing.hairline,

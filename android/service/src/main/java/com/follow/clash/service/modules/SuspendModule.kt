@@ -8,14 +8,18 @@ import com.follow.clash.common.receiveBroadcastFlow
 import com.follow.clash.core.Core
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 
 
 class SuspendModule(private val service: Service) : Module() {
-    private val scope = CoroutineScope(Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var job: Job? = null
 
     private fun isScreenOn(): Boolean {
         val pm = service.getSystemService<PowerManager>()
@@ -38,8 +42,8 @@ class SuspendModule(private val service: Service) : Module() {
         Core.suspended(isDeviceIdleMode)
     }
 
-    override fun onInstall() {
-        scope.launch {
+    override suspend fun onInstall() {
+        job = scope.launch {
             val screenFlow = service.receiveBroadcastFlow {
                 addAction(Intent.ACTION_SCREEN_ON)
                 addAction(Intent.ACTION_SCREEN_OFF)
@@ -55,7 +59,9 @@ class SuspendModule(private val service: Service) : Module() {
         }
     }
 
-    override fun onUninstall() {
+    override suspend fun onUninstall() {
+        job?.cancelAndJoin()
+        job = null
         scope.cancel()
     }
 }

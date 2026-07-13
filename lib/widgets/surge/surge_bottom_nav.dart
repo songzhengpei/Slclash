@@ -11,8 +11,7 @@ class SurgeBottomNavLayout {
 
   static const double height = 56;
   static const double horizontalInset = 21;
-  static const double extraBottomInset = 5;
-  static const double noGestureBottomInset = 16;
+  static const double noGestureBottomInset = 12;
   static const double contentGap = 9;
 
   static double navBottomInset(BuildContext context) {
@@ -28,7 +27,7 @@ class SurgeBottomNavLayout {
     if (viewPaddingBottom <= 0) {
       return noGestureBottomInset;
     }
-    return viewPaddingBottom + extraBottomInset;
+    return viewPaddingBottom;
   }
 
   @visibleForTesting

@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/icons.dart';
 import 'package:fl_clash/widgets/popup.dart';
 import 'package:flutter/material.dart';
 
@@ -94,7 +95,7 @@ class _SoftOsSelectTarget<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
-    final height = metrics.value(38);
+    final height = metrics.value(surge.controls.selectPillHeight);
     return SurgePressable(
       onTap: onTap,
       enabled: enabled,
@@ -135,7 +136,7 @@ class _SoftOsSelectTarget<T> extends StatelessWidget {
             ),
             SizedBox(width: metrics.value(6)),
             Icon(
-              Icons.keyboard_arrow_down_rounded,
+              SurgeIcons.down,
               size: metrics.value(19),
               color: surge.textSecondary,
             ),

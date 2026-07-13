@@ -83,7 +83,7 @@ class OverwriteCountPill extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: surge.primary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(surge.radii.button),
         border: Border.all(
           color: surge.primary.withValues(alpha: 0.14),
           width: surge.spacing.hairline,

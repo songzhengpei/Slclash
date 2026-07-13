@@ -8,7 +8,6 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/views/dashboard/dashboard_layout.dart';
-import 'package:fl_clash/views/dashboard/widgets/dashboard_palette.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -652,6 +651,7 @@ class _SurgeNetworkOverviewCardState
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final semantic = surge.semantic;
     final appLocalizations = context.appLocalizations;
     final traffics = ref.watch(trafficsProvider).list;
     final totalTraffic = ref.watch(totalTrafficProvider);
@@ -696,11 +696,11 @@ class _SurgeNetworkOverviewCardState
       const [0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077],
     );
     final uploadColor = isStart
-        ? dashboardDynamicActiveFill
-        : dashboardInactiveFill;
+        ? semantic.dashboardDynamicActive
+        : semantic.dashboardInactive;
     final downloadColor = isStart
-        ? dashboardActiveGreenFill
-        : dashboardInactiveVariantFill;
+        ? semantic.dashboardActiveGreen
+        : semantic.dashboardInactiveVariant;
     final lineFillStartAlpha = isStart ? 0.16 : 1.0;
     final lineFillEndAlpha = isStart ? 0.03 : 0.08;
     final responsiveLayout = widget.layout;
@@ -736,14 +736,14 @@ class _SurgeNetworkOverviewCardState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: responsiveLayout.geometry(18),
+                width: responsiveLayout.geometry(16),
                 height: layout.headerHeight,
                 child: Align(
                   alignment: Alignment.topLeft,
                   child: Icon(
                     SurgeIcons.network,
                     color: isStart ? surge.primary : surge.inactive,
-                    size: responsiveLayout.geometry(18),
+                    size: responsiveLayout.geometry(16),
                   ),
                 ),
               ),
@@ -759,17 +759,6 @@ class _SurgeNetworkOverviewCardState
                         fontSize: responsiveLayout.type(14),
                         fontWeight: FontWeight.w700,
                         height: 1.08,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    SizedBox(height: responsiveLayout.geometry(2)),
-                    Text(
-                      'Network Overview',
-                      style: context.textTheme.bodySmall?.copyWith(
-                        color: surge.textSecondary,
-                        fontSize: responsiveLayout.type(8),
-                        fontWeight: FontWeight.w400,
-                        height: 1.12,
                         letterSpacing: 0,
                       ),
                     ),
@@ -813,13 +802,13 @@ class _SurgeNetworkOverviewCardState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: responsiveLayout.geometry(18),
+                    width: responsiveLayout.geometry(16),
                     height: layout.headerHeight,
                     child: Align(
                       alignment: Alignment.topLeft,
                       child: Icon(
                         SurgeIcons.traffic,
-                        size: responsiveLayout.geometry(18),
+                        size: responsiveLayout.geometry(16),
                         color: surge.textSecondary,
                       ),
                     ),
@@ -838,17 +827,6 @@ class _SurgeNetworkOverviewCardState
                             fontSize: responsiveLayout.type(14),
                             fontWeight: FontWeight.w700,
                             height: 1.08,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        SizedBox(height: responsiveLayout.geometry(2)),
-                        Text(
-                          'Traffic',
-                          style: context.textTheme.bodySmall?.copyWith(
-                            color: surge.textSecondary,
-                            fontSize: responsiveLayout.type(8),
-                            fontWeight: FontWeight.w400,
-                            height: 1.12,
                             letterSpacing: 0,
                           ),
                         ),
@@ -898,11 +876,14 @@ class _SurgeNetworkOverviewCardState
                 targets: _latencyTargets,
                 results: _latencyResults,
                 fallbackCountryCode: countryCode,
-                activeColor: dashboardDynamicActiveFill,
+                activeColor: semantic.dashboardDynamicActive,
                 fillColor: surge.fill,
                 textColor: surge.textPrimary,
                 secondaryTextColor: surge.textSecondary,
                 dangerColor: surge.red,
+                latencyGood: semantic.latencyGood,
+                latencyMedium: semantic.latencyMedium,
+                latencyBad: semantic.latencyBad,
                 onRetest: () => unawaited(_testLatencies(force: true)),
                 shouldAnimatePending: shouldAnimatePending,
                 rowGap: layout.latencyRowGap,
@@ -1060,6 +1041,7 @@ class _LiveSpeedLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1067,12 +1049,9 @@ class _LiveSpeedLine extends StatelessWidget {
         SizedBox(width: layout.geometry(4)),
         Text(
           value,
-          style: context.textTheme.labelMedium?.copyWith(
+          style: surge.typography.dashboardValue.copyWith(
             color: color,
             fontSize: layout.type(13),
-            fontWeight: FontWeight.w700,
-            height: 1.0,
-            letterSpacing: 0,
           ),
         ),
       ],
@@ -1120,6 +1099,7 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     final height = NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
       layout,
     );
@@ -1160,13 +1140,10 @@ class _NetworkDetectionBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
-                style: TextStyle(
+                style: surge.typography.dashboardValue.copyWith(
                   color: textColor,
                   fontSize: layout.type(12),
-                  fontWeight: FontWeight.w700,
-                  height: 1.0,
                   leadingDistribution: TextLeadingDistribution.even,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -1191,11 +1168,9 @@ class _NetworkDetectionBar extends StatelessWidget {
           Text(
             context.appLocalizations.loading,
             maxLines: 1,
-            style: TextStyle(
+            style: surge.typography.dashboardLoading.copyWith(
               color: secondaryTextColor,
               fontSize: layout.type(10),
-              fontWeight: FontWeight.w400,
-              height: 1.0,
             ),
           ),
         ],
@@ -1204,11 +1179,9 @@ class _NetworkDetectionBar extends StatelessWidget {
       valueWidget = Text(
         'Timeout',
         maxLines: 1,
-        style: TextStyle(
+        style: surge.typography.dashboardValue.copyWith(
           color: dangerColor,
           fontSize: layout.type(12),
-          fontWeight: FontWeight.w700,
-          height: 1.0,
         ),
       );
     } else {
@@ -1235,12 +1208,9 @@ class _NetworkDetectionBar extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: TextStyle(
+            style: surge.typography.dashboardLabel.copyWith(
               color: secondaryTextColor,
               fontSize: layout.type(12),
-              fontWeight: FontWeight.w500,
-              height: 1.0,
-              letterSpacing: 0,
             ),
           ),
           SizedBox(width: layout.geometry(12)),
@@ -1377,6 +1347,9 @@ class _PlatformLatencyPanel extends StatelessWidget {
     required this.textColor,
     required this.secondaryTextColor,
     required this.dangerColor,
+    required this.latencyGood,
+    required this.latencyMedium,
+    required this.latencyBad,
     required this.onRetest,
     required this.shouldAnimatePending,
     required this.rowGap,
@@ -1391,6 +1364,9 @@ class _PlatformLatencyPanel extends StatelessWidget {
   final Color textColor;
   final Color secondaryTextColor;
   final Color dangerColor;
+  final Color latencyGood;
+  final Color latencyMedium;
+  final Color latencyBad;
   final VoidCallback onRetest;
   final bool shouldAnimatePending;
   final double rowGap;
@@ -1399,10 +1375,10 @@ class _PlatformLatencyPanel extends StatelessWidget {
   Color _flowColor(_LatencyResult? result) {
     if (result == null || result.pending) return activeColor;
     final latency = result.latency;
-    if (latency == null) return dashboardSunsetError;
-    if (latency < 180) return dashboardSunsetSuccess;
-    if (latency < 420) return dashboardSunsetWarning;
-    return dashboardSunsetError;
+    if (latency == null) return latencyBad;
+    if (latency < 180) return latencyGood;
+    if (latency < 420) return latencyMedium;
+    return latencyBad;
   }
 
   Color _trackColor(_LatencyResult? result) {
@@ -1461,13 +1437,9 @@ class _PlatformLatencyPanel extends StatelessWidget {
   }
 
   TextStyle _valueStyle(BuildContext context) {
-    return context.textTheme.labelMedium?.copyWith(
-          fontSize: layout.type(12),
-          fontWeight: FontWeight.w500,
-          height: 1.0,
-          letterSpacing: 0,
-        ) ??
-        TextStyle(fontSize: layout.type(12), fontWeight: FontWeight.w500);
+    return SurgeTheme.of(
+      context,
+    ).typography.dashboardLabel.copyWith(fontSize: layout.type(12));
   }
 
   @override
@@ -1710,7 +1682,7 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1300),
+      duration: SurgeMotion.latencyFlow,
     );
     if (widget.active) {
       _controller.repeat();
@@ -1735,9 +1707,10 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
 
   @override
   Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
     return RepaintBoundary(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(surge.radii.chart),
         child: SizedBox(
           height: widget.layout.legacy(8),
           child: Stack(

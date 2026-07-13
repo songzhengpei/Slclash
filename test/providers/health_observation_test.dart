@@ -78,34 +78,34 @@ void main() {
       );
     });
 
-    test('caps foreground workers at five', () {
+    test('caps foreground workers at ten', () {
       expect(
         healthObservationWorkerCount(
           eligibleProxyCount: 12,
           appForeground: true,
         ),
-        5,
+        10,
       );
     });
 
-    test('caps background workers at two', () {
+    test('caps background workers at five', () {
       expect(
         healthObservationWorkerCount(
           eligibleProxyCount: 12,
           appForeground: false,
         ),
-        2,
+        5,
       );
     });
 
-    test('uses one worker on cellular or screen off', () {
+    test('uses up to five workers on cellular or screen off', () {
       expect(
         healthObservationWorkerCount(
           eligibleProxyCount: 12,
           appForeground: true,
           cellular: true,
         ),
-        1,
+        5,
       );
       expect(
         healthObservationWorkerCount(
@@ -113,7 +113,7 @@ void main() {
           appForeground: true,
           screenOn: false,
         ),
-        1,
+        5,
       );
     });
 
@@ -128,37 +128,40 @@ void main() {
       );
     });
 
-    test('uses one worker when network is power limited', () {
+    test('uses up to five workers when network is power limited', () {
       expect(
         healthObservationWorkerCount(
           eligibleProxyCount: 12,
           appForeground: true,
           networkPowerLimited: true,
         ),
-        1,
+        5,
       );
     });
 
-    test('uses one worker when both cellular and networkPowerLimited', () {
-      expect(
-        healthObservationWorkerCount(
-          eligibleProxyCount: 12,
-          appForeground: true,
-          cellular: true,
-          networkPowerLimited: true,
-        ),
-        1,
-      );
-    });
+    test(
+      'uses up to five workers when both cellular and networkPowerLimited',
+      () {
+        expect(
+          healthObservationWorkerCount(
+            eligibleProxyCount: 12,
+            appForeground: true,
+            cellular: true,
+            networkPowerLimited: true,
+          ),
+          5,
+        );
+      },
+    );
 
-    test('full workers when network is not power limited', () {
+    test('uses ten workers when network is not power limited', () {
       expect(
         healthObservationWorkerCount(
           eligibleProxyCount: 12,
           appForeground: true,
           networkPowerLimited: false,
         ),
-        5,
+        10,
       );
     });
   });

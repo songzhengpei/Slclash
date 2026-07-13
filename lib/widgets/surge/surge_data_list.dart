@@ -58,12 +58,7 @@ class SurgeDataHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
       child: Text(
         text,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: surge.textSecondary,
-          fontSize: 12,
-          height: 1.25,
-          letterSpacing: 0,
-        ),
+        style: surge.typography.micro.copyWith(fontSize: 12, height: 1.25),
       ),
     );
   }

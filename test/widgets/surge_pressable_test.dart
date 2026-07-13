@@ -125,6 +125,7 @@ void main() {
         const SurgeStatusButton(
           isActive: true,
           activeLabel: 'Stop',
+          inactiveLabel: 'Start',
           activeIcon: Icons.stop_rounded,
         ),
       ),

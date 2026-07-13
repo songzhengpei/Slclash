@@ -9,7 +9,7 @@ data object Core {
         stack: String,
         address: String,
         dns: String,
-    )
+    ): Boolean
 
     external fun forceGC(
     )
@@ -46,8 +46,8 @@ data object Core {
         stack: String,
         address: String,
         dns: String,
-    ) {
-        startTun(
+    ): Boolean {
+        return startTun(
             fd,
             object : TunInterface {
                 override fun protect(fd: Int) {

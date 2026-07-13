@@ -198,28 +198,63 @@ class SurgeRadii {
     required this.card,
     required this.smallCard,
     required this.list,
+    required this.menuRow,
+    required this.input,
+    required this.metric,
+    required this.chart,
+    required this.compact,
+    required this.segmentedIndicator,
     required this.button,
   });
 
   factory SurgeRadii.regular() {
-    return const SurgeRadii(card: 18, smallCard: 14, list: 16, button: 999);
+    return const SurgeRadii(
+      card: 18,
+      smallCard: 14,
+      list: 16,
+      menuRow: 12,
+      input: 10,
+      metric: 10,
+      chart: 4,
+      compact: 8,
+      segmentedIndicator: 13,
+      button: 999,
+    );
   }
 
   final double card;
   final double smallCard;
   final double list;
+  final double menuRow;
+  final double input;
+  final double metric;
+  final double chart;
+  final double compact;
+  final double segmentedIndicator;
   final double button;
 
   SurgeRadii copyWith({
     double? card,
     double? smallCard,
     double? list,
+    double? menuRow,
+    double? input,
+    double? metric,
+    double? chart,
+    double? compact,
+    double? segmentedIndicator,
     double? button,
   }) {
     return SurgeRadii(
       card: card ?? this.card,
       smallCard: smallCard ?? this.smallCard,
       list: list ?? this.list,
+      menuRow: menuRow ?? this.menuRow,
+      input: input ?? this.input,
+      metric: metric ?? this.metric,
+      chart: chart ?? this.chart,
+      compact: compact ?? this.compact,
+      segmentedIndicator: segmentedIndicator ?? this.segmentedIndicator,
       button: button ?? this.button,
     );
   }
@@ -229,6 +264,16 @@ class SurgeRadii {
       card: lerpDouble(a.card, b.card, t),
       smallCard: lerpDouble(a.smallCard, b.smallCard, t),
       list: lerpDouble(a.list, b.list, t),
+      menuRow: lerpDouble(a.menuRow, b.menuRow, t),
+      input: lerpDouble(a.input, b.input, t),
+      metric: lerpDouble(a.metric, b.metric, t),
+      chart: lerpDouble(a.chart, b.chart, t),
+      compact: lerpDouble(a.compact, b.compact, t),
+      segmentedIndicator: lerpDouble(
+        a.segmentedIndicator,
+        b.segmentedIndicator,
+        t,
+      ),
       button: lerpDouble(a.button, b.button, t),
     );
   }
@@ -287,6 +332,656 @@ class SurgeSpacing {
   }
 }
 
+/// Typography roles for the existing Soft OS visual language.
+///
+/// These values intentionally mirror the current application at a 1.0 text
+/// scale.  Roles make the hierarchy reusable without redesigning existing
+/// screens.
+@immutable
+class SurgeTypography {
+  const SurgeTypography({
+    required this.title,
+    required this.body,
+    required this.caption,
+    required this.sectionTitle,
+    required this.appBarTitle,
+    required this.heroTitle,
+    required this.cardTitle,
+    required this.rowTitle,
+    required this.rowSubtitle,
+    required this.fieldInput,
+    required this.fieldHint,
+    required this.emptyState,
+    required this.metric,
+    required this.badge,
+    required this.micro,
+    required this.dashboardMicro,
+    required this.dashboardTiny,
+    required this.dashboardValue,
+    required this.dashboardLabel,
+    required this.dashboardLoading,
+  });
+
+  factory SurgeTypography.regular(SurgeColors colors) {
+    return SurgeTypography(
+      title: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+      ),
+      body: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 15,
+        letterSpacing: 0,
+      ),
+      caption: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 13,
+        letterSpacing: 0,
+      ),
+      sectionTitle: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+      ),
+      appBarTitle: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
+      heroTitle: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 19,
+        fontWeight: FontWeight.w500,
+        height: 1,
+        letterSpacing: 0,
+      ),
+      cardTitle: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
+      rowTitle: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 16,
+        letterSpacing: 0,
+      ),
+      rowSubtitle: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 13,
+        letterSpacing: 0,
+      ),
+      fieldInput: TextStyle(color: colors.textPrimary, fontSize: 14),
+      fieldHint: TextStyle(color: colors.textSecondary, fontSize: 14),
+      emptyState: TextStyle(color: colors.textSecondary),
+      metric: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
+      badge: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        height: 1,
+        letterSpacing: 0,
+      ),
+      micro: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 11,
+        letterSpacing: 0,
+      ),
+      dashboardMicro: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 8,
+        letterSpacing: 0,
+      ),
+      dashboardTiny: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 10,
+        letterSpacing: 0,
+      ),
+      dashboardValue: TextStyle(
+        color: colors.textPrimary,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        height: 1,
+        letterSpacing: 0,
+      ),
+      dashboardLabel: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        height: 1,
+        letterSpacing: 0,
+      ),
+      dashboardLoading: TextStyle(
+        color: colors.textSecondary,
+        fontSize: 10,
+        fontWeight: FontWeight.w400,
+        height: 1,
+      ),
+    );
+  }
+
+  final TextStyle title;
+  final TextStyle body;
+  final TextStyle caption;
+  final TextStyle sectionTitle;
+  final TextStyle appBarTitle;
+  final TextStyle heroTitle;
+  final TextStyle cardTitle;
+  final TextStyle rowTitle;
+  final TextStyle rowSubtitle;
+  final TextStyle fieldInput;
+  final TextStyle fieldHint;
+  final TextStyle emptyState;
+  final TextStyle metric;
+  final TextStyle badge;
+  final TextStyle micro;
+  final TextStyle dashboardMicro;
+  final TextStyle dashboardTiny;
+  final TextStyle dashboardValue;
+  final TextStyle dashboardLabel;
+  final TextStyle dashboardLoading;
+
+  static SurgeTypography lerp(SurgeTypography a, SurgeTypography b, double t) {
+    return SurgeTypography(
+      title: TextStyle.lerp(a.title, b.title, t)!,
+      body: TextStyle.lerp(a.body, b.body, t)!,
+      caption: TextStyle.lerp(a.caption, b.caption, t)!,
+      sectionTitle: TextStyle.lerp(a.sectionTitle, b.sectionTitle, t)!,
+      appBarTitle: TextStyle.lerp(a.appBarTitle, b.appBarTitle, t)!,
+      heroTitle: TextStyle.lerp(a.heroTitle, b.heroTitle, t)!,
+      cardTitle: TextStyle.lerp(a.cardTitle, b.cardTitle, t)!,
+      rowTitle: TextStyle.lerp(a.rowTitle, b.rowTitle, t)!,
+      rowSubtitle: TextStyle.lerp(a.rowSubtitle, b.rowSubtitle, t)!,
+      fieldInput: TextStyle.lerp(a.fieldInput, b.fieldInput, t)!,
+      fieldHint: TextStyle.lerp(a.fieldHint, b.fieldHint, t)!,
+      emptyState: TextStyle.lerp(a.emptyState, b.emptyState, t)!,
+      metric: TextStyle.lerp(a.metric, b.metric, t)!,
+      badge: TextStyle.lerp(a.badge, b.badge, t)!,
+      micro: TextStyle.lerp(a.micro, b.micro, t)!,
+      dashboardMicro: TextStyle.lerp(a.dashboardMicro, b.dashboardMicro, t)!,
+      dashboardTiny: TextStyle.lerp(a.dashboardTiny, b.dashboardTiny, t)!,
+      dashboardValue: TextStyle.lerp(a.dashboardValue, b.dashboardValue, t)!,
+      dashboardLabel: TextStyle.lerp(a.dashboardLabel, b.dashboardLabel, t)!,
+      dashboardLoading: TextStyle.lerp(
+        a.dashboardLoading,
+        b.dashboardLoading,
+        t,
+      )!,
+    );
+  }
+}
+
+/// Named state, traffic, and dashboard colors which previously lived in page
+/// constants.  Keeping the original values makes this a rendering-equivalent
+/// refactor for fixed and dynamic themes.
+@immutable
+class SurgeSemanticColors {
+  const SurgeSemanticColors({
+    required this.connected,
+    required this.connecting,
+    required this.disconnected,
+    required this.paused,
+    required this.error,
+    required this.dashboardDynamicActive,
+    required this.dashboardActiveGreen,
+    required this.dashboardInactive,
+    required this.dashboardInactiveVariant,
+    required this.latencyGood,
+    required this.latencyMedium,
+    required this.latencyBad,
+    required this.statusLightActive,
+    required this.statusLightError,
+    required this.profileSelectionBorderFixed,
+  });
+
+  factory SurgeSemanticColors.regular(SurgeColors colors) {
+    return SurgeSemanticColors(
+      connected: const Color(0xFF2FAA67),
+      connecting: const Color(0xFF2FAA67),
+      disconnected: colors.textSecondary,
+      paused: const Color(0xFFDC851B),
+      error: colors.red,
+      dashboardDynamicActive: const Color(0xFFA06B3B),
+      dashboardActiveGreen: const Color(0xFF5BA66A),
+      dashboardInactive: const Color(0xFF858681),
+      dashboardInactiveVariant: const Color(0xFFA5A6A1),
+      latencyGood: const Color(0xFFADDFAD),
+      latencyMedium: const Color(0xFFF1C892),
+      latencyBad: const Color(0xFFFFBBBD),
+      statusLightActive: const Color(0xFF7BFFB2),
+      statusLightError: const Color(0xFFFF8A80),
+      profileSelectionBorderFixed: const Color(0xFFD8DAE0),
+    );
+  }
+
+  final Color connected;
+  final Color connecting;
+  final Color disconnected;
+  final Color paused;
+  final Color error;
+  final Color dashboardDynamicActive;
+  final Color dashboardActiveGreen;
+  final Color dashboardInactive;
+  final Color dashboardInactiveVariant;
+  final Color latencyGood;
+  final Color latencyMedium;
+  final Color latencyBad;
+  final Color statusLightActive;
+  final Color statusLightError;
+  final Color profileSelectionBorderFixed;
+
+  static SurgeSemanticColors lerp(
+    SurgeSemanticColors a,
+    SurgeSemanticColors b,
+    double t,
+  ) {
+    return SurgeSemanticColors(
+      connected: Color.lerp(a.connected, b.connected, t)!,
+      connecting: Color.lerp(a.connecting, b.connecting, t)!,
+      disconnected: Color.lerp(a.disconnected, b.disconnected, t)!,
+      paused: Color.lerp(a.paused, b.paused, t)!,
+      error: Color.lerp(a.error, b.error, t)!,
+      dashboardDynamicActive: Color.lerp(
+        a.dashboardDynamicActive,
+        b.dashboardDynamicActive,
+        t,
+      )!,
+      dashboardActiveGreen: Color.lerp(
+        a.dashboardActiveGreen,
+        b.dashboardActiveGreen,
+        t,
+      )!,
+      dashboardInactive: Color.lerp(
+        a.dashboardInactive,
+        b.dashboardInactive,
+        t,
+      )!,
+      dashboardInactiveVariant: Color.lerp(
+        a.dashboardInactiveVariant,
+        b.dashboardInactiveVariant,
+        t,
+      )!,
+      latencyGood: Color.lerp(a.latencyGood, b.latencyGood, t)!,
+      latencyMedium: Color.lerp(a.latencyMedium, b.latencyMedium, t)!,
+      latencyBad: Color.lerp(a.latencyBad, b.latencyBad, t)!,
+      statusLightActive: Color.lerp(
+        a.statusLightActive,
+        b.statusLightActive,
+        t,
+      )!,
+      statusLightError: Color.lerp(a.statusLightError, b.statusLightError, t)!,
+      profileSelectionBorderFixed: Color.lerp(
+        a.profileSelectionBorderFixed,
+        b.profileSelectionBorderFixed,
+        t,
+      )!,
+    );
+  }
+}
+
+@immutable
+class SurgeControlSizes {
+  const SurgeControlSizes({
+    required this.minimumTapExtent,
+    required this.iconButtonTapExtent,
+    required this.iconButtonVisualSize,
+    required this.iconButtonIconSize,
+    required this.actionTapExtent,
+    required this.actionVisualHeight,
+    required this.compactActionVisualHeight,
+    required this.actionVisualWidth,
+    required this.compactActionVisualWidth,
+    required this.actionDockButtonWidth,
+    required this.compactActionDockButtonWidth,
+    required this.actionIconSize,
+    required this.actionLoaderSize,
+    required this.actionLoaderStrokeWidth,
+    required this.actionDividerHeight,
+    required this.actionShadowBlur,
+    required this.actionShadowOffsetY,
+    required this.shortTextActionVisualWidth,
+    required this.shortTextActionTapWidth,
+    required this.textActionMinWidth,
+    required this.compactTextActionMinWidth,
+    required this.textActionHorizontalPadding,
+    required this.compactTextActionHorizontalPadding,
+    required this.statusPillHeight,
+    required this.statusPillHorizontalPadding,
+    required this.selectPillHeight,
+    required this.segmentedHeight,
+    required this.dockButtonWidth,
+    required this.dockButtonIconSize,
+    required this.dockButtonLoaderSize,
+    required this.dockButtonLoaderStrokeWidth,
+    required this.dockDividerHeight,
+  });
+
+  factory SurgeControlSizes.regular() {
+    return const SurgeControlSizes(
+      minimumTapExtent: 44,
+      iconButtonTapExtent: 44,
+      iconButtonVisualSize: 32,
+      iconButtonIconSize: 16,
+      actionTapExtent: 48,
+      actionVisualHeight: 34,
+      compactActionVisualHeight: 32,
+      actionVisualWidth: 40,
+      compactActionVisualWidth: 38,
+      actionDockButtonWidth: 44,
+      compactActionDockButtonWidth: 40,
+      actionIconSize: 16,
+      actionLoaderSize: 15,
+      actionLoaderStrokeWidth: 1.7,
+      actionDividerHeight: 18,
+      actionShadowBlur: 4,
+      actionShadowOffsetY: 1,
+      shortTextActionVisualWidth: 55,
+      shortTextActionTapWidth: 56,
+      textActionMinWidth: 50,
+      compactTextActionMinWidth: 46,
+      textActionHorizontalPadding: 12,
+      compactTextActionHorizontalPadding: 10,
+      statusPillHeight: 30,
+      statusPillHorizontalPadding: 12,
+      selectPillHeight: 38,
+      segmentedHeight: 34,
+      dockButtonWidth: 36,
+      dockButtonIconSize: 15.5,
+      dockButtonLoaderSize: 13,
+      dockButtonLoaderStrokeWidth: 1.5,
+      dockDividerHeight: 17,
+    );
+  }
+
+  final double minimumTapExtent;
+  final double iconButtonTapExtent;
+  final double iconButtonVisualSize;
+  final double iconButtonIconSize;
+  final double actionTapExtent;
+  final double actionVisualHeight;
+  final double compactActionVisualHeight;
+  final double actionVisualWidth;
+  final double compactActionVisualWidth;
+  final double actionDockButtonWidth;
+  final double compactActionDockButtonWidth;
+  final double actionIconSize;
+  final double actionLoaderSize;
+  final double actionLoaderStrokeWidth;
+  final double actionDividerHeight;
+  final double actionShadowBlur;
+  final double actionShadowOffsetY;
+  final double shortTextActionVisualWidth;
+  final double shortTextActionTapWidth;
+  final double textActionMinWidth;
+  final double compactTextActionMinWidth;
+  final double textActionHorizontalPadding;
+  final double compactTextActionHorizontalPadding;
+  final double statusPillHeight;
+  final double statusPillHorizontalPadding;
+  final double selectPillHeight;
+  final double segmentedHeight;
+  final double dockButtonWidth;
+  final double dockButtonIconSize;
+  final double dockButtonLoaderSize;
+  final double dockButtonLoaderStrokeWidth;
+  final double dockDividerHeight;
+
+  static SurgeControlSizes lerp(
+    SurgeControlSizes a,
+    SurgeControlSizes b,
+    double t,
+  ) {
+    return SurgeControlSizes(
+      minimumTapExtent: lerpDouble(a.minimumTapExtent, b.minimumTapExtent, t),
+      iconButtonTapExtent: lerpDouble(
+        a.iconButtonTapExtent,
+        b.iconButtonTapExtent,
+        t,
+      ),
+      iconButtonVisualSize: lerpDouble(
+        a.iconButtonVisualSize,
+        b.iconButtonVisualSize,
+        t,
+      ),
+      iconButtonIconSize: lerpDouble(
+        a.iconButtonIconSize,
+        b.iconButtonIconSize,
+        t,
+      ),
+      actionTapExtent: lerpDouble(a.actionTapExtent, b.actionTapExtent, t),
+      actionVisualHeight: lerpDouble(
+        a.actionVisualHeight,
+        b.actionVisualHeight,
+        t,
+      ),
+      compactActionVisualHeight: lerpDouble(
+        a.compactActionVisualHeight,
+        b.compactActionVisualHeight,
+        t,
+      ),
+      actionVisualWidth: lerpDouble(
+        a.actionVisualWidth,
+        b.actionVisualWidth,
+        t,
+      ),
+      compactActionVisualWidth: lerpDouble(
+        a.compactActionVisualWidth,
+        b.compactActionVisualWidth,
+        t,
+      ),
+      actionDockButtonWidth: lerpDouble(
+        a.actionDockButtonWidth,
+        b.actionDockButtonWidth,
+        t,
+      ),
+      compactActionDockButtonWidth: lerpDouble(
+        a.compactActionDockButtonWidth,
+        b.compactActionDockButtonWidth,
+        t,
+      ),
+      actionIconSize: lerpDouble(a.actionIconSize, b.actionIconSize, t),
+      actionLoaderSize: lerpDouble(a.actionLoaderSize, b.actionLoaderSize, t),
+      actionLoaderStrokeWidth: lerpDouble(
+        a.actionLoaderStrokeWidth,
+        b.actionLoaderStrokeWidth,
+        t,
+      ),
+      actionDividerHeight: lerpDouble(
+        a.actionDividerHeight,
+        b.actionDividerHeight,
+        t,
+      ),
+      actionShadowBlur: lerpDouble(a.actionShadowBlur, b.actionShadowBlur, t),
+      actionShadowOffsetY: lerpDouble(
+        a.actionShadowOffsetY,
+        b.actionShadowOffsetY,
+        t,
+      ),
+      shortTextActionVisualWidth: lerpDouble(
+        a.shortTextActionVisualWidth,
+        b.shortTextActionVisualWidth,
+        t,
+      ),
+      shortTextActionTapWidth: lerpDouble(
+        a.shortTextActionTapWidth,
+        b.shortTextActionTapWidth,
+        t,
+      ),
+      textActionMinWidth: lerpDouble(
+        a.textActionMinWidth,
+        b.textActionMinWidth,
+        t,
+      ),
+      compactTextActionMinWidth: lerpDouble(
+        a.compactTextActionMinWidth,
+        b.compactTextActionMinWidth,
+        t,
+      ),
+      textActionHorizontalPadding: lerpDouble(
+        a.textActionHorizontalPadding,
+        b.textActionHorizontalPadding,
+        t,
+      ),
+      compactTextActionHorizontalPadding: lerpDouble(
+        a.compactTextActionHorizontalPadding,
+        b.compactTextActionHorizontalPadding,
+        t,
+      ),
+      statusPillHeight: lerpDouble(a.statusPillHeight, b.statusPillHeight, t),
+      statusPillHorizontalPadding: lerpDouble(
+        a.statusPillHorizontalPadding,
+        b.statusPillHorizontalPadding,
+        t,
+      ),
+      selectPillHeight: lerpDouble(a.selectPillHeight, b.selectPillHeight, t),
+      segmentedHeight: lerpDouble(a.segmentedHeight, b.segmentedHeight, t),
+      dockButtonWidth: lerpDouble(a.dockButtonWidth, b.dockButtonWidth, t),
+      dockButtonIconSize: lerpDouble(
+        a.dockButtonIconSize,
+        b.dockButtonIconSize,
+        t,
+      ),
+      dockButtonLoaderSize: lerpDouble(
+        a.dockButtonLoaderSize,
+        b.dockButtonLoaderSize,
+        t,
+      ),
+      dockButtonLoaderStrokeWidth: lerpDouble(
+        a.dockButtonLoaderStrokeWidth,
+        b.dockButtonLoaderStrokeWidth,
+        t,
+      ),
+      dockDividerHeight: lerpDouble(
+        a.dockDividerHeight,
+        b.dockDividerHeight,
+        t,
+      ),
+    );
+  }
+}
+
+@immutable
+class SurgeOpacity {
+  const SurgeOpacity({
+    required this.selectedSurface,
+    required this.actionSurfaceLight,
+    required this.actionSurfaceDark,
+    required this.actionBorderLight,
+    required this.actionBorderDark,
+    required this.actionForeground,
+    required this.actionDisabledForeground,
+    required this.actionShadowLight,
+    required this.actionShadowDark,
+    required this.iconButtonSurface,
+    required this.iconButtonForeground,
+    required this.controlSurface,
+    required this.controlBorder,
+    required this.dockForeground,
+    required this.dockDivider,
+    required this.statusSurface,
+    required this.statusBorder,
+  });
+
+  factory SurgeOpacity.regular() {
+    return const SurgeOpacity(
+      selectedSurface: 0.045,
+      actionSurfaceLight: 0.12,
+      actionSurfaceDark: 0.22,
+      actionBorderLight: 0.22,
+      actionBorderDark: 0.34,
+      actionForeground: 0.96,
+      actionDisabledForeground: 0.46,
+      actionShadowLight: 0.04,
+      actionShadowDark: 0.12,
+      iconButtonSurface: 0.06,
+      iconButtonForeground: 0.75,
+      controlSurface: 0.052,
+      controlBorder: 0.38,
+      dockForeground: 0.70,
+      dockDivider: 0.34,
+      statusSurface: 0.10,
+      statusBorder: 0.22,
+    );
+  }
+
+  final double selectedSurface;
+  final double actionSurfaceLight;
+  final double actionSurfaceDark;
+  final double actionBorderLight;
+  final double actionBorderDark;
+  final double actionForeground;
+  final double actionDisabledForeground;
+  final double actionShadowLight;
+  final double actionShadowDark;
+  final double iconButtonSurface;
+  final double iconButtonForeground;
+  final double controlSurface;
+  final double controlBorder;
+  final double dockForeground;
+  final double dockDivider;
+  final double statusSurface;
+  final double statusBorder;
+
+  static SurgeOpacity lerp(SurgeOpacity a, SurgeOpacity b, double t) {
+    return SurgeOpacity(
+      selectedSurface: lerpDouble(a.selectedSurface, b.selectedSurface, t),
+      actionSurfaceLight: lerpDouble(
+        a.actionSurfaceLight,
+        b.actionSurfaceLight,
+        t,
+      ),
+      actionSurfaceDark: lerpDouble(
+        a.actionSurfaceDark,
+        b.actionSurfaceDark,
+        t,
+      ),
+      actionBorderLight: lerpDouble(
+        a.actionBorderLight,
+        b.actionBorderLight,
+        t,
+      ),
+      actionBorderDark: lerpDouble(a.actionBorderDark, b.actionBorderDark, t),
+      actionForeground: lerpDouble(a.actionForeground, b.actionForeground, t),
+      actionDisabledForeground: lerpDouble(
+        a.actionDisabledForeground,
+        b.actionDisabledForeground,
+        t,
+      ),
+      actionShadowLight: lerpDouble(
+        a.actionShadowLight,
+        b.actionShadowLight,
+        t,
+      ),
+      actionShadowDark: lerpDouble(a.actionShadowDark, b.actionShadowDark, t),
+      iconButtonSurface: lerpDouble(
+        a.iconButtonSurface,
+        b.iconButtonSurface,
+        t,
+      ),
+      iconButtonForeground: lerpDouble(
+        a.iconButtonForeground,
+        b.iconButtonForeground,
+        t,
+      ),
+      controlSurface: lerpDouble(a.controlSurface, b.controlSurface, t),
+      controlBorder: lerpDouble(a.controlBorder, b.controlBorder, t),
+      dockForeground: lerpDouble(a.dockForeground, b.dockForeground, t),
+      dockDivider: lerpDouble(a.dockDivider, b.dockDivider, t),
+      statusSurface: lerpDouble(a.statusSurface, b.statusSurface, t),
+      statusBorder: lerpDouble(a.statusBorder, b.statusBorder, t),
+    );
+  }
+}
+
 class SurgeShadows {
   const SurgeShadows._();
 
@@ -297,56 +992,6 @@ class SurgeShadows {
   static const subtle = [
     BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2)),
   ];
-}
-
-class SurgeTextStyles {
-  const SurgeTextStyles._();
-
-  static TextStyle title(BuildContext context) {
-    return Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: SurgeColors.light().textPrimary,
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-        ) ??
-        TextStyle(
-          color: SurgeColors.light().textPrimary,
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-        );
-  }
-
-  static TextStyle body(BuildContext context) {
-    return Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: SurgeColors.light().textPrimary,
-          fontSize: 15,
-          letterSpacing: 0,
-        ) ??
-        TextStyle(color: SurgeColors.light().textPrimary, fontSize: 15);
-  }
-
-  static TextStyle caption(BuildContext context) {
-    return Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: SurgeColors.light().textSecondary,
-          fontSize: 13,
-          letterSpacing: 0,
-        ) ??
-        TextStyle(color: SurgeColors.light().textSecondary, fontSize: 13);
-  }
-
-  static TextStyle sectionTitle(BuildContext context) {
-    return Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: SurgeColors.light().textSecondary,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-        ) ??
-        TextStyle(
-          color: SurgeColors.light().textSecondary,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        );
-  }
 }
 
 double lerpDouble(double a, double b, double t) {

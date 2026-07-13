@@ -34,6 +34,10 @@ void main() {
     expect(find.byIcon(SurgeIcons.close), findsOneWidget);
   });
 
+  test('provider action has a dedicated outlined cloud-download icon', () {
+    expect(SurgeIcons.providerDownload, Icons.cloud_download_outlined);
+  });
+
   test('only the Surge icon dictionary selects Material icon glyphs', () {
     final directMaterialIcon = RegExp(r'\bIcons\.');
     final cupertinoIcon = RegExp(r'\bCupertinoIcons\.');

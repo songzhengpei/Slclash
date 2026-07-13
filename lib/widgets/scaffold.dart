@@ -401,7 +401,9 @@ class CommonScaffoldState extends State<CommonScaffold> {
 
   Widget _buildSoftOsActions(List<_SoftOsScaffoldAction> actions) {
     if (actions.length == 1) {
-      return _buildActionTarget(actions.first, inDock: false);
+      return SoftOsAppBarActionTemplate(
+        child: _buildActionTarget(actions.first, inDock: false),
+      );
     }
 
     final children = <Widget>[];
@@ -413,7 +415,9 @@ class CommonScaffoldState extends State<CommonScaffold> {
       children.add(_buildActionTarget(action, inDock: true));
     }
 
-    return SoftOsActionDock(children: children);
+    return SoftOsAppBarActionTemplate(
+      child: SoftOsActionDock(children: children),
+    );
   }
 
   List<Widget> _buildActions(bool hasSearch, List<Widget> actions) {

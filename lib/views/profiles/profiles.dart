@@ -722,7 +722,7 @@ class _ProfileSettingOption extends StatelessWidget {
                   height: 30,
                   decoration: BoxDecoration(
                     color: foreground.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(surge.radii.input),
                   ),
                   child: Icon(icon, size: 17, color: foreground),
                 ),
@@ -1044,20 +1044,16 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
       loading = false;
     }
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(minWidth: 76),
+    return SoftOsStatusPill(
+      accentColor: color,
+      loading: loading,
+      semanticLabel: label,
+      minWidth: 76,
       height: 30,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: loading ? 0.11 : 0.17),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: color.withValues(alpha: loading ? 0.20 : 0.31),
-          width: surge.spacing.hairline,
-        ),
-      ),
+      surfaceAlpha: loading ? 0.11 : 0.17,
+      borderAlpha: loading ? 0.20 : 0.31,
+      duration: SurgeMotion.reveal,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1141,7 +1137,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
               IgnorePointer(
                 child: AnimatedRotation(
                   turns: expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 180),
+                  duration: SurgeMotion.reveal,
                   child: SoftOsIconButton(
                     icon: SurgeIcons.expand,
                     onPressed: enabled ? onTap : null,
@@ -1273,7 +1269,9 @@ class _ProfileProxyTestAllButtonState
       message: '测试全部延迟',
       child: SurgePressable(
         compact: true,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(
+          SurgeTheme.of(context).radii.compact,
+        ),
         onTap: _handleTestAll,
         child: Container(
           width: 28,
@@ -1281,14 +1279,14 @@ class _ProfileProxyTestAllButtonState
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: surge.textSecondary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(surge.radii.menuRow),
             border: Border.all(
               color: surge.separator.withValues(alpha: 0.55),
               width: 0.5,
             ),
           ),
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 160),
+            duration: SurgeMotion.state,
             child: _testing
                 ? SizedBox.square(
                     key: const ValueKey('loading'),
@@ -1514,120 +1512,99 @@ class _ProfileListItem extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     final hasTraffic =
         profile.subscriptionInfo != null && profile.subscriptionInfo!.total > 0;
-    final surface = isSelected
-        ? Color.alphaBlend(surge.primary.withValues(alpha: 0.045), surge.card)
-        : surge.card;
-    final rowRadius = BorderRadius.vertical(
-      top: Radius.circular(isFirst ? surge.radii.card : 0),
-      bottom: Radius.circular(isLast ? surge.radii.card : 0),
-    );
-    return ClipRRect(
-      borderRadius: rowRadius,
-      child: Material(
-        color: Colors.transparent,
-        child: Ink(
-          decoration: BoxDecoration(color: surface, borderRadius: rowRadius),
-          height: hasTraffic ? 92 : 74,
-          child: InkWell(
-            onTap: onTap,
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: _ProfileTextBlock(
-                          profile: profile,
-                          info: [_ProfileListSummary(profile: profile)],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 92,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Flexible(
-                              child: _ProfilePill(
-                                label: profile.type.name,
-                                color: surge.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Consumer(
-                              builder: (_, ref, _) {
-                                final isUpdating = ref.watch(
-                                  isUpdatingProvider(profile.updatingKey),
-                                );
-                                return FadeThroughBox(
-                                  child: isUpdating
-                                      ? SizedBox.square(
-                                          key: const ValueKey('loading'),
-                                          dimension: 44,
-                                          child: Center(
-                                            child: SizedBox.square(
-                                              dimension: 16,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 1.8,
-                                                color: surge.textSecondary,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                      : _ProfileActionButton(
-                                          onEdit: () {
-                                            _handleShowEditExtendPage(context);
-                                          },
-                                          onPreview: () {
-                                            _handlePreview(context);
-                                          },
-                                          onSync:
-                                              profile.type == ProfileType.url
-                                              ? _updateProfile
-                                              : null,
-                                          onOverride: () {
-                                            _handlePushGenProfilePage(
-                                              context,
-                                              profile.id,
-                                            );
-                                          },
-                                          onCopyLink:
-                                              profile.type == ProfileType.url
-                                              ? () {
-                                                  _handleCopyLink(context);
-                                                }
-                                              : null,
-                                          onExport: () {
-                                            _handleExportFile(context);
-                                          },
-                                          onDelete: () {
-                                            _handleDeleteProfile(context);
-                                          },
-                                        ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+    return SurgeSelectableRow(
+      selected: isSelected,
+      onTap: onTap,
+      presentation: SurgeSelectionPresentation.subtle,
+      position: isFirst
+          ? isLast
+                ? SurgeSelectableRowPosition.single
+                : SurgeSelectableRowPosition.first
+          : isLast
+          ? SurgeSelectableRowPosition.last
+          : SurgeSelectableRowPosition.middle,
+      showDivider: showDivider,
+      child: SizedBox(
+        height: hasTraffic ? 92 : 74,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: _ProfileTextBlock(
+                  profile: profile,
+                  info: [_ProfileListSummary(profile: profile)],
                 ),
-                if (showDivider)
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 0,
-                    child: Divider(
-                      height: 0,
-                      thickness: surge.spacing.hairline,
-                      color: surge.separator.withValues(alpha: 0.62),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 92,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: _ProfilePill(
+                        label: profile.type.name,
+                        color: surge.textSecondary,
+                      ),
                     ),
-                  ),
-              ],
-            ),
+                    const SizedBox(width: 4),
+                    Consumer(
+                      builder: (_, ref, _) {
+                        final isUpdating = ref.watch(
+                          isUpdatingProvider(profile.updatingKey),
+                        );
+                        return FadeThroughBox(
+                          child: isUpdating
+                              ? SizedBox.square(
+                                  key: const ValueKey('loading'),
+                                  dimension: 44,
+                                  child: Center(
+                                    child: SizedBox.square(
+                                      dimension: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.8,
+                                        color: surge.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : _ProfileActionButton(
+                                  onEdit: () {
+                                    _handleShowEditExtendPage(context);
+                                  },
+                                  onPreview: () {
+                                    _handlePreview(context);
+                                  },
+                                  onSync: profile.type == ProfileType.url
+                                      ? _updateProfile
+                                      : null,
+                                  onOverride: () {
+                                    _handlePushGenProfilePage(
+                                      context,
+                                      profile.id,
+                                    );
+                                  },
+                                  onCopyLink: profile.type == ProfileType.url
+                                      ? () {
+                                          _handleCopyLink(context);
+                                        }
+                                      : null,
+                                  onExport: () {
+                                    _handleExportFile(context);
+                                  },
+                                  onDelete: () {
+                                    _handleDeleteProfile(context);
+                                  },
+                                ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1759,7 +1736,7 @@ class ProfileItem extends StatelessWidget {
           themeSettingProvider.select((state) => state.dynamicColor),
         );
         final selectedBorderColor = !dynamicColor
-            ? const Color(0xFFD8DAE0)
+            ? surge.semantic.profileSelectionBorderFixed
             : surge.primary;
         return Stack(
           clipBehavior: Clip.none,
@@ -1855,11 +1832,11 @@ class ProfileItem extends StatelessWidget {
               top: -6,
               child: AnimatedScale(
                 scale: isSelected ? 1 : 0.65,
-                duration: const Duration(milliseconds: 160),
+                duration: SurgeMotion.state,
                 curve: Curves.easeOutCubic,
                 child: AnimatedOpacity(
                   opacity: isSelected ? 1 : 0,
-                  duration: const Duration(milliseconds: 160),
+                  duration: SurgeMotion.state,
                   child: Container(
                     width: 18,
                     height: 18,
@@ -2023,7 +2000,7 @@ class _ProfileActionMenuItem extends StatelessWidget {
                 color: danger
                     ? surge.red.withValues(alpha: 0.075)
                     : surge.textSecondary.withValues(alpha: 0.055),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(surge.radii.button),
               ),
               child: Icon(icon, size: 15.5, color: color),
             ),

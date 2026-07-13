@@ -6,9 +6,12 @@ import com.follow.clash.models.SharedState
 import com.follow.clash.plugins.AppPlugin
 import com.follow.clash.plugins.TilePlugin
 import com.follow.clash.service.models.NotificationParams
+import com.follow.clash.service.models.SessionSnapshot
+import com.follow.clash.service.models.SessionState
 import com.google.gson.Gson
 import io.flutter.embedding.engine.FlutterEngine
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -23,6 +26,8 @@ object State {
     val runLock = Mutex()
 
     var runTime: Long = 0
+
+    var sessionSnapshot: SessionSnapshot = SessionSnapshot.stopped()
 
     var sharedState: SharedState = SharedState()
 
@@ -50,19 +55,24 @@ object State {
 
     suspend fun handleSyncState() {
         runLock.withLock {
-            try {
-                Service.bind()
-                runTime = Service.getRunTime()
-                val runState = when (runTime == 0L) {
-                    true -> RunState.STOP
-                    false -> RunState.START
-                }
-                runStateFlow.tryEmit(runState)
-            } catch (_: Exception) {
-                runTime = 0L
-                runStateFlow.tryEmit(RunState.STOP)
-            }
+            Service.bind()
+            Service.getSessionSnapshot()
+                .onSuccess(::applySnapshot)
+                .onFailure { GlobalState.log("Session snapshot unavailable: ${it.message}") }
         }
+    }
+
+    private fun applySnapshot(snapshot: SessionSnapshot) {
+        sessionSnapshot = snapshot
+        runTime = snapshot.takeIf { it.state == SessionState.RUNNING }?.startedAt ?: 0L
+        runStateFlow.tryEmit(
+            when (snapshot.state) {
+                SessionState.RUNNING -> RunState.START
+                SessionState.STARTING, SessionState.STOPPING -> RunState.PENDING
+                SessionState.PAUSED, SessionState.STOPPED -> RunState.STOP
+                else -> RunState.STOP
+            }
+        )
     }
 
     suspend fun handleStartServiceAction() {
@@ -180,20 +190,22 @@ object State {
         initParams["version"] = android.os.Build.VERSION.SDK_INT
         val initParamsString = Gson().toJson(initParams)
         val setupParamsString = Gson().toJson(sharedState.setupParams)
-        Service.quickSetup(
+        val setupResult = Service.quickSetup(
             initParamsString,
             setupParamsString,
-            onStarted = {
-                GlobalState.launch {
-                    startServiceSafely()
-                }
-            },
-            onResult = {
-                if (it.isNotEmpty()) {
-                    GlobalState.application.showToast(it)
-                }
-            },
         )
+        if (!setupResult.success) {
+            GlobalState.log("Setup failed: ${setupResult.errorCode} ${setupResult.message}")
+            setupResult.message?.takeIf { it.isNotEmpty() }?.let {
+                GlobalState.application.showToast(it)
+            }
+            runLock.withLock {
+                runTime = 0L
+                runStateFlow.tryEmit(RunState.STOP)
+            }
+            return
+        }
+        startServiceSafely()
     }
 
     private suspend fun startServiceSafely(): Boolean {
@@ -215,25 +227,59 @@ object State {
                 return false
             }
 
-            val nextRunTime = Service.startService(options, runTime)
-            if (nextRunTime > 0L) {
-                runTime = nextRunTime
-                runStateFlow.tryEmit(RunState.START)
-                return true
+            val result = Service.startService(options, runTime)
+            if (result.success && result.runTime > 0L) {
+                val snapshot = awaitStartSnapshot()
+                if (snapshot != null) {
+                    applySnapshot(snapshot)
+                    return snapshot.state == SessionState.RUNNING
+                }
+                GlobalState.log("Started, but session snapshot remains unavailable")
+                runStateFlow.tryEmit(RunState.PENDING)
+                return false
+            }
+
+            if (result.errorCode == com.follow.clash.service.models.ServiceErrorCode.SERVICE_DISCONNECTED) {
+                val snapshot = awaitStartSnapshot()
+                if (snapshot != null) {
+                    applySnapshot(snapshot)
+                    when (snapshot.state) {
+                        SessionState.RUNNING -> return true
+                        SessionState.STARTING -> return false
+                        SessionState.STOPPED -> Unit
+                    }
+                } else {
+                    GlobalState.log("Start result is unknown; keeping pending until snapshot can be reconciled")
+                    runStateFlow.tryEmit(RunState.PENDING)
+                    return false
+                }
+            }
+
+            GlobalState.log("Start failed: ${result.errorCode} ${result.message}")
+            result.message?.takeIf { it.isNotEmpty() }?.let {
+                GlobalState.application.showToast(it)
             }
 
             runTime = 0L
             runStateFlow.tryEmit(RunState.STOP)
             return false
         } catch (e: Exception) {
-            runTime = 0L
-            runStateFlow.tryEmit(RunState.STOP)
+            GlobalState.log("Start state reconciliation failed: ${e.message}")
+            runStateFlow.tryEmit(RunState.PENDING)
             return false
-        } finally {
-            if (runStateFlow.value == RunState.PENDING) {
-                runStateFlow.tryEmit(RunState.STOP)
-            }
         }
+    }
+
+    private suspend fun awaitStartSnapshot(): SessionSnapshot? {
+        repeat(4) { attempt ->
+            Service.getSessionSnapshot().getOrNull()?.let { snapshot ->
+                if (snapshot.state != SessionState.STARTING || attempt == 3) {
+                    return snapshot
+                }
+            }
+            delay(750L)
+        }
+        return null
     }
 
     fun handleStopService() {
@@ -244,8 +290,16 @@ object State {
                 }
                 try {
                     runStateFlow.tryEmit(RunState.PENDING)
-                    runTime = Service.stopService()
-                    runStateFlow.tryEmit(RunState.STOP)
+                    val result = Service.stopService()
+                    if (result.success) {
+                        applySnapshot(
+                            Service.getSessionSnapshot().getOrNull()
+                                ?: SessionSnapshot.stopped()
+                        )
+                    } else {
+                        GlobalState.log("Stop failed: ${result.errorCode} ${result.message}")
+                        Service.getSessionSnapshot().onSuccess(::applySnapshot)
+                    }
                 } finally {
                     if (runStateFlow.value == RunState.PENDING) {
                         runStateFlow.tryEmit(RunState.START)

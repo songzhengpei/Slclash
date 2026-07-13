@@ -7,9 +7,9 @@ class SurgeStatusButton extends StatelessWidget {
   const SurgeStatusButton({
     super.key,
     required this.isActive,
+    required this.activeLabel,
+    required this.inactiveLabel,
     this.label,
-    this.activeLabel = 'Running',
-    this.inactiveLabel = 'Stopped',
     this.onPressed,
     this.loading = false,
     this.compact = false,

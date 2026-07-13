@@ -334,7 +334,7 @@ class _ResourceStatusCard extends StatelessWidget {
               height: 30,
               decoration: BoxDecoration(
                 color: surge.textSecondary.withValues(alpha: 0.055),
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(surge.radii.button),
               ),
               child: Icon(
                 mode == _ResourceAutoUpdateMode.off
@@ -393,12 +393,7 @@ class _ResourceListSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SurgeCard(
-      padding: EdgeInsets.zero,
-      borderRadius: 18,
-      shadow: false,
-      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
-    );
+    return SurgeListSurface(child: child);
   }
 }
 
@@ -477,7 +472,7 @@ class _ResourceItemCard extends ConsumerWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     color: surge.textSecondary.withValues(alpha: 0.055),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(surge.radii.menuRow),
                     border: Border.all(
                       color: surge.separator.withValues(alpha: 0.38),
                       width: surge.spacing.hairline,
@@ -697,7 +692,7 @@ class _ResourceSheetOption extends StatelessWidget {
                   color: selected
                       ? surge.primary.withValues(alpha: 0.1)
                       : surge.textSecondary.withValues(alpha: 0.055),
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(surge.radii.button),
                   border: Border.all(
                     color: surge.separator.withValues(alpha: 0.38),
                     width: surge.spacing.hairline,

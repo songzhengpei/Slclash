@@ -627,7 +627,7 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
                         letterSpacing: 0,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(surge.radii.button),
                       ),
                     ),
                   ),

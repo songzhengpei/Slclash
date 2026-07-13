@@ -393,7 +393,9 @@ class _BackupPillButton extends StatelessWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         foregroundColor: surge.textPrimary,
         backgroundColor: surge.textSecondary.withValues(alpha: 0.08),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(surge.radii.button),
+        ),
       ),
       child: Text(
         label,

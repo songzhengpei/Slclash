@@ -233,7 +233,7 @@ class LogItem extends StatelessWidget {
                     children: [
                       SurgePressable(
                         compact: true,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(surge.radii.chart),
                         onTap: () {
                           if (onClick == null) return;
                           onClick!(log.logLevel.name);
@@ -245,7 +245,9 @@ class LogItem extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: levelColor.withValues(alpha: 0.075),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(
+                              surge.radii.chart,
+                            ),
                             border: Border.all(
                               color: levelColor.withValues(alpha: 0.14),
                               width: surge.spacing.hairline,
@@ -300,12 +302,7 @@ class _LogsListSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SurgeCard(
-      padding: EdgeInsets.zero,
-      borderRadius: 18,
-      shadow: false,
-      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
-    );
+    return SurgeListSurface(child: child);
   }
 }
 

@@ -1,65 +1,72 @@
 package com.follow.clash.service.modules
 
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 interface ModuleLoaderScope {
-    fun <T : Module> install(module: T): T
+    suspend fun <T : Module> install(module: T): T
 }
 
 interface ModuleLoader {
-    fun load()
+    suspend fun load()
 
-    fun cancel()
+    suspend fun unload()
 }
 
-private val mutex = Mutex()
-fun CoroutineScope.moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): ModuleLoader {
+class ModuleUnloadException(
+    val failures: List<Throwable>,
+) : IllegalStateException(
+    failures.joinToString(
+        prefix = "Module unload failed: ",
+        separator = "; ",
+    ) { it.message ?: it.javaClass.simpleName },
+) {
+    init {
+        failures.forEach(::addSuppressed)
+    }
+}
+
+fun moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): ModuleLoader {
     val modules = mutableListOf<Module>()
-    var job: Job? = null
     var loaded = false
+    val mutex = Mutex()
 
     return object : ModuleLoader {
-        override fun load() {
-            if (job?.isActive == true) return
-            job = launch(Dispatchers.IO) {
-                mutex.withLock {
-                    if (loaded) return@withLock
-                    val scope = object : ModuleLoaderScope {
-                        override fun <T : Module> install(module: T): T {
-                            modules.add(module)
-                            module.install()
-                            return module
-                        }
+        override suspend fun load() = withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (loaded) return@withLock
+                val scope = object : ModuleLoaderScope {
+                    override suspend fun <T : Module> install(module: T): T {
+                        modules.add(module)
+                        module.install()
+                        return module
                     }
-                    try {
-                        scope.block()
-                        loaded = true
-                    } catch (e: Throwable) {
-                        modules.asReversed().forEach { it.uninstall() }
-                        modules.clear()
-                        loaded = false
-                        throw e
-                    }
+                }
+                try {
+                    scope.block()
+                    loaded = true
+                } catch (e: Throwable) {
+                    modules.asReversed().forEach { runCatching { it.uninstall() } }
+                    modules.clear()
+                    loaded = false
+                    throw e
                 }
             }
         }
 
-        override fun cancel() {
-            launch(Dispatchers.IO) {
-                job?.cancelAndJoin()
-                mutex.withLock {
-                    modules.asReversed().forEach { module ->
-                        runCatching { module.uninstall() }
-                    }
-                    modules.clear()
-                    loaded = false
-                    job = null
+        override suspend fun unload() = withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val failures = mutableListOf<Throwable>()
+                modules.asReversed().forEach { module ->
+                    runCatching { module.uninstall() }
+                        .onFailure(failures::add)
+                }
+                modules.clear()
+                loaded = false
+                if (failures.isNotEmpty()) {
+                    throw ModuleUnloadException(failures)
                 }
             }
         }

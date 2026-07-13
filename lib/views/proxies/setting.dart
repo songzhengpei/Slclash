@@ -178,7 +178,7 @@ class _SettingOption extends StatelessWidget {
                 height: 30,
                 decoration: BoxDecoration(
                   color: selected ? selectedFill : surge.fill,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(surge.radii.input),
                 ),
                 child: Icon(icon, size: 17, color: foreground),
               ),

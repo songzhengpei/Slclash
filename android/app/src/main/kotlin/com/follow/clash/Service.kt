@@ -7,11 +7,14 @@ import com.follow.clash.common.intent
 import com.follow.clash.service.IAckInterface
 import com.follow.clash.service.ICallbackInterface
 import com.follow.clash.service.IEventInterface
+import com.follow.clash.service.IOperationResultInterface
 import com.follow.clash.service.IRemoteInterface
 import com.follow.clash.service.IResultInterface
-import com.follow.clash.service.IVoidInterface
 import com.follow.clash.service.RemoteService
 import com.follow.clash.service.models.NotificationParams
+import com.follow.clash.service.models.ServiceErrorCode
+import com.follow.clash.service.models.ServiceOperationResult
+import com.follow.clash.service.models.SessionSnapshot
 import com.follow.clash.service.models.VpnOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -65,35 +68,13 @@ object Service {
     suspend fun quickSetup(
         initParamsString: String,
         setupParamsString: String,
-        onStarted: (() -> Unit)?,
-        onResult: ((result: String) -> Unit)?,
-    ): Result<Unit> {
-        val res = mutableListOf<ByteArray>()
+    ): ServiceOperationResult {
         return delegate.useService {
-            it.quickSetup(
-                initParamsString,
-                setupParamsString,
-                object : ICallbackInterface.Stub() {
-                    override fun onResult(
-                        result: ByteArray?, isSuccess: Boolean, ack: IAckInterface?
-                    ) {
-                        res.add(result ?: byteArrayOf())
-                        ack?.onAck()
-                        if (isSuccess) {
-                            onResult?.let { cb ->
-                                cb(res.formatString())
-                            }
-                        }
-                    }
-                },
-                object : IVoidInterface.Stub() {
-                    override fun invoke() {
-                        onStarted?.let { onStarted ->
-                            onStarted()
-                        }
-                    }
-                }
-            )
+            awaitOperationResult { callback ->
+                it.quickSetup(initParamsString, setupParamsString, callback)
+            }
+        }.getOrElse {
+            ServiceOperationResult.failure(ServiceErrorCode.SERVICE_DISCONNECTED, it.message)
         }
     }
 
@@ -154,27 +135,57 @@ object Service {
         }
     }
 
+    private suspend fun awaitOperationResult(
+        block: (IOperationResultInterface) -> Unit
+    ): ServiceOperationResult = suspendCancellableCoroutine { continuation ->
+        val callback = object : IOperationResultInterface.Stub() {
+            override fun onResult(result: ServiceOperationResult?) {
+                if (continuation.isActive) {
+                    continuation.resume(
+                        result ?: ServiceOperationResult.failure(
+                            ServiceErrorCode.INTERNAL_ERROR,
+                            "Empty service result",
+                        )
+                    )
+                }
+            }
+        }
+        try {
+            block(callback)
+        } catch (e: Exception) {
+            if (continuation.isActive) continuation.resumeWithException(e)
+        }
+    }
 
-    suspend fun startService(options: VpnOptions, runTime: Long): Long {
+    suspend fun startService(options: VpnOptions, runTime: Long): ServiceOperationResult {
         return delegate.useService {
-            awaitIResultInterface { callback ->
+            awaitOperationResult { callback ->
                 it.startService(options, runTime, callback)
             }
-        }.getOrNull() ?: 0L
+        }.getOrElse {
+            ServiceOperationResult.failure(ServiceErrorCode.SERVICE_DISCONNECTED, it.message)
+        }
     }
-
-    suspend fun stopService(): Long {
-        return delegate.useService {
-            awaitIResultInterface { callback ->
+    suspend fun stopService(): ServiceOperationResult {
+        return delegate.useService(timeoutMillis = 12_000L) {
+            awaitOperationResult { callback ->
                 it.stopService(callback)
             }
-        }.getOrNull() ?: 0L
+        }.getOrElse {
+            ServiceOperationResult.failure(ServiceErrorCode.SERVICE_DISCONNECTED, it.message)
+        }
     }
-
     suspend fun getRunTime(): Long {
         return delegate.useService {
             it.runTime
         }.getOrNull() ?: 0L
+    }
+
+    suspend fun getSessionSnapshot(): Result<SessionSnapshot> {
+        val first = delegate.useService { it.sessionSnapshot }
+        if (first.isSuccess) return first
+        delegate.bind()
+        return delegate.useService(timeoutMillis = 8_000L) { it.sessionSnapshot }
     }
 
     suspend fun smartStop(): Long {

@@ -69,6 +69,7 @@ abstract final class SurgeIcons {
   static const chevronRight = Icons.chevron_right_rounded;
   static const expand = Icons.expand_more_rounded;
   static const collapse = Icons.keyboard_arrow_up_rounded;
+  static const down = Icons.keyboard_arrow_down_rounded;
   static const search = Icons.search_rounded;
   static const menu = Icons.menu_rounded;
   static const more = Icons.more_horiz_rounded;
@@ -86,6 +87,7 @@ abstract final class SurgeIcons {
   static const replay = Icons.replay_rounded;
   static const sync = Icons.sync_rounded;
   static const cloudSync = Icons.cloud_sync_rounded;
+  static const providerDownload = Icons.cloud_download_outlined;
   static const download = Icons.download_rounded;
   static const upload = Icons.upload_rounded;
   static const uploadFile = Icons.upload_file_rounded;
