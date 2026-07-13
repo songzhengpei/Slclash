@@ -3,6 +3,7 @@ package com.follow.clash.service
 import com.follow.clash.common.BroadcastAction
 import com.follow.clash.common.GlobalState
 import com.follow.clash.common.sendBroadcast
+import com.follow.clash.service.models.ServiceOperationResult
 
 interface IBaseService {
     fun handleCreate() {
@@ -15,15 +16,15 @@ interface IBaseService {
         BroadcastAction.SERVICE_DESTROYED.sendBroadcast()
     }
 
-    fun start(): Boolean
+    suspend fun start(): ServiceOperationResult
 
-    fun stop()
+    suspend fun stop(): ServiceOperationResult
 
-    fun smartStop() {
+    suspend fun smartStop() {
         // Default no-op for services without TUN (e.g. CommonService)
     }
 
-    fun smartResume(): Boolean {
+    suspend fun smartResume(): Boolean {
         return true
     }
 }

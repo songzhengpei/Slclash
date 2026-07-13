@@ -23,7 +23,10 @@ import com.follow.clash.service.models.NotificationParams
 import com.follow.clash.service.models.getSpeedTrafficText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -44,16 +47,35 @@ val NotificationParams.extended: ExtendedNotificationParams
     )
 
 class NotificationModule(private val service: Service) : Module() {
-    private companion object {
+    companion object {
         const val REFRESH_INTERVAL_MILLIS = 10_000L
+
+        fun showLoadingNotification(service: Service) {
+            val intent = Intent().setComponent(Components.MAIN_ACTIVITY)
+            val notification = NotificationCompat.Builder(
+                service,
+                GlobalState.NOTIFICATION_CHANNEL,
+            ).apply {
+                setSmallIcon(R.drawable.ic_service)
+                setContentTitle("FlClash")
+                setContentText("Starting service…")
+                setContentIntent(intent.toPendingIntent)
+                setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                setCategory(NotificationCompat.CATEGORY_SERVICE)
+                setOngoing(true)
+                setOnlyAlertOnce(true)
+            }.build()
+            service.startForeground(notification)
+        }
     }
 
-    private val scope = CoroutineScope(Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var job: Job? = null
     private var foregroundStarted = false
     private var lastParams: ExtendedNotificationParams? = null
 
-    override fun onInstall() {
-        scope.launch {
+    override suspend fun onInstall() {
+        job = scope.launch {
             val screenFlow = service.receiveBroadcastFlow {
                 addAction(Intent.ACTION_SCREEN_ON)
                 addAction(Intent.ACTION_SCREEN_OFF)
@@ -139,7 +161,9 @@ class NotificationModule(private val service: Service) : Module() {
             ?.notify(GlobalState.NOTIFICATION_ID, notification)
     }
 
-    override fun onUninstall() {
+    override suspend fun onUninstall() {
+        job?.cancelAndJoin()
+        job = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             service.stopForeground(STOP_FOREGROUND_REMOVE)
         } else {

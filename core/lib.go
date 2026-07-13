@@ -27,7 +27,11 @@ import (
 	"unsafe"
 )
 
-var eventListener unsafe.Pointer
+var (
+	eventListener     unsafe.Pointer
+	eventListenerLock sync.Mutex
+	dnsUpdateLock     sync.Mutex
+)
 
 type TunHandler struct {
 	listener *sing_tun.Listener
@@ -36,19 +40,21 @@ type TunHandler struct {
 	limit *semaphore.Weighted
 }
 
-func (th *TunHandler) start(fd int, stack, address, dns string) {
+func (th *TunHandler) start(fd int, stack, address, dns string) bool {
 	runLock.Lock()
 	defer runLock.Unlock()
 	_ = th.limit.Acquire(context.TODO(), 4)
 	defer th.limit.Release(4)
 	th.initHook()
-	tunListener := t.Start(fd, stack, address, dns)
-	if tunListener != nil {
+	tunListener, err := t.Start(fd, stack, address, dns)
+	if err == nil && tunListener != nil {
 		log.Infoln("TUN address: %v", tunListener.Address())
 		th.listener = tunListener
-		return
+		return true
 	}
+	log.Errorln("Start TUN failed: %v", err)
 	th.clear()
+	return false
 }
 
 func (th *TunHandler) close() {
@@ -73,7 +79,7 @@ func (th *TunHandler) handleProtect(fd int) {
 	_ = th.limit.Acquire(context.Background(), 1)
 	defer th.limit.Release(1)
 
-	if th.listener == nil {
+	if th.listener == nil || th.callback == nil {
 		return
 	}
 
@@ -84,7 +90,7 @@ func (th *TunHandler) handleResolveProcess(source, target net.Addr) string {
 	_ = th.limit.Acquire(context.Background(), 1)
 	defer th.limit.Release(1)
 
-	if th.listener == nil {
+	if th.listener == nil || th.callback == nil {
 		return ""
 	}
 	var protocol int
@@ -138,25 +144,40 @@ func handleStopTun() {
 	}
 }
 
-func handleStartTun(callback unsafe.Pointer, fd int, stack, address, dns string) {
+func handleStartTun(callback unsafe.Pointer, fd int, stack, address, dns string) bool {
 	handleStopTun()
 	tunLock.Lock()
 	defer tunLock.Unlock()
-	if fd != 0 {
-		tunHandler = &TunHandler{
-			callback: callback,
-			limit:    semaphore.NewWeighted(4),
+	if fd == 0 || callback == nil {
+		if callback != nil {
+			releaseObject(callback)
 		}
-		tunHandler.start(fd, stack, address, dns)
+		if fd != 0 {
+			_ = syscall.Close(fd)
+		}
+		return false
 	}
+	tunHandler = &TunHandler{
+		callback: callback,
+		limit:    semaphore.NewWeighted(4),
+	}
+	if !tunHandler.start(fd, stack, address, dns) {
+		tunHandler = nil
+		return false
+	}
+	return true
 }
 
 func handleUpdateDns(value string) {
-	go func() {
-		log.Infoln("[DNS] updateDns %s", value)
-		dns.UpdateSystemDNS(strings.Split(value, ","))
-		dns.FlushCacheWithDefaultResolver()
-	}()
+	dnsUpdateLock.Lock()
+	defer dnsUpdateLock.Unlock()
+	log.Infoln("[DNS] updateDns %s", value)
+	servers := []string{}
+	if value != "" {
+		servers = strings.Split(value, ",")
+	}
+	dns.UpdateSystemDNS(servers)
+	dns.FlushCacheWithDefaultResolver()
 }
 
 func (result ActionResult) send() {
@@ -200,7 +221,9 @@ func invokeAction(callback unsafe.Pointer, paramsChar *C.char) {
 
 //export startTUN
 func startTUN(callback unsafe.Pointer, fd C.int, stackChar, addressChar, dnsChar *C.char) bool {
-	handleStartTun(callback, int(fd), takeCString(stackChar), takeCString(addressChar), takeCString(dnsChar))
+	if !handleStartTun(callback, int(fd), takeCString(stackChar), takeCString(addressChar), takeCString(dnsChar)) {
+		return false
+	}
 	if !isRunning {
 		handleStartListener()
 	} else {
@@ -220,12 +243,17 @@ func quickSetup(callback unsafe.Pointer, initParamsChar *C.char, setupParamsChar
 		}
 		isRunning = true
 		message := handleSetupConfig([]byte(setupParamsString))
+		if message != "" {
+			handleStopListener()
+		}
 		invokeResult(callback, message)
 	}()
 }
 
 //export setEventListener
 func setEventListener(listener unsafe.Pointer) {
+	eventListenerLock.Lock()
+	defer eventListenerLock.Unlock()
 	if eventListener != nil || listener == nil {
 		releaseObject(eventListener)
 	}
@@ -248,6 +276,8 @@ func getTrafficSnapshot(onlyStatisticsProxy bool) *C.char {
 }
 
 func sendMessage(message Message) {
+	eventListenerLock.Lock()
+	defer eventListenerLock.Unlock()
 	if eventListener == nil {
 		return
 	}

@@ -10,32 +10,20 @@ import (
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel"
 	"net"
-	"net/netip"
 	"strings"
+	"syscall"
 )
 
-func Start(fd int, stack string, address, dns string) *sing_tun.Listener {
-	var prefix4 []netip.Prefix
-	var prefix6 []netip.Prefix
+func Start(fd int, stack string, address, dns string) (*sing_tun.Listener, error) {
 	tunStack, ok := constant.StackTypeMapping[strings.ToLower(stack)]
 	if !ok {
 		tunStack = constant.TunSystem
 	}
-	for _, a := range strings.Split(address, ",") {
-		a = strings.TrimSpace(a)
-		if len(a) == 0 {
-			continue
-		}
-		prefix, err := netip.ParsePrefix(a)
-		if err != nil {
-			log.Errorln("TUN:", err)
-			return nil
-		}
-		if prefix.Addr().Is4() {
-			prefix4 = append(prefix4, prefix)
-		} else {
-			prefix6 = append(prefix6, prefix)
-		}
+	prefix4, prefix6, err := parseAddresses(address)
+	if err != nil {
+		log.Errorln("TUN:", err)
+		_ = syscall.Close(fd)
+		return nil, err
 	}
 
 	var dnsHijack []string
@@ -64,8 +52,8 @@ func Start(fd int, stack string, address, dns string) *sing_tun.Listener {
 
 	if err != nil {
 		log.Errorln("TUN:", err)
-		return nil
+		return nil, err
 	}
 
-	return listener
+	return listener, nil
 }

@@ -4,10 +4,10 @@ abstract class Module {
 
     private var installed: Boolean = false
 
-    protected abstract fun onInstall()
-    protected abstract fun onUninstall()
+    protected abstract suspend fun onInstall()
+    protected abstract suspend fun onUninstall()
 
-    fun install() {
+    suspend fun install() {
         if (installed) return
         try {
             onInstall()
@@ -19,7 +19,7 @@ abstract class Module {
         }
     }
 
-    fun uninstall() {
+    suspend fun uninstall() {
         if (!installed) return
         try {
             onUninstall()

@@ -13,6 +13,8 @@ import androidx.core.content.getSystemService
 import com.follow.clash.common.AccessControlMode
 import com.follow.clash.common.GlobalState
 import com.follow.clash.core.Core
+import com.follow.clash.service.models.ServiceErrorCode
+import com.follow.clash.service.models.ServiceOperationResult
 import com.follow.clash.service.models.VpnOptions
 import com.follow.clash.service.models.getIpv4RouteAddress
 import com.follow.clash.service.models.getIpv6RouteAddress
@@ -23,31 +25,66 @@ import com.follow.clash.service.modules.SuspendModule
 import com.follow.clash.service.modules.moduleLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.LinkedHashMap
 import java.net.InetSocketAddress
 import android.net.VpnService as SystemVpnService
 
-class VpnService : SystemVpnService(), IBaseService,
-    CoroutineScope by CoroutineScope(Dispatchers.Default) {
+class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
+
+    private val serviceJob = SupervisorJob()
+    override val coroutineContext = serviceJob + Dispatchers.Default
+    private val lifecycleMutex = Mutex()
+    private var shutdownComplete = false
 
     private val self: VpnService
         get() = this
 
     private val loader = moduleLoader {
-        install(NetworkObserveModule(self))
         install(NotificationModule(self))
+        install(NetworkObserveModule(self))
         install(SuspendModule(self))
     }
 
+    private var startupFailure: ServiceOperationResult? = null
+
     override fun onCreate() {
         super.onCreate()
+        startupFailure = runCatching {
+            NotificationModule.showLoadingNotification(this)
+            null
+        }.getOrElse {
+            GlobalState.log("VpnService foreground start failed: ${it.message}")
+            ServiceOperationResult.failure(ServiceErrorCode.FOREGROUND_SERVICE_FAILED, it.message)
+        }
         handleCreate()
     }
 
     override fun onDestroy() {
+        runBlocking {
+            withTimeoutOrNull(2_000L) {
+                lifecycleMutex.withLock {
+                    if (!shutdownComplete) cleanupLocked(stopService = false)
+                }
+            }
+        }
+        Core.stopTun()
+        serviceJob.cancel()
         handleDestroy()
-        clearResolverCache()
         super.onDestroy()
+    }
+
+    override fun onRevoke() {
+        launch { shutdown("vpn_revoked") }
+        super.onRevoke()
     }
 
     private val connectivity by lazy {
@@ -219,13 +256,19 @@ class VpnService : SystemVpnService(), IBaseService,
                     when (accessControl.mode) {
                         AccessControlMode.ACCEPT_SELECTED -> {
                             (accessControl.acceptList + packageName).forEach {
-                                addAllowedApplication(it)
+                                runCatching { addAllowedApplication(it) }
+                                    .onFailure { error ->
+                                        GlobalState.log("Ignore invalid allowed package $it: ${error.message}")
+                                    }
                             }
                         }
 
                         AccessControlMode.REJECT_SELECTED -> {
                             (accessControl.rejectList - packageName).forEach {
-                                addDisallowedApplication(it)
+                                runCatching { addDisallowedApplication(it) }
+                                    .onFailure { error ->
+                                        GlobalState.log("Ignore invalid disallowed package $it: ${error.message}")
+                                    }
                             }
                         }
                     }
@@ -250,7 +293,7 @@ class VpnService : SystemVpnService(), IBaseService,
             establish()?.detachFd()
                 ?: throw NullPointerException("Establish VPN rejected by system")
         }
-        Core.startTun(
+        val started = Core.startTun(
             fd,
             protect = this::protect,
             resolverProcess = this::resolverProcess,
@@ -258,36 +301,54 @@ class VpnService : SystemVpnService(), IBaseService,
             options.address,
             options.dns
         )
+        if (!started) {
+            Core.stopTun()
+            throw ServiceStartException(
+                ServiceErrorCode.TUN_START_FAILED,
+                "Native TUN listener failed to start",
+            )
+        }
     }
 
-    override fun start(): Boolean {
+    override suspend fun start(): ServiceOperationResult = lifecycleMutex.withLock {
+        startupFailure?.let { return it }
+        shutdownComplete = false
         return try {
             loader.load()
             val options = State.options
                 ?: throw IllegalStateException("VPN options is null")
             handleStart(options)
-            true
+            ServiceOperationResult.success()
+        } catch (e: ServiceStartException) {
+            GlobalState.log("VpnService start failed: ${e.message}")
+            cleanupLocked(stopService = true)
+            ServiceOperationResult.failure(e.errorCode, e.message)
         } catch (e: Exception) {
             GlobalState.log("VpnService start failed: ${e.message}")
-            stop()
-            false
+            cleanupLocked(stopService = true)
+            ServiceOperationResult.failure(
+                if (e is NullPointerException && e.message == "Establish VPN rejected by system") {
+                    ServiceErrorCode.VPN_ESTABLISH_FAILED
+                } else {
+                    ServiceErrorCode.INTERNAL_ERROR
+                },
+                e.message,
+            )
         }
     }
 
-    override fun stop() {
-        loader.cancel()
-        clearResolverCache()
-        Core.stopTun()
-        stopSelf()
+    override suspend fun stop(): ServiceOperationResult = shutdown("user_stop")
+
+    override suspend fun smartStop() = lifecycleMutex.withLock {
+        if (!shutdownComplete) {
+            clearResolverCache()
+            Core.stopTun()
+        }
     }
 
-    override fun smartStop() {
-        clearResolverCache()
-        Core.stopTun()
-    }
-
-    override fun smartResume(): Boolean {
-        return try {
+    override suspend fun smartResume(): Boolean = lifecycleMutex.withLock {
+        if (shutdownComplete) return@withLock false
+        return@withLock try {
             State.options?.let {
                 handleStart(it)
                 true
@@ -296,6 +357,26 @@ class VpnService : SystemVpnService(), IBaseService,
             GlobalState.log("VpnService smartResume failed: ${e.message}")
             false
         }
+    }
+
+    private suspend fun shutdown(
+        reason: String,
+        stopService: Boolean = true,
+    ): ServiceOperationResult = withContext(NonCancellable) {
+        lifecycleMutex.withLock {
+            if (shutdownComplete) return@withLock ServiceOperationResult.success()
+            GlobalState.log("VpnService shutdown: $reason")
+            cleanupLocked(stopService)
+            ServiceOperationResult.success()
+        }
+    }
+
+    private suspend fun cleanupLocked(stopService: Boolean) {
+        Core.stopTun()
+        loader.unload()
+        clearResolverCache()
+        shutdownComplete = true
+        if (stopService) stopSelf()
     }
 
     companion object {
@@ -307,3 +388,8 @@ class VpnService : SystemVpnService(), IBaseService,
         private const val NET_ANY6 = "::"
     }
 }
+
+private class ServiceStartException(
+    val errorCode: String,
+    message: String,
+) : Exception(message)

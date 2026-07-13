@@ -11,6 +11,14 @@ import android.net.NetworkRequest
 import android.os.Build
 import androidx.core.content.getSystemService
 import com.follow.clash.core.Core
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -29,6 +37,10 @@ class NetworkObserveModule(private val service: Service) : Module() {
         service.getSystemService<ConnectivityManager>()
     }
     private var preDnsList = listOf<String>()
+    private val generation = NetworkUpdateGeneration()
+    private val updates = Channel<Long>(Channel.CONFLATED)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var updateJob: Job? = null
 
     private val request = NetworkRequest.Builder().apply {
         addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
@@ -42,36 +54,45 @@ class NetworkObserveModule(private val service: Service) : Module() {
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             networkInfos[network] = NetworkInfo()
-            onUpdateNetwork()
             super.onAvailable(network)
         }
 
         override fun onLosing(network: Network, maxMsToLive: Int) {
             networkInfos[network]?.losingMs = System.currentTimeMillis() + maxMsToLive
-            onUpdateNetwork()
+            enqueueNetworkUpdate()
             setUnderlyingNetworks(network)
             super.onLosing(network, maxMsToLive)
         }
 
         override fun onLost(network: Network) {
             networkInfos.remove(network)
-            onUpdateNetwork()
+            enqueueNetworkUpdate()
             setUnderlyingNetworks(network)
             super.onLost(network)
         }
 
         override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
-            networkInfos[network]?.dnsList = linkProperties.dnsServers
-            onUpdateNetwork()
+            if (linkProperties.dnsServers.isNotEmpty()) {
+                networkInfos[network]?.dnsList = linkProperties.dnsServers
+                enqueueNetworkUpdate()
+            }
             setUnderlyingNetworks(network)
             super.onLinkPropertiesChanged(network, linkProperties)
         }
     }
 
 
-    override fun onInstall() {
-        onUpdateNetwork()
+    override suspend fun onInstall() {
+        updateJob = scope.launch {
+            for (eventGeneration in updates) {
+                applyNetworkUpdate(eventGeneration)
+            }
+        }
         connectivity?.registerNetworkCallback(request, callback)
+    }
+
+    private fun enqueueNetworkUpdate() {
+        updates.trySend(generation.next())
     }
 
     private fun networkToInt(entry: Map.Entry<Network, NetworkInfo>): Int {
@@ -95,14 +116,15 @@ class NetworkObserveModule(private val service: Service) : Module() {
         } + (if (entry.value.isAvailable()) 0 else 10)
     }
 
-    fun onUpdateNetwork() {
+    private fun applyNetworkUpdate(eventGeneration: Long) {
+        if (!generation.isCurrent(eventGeneration)) return
         val dnsList = (networkInfos.asSequence().minByOrNull { networkToInt(it) }?.value?.dnsList
             ?: emptyList()).map { x -> x.asSocketAddressText(53) }
-        if (dnsList == preDnsList) {
+        if (dnsList.isEmpty() || dnsList == preDnsList) {
             return
         }
-        preDnsList = dnsList
-        Core.updateDNS(dnsList.toSet().joinToString(","))
+        preDnsList = normalizeDnsServers(dnsList)
+        Core.updateDNS(preDnsList.joinToString(","))
     }
 
     fun setUnderlyingNetworks(network: Network) {
@@ -111,10 +133,18 @@ class NetworkObserveModule(private val service: Service) : Module() {
 //        }
     }
 
-    override fun onUninstall() {
-        connectivity?.unregisterNetworkCallback(callback)
+    override suspend fun onUninstall() {
+        runCatching { connectivity?.unregisterNetworkCallback(callback) }
+        generation.next()
+        updates.close()
+        updateJob?.cancelAndJoin()
+        updateJob = null
+        scope.cancel()
         networkInfos.clear()
-        onUpdateNetwork()
+        if (preDnsList.isNotEmpty()) {
+            preDnsList = emptyList()
+            Core.updateDNS("")
+        }
     }
 }
 

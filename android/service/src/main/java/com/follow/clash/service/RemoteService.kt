@@ -12,27 +12,59 @@ import com.follow.clash.service.State.delegate
 import com.follow.clash.service.State.intent
 import com.follow.clash.service.State.runLock
 import com.follow.clash.service.models.NotificationParams
+import com.follow.clash.service.models.SessionSnapshot
+import com.follow.clash.service.models.SessionState
+import com.follow.clash.service.models.SessionTransitions
+import com.follow.clash.service.models.ServiceErrorCode
+import com.follow.clash.service.models.ServiceOperationResult
 import com.follow.clash.service.models.VpnOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 
 class RemoteService : Service(),
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
-    private fun handleStopService(result: IResultInterface) {
+    private val sessionCounter = AtomicLong(System.currentTimeMillis())
+    private fun replyOperation(
+        callback: IOperationResultInterface,
+        result: ServiceOperationResult,
+    ) {
+        runCatching { callback.onResult(result) }
+            .onFailure { GlobalState.log("Operation result callback failed: ${it.message}") }
+    }
+
+    private fun handleStopService(result: IOperationResultInterface) {
         launch {
             runLock.withLock {
-                delegate?.useService { service ->
-                    service.stop()
-                    delegate?.unbind()
+                val current = State.snapshot
+                if (current.state == SessionState.STOPPED) {
+                    replyOperation(result, ServiceOperationResult.success())
+                    return@withLock
                 }
-                State.runTime = 0
-                result.onResult(0)
+                State.snapshot = SessionTransitions.stopping(current)
+                val stopResult = delegate?.useService(timeoutMillis = 10_000L) { service ->
+                    service.stop()
+                }?.getOrNull() ?: ServiceOperationResult.failure(
+                    ServiceErrorCode.SERVICE_DISCONNECTED,
+                    "Background service is unavailable during stop",
+                )
+                delegate?.unbind()
+                delegate = null
+                intent = null
+                State.snapshot = if (stopResult.success) {
+                    SessionSnapshot.stopped()
+                } else {
+                    SessionSnapshot.stopped(stopResult.errorCode, stopResult.message)
+                }
+                replyOperation(result, stopResult)
             }
         }
     }
@@ -41,49 +73,119 @@ class RemoteService : Service(),
         GlobalState.log("Background service disconnected: $message")
         intent = null
         delegate = null
-    }
-
-    private fun handleStartService(runTime: Long, result: IResultInterface) {
         launch {
             runLock.withLock {
-                val nextIntent = when (State.options?.enable == true) {
-                    true -> VpnService::class.intent
-                    false -> CommonService::class.intent
+                State.snapshot = if (
+                    State.snapshot.state == SessionState.STOPPING ||
+                    State.snapshot.state == SessionState.STOPPED
+                ) {
+                    SessionSnapshot.stopped()
+                } else {
+                    SessionSnapshot.stopped(ServiceErrorCode.SERVICE_DISCONNECTED, message)
                 }
-                if (intent != nextIntent) {
-                    delegate?.unbind()
-                    delegate = ServiceDelegate(nextIntent, ::handleServiceDisconnected) { binder ->
-                        when (binder) {
-                            is VpnService.LocalBinder -> binder.getService()
-                            is CommonService.LocalBinder -> binder.getService()
-                            else -> throw IllegalArgumentException("Invalid binder type")
-                        }
-                    }
-                    intent = nextIntent
-                    delegate?.bind()
-                }
+            }
+        }
+    }
 
-                var success = false
-                delegate?.useService { service ->
-                    success = service.start()
-                }
-
-                if (!success) {
-                    GlobalState.log("Start service failed")
-                    State.runTime = 0L
-                    delegate?.useService { it.stop() }
-                    delegate?.unbind()
-                    delegate = null
-                    intent = null
-                    result.onResult(0L)
+    private fun handleStartService(
+        options: VpnOptions,
+        runTime: Long,
+        result: IOperationResultInterface,
+    ) {
+        launch {
+            runLock.withLock {
+                val current = State.snapshot
+                if (current.state == SessionState.RUNNING) {
+                    replyOperation(result, ServiceOperationResult.success(current.startedAt))
                     return@withLock
                 }
-
-                State.runTime = when (runTime != 0L) {
-                    true -> runTime
-                    false -> System.currentTimeMillis()
+                if (current.state == SessionState.PAUSED) {
+                    val resumed = delegate?.useService { it.smartResume() }?.getOrNull() == true
+                    if (resumed) {
+                        State.snapshot = SessionTransitions.running(current)
+                        replyOperation(result, ServiceOperationResult.success(current.startedAt))
+                    } else {
+                        replyOperation(
+                            result,
+                            ServiceOperationResult.failure(
+                                ServiceErrorCode.TUN_START_FAILED,
+                                "Paused session failed to resume",
+                            ),
+                        )
+                    }
+                    return@withLock
                 }
-                result.onResult(State.runTime)
+                if (current.state != SessionState.STOPPED) {
+                    replyOperation(
+                        result,
+                        ServiceOperationResult.failure(
+                            ServiceErrorCode.INTERNAL_ERROR,
+                            "Session is busy: ${current.state}",
+                        ),
+                    )
+                    return@withLock
+                }
+                val sessionId = sessionCounter.incrementAndGet()
+                val startedAt = runTime.takeIf { it > 0L } ?: System.currentTimeMillis()
+                State.options = options
+                State.snapshot = SessionTransitions.starting(sessionId, startedAt)
+                try {
+                    val nextIntent = when (options.enable) {
+                        true -> VpnService::class.intent
+                        false -> CommonService::class.intent
+                    }
+                    if (intent != nextIntent) {
+                        delegate?.unbind()
+                        delegate = ServiceDelegate(nextIntent, ::handleServiceDisconnected) { binder ->
+                            when (binder) {
+                                is VpnService.LocalBinder -> binder.getService()
+                                is CommonService.LocalBinder -> binder.getService()
+                                else -> throw IllegalArgumentException("Invalid binder type")
+                            }
+                        }
+                        intent = nextIntent
+                        delegate?.bind()
+                    }
+
+                    var startResult: ServiceOperationResult? = null
+                    delegate?.useService { service ->
+                        startResult = service.start()
+                    }
+
+                    val serviceResult = startResult ?: ServiceOperationResult.failure(
+                        ServiceErrorCode.SERVICE_DISCONNECTED,
+                        "Background service is unavailable",
+                    )
+                    if (!serviceResult.success) {
+                        GlobalState.log("Start service failed: ${serviceResult.errorCode} ${serviceResult.message}")
+                        delegate?.useService { it.stop() }
+                        delegate?.unbind()
+                        delegate = null
+                        intent = null
+                        State.snapshot = SessionSnapshot.stopped(
+                            serviceResult.errorCode,
+                            serviceResult.message,
+                        )
+                        replyOperation(result, serviceResult)
+                        return@withLock
+                    }
+
+                    State.snapshot = SessionTransitions.running(State.snapshot)
+                    replyOperation(result, ServiceOperationResult.success(startedAt))
+                } catch (e: Exception) {
+                    GlobalState.log("Start service internal error: ${e.message}")
+                    State.snapshot = SessionSnapshot.stopped(
+                        ServiceErrorCode.INTERNAL_ERROR,
+                        e.message,
+                    )
+                    replyOperation(
+                        result,
+                        ServiceOperationResult.failure(
+                            ServiceErrorCode.INTERNAL_ERROR,
+                            e.message,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -115,28 +217,31 @@ class RemoteService : Service(),
         override fun quickSetup(
             initParamsString: String,
             setupParamsString: String,
-            callback: ICallbackInterface,
-            onStarted: IVoidInterface
+            result: IOperationResultInterface,
         ) {
             Core.quickSetup(initParamsString, setupParamsString) {
                 launch {
-                    runCatching {
-                        val chunks = it?.chunkedForAidl() ?: listOf()
-                        for ((index, chunk) in chunks.withIndex()) {
-                            suspendCancellableCoroutine { cont ->
-                                callback.onResult(
-                                    chunk,
-                                    index == chunks.lastIndex,
-                                    object : IAckInterface.Stub() {
-                                        override fun onAck() {
-                                            cont.resume(Unit)
-                                        }
-                                    },
-                                )
-                            }
+                    runLock.withLock {
+                        val message = it.orEmpty()
+                        val operationResult = when {
+                            message.isEmpty() -> ServiceOperationResult.success()
+                            message == "init failed" -> ServiceOperationResult.failure(
+                                ServiceErrorCode.CORE_INIT_FAILED,
+                                message,
+                            )
+                            else -> ServiceOperationResult.failure(
+                                ServiceErrorCode.CONFIG_LOAD_FAILED,
+                                message,
+                            )
                         }
+                        if (!operationResult.success) {
+                            State.snapshot = SessionSnapshot.stopped(
+                                operationResult.errorCode,
+                                operationResult.message,
+                            )
+                        }
+                        replyOperation(result, operationResult)
                     }
-                    onStarted.invoke()
                 }
             }
         }
@@ -149,14 +254,13 @@ class RemoteService : Service(),
         override fun startService(
             options: VpnOptions,
             runtime: Long,
-            result: IResultInterface,
+            result: IOperationResultInterface,
         ) {
             GlobalState.log("remote startService")
-            State.options = options
-            handleStartService(runtime, result)
+            handleStartService(options, runtime, result)
         }
 
-        override fun stopService(result: IResultInterface) {
+        override fun stopService(result: IOperationResultInterface) {
             handleStopService(result)
         }
 
@@ -191,15 +295,24 @@ class RemoteService : Service(),
         }
 
         override fun getRunTime(): Long {
-            return State.runTime
+            return State.snapshot.takeIf { it.state == SessionState.RUNNING }?.startedAt ?: 0L
+        }
+
+        override fun getSessionSnapshot(): SessionSnapshot {
+            return State.snapshot
         }
 
         override fun smartStop(result: IResultInterface) {
             launch {
                 runLock.withLock {
                     // Already stopped — return success (idempotent)
-                    if (State.isSmartStopped) {
+                    val current = State.snapshot
+                    if (current.state == SessionState.PAUSED) {
                         result.onResult(1)
+                        return@withLock
+                    }
+                    if (current.state != SessionState.RUNNING) {
+                        result.onResult(0)
                         return@withLock
                     }
                     val d = delegate
@@ -213,8 +326,7 @@ class RemoteService : Service(),
                         success = true
                     }
                     if (success) {
-                        State.runTime = 0
-                        State.isSmartStopped = true
+                        State.snapshot = SessionTransitions.paused(current)
                         result.onResult(1)
                     } else {
                         result.onResult(0)
@@ -227,8 +339,11 @@ class RemoteService : Service(),
             launch {
                 runLock.withLock {
                     // Not stopped — return current runTime (idempotent)
-                    if (!State.isSmartStopped) {
-                        result.onResult(State.runTime)
+                    val current = State.snapshot
+                    if (current.state != SessionState.PAUSED) {
+                        result.onResult(
+                            current.takeIf { it.state == SessionState.RUNNING }?.startedAt ?: 0L
+                        )
                         return@withLock
                     }
                     val options = State.options
@@ -242,9 +357,8 @@ class RemoteService : Service(),
                         success = service.smartResume()
                     }
                     if (success) {
-                        State.runTime = System.currentTimeMillis()
-                        State.isSmartStopped = false
-                        result.onResult(State.runTime)
+                        State.snapshot = SessionTransitions.running(current)
+                        result.onResult(current.startedAt)
                     } else {
                         result.onResult(0)
                     }
@@ -253,11 +367,20 @@ class RemoteService : Service(),
         }
 
         override fun setSmartStopped(value: Boolean) {
-            State.isSmartStopped = value
+            runBlocking {
+                runLock.withLock {
+                    val current = State.snapshot
+                    State.snapshot = when {
+                        value && current.state == SessionState.RUNNING -> SessionTransitions.paused(current)
+                        !value && current.state == SessionState.PAUSED -> SessionTransitions.running(current)
+                        else -> current.copy(smartPaused = value)
+                    }
+                }
+            }
         }
 
         override fun isSmartStopped(): Boolean {
-            return State.isSmartStopped
+            return State.snapshot.smartPaused
         }
     }
 
@@ -266,6 +389,17 @@ class RemoteService : Service(),
     }
 
     override fun onDestroy() {
+        runBlocking {
+            withTimeoutOrNull(2_000L) {
+                runLock.withLock {
+                    delegate?.unbind()
+                    delegate = null
+                    intent = null
+                    State.snapshot = SessionSnapshot.stopped()
+                }
+            }
+        }
+        Core.callSetEventListener(null)
         GlobalState.log("Remote service destroy")
         super.onDestroy()
     }
