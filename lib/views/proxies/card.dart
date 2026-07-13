@@ -38,7 +38,6 @@ class ProxyCard extends StatelessWidget {
   Future<void> _changeProxy(WidgetRef ref) async {
     final isComputedSelected = groupType.isComputedSelected;
     final isSelector = groupType == GroupType.Selector;
-    final ref = globalState.container;
     if (isComputedSelected || isSelector) {
       final currentProxyName = ref.read(proxyNameProvider(groupName));
       final nextProxyName = switch (isComputedSelected) {
