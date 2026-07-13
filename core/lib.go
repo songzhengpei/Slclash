@@ -209,6 +209,7 @@ func invokeAction(callback unsafe.Pointer, paramsChar *C.char) {
 	err := json.Unmarshal([]byte(params), action)
 	if err != nil {
 		invokeResult(callback, err.Error())
+		releaseObject(callback)
 		return
 	}
 	result := ActionResult{
@@ -235,6 +236,7 @@ func startTUN(callback unsafe.Pointer, fd C.int, stackChar, addressChar, dnsChar
 //export quickSetup
 func quickSetup(callback unsafe.Pointer, initParamsChar *C.char, setupParamsChar *C.char) {
 	go func() {
+		defer releaseObject(callback)
 		initParamsString := takeCString(initParamsChar)
 		setupParamsString := takeCString(setupParamsChar)
 		if !handleInitClash(initParamsString) {

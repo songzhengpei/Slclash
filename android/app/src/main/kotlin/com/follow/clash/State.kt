@@ -11,6 +11,7 @@ import com.follow.clash.service.models.SessionState
 import com.google.gson.Gson
 import io.flutter.embedding.engine.FlutterEngine
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -228,14 +229,30 @@ object State {
 
             val result = Service.startService(options, runTime)
             if (result.success && result.runTime > 0L) {
-                Service.getSessionSnapshot()
-                    .onSuccess(::applySnapshot)
-                    .onFailure {
-                        this@State.runTime = result.runTime
-                        runStateFlow.tryEmit(RunState.START)
-                        GlobalState.log("Started, but session snapshot is unavailable: ${it.message}")
+                val snapshot = awaitStartSnapshot()
+                if (snapshot != null) {
+                    applySnapshot(snapshot)
+                    return snapshot.state == SessionState.RUNNING
+                }
+                GlobalState.log("Started, but session snapshot remains unavailable")
+                runStateFlow.tryEmit(RunState.PENDING)
+                return false
+            }
+
+            if (result.errorCode == com.follow.clash.service.models.ServiceErrorCode.SERVICE_DISCONNECTED) {
+                val snapshot = awaitStartSnapshot()
+                if (snapshot != null) {
+                    applySnapshot(snapshot)
+                    when (snapshot.state) {
+                        SessionState.RUNNING -> return true
+                        SessionState.STARTING -> return false
+                        SessionState.STOPPED -> Unit
                     }
-                return true
+                } else {
+                    GlobalState.log("Start result is unknown; keeping pending until snapshot can be reconciled")
+                    runStateFlow.tryEmit(RunState.PENDING)
+                    return false
+                }
             }
 
             GlobalState.log("Start failed: ${result.errorCode} ${result.message}")
@@ -247,14 +264,22 @@ object State {
             runStateFlow.tryEmit(RunState.STOP)
             return false
         } catch (e: Exception) {
-            runTime = 0L
-            runStateFlow.tryEmit(RunState.STOP)
+            GlobalState.log("Start state reconciliation failed: ${e.message}")
+            runStateFlow.tryEmit(RunState.PENDING)
             return false
-        } finally {
-            if (runStateFlow.value == RunState.PENDING) {
-                runStateFlow.tryEmit(RunState.STOP)
-            }
         }
+    }
+
+    private suspend fun awaitStartSnapshot(): SessionSnapshot? {
+        repeat(4) { attempt ->
+            Service.getSessionSnapshot().getOrNull()?.let { snapshot ->
+                if (snapshot.state != SessionState.STARTING || attempt == 3) {
+                    return snapshot
+                }
+            }
+            delay(750L)
+        }
+        return null
     }
 
     fun handleStopService() {

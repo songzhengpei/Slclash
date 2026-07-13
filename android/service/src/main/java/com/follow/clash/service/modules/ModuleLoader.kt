@@ -15,6 +15,19 @@ interface ModuleLoader {
     suspend fun unload()
 }
 
+class ModuleUnloadException(
+    val failures: List<Throwable>,
+) : IllegalStateException(
+    failures.joinToString(
+        prefix = "Module unload failed: ",
+        separator = "; ",
+    ) { it.message ?: it.javaClass.simpleName },
+) {
+    init {
+        failures.forEach(::addSuppressed)
+    }
+}
+
 fun moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): ModuleLoader {
     val modules = mutableListOf<Module>()
     var loaded = false
@@ -45,11 +58,16 @@ fun moduleLoader(block: suspend ModuleLoaderScope.() -> Unit): ModuleLoader {
 
         override suspend fun unload() = withContext(Dispatchers.IO) {
             mutex.withLock {
+                val failures = mutableListOf<Throwable>()
                 modules.asReversed().forEach { module ->
                     runCatching { module.uninstall() }
+                        .onFailure(failures::add)
                 }
                 modules.clear()
                 loaded = false
+                if (failures.isNotEmpty()) {
+                    throw ModuleUnloadException(failures)
+                }
             }
         }
     }

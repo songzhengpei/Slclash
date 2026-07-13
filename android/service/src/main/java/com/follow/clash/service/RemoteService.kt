@@ -21,6 +21,7 @@ import com.follow.clash.service.models.VpnOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -30,8 +31,9 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 
-class RemoteService : Service(),
-    CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
+class RemoteService : Service(), CoroutineScope {
+    private val serviceJob = SupervisorJob()
+    override val coroutineContext = serviceJob + Dispatchers.Default
     private val sessionCounter = AtomicLong(System.currentTimeMillis())
     private fun replyOperation(
         callback: IOperationResultInterface,
@@ -62,7 +64,11 @@ class RemoteService : Service(),
                 State.snapshot = if (stopResult.success) {
                     SessionSnapshot.stopped()
                 } else {
-                    SessionSnapshot.stopped(stopResult.errorCode, stopResult.message)
+                    State.snapshot.copy(
+                        state = SessionState.STOPPING,
+                        lastErrorCode = stopResult.errorCode,
+                        lastErrorMessage = stopResult.message,
+                    )
                 }
                 replyOperation(result, stopResult)
             }
@@ -79,9 +85,16 @@ class RemoteService : Service(),
                     State.snapshot.state == SessionState.STOPPING ||
                     State.snapshot.state == SessionState.STOPPED
                 ) {
-                    SessionSnapshot.stopped()
+                    State.snapshot.copy(
+                        lastErrorCode = ServiceErrorCode.SERVICE_DISCONNECTED,
+                        lastErrorMessage = message,
+                    )
                 } else {
-                    SessionSnapshot.stopped(ServiceErrorCode.SERVICE_DISCONNECTED, message)
+                    State.snapshot.copy(
+                        state = SessionState.STOPPING,
+                        lastErrorCode = ServiceErrorCode.SERVICE_DISCONNECTED,
+                        lastErrorMessage = message,
+                    )
                 }
             }
         }
@@ -158,14 +171,7 @@ class RemoteService : Service(),
                     )
                     if (!serviceResult.success) {
                         GlobalState.log("Start service failed: ${serviceResult.errorCode} ${serviceResult.message}")
-                        delegate?.useService { it.stop() }
-                        delegate?.unbind()
-                        delegate = null
-                        intent = null
-                        State.snapshot = SessionSnapshot.stopped(
-                            serviceResult.errorCode,
-                            serviceResult.message,
-                        )
+                        rollbackStart(serviceResult.errorCode, serviceResult.message)
                         replyOperation(result, serviceResult)
                         return@withLock
                     }
@@ -174,10 +180,7 @@ class RemoteService : Service(),
                     replyOperation(result, ServiceOperationResult.success(startedAt))
                 } catch (e: Exception) {
                     GlobalState.log("Start service internal error: ${e.message}")
-                    State.snapshot = SessionSnapshot.stopped(
-                        ServiceErrorCode.INTERNAL_ERROR,
-                        e.message,
-                    )
+                    rollbackStart(ServiceErrorCode.INTERNAL_ERROR, e.message)
                     replyOperation(
                         result,
                         ServiceOperationResult.failure(
@@ -187,6 +190,29 @@ class RemoteService : Service(),
                     )
                 }
             }
+        }
+    }
+
+    private suspend fun rollbackStart(errorCode: String?, message: String?) {
+        val activeDelegate = delegate
+        val cleanupSucceeded = if (activeDelegate == null) {
+            true
+        } else {
+            activeDelegate.useService(timeoutMillis = 10_000L) { service ->
+                service.stop()
+            }.getOrNull()?.success == true
+        }
+        activeDelegate?.unbind()
+        delegate = null
+        intent = null
+        State.snapshot = if (cleanupSucceeded) {
+            SessionSnapshot.stopped(errorCode, message)
+        } else {
+            State.snapshot.copy(
+                state = SessionState.STOPPING,
+                lastErrorCode = errorCode,
+                lastErrorMessage = message,
+            )
         }
     }
 
@@ -367,15 +393,8 @@ class RemoteService : Service(),
         }
 
         override fun setSmartStopped(value: Boolean) {
-            runBlocking {
-                runLock.withLock {
-                    val current = State.snapshot
-                    State.snapshot = when {
-                        value && current.state == SessionState.RUNNING -> SessionTransitions.paused(current)
-                        !value && current.state == SessionState.PAUSED -> SessionTransitions.running(current)
-                        else -> current.copy(smartPaused = value)
-                    }
-                }
+            if (State.snapshot.smartPaused != value) {
+                GlobalState.log("Ignoring stale smart-pause flag; physical service state is authoritative")
             }
         }
 
@@ -392,14 +411,31 @@ class RemoteService : Service(),
         runBlocking {
             withTimeoutOrNull(2_000L) {
                 runLock.withLock {
-                    delegate?.unbind()
+                    val activeDelegate = delegate
+                    val stopped = if (activeDelegate == null) {
+                        true
+                    } else {
+                        activeDelegate.useService(timeoutMillis = 1_500L) { service ->
+                            service.stop()
+                        }.getOrNull()?.success == true
+                    }
+                    activeDelegate?.unbind()
                     delegate = null
                     intent = null
-                    State.snapshot = SessionSnapshot.stopped()
+                    State.snapshot = if (stopped) {
+                        SessionSnapshot.stopped()
+                    } else {
+                        State.snapshot.copy(
+                            state = SessionState.STOPPING,
+                            lastErrorCode = ServiceErrorCode.SERVICE_DISCONNECTED,
+                            lastErrorMessage = "Remote service destroyed before cleanup completed",
+                        )
+                    }
                 }
             }
         }
         Core.callSetEventListener(null)
+        serviceJob.cancel()
         GlobalState.log("Remote service destroy")
         super.onDestroy()
     }

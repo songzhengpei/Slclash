@@ -14,7 +14,14 @@ import (
 	"syscall"
 )
 
-func Start(fd int, stack string, address, dns string) (*sing_tun.Listener, error) {
+func Start(fd int, stack string, address, dns string) (listener *sing_tun.Listener, err error) {
+	ownsFD := true
+	defer func() {
+		if err != nil && ownsFD {
+			_ = syscall.Close(fd)
+		}
+	}()
+
 	tunStack, ok := constant.StackTypeMapping[strings.ToLower(stack)]
 	if !ok {
 		tunStack = constant.TunSystem
@@ -22,7 +29,6 @@ func Start(fd int, stack string, address, dns string) (*sing_tun.Listener, error
 	prefix4, prefix6, err := parseAddresses(address)
 	if err != nil {
 		log.Errorln("TUN:", err)
-		_ = syscall.Close(fd)
 		return nil, err
 	}
 
@@ -48,12 +54,13 @@ func Start(fd int, stack string, address, dns string) (*sing_tun.Listener, error
 		FileDescriptor:      fd,
 	}
 
-	listener, err := sing_tun.New(options, tunnel.Tunnel)
+	listener, err = sing_tun.New(options, tunnel.Tunnel)
 
 	if err != nil {
 		log.Errorln("TUN:", err)
 		return nil, err
 	}
 
+	ownsFD = false
 	return listener, nil
 }
