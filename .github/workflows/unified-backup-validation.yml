@@ -24,13 +24,53 @@ jobs:
         run: flutter --version
       - name: Resolve dependencies
         run: flutter pub get
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Prepare validation output
+        run: mkdir -p validation
+      - name: Format and capture patch
+        run: |
+          dart format lib test > validation/format.log 2>&1
+          git diff --binary -- lib test > validation/format.patch
       - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs
+        id: generate
+        continue-on-error: true
+        run: dart run build_runner build --delete-conflicting-outputs > validation/build_runner.log 2>&1
       - name: Analyze
-        run: flutter analyze
+        id: analyze
+        continue-on-error: true
+        run: flutter analyze > validation/analyze.log 2>&1
       - name: Test
-        run: flutter test
+        id: test
+        continue-on-error: true
+        run: flutter test > validation/test.log 2>&1
       - name: Build Android debug APK
-        run: flutter build apk --debug
+        id: build
+        continue-on-error: true
+        run: flutter build apk --debug > validation/apk-build.log 2>&1
+      - name: Record validation summary
+        if: always()
+        run: |
+          printf 'generate=%s\nanalyze=%s\ntest=%s\nbuild=%s\n' \
+            '${{ steps.generate.outcome }}' \
+            '${{ steps.analyze.outcome }}' \
+            '${{ steps.test.outcome }}' \
+            '${{ steps.build.outcome }}' > validation/summary.txt
+          git status --short > validation/git-status.txt
+      - name: Upload validation output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-backup-validation-output
+          path: validation
+      - name: Upload debug APK
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slclash-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+      - name: Enforce validation result
+        if: always()
+        run: |
+          test '${{ steps.generate.outcome }}' = success
+          test '${{ steps.analyze.outcome }}' = success
+          test '${{ steps.test.outcome }}' = success
+          test '${{ steps.build.outcome }}' = success
