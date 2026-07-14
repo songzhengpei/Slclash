@@ -13,6 +13,8 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/services/backup/restore_service.dart';
+import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/input.dart';
@@ -1114,121 +1116,36 @@ class BackupAction extends _$BackupAction {
   }
 
   Future<void> restore() async {
-    final restoreDirPath = await appPath.restoreDirPath;
-    final restoreDir = Directory(restoreDirPath);
     final restoreStrategy = ref.read(
       appSettingProvider.select((state) => state.restoreStrategy),
     );
-    try {
-      final restoreData = await restoreProfilesOnlyTask();
-      if (!await restoreDir.exists()) {
-        throw currentAppLocalizations.restoreException;
-      }
-      final isV2 = restoreData.isV2;
-
-      // Process profiles with overwrite downgrade strategy
-      final profiles = restoreData.profiles.map((p) {
-        final map = Map<String, dynamic>.from(p);
-        if (!isV2) {
-          // v1 backup: everything to standard
-          map['scriptId'] = null;
-          map['overwriteType'] = OverwriteType.standard.name;
-        } else {
-          // v2 backup: custom → standard, script/standard stay
-          final overwriteType = map['overwriteType'] as String? ?? 'standard';
-          final ot = OverwriteType.values.byName(overwriteType);
-          if (ot == OverwriteType.custom) {
-            map['overwriteType'] = OverwriteType.standard.name;
-            map['scriptId'] = null;
-          }
-          // script / standard: keep as-is
-        }
-        return map;
-      }).toList();
-
-      // Convert to Profile objects
-      final profileList = <Profile>[];
-      for (final p in profiles) {
-        try {
-          profileList.add(Profile.fromJson(p));
-        } catch (_) {}
-      }
-
-      // Convert scripts from backup data
-      List<Script>? scriptList;
-      if (isV2 && restoreData.scripts != null) {
-        scriptList = [];
-        for (final s in restoreData.scripts!) {
-          try {
-            scriptList.add(Script.fromJson(s));
-          } catch (_) {}
-        }
-      }
-
-      // Integrity check: convert and validate rules + links
-      List<Rule>? ruleList;
-      List<ProfileRuleLink>? linkList;
-      final hasRules = restoreData.rules != null;
-      final hasLinks = restoreData.links != null;
-      if (hasRules && hasLinks) {
-        ruleList = [];
-        for (final r in restoreData.rules!) {
-          try {
-            ruleList.add(Rule.fromJson(r));
-          } catch (_) {}
-        }
-        linkList = restoreData.links!.map((m) {
-          return ProfileRuleLink(
-            profileId: m['profileId'] as int?,
-            ruleId: m['ruleId'] as int,
-            scene: m['scene'] != null
-                ? RuleScene.values.byName(m['scene'] as String)
-                : null,
-            order: m['order'] as String?,
-          );
-        }).toList();
-
-        // Validate: every link must reference a known rule
-        final ruleIds = ruleList.map((r) => r.id).toSet();
-        final unknownLinks = linkList
-            .where((l) => !ruleIds.contains(l.ruleId))
-            .toList();
-        if (unknownLinks.isNotEmpty) {
-          throw Exception(
-            'Restore integrity error: ${unknownLinks.length} link(s) '
-            'reference non-existent rule IDs: '
-            '${unknownLinks.map((l) => l.ruleId).toSet()}',
-          );
-        }
-      } else if (hasRules != hasLinks) {
-        throw Exception(
-          'Invalid backup: rules/links metadata incomplete '
-          '(rules=${hasRules}, links=${hasLinks})',
+    final backup = File(await appPath.backupFilePath);
+    final result =
+        await UnifiedBackupService(
+          database: database,
+          paths: RestorePaths(
+            profilesDirectory: await appPath.profilesPath,
+            scriptsDirectory: await appPath.scriptsDirPath,
+          ),
+          validateProfileYaml: (profileId, bytes) async {
+            final temporary = File(await appPath.tempFilePath);
+            try {
+              await temporary.writeAsBytes(bytes, flush: true);
+              final message = await coreController.validateConfig(
+                temporary.path,
+              );
+              if (message.isNotEmpty) throw message;
+            } finally {
+              await temporary.safeDelete();
+            }
+          },
+        ).restoreBytes(
+          await backup.readAsBytes(),
+          override: restoreStrategy == RestoreStrategy.override,
         );
-      }
-
-      // Restore to database
-      final isOverride = restoreStrategy == RestoreStrategy.override;
-      await database.restoreProfilesOnly(
-        profileList,
-        scripts: scriptList ?? [],
-        rules: ruleList ?? [],
-        links: linkList ?? [],
-        isOverride: isOverride,
-      );
-
-      // Restore currentProfileId
-      final restoredIds = profileList.map((p) => p.id).toSet();
-      final requestedId = restoreData.currentProfileId;
-      if (requestedId != null && restoredIds.contains(requestedId)) {
-        ref.read(currentProfileIdProvider.notifier).value = requestedId;
-      } else if (profileList.isNotEmpty) {
-        ref.read(currentProfileIdProvider.notifier).value =
-            profileList.first.id;
-      }
-    } finally {
-      await restoreDir.safeDelete(recursive: true);
-    }
+    ref.invalidate(profilesProvider);
+    ref.read(providersProvider.notifier).clear();
+    ref.read(currentProfileIdProvider.notifier).value = result.currentProfileId;
   }
 }
 

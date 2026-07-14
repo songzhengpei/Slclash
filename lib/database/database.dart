@@ -142,15 +142,33 @@ class Database extends _$Database {
         rules.isNotEmpty ||
         links.isNotEmpty) {
       await batch((b) {
-        isOverride
-            ? profilesDao.setAllWithBatch(b, profiles)
-            : profilesDao.putAllWithBatch(
-                b,
-                profiles.map((item) => item.toCompanion()),
-              );
-        scriptsDao.setAllWithBatch(b, scripts);
-        rulesDao.restoreWithBatch(b, rules, links);
-        proxyGroupsDao.setAllWithBatch(null, b, proxyGroups);
+        if (isOverride) {
+          profilesDao.setAllWithBatch(b, profiles);
+          scriptsDao.setAllWithBatch(b, scripts);
+          rulesDao.restoreWithBatch(b, rules, links);
+          proxyGroupsDao.setAllWithBatch(null, b, proxyGroups);
+        } else {
+          profilesDao.putAllWithBatch(
+            b,
+            profiles.map((item) => item.toCompanion()),
+          );
+          b.insertAllOnConflictUpdate(
+            this.scripts,
+            scripts.map((item) => item.toCompanion()).toList(),
+          );
+          b.insertAllOnConflictUpdate(
+            this.rules,
+            rules.map((item) => item.toCompanion()).toList(),
+          );
+          b.insertAllOnConflictUpdate(
+            profileRuleLinks,
+            links.map((item) => item.toCompanion()).toList(),
+          );
+          b.insertAllOnConflictUpdate(
+            this.proxyGroups,
+            proxyGroups.map((item) => item.toCompanion()).toList(),
+          );
+        }
       });
     }
   }
@@ -162,10 +180,9 @@ class Database extends _$Database {
     List<ProfileRuleLink> links = const [],
     bool isOverride = false,
   }) async {
-    if (profiles.isEmpty &&
-        scripts.isEmpty &&
-        rules.isEmpty &&
-        links.isEmpty) return;
+    if (profiles.isEmpty && scripts.isEmpty && rules.isEmpty && links.isEmpty) {
+      return;
+    }
     await batch((b) {
       if (profiles.isNotEmpty) {
         if (isOverride) {
