@@ -219,7 +219,7 @@ class RestoreFileCommitter {
     }
     final rootPath = p.absolute(p.normalize(root.path));
     final targetPath = p.absolute(
-      p.normalize(p.join(rootPath, ...normalized.split('/'))),
+      p.normalize(p.joinAll([rootPath, ...normalized.split('/')])),
     );
     if (!p.equals(rootPath, targetPath) &&
         !p.isWithin(rootPath, targetPath)) {
