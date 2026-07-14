@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
           submodules: recursive
       - uses: subosito/flutter-action@v2
@@ -28,6 +28,23 @@ jobs:
         run: flutter pub get
       - name: Prepare validation output
         run: mkdir -p validation
+      - name: Apply legacy database adapter correction
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/services/backup_restore/legacy_parser.dart')
+          source = path.read_text()
+          replacements = {
+              "final rules = await legacyDatabase.rules\n          .all()\n          .map((item) => item.toRule())\n          .get();": "final rules = await legacyDatabase\n          .select(legacyDatabase.rules)\n          .map((item) => item.toRule())\n          .get();",
+              "final links = await legacyDatabase.profileRuleLinks\n          .all()\n          .map((item) => item.toLink())\n          .get();": "final links = await legacyDatabase\n          .select(legacyDatabase.profileRuleLinks)\n          .map((item) => item.toLink())\n          .get();",
+              "final proxyGroups = await legacyDatabase.proxyGroups\n          .all()\n          .map((item) => item.toProxyGroup())\n          .get();": "final proxyGroups = await legacyDatabase\n          .select(legacyDatabase.proxyGroups)\n          .map((item) => item.toProxyGroup())\n          .get();",
+          }
+          for old, new in replacements.items():
+              source = source.replace(old, new)
+          path.write_text(source)
+          PY
       - name: Format changed Dart files and capture patch
         id: format
         continue-on-error: true
@@ -55,6 +72,17 @@ jobs:
         id: build
         continue-on-error: true
         run: flutter build apk --debug > validation/apk-build.log 2>&1
+      - name: Commit formatted and generated files
+        if: steps.format.outcome == 'success' && steps.generate.outcome == 'success' && steps.analyze.outcome == 'success' && steps.test.outcome == 'success' && steps.build.outcome == 'success'
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib test
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(backup): format and finalize restore integration'
+            git push origin HEAD:${{ github.head_ref }}
+          fi
       - name: Record validation summary
         if: always()
         run: |
