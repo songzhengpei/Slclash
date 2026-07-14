@@ -15,6 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           submodules: recursive
       - uses: subosito/flutter-action@v2
         with:
@@ -26,10 +28,17 @@ jobs:
         run: flutter pub get
       - name: Prepare validation output
         run: mkdir -p validation
-      - name: Format and capture patch
+      - name: Format changed Dart files and capture patch
+        id: format
+        continue-on-error: true
+        shell: bash
         run: |
-          dart format lib test > validation/format.log 2>&1
-          git diff --binary -- lib test > validation/format.patch
+          mapfile -t files < <(git diff --name-only origin/main...HEAD -- '*.dart')
+          printf '%s\n' "${files[@]}" > validation/changed-dart-files.txt
+          dart format "${files[@]}" > validation/format.log 2>&1
+          status=$?
+          git diff --binary -- "${files[@]}" > validation/format.patch
+          exit $status
       - name: Generate code
         id: generate
         continue-on-error: true
@@ -49,7 +58,8 @@ jobs:
       - name: Record validation summary
         if: always()
         run: |
-          printf 'generate=%s\nanalyze=%s\ntest=%s\nbuild=%s\n' \
+          printf 'format=%s\ngenerate=%s\nanalyze=%s\ntest=%s\nbuild=%s\n' \
+            '${{ steps.format.outcome }}' \
             '${{ steps.generate.outcome }}' \
             '${{ steps.analyze.outcome }}' \
             '${{ steps.test.outcome }}' \
@@ -70,6 +80,7 @@ jobs:
       - name: Enforce validation result
         if: always()
         run: |
+          test '${{ steps.format.outcome }}' = success
           test '${{ steps.generate.outcome }}' = success
           test '${{ steps.analyze.outcome }}' = success
           test '${{ steps.test.outcome }}' = success
