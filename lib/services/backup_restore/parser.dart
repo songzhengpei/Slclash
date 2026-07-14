@@ -145,7 +145,7 @@ class BackupArchiveParser {
         );
       }
       final target = File(
-        p.join(stagingDirectory.path, ...item.path.split('/')),
+        p.joinAll([stagingDirectory.path, ...item.path.split('/')]),
       );
       await target.parent.create(recursive: true);
       await target.writeAsBytes(bytes, flush: true);
