@@ -33,11 +33,14 @@ export 'profile_proxy_resolver.dart';
 export 'proxy.dart';
 export 'render.dart';
 export 'request.dart';
+export 'restore_bridge.dart';
 export 'scroll.dart';
 export 'snowflake.dart';
 export 'string.dart';
 export 'system.dart';
-export 'task.dart';
+export 'task.dart' hide ProfilesRestoreData, restoreProfilesOnlyTask;
+export '../services/backup_restore/compat_task.dart'
+    show ProfilesRestoreData, restoreProfilesOnlyTask;
 export 'text.dart';
 export 'utils.dart';
 export 'yaml.dart';

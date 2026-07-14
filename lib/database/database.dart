@@ -162,10 +162,86 @@ class Database extends _$Database {
     List<ProfileRuleLink> links = const [],
     bool isOverride = false,
   }) async {
+    final pending = takePendingBackupRestoreCommit();
+    if (pending == null) {
+      await _restoreProfilesOnlyLegacy(
+        profiles,
+        scripts: scripts,
+        rules: rules,
+        links: links,
+        isOverride: isOverride,
+      );
+      return;
+    }
+
+    try {
+      await transaction(() async {
+        await batch((b) {
+          if (isOverride) {
+            profilesDao.setAllWithBatch(b, profiles);
+            scriptsDao.setAllWithBatch(b, scripts);
+            rulesDao.restoreWithBatch(b, rules, links);
+            proxyGroupsDao.setAllWithBatch(null, b, pending.proxyGroups);
+          } else {
+            if (profiles.isNotEmpty) {
+              profilesDao.putAllWithBatch(
+                b,
+                profiles.map((item) => item.toCompanion()),
+              );
+            }
+            if (scripts.isNotEmpty) {
+              b.insertAllOnConflictUpdate(
+                this.scripts,
+                scripts.map((script) => script.toCompanion()).toList(),
+              );
+            }
+            if (rules.isNotEmpty && links.isNotEmpty) {
+              b.insertAllOnConflictUpdate(
+                this.rules,
+                rules.map((rule) => rule.toCompanion()).toList(),
+              );
+              b.insertAllOnConflictUpdate(
+                profileRuleLinks,
+                links.map((link) => link.toCompanion()).toList(),
+              );
+            }
+            if (pending.proxyGroups.isNotEmpty) {
+              b.insertAllOnConflictUpdate(
+                proxyGroups,
+                pending.proxyGroups.map((group) => group.toCompanion()).toList(),
+              );
+            }
+          }
+        });
+
+        final restoredIds = pending.restoredProfileIds;
+        if (restoredIds.isNotEmpty) {
+          await (delete(proxyGroupsSnapshots)..where((table) => table.profileId.isIn(restoredIds))).go();
+        }
+
+        await pending.commitFiles(isOverride: isOverride);
+      });
+    } catch (_) {
+      await pending.rollbackFiles();
+      rethrow;
+    } finally {
+      await pending.complete();
+    }
+  }
+
+  Future<void> _restoreProfilesOnlyLegacy(
+    List<Profile> profiles, {
+    List<Script> scripts = const [],
+    List<Rule> rules = const [],
+    List<ProfileRuleLink> links = const [],
+    bool isOverride = false,
+  }) async {
     if (profiles.isEmpty &&
         scripts.isEmpty &&
         rules.isEmpty &&
-        links.isEmpty) return;
+        links.isEmpty) {
+      return;
+    }
     await batch((b) {
       if (profiles.isNotEmpty) {
         if (isOverride) {
@@ -183,7 +259,7 @@ class Database extends _$Database {
         } else {
           b.insertAllOnConflictUpdate(
             this.scripts,
-            scripts.map((s) => s.toCompanion()).toList(),
+            scripts.map((script) => script.toCompanion()).toList(),
           );
         }
       }
@@ -193,12 +269,11 @@ class Database extends _$Database {
         } else {
           b.insertAllOnConflictUpdate(
             this.rules,
-            rules.map((r) => r.toCompanion()).toList(),
+            rules.map((rule) => rule.toCompanion()).toList(),
           );
-          // Preserve original link order from backup (do not regenerate keys)
           b.insertAllOnConflictUpdate(
             profileRuleLinks,
-            links.map((l) => l.toCompanion()).toList(),
+            links.map((link) => link.toCompanion()).toList(),
           );
         }
       }

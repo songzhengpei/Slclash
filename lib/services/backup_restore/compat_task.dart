@@ -152,7 +152,15 @@ class _PendingBackupRestoreCommit implements PendingBackupRestoreCommit {
 
   @override
   Future<void> complete() async {
-    await _committer?.complete();
-    await model.dispose();
+    try {
+      await _committer?.complete();
+    } catch (_) {
+      // Cleanup is best-effort after the atomic restore has completed.
+    }
+    try {
+      await model.dispose();
+    } catch (_) {
+      // Do not turn a successful restore into a failure during cleanup.
+    }
   }
 }
