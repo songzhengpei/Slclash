@@ -111,6 +111,8 @@ items:
 '''),
   'profiles/R1234abcd.yaml': utf8.encode('proxies: []\n'),
   'providers/example/provider.yaml': utf8.encode('proxies: []\n'),
+  'providers/example/profile.yaml': utf8.encode('proxies: []\n'),
+  'providers/example/meta.json': utf8.encode('{}\n'),
 };
 
 Map<String, Object?> _manifest(Map<String, List<int>> files) {
@@ -148,8 +150,12 @@ Map<String, Object?> _manifest(Map<String, List<int>> files) {
         'profileUid': 'R1234abcd',
         'versionId': 'provider-version',
         'nodeCount': 0,
-        'providerSha256': '2' * 64,
-        'profileSha256': '3' * 64,
+        'providerSha256': sha256
+            .convert(files['providers/example/provider.yaml']!)
+            .toString(),
+        'profileSha256': sha256
+            .convert(files['providers/example/profile.yaml']!)
+            .toString(),
       },
     ],
     'files': entries,

@@ -140,7 +140,8 @@ class Database extends _$Database {
     if (profiles.isNotEmpty ||
         scripts.isNotEmpty ||
         rules.isNotEmpty ||
-        links.isNotEmpty) {
+        links.isNotEmpty ||
+        proxyGroups.isNotEmpty) {
       await batch((b) {
         if (isOverride) {
           profilesDao.setAllWithBatch(b, profiles);
@@ -170,6 +171,13 @@ class Database extends _$Database {
           );
         }
       });
+      if (isOverride) {
+        await proxyGroupsSnapshotsDao.deleteAllSnapshots();
+      } else {
+        await proxyGroupsSnapshotsDao.deleteSnapshots(
+          profiles.map((e) => e.id),
+        );
+      }
     }
   }
 

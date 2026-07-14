@@ -80,6 +80,36 @@ void main() {
     expect(await provider.parent.exists(), false);
   });
 
+  test('override invalidates snapshots and orphan provider caches', () async {
+    final old = profile(9);
+    await db.restore([old], [], [], [], [], isOverride: true);
+    await db.customStatement(
+      'INSERT INTO proxy_groups_snapshots '
+      '(profile_id, groups, snapshot_version, updated_at) VALUES (?, ?, ?, ?)',
+      [9, '[]', 1, DateTime.now().millisecondsSinceEpoch],
+    );
+    final orphan = File(p.join(paths.providersDirectory, '9', 'stale.yaml'));
+    await orphan.parent.create(recursive: true);
+    await orphan.writeAsString('stale');
+
+    await RestoreService(database: db, paths: paths).restore(
+      RestoreBundle(
+        sourceFormat: BackupSourceFormat.workerUnifiedV1,
+        profiles: [profile(1)],
+        files: [
+          StagedRestoreFile(
+            relativePath: 'profiles/1.yaml',
+            bytes: Uint8List.fromList('proxies: []'.codeUnits),
+          ),
+        ],
+        providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
+      ),
+    );
+
+    expect(await db.proxyGroupsSnapshotsDao.getSnapshot(9), isNull);
+    expect(await orphan.parent.exists(), false);
+  });
+
   test('filesystem failure rolls back database and replaced files', () async {
     final old = profile(1);
     await db.restore([old], [], [], [], [], isOverride: true);
@@ -123,5 +153,55 @@ void main() {
       await File(p.join(paths.profilesDirectory, '2.yaml')).exists(),
       false,
     );
+  });
+
+  test('settings persistence failure rolls back database and files', () async {
+    final old = profile(1);
+    await db.restore([old], [], [], [], [], isOverride: true);
+    final oldFile = File(p.join(paths.profilesDirectory, '1.yaml'));
+    await oldFile.parent.create(recursive: true);
+    await oldFile.writeAsString('old');
+    var storedConfig = const Config(
+      themeProps: defaultThemeProps,
+      overrideDns: false,
+    );
+    var firstWrite = true;
+    final service = RestoreService(
+      database: db,
+      paths: paths,
+      readConfig: () async => storedConfig,
+      writeConfig: (config) async {
+        storedConfig = config;
+        if (firstWrite) {
+          firstWrite = false;
+          return false;
+        }
+        return true;
+      },
+    );
+
+    await expectLater(
+      service.restore(
+        RestoreBundle(
+          sourceFormat: BackupSourceFormat.slclashProfilesV2,
+          profiles: [profile(2)],
+          config: const Config(
+            themeProps: defaultThemeProps,
+            overrideDns: true,
+          ),
+          files: [
+            StagedRestoreFile(
+              relativePath: 'profiles/2.yaml',
+              bytes: Uint8List.fromList('proxies: []'.codeUnits),
+            ),
+          ],
+        ),
+      ),
+      throwsA(isA<RestoreValidationException>()),
+    );
+
+    expect((await db.profilesDao.query().get()).single.id, 1);
+    expect(await oldFile.readAsString(), 'old');
+    expect(storedConfig.overrideDns, false);
   });
 }

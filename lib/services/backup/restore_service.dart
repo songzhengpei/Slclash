@@ -8,6 +8,8 @@ import 'package:path/path.dart' as p;
 
 typedef ProfileYamlValidator =
     Future<void> Function(int profileId, Uint8List bytes);
+typedef RestoreConfigReader = Future<Config?> Function();
+typedef RestoreConfigWriter = Future<bool> Function(Config config);
 
 class RestorePaths {
   final String profilesDirectory;
@@ -25,11 +27,15 @@ class RestoreService {
   final Database database;
   final RestorePaths paths;
   final ProfileYamlValidator? validateProfileYaml;
+  final RestoreConfigReader? readConfig;
+  final RestoreConfigWriter? writeConfig;
 
   const RestoreService({
     required this.database,
     required this.paths,
     this.validateProfileYaml,
+    this.readConfig,
+    this.writeConfig,
   });
 
   Future<RestoreCommitResult> restore(
@@ -41,6 +47,12 @@ class RestoreService {
     final oldProfiles = await database.profilesDao.query().get();
     final oldScripts = await database.scriptsDao.query().get();
     final profileIds = bundle.profiles.map((e) => e.id).toSet();
+    final selected =
+        bundle.currentProfileId != null &&
+            profileIds.contains(bundle.currentProfileId)
+        ? bundle.currentProfileId
+        : (bundle.profiles.isEmpty ? null : bundle.profiles.first.id);
+    final restoredConfig = bundle.config?.copyWith(currentProfileId: selected);
     final touched = <String>{
       ...bundle.files.map((e) => _targetFor(e.relativePath)),
       if (bundle.providerCachePolicy ==
@@ -52,8 +64,16 @@ class RestoreService {
         ),
       if (override)
         ...oldScripts.map((e) => p.join(paths.scriptsDirectory, '${e.id}.js')),
+      if (override &&
+          bundle.providerCachePolicy ==
+              ProviderCachePolicy.invalidateRestoredProfiles)
+        ...oldProfiles.map((e) => p.join(paths.providersDirectory, '${e.id}')),
     };
     final snapshot = await _FileSnapshot.capture(touched);
+    final previousConfig = bundle.config == null
+        ? null
+        : await readConfig?.call();
+    var configWritten = false;
 
     try {
       await database.transaction(() async {
@@ -72,6 +92,15 @@ class RestoreService {
             oldProfiles: oldProfiles,
             oldScripts: oldScripts,
           );
+          if (restoredConfig case final config?) {
+            final writer = writeConfig;
+            configWritten = writer != null;
+            if (writer != null && !await writer(config)) {
+              throw const RestoreValidationException(
+                'failed to persist backup settings',
+              );
+            }
+          }
         } catch (_) {
           await snapshot.restore();
           rethrow;
@@ -81,17 +110,16 @@ class RestoreService {
       // Also covers the unlikely case where committing the SQLite transaction
       // fails after the filesystem switch completed.
       await snapshot.restore();
+      if (configWritten && previousConfig != null) {
+        await writeConfig?.call(previousConfig);
+      }
       rethrow;
     }
 
-    final selected =
-        bundle.currentProfileId != null &&
-            profileIds.contains(bundle.currentProfileId)
-        ? bundle.currentProfileId
-        : (bundle.profiles.isEmpty ? null : bundle.profiles.first.id);
     return RestoreCommitResult(
       currentProfileId: selected,
       restoredProfileIds: profileIds,
+      config: restoredConfig,
     );
   }
 
@@ -220,10 +248,12 @@ class RestoreService {
     }
     if (bundle.providerCachePolicy ==
         ProviderCachePolicy.invalidateRestoredProfiles) {
-      for (final profile in bundle.profiles) {
-        final dir = Directory(
-          p.join(paths.providersDirectory, '${profile.id}'),
-        );
+      final invalidatedIds = <int>{
+        ...bundle.profiles.map((e) => e.id),
+        if (override) ...oldProfiles.map((e) => e.id),
+      };
+      for (final profileId in invalidatedIds) {
+        final dir = Directory(p.join(paths.providersDirectory, '$profileId'));
         if (await dir.exists()) await dir.delete(recursive: true);
       }
     }

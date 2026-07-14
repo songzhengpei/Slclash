@@ -20,11 +20,15 @@ class UnifiedBackupService {
     required this.database,
     required this.paths,
     this.validateProfileYaml,
+    this.readConfig,
+    this.writeConfig,
   });
 
   final Database database;
   final RestorePaths paths;
   final ProfileYamlValidator? validateProfileYaml;
+  final RestoreConfigReader? readConfig;
+  final RestoreConfigWriter? writeConfig;
 
   Future<RestoreCommitResult> restoreBytes(
     Uint8List bytes, {
@@ -41,6 +45,8 @@ class UnifiedBackupService {
       database: database,
       paths: paths,
       validateProfileYaml: validateProfileYaml,
+      readConfig: readConfig,
+      writeConfig: writeConfig,
     ).restore(bundle, override: override);
   }
 
@@ -154,11 +160,8 @@ class UnifiedBackupService {
     final isV2 = package.format == BackupFormat.profilesOnlyV2;
     final profiles = package.profiles
         .map((raw) {
-          final map = Map<String, dynamic>.from(raw);
+          final map = _normalizeLegacyProfile(raw);
           if (!isV2) {
-            map['scriptId'] = null;
-            map['overwriteType'] = OverwriteType.standard.name;
-          } else if (map['overwriteType'] == OverwriteType.custom.name) {
             map['scriptId'] = null;
             map['overwriteType'] = OverwriteType.standard.name;
           }
@@ -174,6 +177,16 @@ class UnifiedBackupService {
     final links = isV2
         ? _maps(package.metadata['links']).map(_linkFromJson).toList()
         : <ProfileRuleLink>[];
+    final proxyGroups = isV2
+        ? _maps(
+            package.metadata['proxyGroups'],
+          ).map(ProxyGroup.fromJson).toList()
+        : <ProxyGroup>[];
+    final config = _restoreConfig(
+      isV2 && package.metadata['config'] is Map
+          ? Map<String, dynamic>.from(package.metadata['config'] as Map)
+          : package.config,
+    );
     return RestoreBundle(
       sourceFormat: isV2
           ? BackupSourceFormat.slclashProfilesV2
@@ -184,6 +197,8 @@ class UnifiedBackupService {
       scripts: scripts,
       rules: rules,
       links: links,
+      proxyGroups: proxyGroups,
+      config: config,
       currentProfileId: package.currentProfileId,
       files: _currentFiles(package.files, profiles, scripts),
       // Provider caches are derived data. Invalidating them prevents restored
@@ -205,12 +220,15 @@ class UnifiedBackupService {
       final scripts = await old.scriptsDao.query().get();
       final rules = await old.rulesDao.queryAllRules();
       final links = await old.rulesDao.queryAllLinks();
+      final proxyGroups = await old.proxyGroupsDao.queryAll().get();
       return RestoreBundle(
         sourceFormat: BackupSourceFormat.slclashDatabase,
         profiles: profiles,
         scripts: scripts,
         rules: rules,
         links: links,
+        proxyGroups: proxyGroups,
+        config: _restoreConfig(package.config),
         currentProfileId: package.currentProfileId,
         files: _currentFiles(package.files, profiles, scripts),
         providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
@@ -269,3 +287,36 @@ ProfileRuleLink _linkFromJson(Map<String, dynamic> map) => ProfileRuleLink(
 );
 
 int _integer(Object? value) => value is int ? value : 0;
+
+Map<String, dynamic> _normalizeLegacyProfile(Map<String, dynamic> raw) {
+  final map = Map<String, dynamic>.from(raw);
+  map.putIfAbsent(
+    'autoUpdateDuration',
+    () => const Duration(days: 1).inMicroseconds,
+  );
+  map.putIfAbsent('label', () => '');
+  map.putIfAbsent('url', () => '');
+  map.putIfAbsent('autoUpdate', () => true);
+  map.putIfAbsent('selectedMap', () => <String, String>{});
+  map.putIfAbsent('computedSelectedMap', () => <String, String>{});
+  map.putIfAbsent('unfoldSet', () => <String>[]);
+  map.putIfAbsent('overwriteType', () => OverwriteType.standard.name);
+  return map;
+}
+
+Config? _restoreConfig(Map<String, dynamic>? source) {
+  if (source == null) return null;
+  final map = Map<String, Object?>.from(source);
+  map['appSettingProps'] ??= map['appSetting'];
+  map['davProps'] ??= map['dav'];
+  map['proxiesStyleProps'] ??= map['proxiesStyle'];
+  map['themeProps'] ??= defaultThemeProps.toJson();
+  try {
+    return Config.realFromJson(map);
+  } catch (error) {
+    throw BackupFormatException(
+      BackupErrorCode.unsupportedFormat,
+      'Backup settings are invalid: $error',
+    );
+  }
+}

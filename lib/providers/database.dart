@@ -50,6 +50,12 @@ class Profiles extends _$Profiles {
     return ref.watch(profilesStreamProvider).value ?? [];
   }
 
+  /// Replace runtime state after an already-committed restore without writing
+  /// the same rows back to the database asynchronously.
+  void resetFromRestore(List<Profile> profiles) {
+    state = List<Profile>.from(profiles);
+  }
+
   void put(Profile profile) {
     final previous = List<Profile>.from(state);
     final newProfile = previous.optimizeLabel(profile);

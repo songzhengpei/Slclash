@@ -639,6 +639,8 @@ class ProfilesBackupMetadata {
   final List<Map<String, dynamic>>? scripts;
   final List<Map<String, dynamic>>? rules;
   final List<Map<String, dynamic>>? links;
+  final List<Map<String, dynamic>>? proxyGroups;
+  final Map<String, dynamic>? config;
 
   ProfilesBackupMetadata({
     required this.backupType,
@@ -649,18 +651,22 @@ class ProfilesBackupMetadata {
     this.scripts,
     this.rules,
     this.links,
+    this.proxyGroups,
+    this.config,
   });
 
   Map<String, dynamic> toJson() => {
-        'backupType': backupType,
-        'createdAt': createdAt,
-        'appVersion': appVersion,
-        'currentProfileId': currentProfileId,
-        'profiles': profiles,
-        if (scripts != null) 'scripts': scripts,
-        if (rules != null) 'rules': rules,
-        if (links != null) 'links': links,
-      };
+    'backupType': backupType,
+    'createdAt': createdAt,
+    'appVersion': appVersion,
+    'currentProfileId': currentProfileId,
+    'profiles': profiles,
+    if (scripts != null) 'scripts': scripts,
+    if (rules != null) 'rules': rules,
+    if (links != null) 'links': links,
+    if (proxyGroups != null) 'proxyGroups': proxyGroups,
+    if (config != null) 'config': config,
+  };
 
   factory ProfilesBackupMetadata.fromJson(Map<String, dynamic> json) {
     return ProfilesBackupMetadata(
@@ -668,7 +674,8 @@ class ProfilesBackupMetadata {
       createdAt: json['createdAt'] as String? ?? '',
       appVersion: json['appVersion'] as String? ?? '',
       currentProfileId: json['currentProfileId'] as int?,
-      profiles: (json['profiles'] as List?)
+      profiles:
+          (json['profiles'] as List?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           [],
@@ -681,6 +688,12 @@ class ProfilesBackupMetadata {
       links: (json['links'] as List?)
           ?.map((e) => Map<String, dynamic>.from(e as Map))
           .toList(),
+      proxyGroups: (json['proxyGroups'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+      config: json['config'] is Map
+          ? Map<String, dynamic>.from(json['config'] as Map)
+          : null,
     );
   }
 }
@@ -691,11 +704,16 @@ Future<String> backupProfilesOnlyTask(
   String appVersion,
 ) async {
   return compute<
-      VM4<Map<String, dynamic>, int?, String, RootIsolateToken>,
-      String>(
+    VM4<Map<String, dynamic>, int?, String, RootIsolateToken>,
+    String
+  >(
     _backupProfilesOnlyTask,
-    VM4(backupPayload, currentProfileId, appVersion,
-        RootIsolateToken.instance!),
+    VM4(
+      backupPayload,
+      currentProfileId,
+      appVersion,
+      RootIsolateToken.instance!,
+    ),
   );
 }
 
@@ -708,24 +726,25 @@ Future<String> _backupProfilesOnlyTask(
   final token = args.d;
   BackgroundIsolateBinaryMessenger.ensureInitialized(token);
 
-  final profilesJson =
-      (backupPayload['profiles'] as List).cast<Map<String, dynamic>>();
-  final yamlFileNames =
-      (backupPayload['yamlFileNames'] as List).cast<String>();
+  final profilesJson = (backupPayload['profiles'] as List)
+      .cast<Map<String, dynamic>>();
+  final yamlFileNames = (backupPayload['yamlFileNames'] as List).cast<String>();
   final jsFileNames = (backupPayload['jsFileNames'] as List?)?.cast<String>();
-  final scripts =
-      (backupPayload['scripts'] as List?)?.cast<Map<String, dynamic>>();
-  final rules =
-      (backupPayload['rules'] as List?)?.cast<Map<String, dynamic>>();
-  final links =
-      (backupPayload['links'] as List?)?.cast<Map<String, dynamic>>();
+  final scripts = (backupPayload['scripts'] as List?)
+      ?.cast<Map<String, dynamic>>();
+  final rules = (backupPayload['rules'] as List?)?.cast<Map<String, dynamic>>();
+  final links = (backupPayload['links'] as List?)?.cast<Map<String, dynamic>>();
+  final proxyGroups = (backupPayload['proxyGroups'] as List?)
+      ?.cast<Map<String, dynamic>>();
+  final config = backupPayload['config'] as Map<String, dynamic>?;
 
   final profilesDir = Directory(await appPath.profilesPath);
   final scriptsDir = Directory(await appPath.scriptsDirPath);
   final tempZipFilePath = await appPath.tempFilePath;
   final tempMetaFile = File(await appPath.tempFilePath);
 
-  final isV2 = scripts != null || rules != null || links != null;
+  final isV2 =
+      scripts != null || rules != null || links != null || proxyGroups != null;
   final metadata = ProfilesBackupMetadata(
     backupType: isV2 ? profilesBackupTypeV2 : profilesBackupType,
     createdAt: DateTime.now().toUtc().toIso8601String(),
@@ -735,6 +754,8 @@ Future<String> _backupProfilesOnlyTask(
     scripts: isV2 ? scripts : null,
     rules: isV2 ? rules : null,
     links: isV2 ? links : null,
+    proxyGroups: isV2 ? proxyGroups : null,
+    config: isV2 ? config : null,
   );
   await tempMetaFile.writeAsString(json.encode(metadata.toJson()));
 
@@ -873,24 +894,27 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
         }
         await for (final file in Directory(restoreProfilesDir).list()) {
           if (file is File && file.path.endsWith('.yaml')) {
-            final targetPath =
-                join(targetProfilesDir.path, basename(file.path));
+            final targetPath = join(
+              targetProfilesDir.path,
+              basename(file.path),
+            );
             await file.safeCopy(targetPath);
           }
         }
       }
       // v2: Restore provider cache files
       if (isV2) {
-        final restoreProvidersDir =
-            join(restoreProfilesDir, 'providers');
+        final restoreProvidersDir = join(restoreProfilesDir, 'providers');
         if (await Directory(restoreProvidersDir).exists()) {
-          final targetProvidersDir =
-              Directory(await appPath.getProvidersRootPath());
+          final targetProvidersDir = Directory(
+            await appPath.getProvidersRootPath(),
+          );
           if (!await targetProvidersDir.exists()) {
             await targetProvidersDir.create(recursive: true);
           }
-          await for (final f
-              in Directory(restoreProvidersDir).list(recursive: true)) {
+          await for (final f in Directory(
+            restoreProvidersDir,
+          ).list(recursive: true)) {
             if (f is File) {
               final rel = relative(f.path, from: restoreProvidersDir);
               final t = join(targetProvidersDir.path, rel);
@@ -902,18 +926,15 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
       }
       // v2: Restore script files
       if (isV2) {
-        final restoreScriptsDir =
-            join(restoreDirPath, scriptsBackupDirName);
+        final restoreScriptsDir = join(restoreDirPath, scriptsBackupDirName);
         if (await Directory(restoreScriptsDir).exists()) {
-          final targetScriptsDir =
-              Directory(await appPath.scriptsDirPath);
+          final targetScriptsDir = Directory(await appPath.scriptsDirPath);
           if (!await targetScriptsDir.exists()) {
             await targetScriptsDir.create(recursive: true);
           }
           await for (final f in Directory(restoreScriptsDir).list()) {
             if (f is File && f.path.endsWith('.js')) {
-              await f.copy(
-                  join(targetScriptsDir.path, basename(f.path)));
+              await f.copy(join(targetScriptsDir.path, basename(f.path)));
             }
           }
         }
@@ -949,9 +970,7 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
       ),
     );
     await Future.wait(
-      profilesMigration
-          .map((item) => File(item.a).safeCopy(item.b))
-          .toList(),
+      profilesMigration.map((item) => File(item.a).safeCopy(item.b)).toList(),
     );
     // Extract currentProfileId from config.json if present
     int? currentProfileId;
@@ -959,7 +978,8 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
     if (await configFile.exists()) {
       try {
         final configMap =
-            json.decode(await configFile.readAsString()) as Map<String, dynamic>;
+            json.decode(await configFile.readAsString())
+                as Map<String, dynamic>;
         currentProfileId = configMap['currentProfileId'] as int?;
       } catch (_) {}
     }
@@ -988,8 +1008,7 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
       }
       await for (final file in restoreProfilesDir.list()) {
         if (file is File && file.path.endsWith('.yaml')) {
-          final targetPath =
-              join(targetProfilesDir.path, basename(file.path));
+          final targetPath = join(targetProfilesDir.path, basename(file.path));
           await file.safeCopy(targetPath);
         }
       }

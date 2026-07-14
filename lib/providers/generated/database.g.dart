@@ -292,7 +292,7 @@ final class ProfilesProvider
   }
 }
 
-String _$profilesHash() => r'a977548501ae750bc4fcc0f59dc0a4994ced7c91';
+String _$profilesHash() => r'cbafe222db3ee0c8455ed3f099c149d3fbd51604';
 
 abstract class _$Profiles extends $Notifier<List<Profile>> {
   List<Profile> build();

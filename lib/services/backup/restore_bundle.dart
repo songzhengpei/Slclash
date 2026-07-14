@@ -31,6 +31,7 @@ class RestoreBundle {
   final List<Rule> rules;
   final List<ProfileRuleLink> links;
   final List<ProxyGroup> proxyGroups;
+  final Config? config;
   final int? currentProfileId;
   final List<StagedRestoreFile> files;
   final ProviderCachePolicy providerCachePolicy;
@@ -42,6 +43,7 @@ class RestoreBundle {
     this.rules = const [],
     this.links = const [],
     this.proxyGroups = const [],
+    this.config,
     this.currentProfileId,
     this.files = const [],
     this.providerCachePolicy = ProviderCachePolicy.preserve,
@@ -60,9 +62,11 @@ class RestoreValidationException implements Exception {
 class RestoreCommitResult {
   final int? currentProfileId;
   final Set<int> restoredProfileIds;
+  final Config? config;
 
   const RestoreCommitResult({
     required this.currentProfileId,
     required this.restoredProfileIds,
+    this.config,
   });
 }

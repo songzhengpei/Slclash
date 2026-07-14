@@ -67,6 +67,9 @@ class ProxyGroupsDao extends DatabaseAccessor<Database>
     with _$ProxyGroupsDaoMixin {
   ProxyGroupsDao(super.attachedDatabase);
 
+  Selectable<ProxyGroup> queryAll() =>
+      proxyGroups.select().map((item) => item.toProxyGroup());
+
   Selectable<ProxyGroup> query(int profileId) {
     final stmt = proxyGroups.select();
     stmt.where((row) => row.profileId.equals(profileId));

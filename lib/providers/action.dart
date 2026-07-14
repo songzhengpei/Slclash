@@ -1103,6 +1103,7 @@ class BackupAction extends _$BackupAction {
         'order': link.order,
       };
     }).toList();
+    final proxyGroupsFromDb = await database.proxyGroupsDao.queryAll().get();
 
     final backupPayload = <String, dynamic>{
       'profiles': profilesJson,
@@ -1111,6 +1112,8 @@ class BackupAction extends _$BackupAction {
       'scripts': scriptJsons,
       'rules': ruleJsons,
       'links': linkJsons,
+      'proxyGroups': proxyGroupsFromDb.map((group) => group.toJson()).toList(),
+      'config': ref.read(configProvider).toJson(),
     };
     return backupProfilesOnlyTask(backupPayload, currentProfileId, appVersion);
   }
@@ -1139,13 +1142,40 @@ class BackupAction extends _$BackupAction {
               await temporary.safeDelete();
             }
           },
+          readConfig: preferences.getConfig,
+          writeConfig: preferences.saveConfig,
         ).restoreBytes(
           await backup.readAsBytes(),
           override: restoreStrategy == RestoreStrategy.override,
         );
-    ref.invalidate(profilesProvider);
+    final restoredProfiles = await database.profilesDao.query().get();
+    ref.read(profilesProvider.notifier).resetFromRestore(restoredProfiles);
     ref.read(providersProvider.notifier).clear();
+    ref.read(groupsProvider.notifier).value = const [];
+    ref.read(groupsOwnerProfileIdProvider.notifier).set(null);
+    ref.read(proxyGroupsSnapshotProvider.notifier).none();
+    ref.read(delayDataSourceProvider.notifier).value = const {};
     ref.read(currentProfileIdProvider.notifier).value = result.currentProfileId;
+    if (result.config case final restoredConfig?) {
+      ref.read(appSettingProvider.notifier).value =
+          restoredConfig.appSettingProps;
+      ref.read(windowSettingProvider.notifier).value =
+          restoredConfig.windowProps;
+      ref.read(vpnSettingProvider.notifier).value = restoredConfig.vpnProps;
+      ref.read(networkSettingProvider.notifier).value =
+          restoredConfig.networkProps;
+      ref.read(themeSettingProvider.notifier).value = restoredConfig.themeProps;
+      ref.read(davSettingProvider.notifier).value = restoredConfig.davProps;
+      ref.read(overrideDnsProvider.notifier).value = restoredConfig.overrideDns;
+      ref.read(hotKeyActionsProvider.notifier).value =
+          restoredConfig.hotKeyActions;
+      ref.read(proxiesStyleSettingProvider.notifier).value =
+          restoredConfig.proxiesStyleProps;
+      ref.read(patchClashConfigProvider.notifier).value =
+          restoredConfig.patchClashConfig;
+    }
+    await ref.read(setupActionProvider.notifier).applyProfile(force: true);
+    await ref.read(proxiesActionProvider.notifier).updateGroups();
   }
 }
 

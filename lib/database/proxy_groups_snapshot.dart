@@ -5,11 +5,8 @@ class ProxyGroupsSnapshots extends Table {
   @override
   String get tableName => 'proxy_groups_snapshots';
 
-  IntColumn get profileId => integer().references(
-    Profiles,
-    #id,
-    onDelete: KeyAction.cascade,
-  )();
+  IntColumn get profileId =>
+      integer().references(Profiles, #id, onDelete: KeyAction.cascade)();
 
   TextColumn get groups => text().map(const GroupsConverter())();
 
@@ -30,9 +27,9 @@ class ProxyGroupsSnapshotsDao extends DatabaseAccessor<Database>
   ProxyGroupsSnapshotsDao(super.attachedDatabase);
 
   Future<RawProxyGroupsSnapshot?> getSnapshot(int profileId) {
-    return (select(proxyGroupsSnapshots)
-          ..where((t) => t.profileId.equals(profileId)))
-        .getSingleOrNull();
+    return (select(
+      proxyGroupsSnapshots,
+    )..where((t) => t.profileId.equals(profileId))).getSingleOrNull();
   }
 
   Future<void> putSnapshot({
@@ -52,8 +49,18 @@ class ProxyGroupsSnapshotsDao extends DatabaseAccessor<Database>
   }
 
   Future<void> deleteSnapshot(int profileId) {
-    return (delete(proxyGroupsSnapshots)
-          ..where((t) => t.profileId.equals(profileId)))
-        .go();
+    return (delete(
+      proxyGroupsSnapshots,
+    )..where((t) => t.profileId.equals(profileId))).go();
   }
+
+  Future<void> deleteSnapshots(Iterable<int> profileIds) async {
+    final ids = profileIds.toSet();
+    if (ids.isEmpty) return;
+    await (delete(
+      proxyGroupsSnapshots,
+    )..where((t) => t.profileId.isIn(ids))).go();
+  }
+
+  Future<void> deleteAllSnapshots() => delete(proxyGroupsSnapshots).go();
 }

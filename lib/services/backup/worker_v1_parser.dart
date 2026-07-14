@@ -106,6 +106,12 @@ class WorkerV1Parser {
         'profiles.yaml has an invalid shape',
       );
     }
+    _validateContract(
+      manifest: rawManifest,
+      files: fileEntries,
+      airports: airports,
+      profiles: profiles,
+    );
     return WorkerV1Package(
       manifest: WorkerV1Manifest(
         raw: Map<String, Object?>.unmodifiable(rawManifest),
@@ -115,6 +121,107 @@ class WorkerV1Parser {
       profilesYaml: Map<String, Object?>.unmodifiable(profiles),
       files: zip.files,
     );
+  }
+
+  void _validateContract({
+    required Map<String, Object?> manifest,
+    required Map<String, WorkerV1FileEntry> files,
+    required List<Map<String, Object?>> airports,
+    required Map<String, Object?> profiles,
+  }) {
+    final items = profiles['items'];
+    if (items is! List || items.length != airports.length) {
+      throw const BackupFormatException(
+        BackupErrorCode.invalidProfiles,
+        'profiles.yaml and manifest airports do not match',
+      );
+    }
+    final base = Uri.parse(manifest['publicBaseUrl'] as String);
+    final allowed = <String>{'config.yaml', 'verge.yaml', 'profiles.yaml'};
+    final airportsByUid = <String, Map<String, Object?>>{};
+    for (final airport in airports) {
+      final slug = airport['slug'] as String;
+      final uid = airport['profileUid'] as String;
+      final name = airport['name'] as String;
+      final providerHash = airport['providerSha256'];
+      final profileHash = airport['profileSha256'];
+      if (!RegExp(r'^[a-z0-9][a-z0-9-]{0,62}$').hasMatch(slug) ||
+          name.isEmpty ||
+          providerHash is! String ||
+          profileHash is! String ||
+          !RegExp(r'^[0-9a-f]{64}$').hasMatch(providerHash) ||
+          !RegExp(r'^[0-9a-f]{64}$').hasMatch(profileHash) ||
+          airportsByUid.containsKey(uid)) {
+        throw const BackupFormatException(
+          BackupErrorCode.invalidManifest,
+          'Manifest airport metadata is inconsistent',
+        );
+      }
+      airportsByUid[uid] = airport;
+      final profilePath = 'profiles/$uid.yaml';
+      final providerPath = 'providers/$slug/provider.yaml';
+      final providerProfilePath = 'providers/$slug/profile.yaml';
+      final metaPath = 'providers/$slug/meta.json';
+      allowed.addAll([
+        profilePath,
+        providerPath,
+        providerProfilePath,
+        metaPath,
+      ]);
+      if (files[profilePath]?.sha256 != profileHash ||
+          files[providerProfilePath]?.sha256 != profileHash ||
+          files[providerPath]?.sha256 != providerHash ||
+          files[profilePath]?.required != true ||
+          files[providerPath] == null ||
+          files[providerProfilePath] == null ||
+          files[metaPath] == null) {
+        throw const BackupFormatException(
+          BackupErrorCode.hashMismatch,
+          'Airport artifact hashes do not match the manifest',
+        );
+      }
+    }
+    if (files.keys.toSet().difference(allowed).isNotEmpty ||
+        allowed.difference(files.keys.toSet()).isNotEmpty) {
+      throw const BackupFormatException(
+        BackupErrorCode.unexpectedFile,
+        'Backup contains a path outside the Worker v1 contract',
+      );
+    }
+    final seen = <String>{};
+    for (final raw in items) {
+      if (raw is! Map) {
+        throw const BackupFormatException(
+          BackupErrorCode.invalidProfiles,
+          'profiles.yaml contains an invalid item',
+        );
+      }
+      final item = Map<String, Object?>.from(raw);
+      final uid = item['uid'];
+      final airport = uid is String ? airportsByUid[uid] : null;
+      final url = item['url'];
+      final uri = url is String ? Uri.tryParse(url) : null;
+      if (airport == null ||
+          !seen.add(uid as String) ||
+          item['type'] != 'remote' ||
+          item['name'] != airport['name'] ||
+          item['file'] != '$uid.yaml' ||
+          uri == null ||
+          uri.scheme != base.scheme ||
+          uri.host != base.host ||
+          uri.port != base.port ||
+          uri.query.isNotEmpty ||
+          uri.fragment.isNotEmpty ||
+          uri.pathSegments.length != 3 ||
+          uri.pathSegments[0] != 'config' ||
+          uri.pathSegments[1] != airport['slug'] ||
+          uri.pathSegments[2].isEmpty) {
+        throw const BackupFormatException(
+          BackupErrorCode.invalidProfiles,
+          'profiles.yaml item does not match its airport',
+        );
+      }
+    }
   }
 
   Map<String, Object?> _decodeJsonMap(List<int> bytes) {
