@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io' as io;
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:webdav_client/webdav_client.dart';
+
+import 'package:fl_clash/services/backup/backup_file_guard.dart';
 
 class DAVClient {
   late Client client;
@@ -38,8 +41,11 @@ class DAVClient {
 
   Future<bool> restore() async {
     await client.mkdir(root);
+    final properties = await client.readProps(backupFile);
+    validateBackupArchiveLength(properties.size);
     final backupFilePath = await appPath.backupFilePath;
     await client.read2File(backupFile, backupFilePath);
+    await validateBackupArchiveFile(io.File(backupFilePath));
     return true;
   }
 }

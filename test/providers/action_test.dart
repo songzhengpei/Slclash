@@ -6,6 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  test('activation failure remains a committed restore outcome', () async {
+    final outcome = await activateCommittedRestore(
+      applyProfile: () async => false,
+      updateGroups: () async {},
+    );
+    expect(outcome.committed, true);
+    expect(outcome.activationSucceeded, false);
+    expect(outcome.activationError, isNotEmpty);
+  });
+
   group('shouldFullSetupOnInit', () {
     test(
       'skips full setup when VPN is not running and auto run is disabled',

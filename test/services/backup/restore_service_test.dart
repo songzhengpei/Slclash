@@ -50,6 +50,31 @@ void main() {
     expect(await db.profilesDao.query().get(), isEmpty);
   });
 
+  test('rejects script metadata without a non-empty JavaScript file', () async {
+    final script = Script(
+      id: 9,
+      label: 'missing',
+      lastUpdateTime: DateTime.utc(2026),
+    );
+    await expectLater(
+      RestoreService(database: db, paths: paths).restore(
+        RestoreBundle(
+          sourceFormat: BackupSourceFormat.slclashProfilesV2,
+          profiles: [profile(1, scriptId: 9)],
+          scripts: [script],
+          files: [
+            StagedRestoreFile(
+              relativePath: 'profiles/1.yaml',
+              bytes: Uint8List.fromList('proxies: []'.codeUnits),
+            ),
+          ],
+        ),
+      ),
+      throwsA(isA<RestoreValidationException>()),
+    );
+    expect(await db.profilesDao.query().get(), isEmpty);
+  });
+
   test('commits profile and invalidates its provider cache', () async {
     final provider = File(p.join(paths.providersDirectory, '1', 'cache.yaml'));
     await provider.parent.create(recursive: true);
@@ -203,5 +228,51 @@ void main() {
     expect((await db.profilesDao.query().get()).single.id, 1);
     expect(await oldFile.readAsString(), 'old');
     expect(storedConfig.overrideDns, false);
+  });
+
+  test('restored settings retain current device WebDAV credentials', () async {
+    const localDav = DAVProps(
+      uri: 'https://local.example/dav',
+      user: 'local-user',
+      password: 'local-secret',
+    );
+    Config? storedConfig = const Config(
+      themeProps: defaultThemeProps,
+      davProps: localDav,
+    );
+    final result =
+        await RestoreService(
+          database: db,
+          paths: paths,
+          readConfig: () async => storedConfig,
+          writeConfig: (config) async {
+            storedConfig = config;
+            return true;
+          },
+        ).restore(
+          RestoreBundle(
+            sourceFormat: BackupSourceFormat.slclashProfilesV2,
+            profiles: [profile(1)],
+            config: const Config(
+              themeProps: defaultThemeProps,
+              overrideDns: true,
+              davProps: DAVProps(
+                uri: 'https://backup.example/dav',
+                user: 'backup-user',
+                password: 'backup-secret',
+              ),
+            ),
+            files: [
+              StagedRestoreFile(
+                relativePath: 'profiles/1.yaml',
+                bytes: Uint8List.fromList('proxies: []'.codeUnits),
+              ),
+            ],
+          ),
+        );
+
+    expect(result.config?.davProps, localDav);
+    expect(storedConfig?.davProps, localDav);
+    expect(storedConfig?.overrideDns, true);
   });
 }

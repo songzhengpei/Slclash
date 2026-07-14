@@ -8,6 +8,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
+import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/fade_box.dart';
@@ -89,22 +90,17 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
       message: TextSpan(text: appLocalizations.restoreProfilesOnlyDesc),
     );
     if (confirmed != true || !context.mounted) return;
-    final res = await globalState.loadingRun<bool>(
+    final outcome = await globalState.loadingRun<BackupRestoreOutcome>(
       () async {
         await _client?.restore();
-        await globalState.container
+        return globalState.container
             .read(backupActionProvider.notifier)
             .restore();
-        return true;
       },
       tag: LoadingTag.backup_restore,
       title: appLocalizations.restore,
     );
-    if (res != true) return;
-    globalState.showMessage(
-      title: appLocalizations.restore,
-      message: TextSpan(text: appLocalizations.restoreSuccess),
-    );
+    if (outcome != null) _showRestoreOutcome(outcome);
   }
 
   Future<void> _backupOnLocal() async {
@@ -144,21 +140,30 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
       message: TextSpan(text: appLocalizations.restoreProfilesOnlyDesc),
     );
     if (confirmed != true || !mounted) return;
-    await File(path).safeCopy(await appPath.backupFilePath);
-    final res = await globalState.loadingRun<bool>(
+    final outcome = await globalState.loadingRun<BackupRestoreOutcome>(
       () async {
-        await globalState.container
+        await validateBackupArchiveFile(File(path));
+        await File(path).safeCopy(await appPath.backupFilePath);
+        return globalState.container
             .read(backupActionProvider.notifier)
             .restore();
-        return true;
       },
       tag: LoadingTag.backup_restore,
       title: appLocalizations.restore,
     );
-    if (res != true) return;
+    if (outcome != null) _showRestoreOutcome(outcome);
+  }
+
+  void _showRestoreOutcome(BackupRestoreOutcome outcome) {
+    final appLocalizations = context.appLocalizations;
+    final message = outcome.activationSucceeded
+        ? appLocalizations.restoreSuccess
+        : '${appLocalizations.restoreSuccess}\n\n'
+              'The backup was restored, but the proxy core could not reload '
+              'the current profile. Retry enabling it or restart the app.';
     globalState.showMessage(
       title: appLocalizations.restore,
-      message: TextSpan(text: appLocalizations.restoreSuccess),
+      message: TextSpan(text: message),
     );
   }
 

@@ -12,6 +12,7 @@ import 'legacy_backup_parser.dart';
 import 'restore_bundle.dart';
 import 'restore_service.dart';
 import 'worker_v1_parser.dart';
+import 'worker_v1_models.dart';
 
 /// The single format-detection, conversion and commit entry point used by
 /// local-file and WebDAV restores.
@@ -50,7 +51,8 @@ class UnifiedBackupService {
     ).restore(bundle, override: override);
   }
 
-  RestoreBundle _workerBundle(dynamic package) {
+  RestoreBundle _workerBundle(WorkerV1Package package) {
+    final publicBaseUrl = package.manifest.raw['publicBaseUrl'] as String;
     final items = package.profilesYaml['items'];
     if (items is! List || items.isEmpty) {
       throw const BackupFormatException(
@@ -78,7 +80,7 @@ class UnifiedBackupService {
           name is! String ||
           fileName != '$uid.yaml' ||
           url is! String ||
-          !url.startsWith('${package.manifest.publicBaseUrl}/config/')) {
+          !url.startsWith('$publicBaseUrl/config/')) {
         throw const BackupFormatException(
           BackupErrorCode.invalidProfiles,
           'profiles.yaml contains invalid profile fields',

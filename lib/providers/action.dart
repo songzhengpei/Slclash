@@ -14,6 +14,8 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/services/backup/restore_service.dart';
+import 'package:fl_clash/services/backup/backup_config.dart';
+import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
@@ -30,6 +32,44 @@ part 'generated/action.g.dart';
 /// Real-time traffic speed for speed text display.
 /// Updated every 1s. Separate from [trafficsProvider] (chart data, 2-3s).
 final currentSpeedNotifier = ValueNotifier<Traffic>(const Traffic());
+
+class BackupRestoreOutcome {
+  const BackupRestoreOutcome({
+    required this.committed,
+    required this.activationSucceeded,
+    this.activationError,
+  });
+
+  final bool committed;
+  final bool activationSucceeded;
+  final String? activationError;
+}
+
+Future<BackupRestoreOutcome> activateCommittedRestore({
+  required Future<bool> Function() applyProfile,
+  required Future<void> Function() updateGroups,
+}) async {
+  try {
+    if (!await applyProfile()) {
+      return const BackupRestoreOutcome(
+        committed: true,
+        activationSucceeded: false,
+        activationError: 'The proxy core rejected the restored profile',
+      );
+    }
+    await updateGroups();
+    return const BackupRestoreOutcome(
+      committed: true,
+      activationSucceeded: true,
+    );
+  } catch (_) {
+    return const BackupRestoreOutcome(
+      committed: true,
+      activationSucceeded: false,
+      activationError: 'The proxy core could not reload the restored profile',
+    );
+  }
+}
 
 bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
   return isRunning || autoRun;
@@ -1090,6 +1130,10 @@ class BackupAction extends _$BackupAction {
       if (await jsFile.exists()) {
         scriptJsons.add(s.toJson());
         jsFileNames.add(jsFileName);
+      } else {
+        throw StateError(
+          'Cannot create backup: script ${s.id} is missing its JavaScript file',
+        );
       }
     }
     final rulesFromDb = await database.rulesDao.queryAllRules();
@@ -1113,16 +1157,17 @@ class BackupAction extends _$BackupAction {
       'rules': ruleJsons,
       'links': linkJsons,
       'proxyGroups': proxyGroupsFromDb.map((group) => group.toJson()).toList(),
-      'config': ref.read(configProvider).toJson(),
+      'config': backupConfigJson(ref.read(configProvider)),
     };
     return backupProfilesOnlyTask(backupPayload, currentProfileId, appVersion);
   }
 
-  Future<void> restore() async {
+  Future<BackupRestoreOutcome> restore() async {
     final restoreStrategy = ref.read(
       appSettingProvider.select((state) => state.restoreStrategy),
     );
     final backup = File(await appPath.backupFilePath);
+    await validateBackupArchiveFile(backup);
     final result =
         await UnifiedBackupService(
           database: database,
@@ -1174,8 +1219,12 @@ class BackupAction extends _$BackupAction {
       ref.read(patchClashConfigProvider.notifier).value =
           restoredConfig.patchClashConfig;
     }
-    await ref.read(setupActionProvider.notifier).applyProfile(force: true);
-    await ref.read(proxiesActionProvider.notifier).updateGroups();
+    return activateCommittedRestore(
+      applyProfile: () =>
+          ref.read(setupActionProvider.notifier).applyProfile(force: true),
+      updateGroups: () =>
+          ref.read(proxiesActionProvider.notifier).updateGroups(),
+    );
   }
 }
 

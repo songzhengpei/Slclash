@@ -6,6 +6,8 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/services/backup/restore_bundle.dart';
 import 'package:path/path.dart' as p;
 
+import 'backup_config.dart';
+
 typedef ProfileYamlValidator =
     Future<void> Function(int profileId, Uint8List bytes);
 typedef RestoreConfigReader = Future<Config?> Function();
@@ -52,7 +54,6 @@ class RestoreService {
             profileIds.contains(bundle.currentProfileId)
         ? bundle.currentProfileId
         : (bundle.profiles.isEmpty ? null : bundle.profiles.first.id);
-    final restoredConfig = bundle.config?.copyWith(currentProfileId: selected);
     final touched = <String>{
       ...bundle.files.map((e) => _targetFor(e.relativePath)),
       if (bundle.providerCachePolicy ==
@@ -73,6 +74,12 @@ class RestoreService {
     final previousConfig = bundle.config == null
         ? null
         : await readConfig?.call();
+    final restoredConfig = bundle.config == null
+        ? null
+        : preserveLocalBackupSecrets(
+            bundle.config!.copyWith(currentProfileId: selected),
+            previousConfig,
+          );
     var configWritten = false;
 
     try {
@@ -160,6 +167,33 @@ class RestoreService {
         );
       }
       await validateProfileYaml?.call(profile.id, file.bytes);
+    }
+    final scriptsById = {
+      for (final script in bundle.scripts) script.id: script,
+    };
+    final scriptFiles = <int, StagedRestoreFile>{};
+    for (final file in bundle.files) {
+      final match = RegExp(
+        r'^scripts/(\d+)\.js$',
+      ).firstMatch(file.relativePath);
+      if (match != null) {
+        scriptFiles[int.parse(match.group(1)!)] = file;
+      }
+    }
+    for (final script in scriptsById.values) {
+      final file = scriptFiles[script.id];
+      if (file == null || file.bytes.isEmpty) {
+        throw RestoreValidationException(
+          'script ${script.id} has no non-empty JavaScript file',
+        );
+      }
+    }
+    for (final scriptId in scriptFiles.keys) {
+      if (!scriptsById.containsKey(scriptId)) {
+        throw RestoreValidationException(
+          'JavaScript file references missing script $scriptId',
+        );
+      }
     }
     for (final link in bundle.links) {
       if (!ruleIds.contains(link.ruleId)) {
