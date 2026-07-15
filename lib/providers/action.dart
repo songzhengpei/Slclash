@@ -18,7 +18,7 @@ import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/backup_config.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
-import 'package:fl_clash/services/backup/worker_v1_parser.dart';
+import 'package:fl_clash/services/backup/worker_v1_exporter.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/input.dart';
@@ -1151,12 +1151,35 @@ class BackupAction extends _$BackupAction {
     }).toList();
     final proxyGroupsFromDb = await database.proxyGroupsDao.queryAll().get();
 
-    Uint8List? workerUnifiedArchive;
-    final workerArchiveFile = File(await appPath.workerUnifiedArchivePath);
-    if (await workerArchiveFile.exists()) {
-      workerUnifiedArchive = await workerArchiveFile.readAsBytes();
-      const WorkerV1Parser().parse(workerUnifiedArchive);
+    final profileYamlById = <int, Uint8List>{};
+    final profilesPath = await appPath.profilesPath;
+    for (final profile in profiles) {
+      final file = File(join(profilesPath, '${profile.id}.yaml'));
+      if (!await file.exists()) {
+        throw StateError(
+          'Cannot create backup: profile ${profile.id} is missing its YAML file',
+        );
+      }
+      profileYamlById[profile.id] = await file.readAsBytes();
     }
+    final workerUnifiedArchive = profiles.isEmpty
+        ? null
+        : const WorkerV1Exporter().export(
+            profiles: profiles
+                .map(
+                  (profile) => WorkerV1ExportProfile(
+                    id: profile.id,
+                    name: profile.label,
+                    url: profile.url,
+                    yaml: profileYamlById[profile.id]!,
+                    updated: profile.lastUpdateDate,
+                    updateIntervalMinutes: profile.autoUpdateDuration.inMinutes,
+                    allowAutoUpdate: profile.autoUpdate,
+                  ),
+                )
+                .toList(growable: false),
+            currentProfileId: currentProfileId,
+          );
 
     final backupPayload = <String, dynamic>{
       'profiles': profilesJson,

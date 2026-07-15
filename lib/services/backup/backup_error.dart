@@ -14,6 +14,7 @@ enum BackupErrorCode {
   unexpectedFile,
   sizeMismatch,
   hashMismatch,
+  invalidYaml,
   invalidProfiles,
 }
 

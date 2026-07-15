@@ -21,10 +21,10 @@ void main() {
       final temp = await Directory.systemTemp.createTemp('unified-v201-test-');
       final oldDbFile = File(p.join(temp.path, 'old.sqlite'));
       final oldDb = Database(NativeDatabase(oldDbFile));
-      final profile = Profile(
+      const profile = Profile(
         id: 42,
         label: 'v2.0.1',
-        autoUpdateDuration: const Duration(days: 1),
+        autoUpdateDuration: Duration(days: 1),
         overwriteType: OverwriteType.custom,
       );
       await oldDb.restore(
@@ -93,6 +93,11 @@ void main() {
 
     final snapshotPath = p.join(temp.path, 'unified', 'worker-v1.zip');
     final archiveBytes = _workerArchive();
+    var currentConfig = const Config(
+      themeProps: defaultThemeProps,
+      overrideDns: true,
+    );
+    var configWrites = 0;
     final result = await UnifiedBackupService(
       database: db,
       paths: RestorePaths(
@@ -100,6 +105,12 @@ void main() {
         scriptsDirectory: p.join(temp.path, 'scripts'),
         workerUnifiedArchivePath: snapshotPath,
       ),
+      readConfig: () async => currentConfig,
+      writeConfig: (value) async {
+        configWrites++;
+        currentConfig = value;
+        return true;
+      },
     ).restoreBytes(archiveBytes, override: true);
 
     final profile = (await db.profilesDao.query().get()).single;
@@ -112,6 +123,8 @@ void main() {
       'proxies: []\n',
     );
     expect(await File(snapshotPath).readAsBytes(), archiveBytes);
+    expect(configWrites, 0);
+    expect(currentConfig.overrideDns, true);
     expect(
       const WorkerV1Parser()
           .parse(await File(snapshotPath).readAsBytes())
@@ -119,6 +132,43 @@ void main() {
           .airports
           .length,
       1,
+    );
+  });
+
+  test('old Worker full config imports without applying config', () async {
+    final temp = await Directory.systemTemp.createTemp('worker-old-config-');
+    final db = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await db.close();
+      await temp.delete(recursive: true);
+    });
+    var writes = 0;
+    final result =
+        await UnifiedBackupService(
+          database: db,
+          paths: RestorePaths(
+            profilesDirectory: p.join(temp.path, 'profiles'),
+            scriptsDirectory: p.join(temp.path, 'scripts'),
+            workerUnifiedArchivePath: p.join(temp.path, 'worker-v1.zip'),
+          ),
+          readConfig: () async =>
+              const Config(themeProps: defaultThemeProps, overrideDns: true),
+          writeConfig: (_) async {
+            writes++;
+            return true;
+          },
+        ).restoreBytes(
+          _workerArchive(
+            configYaml: 'mixed-port: 1234\nproxy-providers: {}\nrules: []\n',
+          ),
+          override: true,
+        );
+
+    expect(result.config, isNull);
+    expect(writes, 0);
+    expect(
+      (await db.profilesDao.query().get()).single.url,
+      contains('/config/'),
     );
   });
 
@@ -229,11 +279,14 @@ void main() {
   );
 }
 
-Uint8List _workerArchive() {
+Uint8List _workerArchive({
+  String configYaml =
+      'mixed-port: 7890\nallow-lan: false\nmode: rule\nlog-level: info\n',
+}) {
   final profile = utf8.encode('proxies: []\n');
   final provider = utf8.encode('proxies: []\n');
   final files = <String, List<int>>{
-    'config.yaml': utf8.encode('proxy-providers: {}\n'),
+    'config.yaml': utf8.encode(configYaml),
     'verge.yaml': utf8.encode('{}\n'),
     'profiles.yaml': utf8.encode('''
 current: R1234abcd

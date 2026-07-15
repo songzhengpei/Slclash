@@ -79,6 +79,7 @@ class WorkerV1Parser {
         );
       }
     }
+    _validateYamlMapping(zip.files['config.yaml']!, 'config.yaml');
 
     final airports = _parseAirports(rawManifest['airports']);
     for (final airport in airports) {
@@ -369,6 +370,19 @@ class WorkerV1Parser {
     throw const BackupFormatException(
       BackupErrorCode.invalidProfiles,
       'profiles.yaml is not a valid mapping',
+    );
+  }
+
+  void _validateYamlMapping(List<int> bytes, String path) {
+    try {
+      final decoded = loadYaml(utf8.decode(bytes, allowMalformed: false));
+      if (decoded is Map) return;
+    } catch (_) {
+      // Converted to the stable domain error below.
+    }
+    throw BackupFormatException(
+      BackupErrorCode.invalidYaml,
+      '$path is not a valid YAML mapping',
     );
   }
 

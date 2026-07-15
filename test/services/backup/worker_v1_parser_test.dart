@@ -46,6 +46,41 @@ void main() {
       );
     });
 
+    test('rejects a config.yaml content length mismatch', () {
+      final files = _payloadFiles();
+      final manifest = _manifest(files);
+      final config =
+          (manifest['files'] as Map<String, Object?>)['config.yaml']!
+              as Map<String, Object?>;
+      config['contentLength'] = files['config.yaml']!.length + 1;
+      _expectCode(
+        _archive(files, manifest: manifest),
+        BackupErrorCode.sizeMismatch,
+      );
+    });
+
+    test('rejects malformed config.yaml even with matching metadata', () {
+      final files = _payloadFiles()
+        ..['config.yaml'] = utf8.encode('proxy-providers: [\n');
+      _expectCode(
+        _archive(files, manifest: _manifest(files)),
+        BackupErrorCode.invalidYaml,
+      );
+    });
+
+    test('accepts the new minimal and old full config semantics', () {
+      for (final config in [
+        workerMinimalConfig,
+        'proxy-providers:\n  old-provider:\n    type: http\n',
+      ]) {
+        final files = _payloadFiles()..['config.yaml'] = utf8.encode(config);
+        final package = const WorkerV1Parser().parse(
+          _archive(files, manifest: _manifest(files)),
+        );
+        expect(package.profilesYaml['current'], 'R1234abcd');
+      }
+    });
+
     test('rejects ZIP path traversal', () {
       final archive = Archive()
         ..addFile(ArchiveFile.string('../manifest.json', '{}'));
@@ -93,6 +128,12 @@ void main() {
     });
   });
 }
+
+const workerMinimalConfig =
+    'mixed-port: 7890\n'
+    'allow-lan: false\n'
+    'mode: rule\n'
+    'log-level: info\n';
 
 Map<String, List<int>> _payloadFiles() => {
   'config.yaml': utf8.encode('proxy-providers: {}\n'),
