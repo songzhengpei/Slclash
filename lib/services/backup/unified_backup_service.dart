@@ -56,7 +56,6 @@ class UnifiedBackupService {
     // v3 format is treated like v2 for core logic
     // The Clash Verge Rev compatibility projections (profiles.yaml, profiles/R*.yaml)
     // are in the outer ZIP but don't affect Slclash restore
-    final isV2 = true; // v3 is a superset of v2
     final profiles = package.profiles
         .map((raw) {
           final map = _normalizeLegacyProfile(raw);

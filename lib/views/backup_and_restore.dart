@@ -85,14 +85,35 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
 
   Future<void> _restoreOnWebDAV() async {
     final appLocalizations = context.appLocalizations;
+    if (_client == null) return;
+
+    final files = await globalState.loadingRun<List<DAVFileEntry>>(
+      () => _client!.listFiles(),
+      tag: LoadingTag.backup_restore,
+      title: '正在列出备份...',
+    );
+    if (files == null || files.isEmpty) {
+      globalState.showMessage(
+        title: appLocalizations.restore,
+        message: const TextSpan(text: 'WebDAV 上没有找到备份文件'),
+      );
+      return;
+    }
+
+    final selected = await globalState.showCommonDialog<String>(
+      child: _CenteredWebDAVFileList(files: files),
+    );
+    if (selected == null || !context.mounted) return;
+
     final confirmed = await globalState.showMessage(
       title: appLocalizations.restore,
-      message: TextSpan(text: appLocalizations.restoreProfilesOnlyDesc),
+      message: TextSpan(text: '将从 $selected 恢复，仅恢复订阅和配置数据。'),
     );
     if (confirmed != true || !context.mounted) return;
+
     final outcome = await globalState.loadingRun<BackupRestoreOutcome>(
       () async {
-        await _client?.restore();
+        await _client!.restoreFile(selected);
         return globalState.container
             .read(backupActionProvider.notifier)
             .restore();
@@ -376,6 +397,117 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WebDAVFileList extends StatelessWidget {
+  const _WebDAVFileList({required this.files});
+
+  final List<DAVFileEntry> files;
+
+  @override
+  Widget build(BuildContext context) {
+    return SurgeSection(
+      showDividers: true,
+      children: [
+        for (var i = 0; i < files.length; i++)
+          _WebDAVFileItem(
+            entry: files[i],
+            onTap: () => Navigator.pop(context, files[i].name),
+          ),
+      ],
+    );
+  }
+}
+
+class _CenteredWebDAVFileList extends StatelessWidget {
+  const _CenteredWebDAVFileList({required this.files});
+
+  final List<DAVFileEntry> files;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: _WebDAVFileList(files: files),
+    );
+  }
+}
+
+class _WebDAVFileItem extends StatelessWidget {
+  const _WebDAVFileItem({required this.entry, required this.onTap});
+
+  final DAVFileEntry entry;
+  final VoidCallback onTap;
+
+  String _clientLabel(String name) {
+    if (name.contains('android')) return 'Android';
+    if (name.contains('windows')) return 'Windows';
+    return 'Worker';
+  }
+
+  Color _clientColor(String name, SurgeTheme surge) {
+    if (name.contains('android')) return surge.green;
+    if (name.contains('windows')) return surge.primary;
+    return surge.purple;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final label = _clientLabel(entry.name);
+    final color = _clientColor(entry.name, surge);
+    final dateStr = DateFormat('MM-dd HH:mm').format(entry.lastModified);
+    final sizeStr = entry.size > 1024 * 1024
+        ? '${(entry.size / 1024 / 1024).toStringAsFixed(1)}MB'
+        : '${(entry.size / 1024).toStringAsFixed(0)}KB';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: surge.typography.rowTitle,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$dateStr  ·  $sizeStr',
+                      style: surge.typography.rowSubtitle,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(surge.radii.button),
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.20),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  label,
+                  style: surge.typography.badge.copyWith(color: color),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
