@@ -51,6 +51,16 @@ class Request {
     }
   }
 
+  Future<Response<Uint8List>> getFileResponseForUrlWithHeaders(
+    String url,
+    Map<String, String> headers,
+  ) async {
+    return _clashDio.get<Uint8List>(
+      url,
+      options: Options(responseType: ResponseType.bytes, headers: headers),
+    );
+  }
+
   Future<Response<String>> getTextResponseForUrl(String url) async {
     final response = await _clashDio.get<String>(
       url,

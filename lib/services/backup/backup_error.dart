@@ -15,6 +15,7 @@ enum BackupErrorCode {
   sizeMismatch,
   hashMismatch,
   invalidYaml,
+  missingTrustedMetadata,
   invalidProfiles,
 }
 

@@ -3,9 +3,12 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
-import 'package:yaml/yaml.dart';
 
 import 'backup_error.dart';
+import 'worker_v1_models.dart';
+
+const workerV1CapsuleMediaType =
+    'application/vnd.mihomo-unified-backup+zip; version=1';
 
 const workerV1CompatibilityConfig =
     'mixed-port: 7890\n'
@@ -17,33 +20,21 @@ const workerV1CompatibilityConfigSha256 =
     '451444cc8d6401ec9a7b57ed977053039e00a8b451827ec37b0e15ca8f808ec9';
 
 class WorkerV1ExportProfile {
-  const WorkerV1ExportProfile({
-    required this.id,
-    required this.name,
-    required this.url,
-    required this.yaml,
-    this.updated,
-    this.updateIntervalMinutes = 60,
-    this.allowAutoUpdate = true,
-  });
+  const WorkerV1ExportProfile({required this.name, required this.url});
 
-  final int id;
   final String name;
   final String url;
-  final Uint8List yaml;
-  final DateTime? updated;
-  final int updateIntervalMinutes;
-  final bool allowAutoUpdate;
 }
 
-/// Builds the Worker v1 compatibility view from Slclash's current profiles.
-/// config.yaml is deliberately static and is never an authoritative source.
+/// Rebuilds the Worker v1 compatibility view exclusively from Worker-issued
+/// packages. Identity, metadata, and raw artifacts are never synthesized.
 class WorkerV1Exporter {
   const WorkerV1Exporter();
 
   Uint8List export({
     required List<WorkerV1ExportProfile> profiles,
-    required int? currentProfileId,
+    required String? currentProfileUrl,
+    required List<WorkerV1Package> trustedPackages,
     DateTime? createdAt,
   }) {
     if (profiles.isEmpty) {
@@ -52,41 +43,48 @@ class WorkerV1Exporter {
         'Cannot export a Worker archive without profiles',
       );
     }
-    final parsed = profiles.map(_parseProfile).toList(growable: false);
-    final origins = parsed.map((item) => item.origin).toSet();
-    final slugs = parsed.map((item) => item.slug).toSet();
-    if (origins.length != 1 || slugs.length != parsed.length) {
+    final sources = _indexSources(trustedPackages);
+    final selected = profiles
+        .map((profile) {
+          final source = sources[profile.url];
+          if (source == null) {
+            throw const BackupFormatException(
+              BackupErrorCode.missingTrustedMetadata,
+              'A profile has no Worker-issued export capsule',
+            );
+          }
+          return (profile: profile, source: source);
+        })
+        .toList(growable: false);
+    final origins = selected.map((item) => item.source.publicBaseUrl).toSet();
+    final uids = selected.map((item) => item.source.uid).toSet();
+    final slugs = selected.map((item) => item.source.slug).toSet();
+    if (origins.length != 1 ||
+        uids.length != selected.length ||
+        slugs.length != selected.length) {
       throw const BackupFormatException(
         BackupErrorCode.invalidProfiles,
-        'Worker subscription URLs need one public base URL and unique slugs',
+        'Trusted Worker identities conflict',
       );
     }
-    final current = parsed.where((item) => item.profile.id == currentProfileId);
-    final currentItem = current.isEmpty ? parsed.first : current.single;
+    final current = selected.where(
+      (item) => item.profile.url == currentProfileUrl,
+    );
+    final currentUid = current.isEmpty
+        ? selected.first.source.uid
+        : current.single.source.uid;
     final files = <String, List<int>>{
       'config.yaml': utf8.encode(workerV1CompatibilityConfig),
       'verge.yaml': utf8.encode('{}\n'),
-      'profiles.yaml': utf8.encode(_profilesYaml(parsed, currentItem.uid)),
+      'profiles.yaml': utf8.encode(_profilesYaml(selected, currentUid)),
     };
     final airports = <Map<String, Object?>>[];
-    for (final item in parsed) {
-      final profileBytes = item.profile.yaml;
-      final profileHash = sha256.convert(profileBytes).toString();
-      final meta = utf8.encode('{}\n');
-      files['profiles/${item.uid}.yaml'] = profileBytes;
-      files['providers/${item.slug}/provider.yaml'] = profileBytes;
-      files['providers/${item.slug}/profile.yaml'] = profileBytes;
-      files['providers/${item.slug}/meta.json'] = meta;
-      airports.add({
-        'slug': item.slug,
-        'subscriptionId': item.slug,
-        'name': item.profile.name,
-        'profileUid': item.uid,
-        'versionId': 'sha256-${profileHash.substring(0, 16)}',
-        'nodeCount': _nodeCount(profileBytes),
-        'providerSha256': profileHash,
-        'profileSha256': profileHash,
-      });
+    for (final item in selected) {
+      final source = item.source;
+      for (final path in source.artifactPaths) {
+        files[path] = source.package.files[path]!;
+      }
+      airports.add({...source.airport, 'name': item.profile.name});
     }
     final manifestFiles = <String, Object?>{
       for (final entry in files.entries)
@@ -125,81 +123,95 @@ class WorkerV1Exporter {
     return Uint8List.fromList(ZipEncoder().encode(archive));
   }
 
-  _ParsedExportProfile _parseProfile(WorkerV1ExportProfile profile) {
-    if (profile.id < 0 || profile.id > 0xffffffff) {
-      throw const BackupFormatException(
-        BackupErrorCode.invalidProfiles,
-        'Profile id cannot be represented by Worker v1',
-      );
+  Map<String, _TrustedSource> _indexSources(List<WorkerV1Package> packages) {
+    final result = <String, _TrustedSource>{};
+    for (final package in packages) {
+      final items = package.profilesYaml['items'] as List;
+      final airports = {
+        for (final airport in package.manifest.airports)
+          airport['profileUid'] as String: airport,
+      };
+      for (final raw in items) {
+        final item = Map<String, Object?>.from(raw as Map);
+        final uid = item['uid'] as String;
+        final url = item['url'] as String;
+        final airport = airports[uid]!;
+        final slug = airport['slug'] as String;
+        final paths = [
+          'profiles/$uid.yaml',
+          'providers/$slug/provider.yaml',
+          'providers/$slug/profile.yaml',
+          'providers/$slug/meta.json',
+        ];
+        final meta = package.files[paths.last]!;
+        if (!_isNonEmptyJsonObject(meta)) {
+          throw const BackupFormatException(
+            BackupErrorCode.missingTrustedMetadata,
+            'Worker ProviderVersionMeta is empty or invalid',
+          );
+        }
+        final source = _TrustedSource(
+          package: package,
+          airport: airport,
+          uid: uid,
+          slug: slug,
+          publicBaseUrl: package.manifest.raw['publicBaseUrl'] as String,
+          artifactPaths: paths,
+        );
+        final previous = result[url];
+        if (previous != null &&
+            previous.airport['versionId'] != airport['versionId']) {
+          throw const BackupFormatException(
+            BackupErrorCode.invalidProfiles,
+            'Worker capsules disagree about a subscription version',
+          );
+        }
+        result[url] = source;
+      }
     }
-    final uri = Uri.tryParse(profile.url);
-    if (uri == null ||
-        uri.scheme != 'https' ||
-        uri.userInfo.isNotEmpty ||
-        uri.query.isNotEmpty ||
-        uri.fragment.isNotEmpty ||
-        uri.pathSegments.length != 3 ||
-        uri.pathSegments[0] != 'config' ||
-        !RegExp(r'^[a-z0-9][a-z0-9-]{0,62}$').hasMatch(uri.pathSegments[1]) ||
-        uri.pathSegments[2].isEmpty) {
-      throw const BackupFormatException(
-        BackupErrorCode.invalidProfiles,
-        'Profile URL is not a fixed Worker /config/{slug}/{token} URL',
-      );
-    }
-    return _ParsedExportProfile(
-      profile: profile,
-      uid: 'R${profile.id.toRadixString(16).padLeft(8, '0')}',
-      slug: uri.pathSegments[1],
-      origin: uri.replace(path: '', query: null, fragment: null).toString(),
-    );
+    return result;
   }
 
-  String _profilesYaml(List<_ParsedExportProfile> profiles, String current) {
+  bool _isNonEmptyJsonObject(List<int> bytes) {
+    try {
+      final value = jsonDecode(utf8.decode(bytes, allowMalformed: false));
+      return value is Map && value.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String _profilesYaml(
+    List<({WorkerV1ExportProfile profile, _TrustedSource source})> profiles,
+    String current,
+  ) {
     final buffer = StringBuffer('current: $current\nitems:\n');
     for (final item in profiles) {
-      final profile = item.profile;
       buffer
-        ..writeln('  - uid: ${item.uid}')
+        ..writeln('  - uid: ${item.source.uid}')
         ..writeln('    type: remote')
-        ..writeln('    name: ${jsonEncode(profile.name)}')
-        ..writeln('    file: ${item.uid}.yaml')
-        ..writeln('    url: ${jsonEncode(profile.url)}')
-        ..writeln('    option:')
-        ..writeln('      update_interval: ${profile.updateIntervalMinutes}')
-        ..writeln('      allow_auto_update: ${profile.allowAutoUpdate}');
-      if (profile.updated != null) {
-        buffer.writeln(
-          '    updated: ${profile.updated!.toUtc().millisecondsSinceEpoch ~/ 1000}',
-        );
-      }
+        ..writeln('    name: ${jsonEncode(item.profile.name)}')
+        ..writeln('    file: ${item.source.uid}.yaml')
+        ..writeln('    url: ${jsonEncode(item.profile.url)}');
     }
     return buffer.toString();
   }
-
-  int _nodeCount(List<int> bytes) {
-    try {
-      final yaml = loadYaml(utf8.decode(bytes, allowMalformed: false));
-      if (yaml is Map && yaml['proxies'] is List) {
-        return (yaml['proxies'] as List).length;
-      }
-    } catch (_) {
-      // Profile validation remains the caller's responsibility.
-    }
-    return 0;
-  }
 }
 
-class _ParsedExportProfile {
-  const _ParsedExportProfile({
-    required this.profile,
+class _TrustedSource {
+  const _TrustedSource({
+    required this.package,
+    required this.airport,
     required this.uid,
     required this.slug,
-    required this.origin,
+    required this.publicBaseUrl,
+    required this.artifactPaths,
   });
 
-  final WorkerV1ExportProfile profile;
+  final WorkerV1Package package;
+  final Map<String, Object?> airport;
   final String uid;
   final String slug;
-  final String origin;
+  final String publicBaseUrl;
+  final List<String> artifactPaths;
 }

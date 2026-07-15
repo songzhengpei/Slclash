@@ -76,6 +76,11 @@ class AppPath {
     return join(mHomeDirPath, 'unified-backup', 'worker-v1.zip');
   }
 
+  Future<String> get workerV1CapsulesPath async {
+    final mHomeDirPath = await homeDirPath;
+    return join(mHomeDirPath, 'unified-backup', 'capsules');
+  }
+
   Future<String> get restoreDirPath async {
     final mHomeDirPath = await homeDirPath;
     return join(mHomeDirPath, 'restore');

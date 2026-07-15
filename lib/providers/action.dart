@@ -19,6 +19,7 @@ import 'package:fl_clash/services/backup/backup_config.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/services/backup/worker_v1_exporter.dart';
+import 'package:fl_clash/services/backup/worker_v1_capsule_store.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/input.dart';
@@ -1151,7 +1152,6 @@ class BackupAction extends _$BackupAction {
     }).toList();
     final proxyGroupsFromDb = await database.proxyGroupsDao.queryAll().get();
 
-    final profileYamlById = <int, Uint8List>{};
     final profilesPath = await appPath.profilesPath;
     for (final profile in profiles) {
       final file = File(join(profilesPath, '${profile.id}.yaml'));
@@ -1160,26 +1160,56 @@ class BackupAction extends _$BackupAction {
           'Cannot create backup: profile ${profile.id} is missing its YAML file',
         );
       }
-      profileYamlById[profile.id] = await file.readAsBytes();
     }
-    final workerUnifiedArchive = profiles.isEmpty
-        ? null
-        : const WorkerV1Exporter().export(
-            profiles: profiles
-                .map(
-                  (profile) => WorkerV1ExportProfile(
-                    id: profile.id,
-                    name: profile.label,
-                    url: profile.url,
-                    yaml: profileYamlById[profile.id]!,
-                    updated: profile.lastUpdateDate,
-                    updateIntervalMinutes: profile.autoUpdateDuration.inMinutes,
-                    allowAutoUpdate: profile.autoUpdate,
-                  ),
-                )
-                .toList(growable: false),
-            currentProfileId: currentProfileId,
-          );
+    Uint8List? importedArchive;
+    final importedArchiveFile = File(await appPath.workerUnifiedArchivePath);
+    if (await importedArchiveFile.exists()) {
+      importedArchive = await importedArchiveFile.readAsBytes();
+    }
+    Uint8List? workerUnifiedArchive;
+    var workerUnifiedStatus = profiles.isEmpty ? 'not-applicable' : 'complete';
+    if (profiles.isNotEmpty) {
+      try {
+        workerUnifiedArchive = const WorkerV1Exporter().export(
+          profiles: profiles
+              .map(
+                (profile) => WorkerV1ExportProfile(
+                  name: profile.label,
+                  url: profile.url,
+                ),
+              )
+              .toList(growable: false),
+          currentProfileUrl: profiles
+              .where((profile) => profile.id == currentProfileId)
+              .firstOrNull
+              ?.url,
+          trustedPackages:
+              await WorkerV1CapsuleStore(
+                directory: await appPath.workerV1CapsulesPath,
+                fetch: (url) async {
+                  final response = await request
+                      .getFileResponseForUrlWithHeaders(url, {
+                        'Accept': workerV1CapsuleMediaType,
+                      });
+                  final bytes = response.data;
+                  if (bytes == null) {
+                    throw StateError('Worker returned an empty export capsule');
+                  }
+                  return bytes;
+                },
+              ).resolve(
+                urls: profiles.map((profile) => profile.url).toList(),
+                importedArchive: importedArchive,
+              ),
+        );
+      } catch (error) {
+        workerUnifiedStatus = 'unavailable-missing-trusted-capsule';
+        commonPrint.log(
+          'Worker v1 compatibility export unavailable: $error',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
 
     final backupPayload = <String, dynamic>{
       'profiles': profilesJson,
@@ -1191,6 +1221,7 @@ class BackupAction extends _$BackupAction {
       'proxyGroups': proxyGroupsFromDb.map((group) => group.toJson()).toList(),
       'config': backupConfigJson(ref.read(configProvider)),
       'workerUnifiedArchive': ?workerUnifiedArchive,
+      'workerUnifiedStatus': workerUnifiedStatus,
     };
     return backupProfilesOnlyTask(backupPayload, currentProfileId, appVersion);
   }

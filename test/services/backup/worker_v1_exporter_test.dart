@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
+import 'package:fl_clash/services/backup/backup_error.dart';
 import 'package:fl_clash/services/backup/worker_v1_exporter.dart';
 import 'package:fl_clash/services/backup/worker_v1_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,18 +10,18 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const exporter = WorkerV1Exporter();
 
-  WorkerV1ExportProfile profile(int id, String slug) => WorkerV1ExportProfile(
-    id: id,
-    name: 'Airport $id',
-    url: 'https://vault.example/config/$slug/fixed-token-$id',
-    yaml: Uint8List.fromList(utf8.encode('proxies: []\n')),
-  );
-
-  test('exports exact minimal compatibility config and manifest metadata', () {
+  test('exports exact minimal config while preserving trusted identity', () {
+    final trusted = const WorkerV1Parser().parse(_capsule());
     final package = const WorkerV1Parser().parse(
       exporter.export(
-        profiles: [profile(1, 'one')],
-        currentProfileId: 1,
+        profiles: const [
+          WorkerV1ExportProfile(
+            name: 'Renamed',
+            url: 'https://vault.example/config/example/fixed-token',
+          ),
+        ],
+        currentProfileUrl: 'https://vault.example/config/example/fixed-token',
+        trustedPackages: [trusted],
         createdAt: DateTime.utc(2026, 7, 15),
       ),
     );
@@ -29,62 +30,159 @@ void main() {
 
     expect(utf8.decode(bytes), workerV1CompatibilityConfig);
     expect(bytes.last, 10);
-    expect(sha256.convert(bytes).toString(), workerV1CompatibilityConfigSha256);
     expect(entry.sha256, workerV1CompatibilityConfigSha256);
     expect(entry.contentLength, bytes.length);
-    expect(package.manifest.raw['mainConfig'], {
-      'configId': 'system-minimal-compat',
-      'versionId': 'sha256-451444cc8d6401ec',
-      'name': 'Clash Verge compatibility config',
-      'sourceSha256': workerV1CompatibilityConfigSha256,
-    });
+    expect(package.manifest.airports.single['subscriptionId'], 'sub-real');
+    expect(package.manifest.airports.single['profileUid'], 'R1234abcd');
+    expect(package.manifest.airports.single['versionId'], 'version-real');
+    expect(
+      package.files['providers/example/meta.json'],
+      trusted.files['providers/example/meta.json'],
+    );
   });
 
-  test('rebuilds profiles from the current subscription list', () {
-    final before = const WorkerV1Parser().parse(
-      exporter.export(profiles: [profile(1, 'one')], currentProfileId: 1),
-    );
-    final after = const WorkerV1Parser().parse(
+  test('copies provider and profile raw artifacts without synthesis', () {
+    final trusted = const WorkerV1Parser().parse(_capsule());
+    final package = const WorkerV1Parser().parse(
       exporter.export(
-        profiles: [profile(2, 'two'), profile(3, 'three')],
-        currentProfileId: 3,
+        profiles: const [
+          WorkerV1ExportProfile(
+            name: 'Example',
+            url: 'https://vault.example/config/example/fixed-token',
+          ),
+        ],
+        currentProfileUrl: null,
+        trustedPackages: [trusted],
       ),
     );
 
-    expect((before.profilesYaml['items'] as List), hasLength(1));
+    for (final path in [
+      'providers/example/provider.yaml',
+      'providers/example/profile.yaml',
+      'providers/example/meta.json',
+      'profiles/R1234abcd.yaml',
+    ]) {
+      expect(package.files[path], trusted.files[path]);
+      final manifest = package.manifest.files[path]!;
+      expect(manifest.contentLength, package.files[path]!.length);
+      expect(manifest.sha256, sha256.convert(package.files[path]!).toString());
+    }
     expect(
-      (after.profilesYaml['items'] as List).map((item) => (item as Map)['url']),
-      [
-        'https://vault.example/config/two/fixed-token-2',
-        'https://vault.example/config/three/fixed-token-3',
-      ],
+      utf8.decode(package.files['providers/example/provider.yaml']!),
+      'proxies:\n  - {name: node, type: direct}\n',
     );
-    expect(after.profilesYaml['current'], 'R00000003');
-    expect(after.files, isNot(contains('profiles/R00000001.yaml')));
+    expect(
+      utf8.decode(package.files['providers/example/profile.yaml']!),
+      contains('proxy-groups:'),
+    );
+    expect(
+      jsonDecode(utf8.decode(package.files['providers/example/meta.json']!)),
+      isNot(isEmpty),
+    );
   });
 
-  test('Slclash generated Worker archive round trips through the parser', () {
-    final first = exporter.export(
-      profiles: [profile(0x1234abcd, 'example')],
-      currentProfileId: 0x1234abcd,
-    );
-    final parsed = const WorkerV1Parser().parse(first);
-    final item = (parsed.profilesYaml['items'] as List).single as Map;
-    final second = exporter.export(
-      profiles: [
-        WorkerV1ExportProfile(
-          id: 0x1234abcd,
-          name: item['name'] as String,
-          url: item['url'] as String,
-          yaml: Uint8List.fromList(parsed.files['profiles/R1234abcd.yaml']!),
+  test('refuses a fixed URL without Worker-issued metadata', () {
+    expect(
+      () => exporter.export(
+        profiles: const [
+          WorkerV1ExportProfile(
+            name: 'Untrusted',
+            url: 'https://vault.example/config/example/fixed-token',
+          ),
+        ],
+        currentProfileUrl: null,
+        trustedPackages: const [],
+      ),
+      throwsA(
+        isA<BackupFormatException>().having(
+          (error) => error.code,
+          'code',
+          BackupErrorCode.missingTrustedMetadata,
         ),
-      ],
-      currentProfileId: 0x1234abcd,
-    );
-
-    expect(
-      const WorkerV1Parser().parse(second).profilesYaml,
-      parsed.profilesYaml,
+      ),
     );
   });
+}
+
+List<int> _capsule() {
+  final files = <String, List<int>>{
+    'config.yaml': utf8.encode('mixed-port: 7890\n'),
+    'verge.yaml': utf8.encode('{}\n'),
+    'profiles.yaml': utf8.encode('''
+current: R1234abcd
+items:
+  - uid: R1234abcd
+    type: remote
+    name: Example
+    file: R1234abcd.yaml
+    url: https://vault.example/config/example/fixed-token
+'''),
+    'profiles/R1234abcd.yaml': utf8.encode('''
+proxies:
+  - {name: node, type: direct}
+proxy-groups:
+  - {name: select, type: select, proxies: [node]}
+'''),
+    'providers/example/provider.yaml': utf8.encode(
+      'proxies:\n  - {name: node, type: direct}\n',
+    ),
+    'providers/example/profile.yaml': utf8.encode('''
+proxies:
+  - {name: node, type: direct}
+proxy-groups:
+  - {name: select, type: select, proxies: [node]}
+'''),
+    'providers/example/meta.json': utf8.encode(
+      '{"formatVersion":1,"subscriptionId":"sub-real","versionId":"version-real"}\n',
+    ),
+  };
+  final manifest = {
+    'format': 'mihomo-unified-backup',
+    'formatVersion': 1,
+    'archiveType': 'unified-subscription-archive',
+    'createdAt': '2026-07-15T00:00:00Z',
+    'generator': 'worker',
+    'generatorVersion': '1.0.0',
+    'publicBaseUrl': 'https://vault.example',
+    'mainConfig': {
+      'configId': 'legacy',
+      'versionId': 'legacy',
+      'name': 'Legacy',
+      'sourceSha256': '1' * 64,
+    },
+    'airports': [
+      {
+        'slug': 'example',
+        'subscriptionId': 'sub-real',
+        'name': 'Example',
+        'profileUid': 'R1234abcd',
+        'versionId': 'version-real',
+        'nodeCount': 1,
+        'providerSha256': sha256
+            .convert(files['providers/example/provider.yaml']!)
+            .toString(),
+        'profileSha256': sha256
+            .convert(files['providers/example/profile.yaml']!)
+            .toString(),
+      },
+    ],
+    'files': {
+      for (final entry in files.entries)
+        entry.key: {
+          'sha256': sha256.convert(entry.value).toString(),
+          'contentLength': entry.value.length,
+          'required':
+              entry.key == 'config.yaml' ||
+              entry.key == 'verge.yaml' ||
+              entry.key == 'profiles.yaml' ||
+              entry.key.startsWith('profiles/'),
+        },
+    },
+  };
+  final archive = Archive();
+  for (final entry in files.entries) {
+    archive.addFile(ArchiveFile.bytes(entry.key, entry.value));
+  }
+  archive.addFile(ArchiveFile.string('manifest.json', jsonEncode(manifest)));
+  return ZipEncoder().encode(archive);
 }

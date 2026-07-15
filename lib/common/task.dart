@@ -641,6 +641,7 @@ class ProfilesBackupMetadata {
   final List<Map<String, dynamic>>? links;
   final List<Map<String, dynamic>>? proxyGroups;
   final Map<String, dynamic>? config;
+  final String? workerUnifiedStatus;
 
   ProfilesBackupMetadata({
     required this.backupType,
@@ -653,6 +654,7 @@ class ProfilesBackupMetadata {
     this.links,
     this.proxyGroups,
     this.config,
+    this.workerUnifiedStatus,
   });
 
   Map<String, dynamic> toJson() => {
@@ -666,6 +668,7 @@ class ProfilesBackupMetadata {
     if (links != null) 'links': links,
     if (proxyGroups != null) 'proxyGroups': proxyGroups,
     if (config != null) 'config': config,
+    if (workerUnifiedStatus != null) 'workerUnifiedStatus': workerUnifiedStatus,
   };
 
   factory ProfilesBackupMetadata.fromJson(Map<String, dynamic> json) {
@@ -694,6 +697,7 @@ class ProfilesBackupMetadata {
       config: json['config'] is Map
           ? Map<String, dynamic>.from(json['config'] as Map)
           : null,
+      workerUnifiedStatus: json['workerUnifiedStatus'] as String?,
     );
   }
 }
@@ -739,6 +743,7 @@ Future<String> _backupProfilesOnlyTask(
   final config = backupPayload['config'] as Map<String, dynamic>?;
   final workerUnifiedArchive =
       backupPayload['workerUnifiedArchive'] as Uint8List?;
+  final workerUnifiedStatus = backupPayload['workerUnifiedStatus'] as String?;
 
   final profilesDir = Directory(await appPath.profilesPath);
   final scriptsDir = Directory(await appPath.scriptsDirPath);
@@ -758,6 +763,7 @@ Future<String> _backupProfilesOnlyTask(
     links: isV2 ? links : null,
     proxyGroups: isV2 ? proxyGroups : null,
     config: isV2 ? config : null,
+    workerUnifiedStatus: workerUnifiedStatus,
   );
   await tempMetaFile.writeAsString(json.encode(metadata.toJson()));
 
