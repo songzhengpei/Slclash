@@ -752,8 +752,14 @@ Future<String> _backupProfilesOnlyTask(
 
   final isV2 =
       scripts != null || rules != null || links != null || proxyGroups != null;
+  // v3 = v2 + Worker archive (Clash Verge Rev compatibility projections)
+  final isV3 = isV2 && workerUnifiedArchive != null;
   final metadata = ProfilesBackupMetadata(
-    backupType: isV2 ? profilesBackupTypeV2 : profilesBackupType,
+    backupType: isV3
+        ? profilesBackupTypeV3
+        : isV2
+            ? profilesBackupTypeV2
+            : profilesBackupType,
     createdAt: DateTime.now().toUtc().toIso8601String(),
     appVersion: appVersion,
     currentProfileId: currentProfileId,
@@ -780,6 +786,35 @@ Future<String> _backupProfilesOnlyTask(
       tempWorkerArchive,
       'subscription-center/worker-v1.zip',
     );
+
+    // v3: Add Clash Verge Rev compatibility projections
+    // Extract profiles.yaml and profiles/R*.yaml from the Worker capsule
+    final workerZip = ZipDecoder().decodeBytes(workerUnifiedArchive);
+    for (final file in workerZip.files) {
+      if (file.isFile) {
+        // Add profiles.yaml at root
+        if (file.name == 'profiles.yaml') {
+          final tempFile = File(await appPath.tempFilePath);
+          await tempFile.writeAsBytes(
+            file.content as List<int>,
+            flush: true,
+          );
+          await encoder.addFile(tempFile, 'profiles.yaml');
+          await tempFile.safeDelete();
+        }
+        // Add profiles/R*.yaml
+        if (file.name.startsWith('profiles/R') &&
+            file.name.endsWith('.yaml')) {
+          final tempFile = File(await appPath.tempFilePath);
+          await tempFile.writeAsBytes(
+            file.content as List<int>,
+            flush: true,
+          );
+          await encoder.addFile(tempFile, file.name);
+          await tempFile.safeDelete();
+        }
+      }
+    }
   }
   if (await profilesDir.exists()) {
     await encoder.addDirectory(
@@ -842,7 +877,9 @@ class ProfilesRestoreData {
   final List<Map<String, dynamic>>? links;
   final String backupType;
 
-  bool get isV2 => backupType == profilesBackupTypeV2;
+  bool get isV2 =>
+      backupType == profilesBackupTypeV2 ||
+      backupType == profilesBackupTypeV3;
 
   ProfilesRestoreData({
     required this.currentProfileId,
@@ -902,9 +939,11 @@ Future<ProfilesRestoreData> _restoreProfilesOnlyTask(
         json.decode(await metadataFile.readAsString()) as Map<String, dynamic>;
     final backupType = metadataMap['backupType'] as String? ?? '';
     if (backupType == profilesBackupType ||
-        backupType == profilesBackupTypeV2) {
+        backupType == profilesBackupTypeV2 ||
+        backupType == profilesBackupTypeV3) {
       final metadata = ProfilesBackupMetadata.fromJson(metadataMap);
-      final isV2 = backupType == profilesBackupTypeV2;
+      final isV2 = backupType == profilesBackupTypeV2 ||
+          backupType == profilesBackupTypeV3;
       // Copy yaml files
       final restoreProfilesDir = join(restoreDirPath, profilesBackupDirName);
       if (await Directory(restoreProfilesDir).exists()) {

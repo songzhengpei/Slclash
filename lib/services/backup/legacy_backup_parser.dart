@@ -51,6 +51,7 @@ class LegacyBackupParser {
     switch (format) {
       case BackupFormat.profilesOnlyV1:
       case BackupFormat.profilesOnlyV2:
+      case BackupFormat.profilesOnlyV3:
         final metadata = _jsonObject(files['metadata.json']!, 'metadata.json');
         _validateProfiles(metadata);
         return LegacyParsedPackage(

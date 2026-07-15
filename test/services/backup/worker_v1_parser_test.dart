@@ -25,11 +25,19 @@ void main() {
     });
 
     test('rejects an unsupported version', () {
-      final manifest = _manifest(_payloadFiles())..['formatVersion'] = 2;
+      final manifest = _manifest(_payloadFiles())..['formatVersion'] = 3;
       _expectCode(
         _archive(_payloadFiles(), manifest: manifest),
         BackupErrorCode.unsupportedFormat,
       );
+    });
+
+    test('accepts formatVersion 2', () {
+      final manifest = _manifest(_payloadFiles())..['formatVersion'] = 2;
+      final result = WorkerV1Parser().parse(
+        _archive(_payloadFiles(), manifest: manifest),
+      );
+      expect(result.manifest.raw['formatVersion'], 2);
     });
 
     test('rejects a content hash mismatch', () {

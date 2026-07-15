@@ -31,7 +31,8 @@ class WorkerV1Parser {
     final rawManifest = _decodeJsonMap(manifestBytes);
     if (rawManifest['format'] != 'mihomo-unified-backup' ||
         rawManifest['archiveType'] != 'unified-subscription-archive' ||
-        rawManifest['formatVersion'] != 1) {
+        (rawManifest['formatVersion'] != 1 &&
+            rawManifest['formatVersion'] != 2)) {
       throw const BackupFormatException(
         BackupErrorCode.unsupportedFormat,
         'Backup format or version is not supported',
@@ -180,6 +181,23 @@ class WorkerV1Parser {
           BackupErrorCode.hashMismatch,
           'Airport artifact hashes do not match the manifest',
         );
+      }
+    }
+    // v2: Add dependency files to allowed set
+    if (manifest['formatVersion'] == 2) {
+      final dependencies = manifest['dependencies'];
+      if (dependencies is List) {
+        allowed.add('dependencies/');
+        for (final dep in dependencies) {
+          if (dep is Map && dep['slug'] is String) {
+            final depSlug = dep['slug'] as String;
+            allowed.add('dependencies/$depSlug/');
+            allowed.add('dependencies/$depSlug/raw.yaml');
+            allowed.add('dependencies/$depSlug/provider.yaml');
+            allowed.add('dependencies/$depSlug/profile.yaml');
+            allowed.add('dependencies/$depSlug/meta.json');
+          }
+        }
       }
     }
     if (files.keys.toSet().difference(allowed).isNotEmpty ||

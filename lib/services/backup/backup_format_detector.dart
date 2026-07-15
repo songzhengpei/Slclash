@@ -10,6 +10,7 @@ enum BackupFormat {
   workerUnifiedV1,
   profilesOnlyV1,
   profilesOnlyV2,
+  profilesOnlyV3,
   traditional,
   legacyConfigOnly,
 }
@@ -36,6 +37,7 @@ class BackupFormatDetector {
       return switch (metadata['backupType']) {
         'profiles_only_v1' => BackupFormat.profilesOnlyV1,
         'profiles_only_v2' => BackupFormat.profilesOnlyV2,
+        'profiles_only_v3' => BackupFormat.profilesOnlyV3,
         final Object? value => throw BackupFormatException(
           BackupErrorCode.unsupportedFormat,
           'Unsupported profiles backup type: ${value ?? '(missing)'}',
