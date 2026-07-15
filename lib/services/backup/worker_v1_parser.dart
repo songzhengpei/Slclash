@@ -187,11 +187,9 @@ class WorkerV1Parser {
     if (manifest['formatVersion'] == 2) {
       final dependencies = manifest['dependencies'];
       if (dependencies is List) {
-        allowed.add('dependencies/');
         for (final dep in dependencies) {
           if (dep is Map && dep['slug'] is String) {
             final depSlug = dep['slug'] as String;
-            allowed.add('dependencies/$depSlug/');
             allowed.add('dependencies/$depSlug/raw.yaml');
             allowed.add('dependencies/$depSlug/provider.yaml');
             allowed.add('dependencies/$depSlug/profile.yaml');

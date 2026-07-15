@@ -363,8 +363,8 @@ Uint8List? _validatedEmbeddedWorkerArchiveV3(
   // v3: Validate outer profiles.yaml matches embedded Worker capsule
   final outerProfilesYaml = package.files['profiles.yaml'];
   final innerProfilesYaml = worker.files['profiles.yaml'];
-  if (outerProfilesYaml != null &&
-      innerProfilesYaml != null &&
+  if (outerProfilesYaml == null ||
+      innerProfilesYaml == null ||
       !_sameBytes(outerProfilesYaml, innerProfilesYaml)) {
     throw const BackupFormatException(
       BackupErrorCode.hashMismatch,
@@ -398,8 +398,8 @@ Uint8List? _validatedEmbeddedWorkerArchiveV3(
     // v3: Validate outer profiles/R*.yaml matches embedded Worker capsule
     final outerRYaml = package.files['profiles/$uid.yaml'];
     final innerRYaml = worker.files['profiles/$uid.yaml'];
-    if (outerRYaml != null &&
-        innerRYaml != null &&
+    if (outerRYaml == null ||
+        innerRYaml == null ||
         !_sameBytes(outerRYaml, innerRYaml)) {
       throw BackupFormatException(
         BackupErrorCode.hashMismatch,
