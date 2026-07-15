@@ -36,6 +36,14 @@ class RestoreBundle {
   final List<StagedRestoreFile> files;
   final ProviderCachePolicy providerCachePolicy;
 
+  /// Original, fully validated Worker v1 archive retained in normal backups.
+  ///
+  /// Worker v1 carries immutable identity metadata that cannot be reconstructed
+  /// from the Slclash profile database. Keeping the validated bytes prevents
+  /// Slclash from guessing or impersonating a Worker-produced archive.
+  final Uint8List? workerUnifiedArchive;
+  final bool replaceWorkerUnifiedArchive;
+
   const RestoreBundle({
     required this.sourceFormat,
     required this.profiles,
@@ -47,6 +55,8 @@ class RestoreBundle {
     this.currentProfileId,
     this.files = const [],
     this.providerCachePolicy = ProviderCachePolicy.preserve,
+    this.workerUnifiedArchive,
+    this.replaceWorkerUnifiedArchive = false,
   });
 }
 

@@ -10,6 +10,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
+import 'package:fl_clash/services/backup/worker_v1_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -90,13 +91,16 @@ void main() {
       await temp.delete(recursive: true);
     });
 
+    final snapshotPath = p.join(temp.path, 'unified', 'worker-v1.zip');
+    final archiveBytes = _workerArchive();
     final result = await UnifiedBackupService(
       database: db,
       paths: RestorePaths(
         profilesDirectory: p.join(temp.path, 'profiles'),
         scriptsDirectory: p.join(temp.path, 'scripts'),
+        workerUnifiedArchivePath: snapshotPath,
       ),
-    ).restoreBytes(_workerArchive(), override: true);
+    ).restoreBytes(archiveBytes, override: true);
 
     final profile = (await db.profilesDao.query().get()).single;
     expect(profile.url, 'https://vault.example/config/example/fixed-token');
@@ -107,6 +111,58 @@ void main() {
       ).readAsString(),
       'proxies: []\n',
     );
+    expect(await File(snapshotPath).readAsBytes(), archiveBytes);
+    expect(
+      const WorkerV1Parser()
+          .parse(await File(snapshotPath).readAsBytes())
+          .manifest
+          .airports
+          .length,
+      1,
+    );
+  });
+
+  test('Slclash v2 backup preserves its embedded Worker snapshot', () async {
+    final temp = await Directory.systemTemp.createTemp('unified-wrapper-test-');
+    final db = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await db.close();
+      await temp.delete(recursive: true);
+    });
+    final worker = _workerArchive();
+    final id = int.parse('1234abcd', radix: 16);
+    final metadata = {
+      'backupType': 'profiles_only_v2',
+      'currentProfileId': id,
+      'profiles': [
+        {
+          'id': id,
+          'label': 'Example',
+          'url': 'https://vault.example/config/example/fixed-token',
+        },
+      ],
+      'scripts': <Object>[],
+      'rules': <Object>[],
+      'links': <Object>[],
+      'proxyGroups': <Object>[],
+    };
+    final outer = Archive()
+      ..addFile(ArchiveFile.string('metadata.json', jsonEncode(metadata)))
+      ..addFile(ArchiveFile.string('profiles/$id.yaml', 'proxies: []\n'))
+      ..addFile(ArchiveFile.bytes('subscription-center/worker-v1.zip', worker));
+    final snapshot = p.join(temp.path, 'unified', 'worker-v1.zip');
+    await UnifiedBackupService(
+      database: db,
+      paths: RestorePaths(
+        profilesDirectory: p.join(temp.path, 'profiles'),
+        scriptsDirectory: p.join(temp.path, 'scripts'),
+        workerUnifiedArchivePath: snapshot,
+      ),
+    ).restoreBytes(
+      Uint8List.fromList(ZipEncoder().encode(outer)),
+      override: true,
+    );
+    expect(await File(snapshot).readAsBytes(), worker);
   });
 
   test(

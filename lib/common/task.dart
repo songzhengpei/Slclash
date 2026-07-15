@@ -737,6 +737,8 @@ Future<String> _backupProfilesOnlyTask(
   final proxyGroups = (backupPayload['proxyGroups'] as List?)
       ?.cast<Map<String, dynamic>>();
   final config = backupPayload['config'] as Map<String, dynamic>?;
+  final workerUnifiedArchive =
+      backupPayload['workerUnifiedArchive'] as Uint8List?;
 
   final profilesDir = Directory(await appPath.profilesPath);
   final scriptsDir = Directory(await appPath.scriptsDirPath);
@@ -760,8 +762,19 @@ Future<String> _backupProfilesOnlyTask(
   await tempMetaFile.writeAsString(json.encode(metadata.toJson()));
 
   final encoder = ZipFileEncoder();
-  encoder.create(tempZipFilePath);
+  // Store entries without deflate so the same bounded ZIP reader contract can
+  // be used by Slclash and Cloudflare Workers.
+  encoder.create(tempZipFilePath, level: ZipFileEncoder.store);
   await encoder.addFile(tempMetaFile, profilesBackupMetadataName);
+  File? tempWorkerArchive;
+  if (workerUnifiedArchive != null) {
+    tempWorkerArchive = File(await appPath.tempFilePath);
+    await tempWorkerArchive.writeAsBytes(workerUnifiedArchive, flush: true);
+    await encoder.addFile(
+      tempWorkerArchive,
+      'subscription-center/worker-v1.zip',
+    );
+  }
   if (await profilesDir.exists()) {
     await encoder.addDirectory(
       profilesDir,
@@ -811,6 +824,7 @@ Future<String> _backupProfilesOnlyTask(
 
   encoder.close();
   await tempMetaFile.safeDelete();
+  await tempWorkerArchive?.safeDelete();
   return tempZipFilePath;
 }
 

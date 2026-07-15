@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
@@ -17,6 +18,7 @@ import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/backup_config.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
+import 'package:fl_clash/services/backup/worker_v1_parser.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/input.dart';
@@ -1149,6 +1151,13 @@ class BackupAction extends _$BackupAction {
     }).toList();
     final proxyGroupsFromDb = await database.proxyGroupsDao.queryAll().get();
 
+    Uint8List? workerUnifiedArchive;
+    final workerArchiveFile = File(await appPath.workerUnifiedArchivePath);
+    if (await workerArchiveFile.exists()) {
+      workerUnifiedArchive = await workerArchiveFile.readAsBytes();
+      const WorkerV1Parser().parse(workerUnifiedArchive);
+    }
+
     final backupPayload = <String, dynamic>{
       'profiles': profilesJson,
       'yamlFileNames': profileFileNames,
@@ -1158,6 +1167,7 @@ class BackupAction extends _$BackupAction {
       'links': linkJsons,
       'proxyGroups': proxyGroupsFromDb.map((group) => group.toJson()).toList(),
       'config': backupConfigJson(ref.read(configProvider)),
+      'workerUnifiedArchive': ?workerUnifiedArchive,
     };
     return backupProfilesOnlyTask(backupPayload, currentProfileId, appVersion);
   }
@@ -1174,6 +1184,7 @@ class BackupAction extends _$BackupAction {
           paths: RestorePaths(
             profilesDirectory: await appPath.profilesPath,
             scriptsDirectory: await appPath.scriptsDirPath,
+            workerUnifiedArchivePath: await appPath.workerUnifiedArchivePath,
           ),
           validateProfileYaml: (profileId, bytes) async {
             final temporary = File(await appPath.tempFilePath);

@@ -16,10 +16,12 @@ typedef RestoreConfigWriter = Future<bool> Function(Config config);
 class RestorePaths {
   final String profilesDirectory;
   final String scriptsDirectory;
+  final String? workerUnifiedArchivePath;
 
   const RestorePaths({
     required this.profilesDirectory,
     required this.scriptsDirectory,
+    this.workerUnifiedArchivePath,
   });
 
   String get providersDirectory => p.join(profilesDirectory, 'providers');
@@ -56,6 +58,9 @@ class RestoreService {
         : (bundle.profiles.isEmpty ? null : bundle.profiles.first.id);
     final touched = <String>{
       ...bundle.files.map((e) => _targetFor(e.relativePath)),
+      if (bundle.replaceWorkerUnifiedArchive &&
+          paths.workerUnifiedArchivePath != null)
+        paths.workerUnifiedArchivePath!,
       if (bundle.providerCachePolicy ==
           ProviderCachePolicy.invalidateRestoredProfiles)
         ...profileIds.map((id) => p.join(paths.providersDirectory, '$id')),
@@ -99,6 +104,7 @@ class RestoreService {
             oldProfiles: oldProfiles,
             oldScripts: oldScripts,
           );
+          await _commitWorkerArchive(bundle);
           if (restoredConfig case final config?) {
             final writer = writeConfig;
             configWritten = writer != null;
@@ -138,6 +144,12 @@ class RestoreService {
     _requireUnique(bundle.scripts.map((e) => e.id), 'script id');
     _requireUnique(bundle.rules.map((e) => e.id), 'rule id');
     _requireUnique(bundle.files.map((e) => e.relativePath), 'file path');
+    if (bundle.workerUnifiedArchive != null &&
+        paths.workerUnifiedArchivePath == null) {
+      throw const RestoreValidationException(
+        'Worker unified archive storage is not configured',
+      );
+    }
 
     final profileIds = bundle.profiles.map((e) => e.id).toSet();
     final scriptIds = bundle.scripts.map((e) => e.id).toSet();
@@ -291,6 +303,23 @@ class RestoreService {
         if (await dir.exists()) await dir.delete(recursive: true);
       }
     }
+  }
+
+  Future<void> _commitWorkerArchive(RestoreBundle bundle) async {
+    if (!bundle.replaceWorkerUnifiedArchive) return;
+    final archivePath = paths.workerUnifiedArchivePath;
+    if (archivePath == null) return;
+    final target = File(archivePath);
+    final bytes = bundle.workerUnifiedArchive;
+    if (bytes == null) {
+      await target.deleteIfExists();
+      return;
+    }
+    await target.parent.create(recursive: true);
+    final temporary = File('${target.path}.restore-tmp');
+    await temporary.writeAsBytes(bytes, flush: true);
+    await target.deleteIfExists();
+    await temporary.rename(target.path);
   }
 }
 

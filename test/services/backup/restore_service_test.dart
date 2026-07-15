@@ -230,6 +230,78 @@ void main() {
     expect(storedConfig.overrideDns, false);
   });
 
+  test(
+    'restore failure preserves the previous Worker archive snapshot',
+    () async {
+      final archivePath = p.join(temp.path, 'unified', 'worker-v1.zip');
+      final oldArchive = File(archivePath);
+      await oldArchive.parent.create(recursive: true);
+      await oldArchive.writeAsString('old-archive');
+      final service = RestoreService(
+        database: db,
+        paths: RestorePaths(
+          profilesDirectory: paths.profilesDirectory,
+          scriptsDirectory: paths.scriptsDirectory,
+          workerUnifiedArchivePath: archivePath,
+        ),
+        readConfig: () async => const Config(themeProps: defaultThemeProps),
+        writeConfig: (_) async => false,
+      );
+
+      await expectLater(
+        service.restore(
+          RestoreBundle(
+            sourceFormat: BackupSourceFormat.workerUnifiedV1,
+            profiles: [profile(1)],
+            config: const Config(themeProps: defaultThemeProps),
+            workerUnifiedArchive: Uint8List.fromList('new-archive'.codeUnits),
+            replaceWorkerUnifiedArchive: true,
+            files: [
+              StagedRestoreFile(
+                relativePath: 'profiles/1.yaml',
+                bytes: Uint8List.fromList('proxies: []'.codeUnits),
+              ),
+            ],
+          ),
+        ),
+        throwsA(isA<RestoreValidationException>()),
+      );
+
+      expect(await oldArchive.readAsString(), 'old-archive');
+      expect(await db.profilesDao.query().get(), isEmpty);
+    },
+  );
+
+  test('restore without a Worker snapshot clears the stale snapshot', () async {
+    final archivePath = p.join(temp.path, 'unified', 'worker-v1.zip');
+    final oldArchive = File(archivePath);
+    await oldArchive.parent.create(recursive: true);
+    await oldArchive.writeAsString('stale-archive');
+
+    await RestoreService(
+      database: db,
+      paths: RestorePaths(
+        profilesDirectory: paths.profilesDirectory,
+        scriptsDirectory: paths.scriptsDirectory,
+        workerUnifiedArchivePath: archivePath,
+      ),
+    ).restore(
+      RestoreBundle(
+        sourceFormat: BackupSourceFormat.slclashProfilesV2,
+        profiles: [profile(1)],
+        replaceWorkerUnifiedArchive: true,
+        files: [
+          StagedRestoreFile(
+            relativePath: 'profiles/1.yaml',
+            bytes: Uint8List.fromList('proxies: []'.codeUnits),
+          ),
+        ],
+      ),
+    );
+
+    expect(await oldArchive.exists(), false);
+  });
+
   test('restored settings retain current device WebDAV credentials', () async {
     const localDav = DAVProps(
       uri: 'https://local.example/dav',

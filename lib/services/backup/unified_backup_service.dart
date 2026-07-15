@@ -39,6 +39,7 @@ class UnifiedBackupService {
     final bundle = switch (format) {
       BackupFormat.workerUnifiedV1 => _workerBundle(
         const WorkerV1Parser().parse(bytes),
+        bytes,
       ),
       _ => await _legacyBundle(const LegacyBackupParser().parseBytes(bytes)),
     };
@@ -51,7 +52,7 @@ class UnifiedBackupService {
     ).restore(bundle, override: override);
   }
 
-  RestoreBundle _workerBundle(WorkerV1Package package) {
+  RestoreBundle _workerBundle(WorkerV1Package package, Uint8List archiveBytes) {
     final publicBaseUrl = package.manifest.raw['publicBaseUrl'] as String;
     final items = package.profilesYaml['items'];
     if (items is! List || items.isEmpty) {
@@ -152,6 +153,8 @@ class UnifiedBackupService {
       currentProfileId: uidToId[currentUid],
       files: files,
       providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
+      workerUnifiedArchive: Uint8List.fromList(archiveBytes),
+      replaceWorkerUnifiedArchive: true,
     );
   }
 
@@ -189,6 +192,10 @@ class UnifiedBackupService {
           ? Map<String, dynamic>.from(package.metadata['config'] as Map)
           : package.config,
     );
+    final workerUnifiedArchive = _validatedEmbeddedWorkerArchive(
+      package,
+      profiles,
+    );
     return RestoreBundle(
       sourceFormat: isV2
           ? BackupSourceFormat.slclashProfilesV2
@@ -206,6 +213,8 @@ class UnifiedBackupService {
       // Provider caches are derived data. Invalidating them prevents restored
       // metadata and stale cache contents from disagreeing.
       providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
+      workerUnifiedArchive: workerUnifiedArchive,
+      replaceWorkerUnifiedArchive: true,
     );
   }
 
@@ -234,12 +243,62 @@ class UnifiedBackupService {
         currentProfileId: package.currentProfileId,
         files: _currentFiles(package.files, profiles, scripts),
         providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
+        replaceWorkerUnifiedArchive: true,
       );
     } finally {
       await old.close();
       await temp.delete(recursive: true);
     }
   }
+}
+
+Uint8List? _validatedEmbeddedWorkerArchive(
+  LegacyParsedPackage package,
+  List<Profile> profiles,
+) {
+  final bytes = package.files['subscription-center/worker-v1.zip'];
+  if (bytes == null) return null;
+  final worker = const WorkerV1Parser().parse(bytes);
+  final outerProfiles = {for (final profile in profiles) profile.id: profile};
+  final items = worker.profilesYaml['items'];
+  if (items is! List) {
+    throw const BackupFormatException(
+      BackupErrorCode.invalidProfiles,
+      'Embedded subscription-center snapshot has invalid profiles',
+    );
+  }
+  for (final value in items) {
+    if (value is! Map || value['uid'] is! String || value['file'] is! String) {
+      throw const BackupFormatException(
+        BackupErrorCode.invalidProfiles,
+        'Embedded subscription-center snapshot has invalid profile identity',
+      );
+    }
+    final uid = value['uid'] as String;
+    final id = int.parse(uid.substring(1), radix: 16);
+    final outer = outerProfiles[id];
+    final innerYaml = worker.files['profiles/${value['file']}'];
+    final outerYaml = package.files['profiles/$id.yaml'];
+    if (outer == null ||
+        outer.url != value['url'] ||
+        innerYaml == null ||
+        outerYaml == null ||
+        !_sameBytes(innerYaml, outerYaml)) {
+      throw const BackupFormatException(
+        BackupErrorCode.hashMismatch,
+        'Slclash backup and subscription-center snapshot disagree',
+      );
+    }
+  }
+  return Uint8List.fromList(bytes);
+}
+
+bool _sameBytes(List<int> left, List<int> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 List<StagedRestoreFile> _currentFiles(
