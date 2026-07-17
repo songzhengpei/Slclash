@@ -211,6 +211,33 @@ void main() {
       {'allow_auto_update': false, 'update_interval': 1440},
     ]);
   });
+
+  test('accepts the custom domain as the same trusted Worker', () {
+    final profile = UnifiedExportProfile(
+      androidId: 0x10000000,
+      name: 'Worker Profile',
+      yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
+      updated: 1700000000,
+      autoUpdate: false,
+      updateIntervalMinutes: 60,
+    );
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: [profile],
+        currentAndroidId: profile.androidId,
+        trustedArchive: Uint8List.fromList(
+          _trustedArchive(publicBaseUrl: unifiedBackupCustomBaseUrl),
+        ),
+        generatorVersion: '1.0.0',
+      ),
+    );
+    final parsed = const WorkerV1Parser().parse(bytes);
+    expect(parsed.manifest.raw['publicBaseUrl'], unifiedBackupCustomBaseUrl);
+    expect(
+      ((parsed.profilesYaml['items'] as List).single as Map)['url'],
+      startsWith('$unifiedBackupCustomBaseUrl/config/'),
+    );
+  });
 }
 
 String _profileYaml(int index) =>
@@ -223,7 +250,7 @@ proxy-groups:
     proxies: [node-$index]
 ''';
 
-List<int> _trustedArchive() {
+List<int> _trustedArchive({String publicBaseUrl = unifiedBackupPublicBaseUrl}) {
   final files = <String, List<int>>{
     'config.yaml': utf8.encode('mixed-port: 7890\nproxy-providers: {}\n'),
     'verge.yaml': utf8.encode('{}\n'),
@@ -245,7 +272,7 @@ List<int> _trustedArchive() {
       'type': 'remote',
       'name': 'Worker $i',
       'file': '$uid.yaml',
-      'url': '$unifiedBackupPublicBaseUrl/config/$slug/fixed-token',
+      'url': '$publicBaseUrl/config/$slug/fixed-token',
     });
     airports.add({
       'slug': slug,
@@ -277,7 +304,7 @@ ${items.map((item) => '''  - uid: ${item['uid']}
     'createdAt': '2026-07-17T00:00:00Z',
     'generator': 'worker',
     'generatorVersion': '1.0.0',
-    'publicBaseUrl': unifiedBackupPublicBaseUrl,
+    'publicBaseUrl': publicBaseUrl,
     'mainConfig': {
       'configId': 'main',
       'versionId': 'v1',

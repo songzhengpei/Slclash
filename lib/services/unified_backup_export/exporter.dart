@@ -34,9 +34,10 @@ class UnifiedV1Exporter {
     final createdAt = input.createdAt ?? DateTime.now();
     final trusted = const WorkerV1Parser().parse(input.trustedArchive);
     final trustedBase = trusted.manifest.raw['publicBaseUrl'];
-    if (trustedBase != unifiedBackupPublicBaseUrl) {
+    if (!isTrustedUnifiedBackupBaseUrl(trustedBase)) {
       throw StateError('Trusted archive belongs to another Worker');
     }
+    final outputBaseUrl = trustedBase as String;
     final trustedItems = (trusted.profilesYaml['items'] as List)
         .cast<Map>()
         .map((item) => Map<String, Object?>.from(item))
@@ -132,8 +133,7 @@ class UnifiedV1Exporter {
       );
       providers[identity.slug] = {
         'type': 'http',
-        'url':
-            '$unifiedBackupPublicBaseUrl/provider/${identity.slug}/$fixedToken',
+        'url': '$outputBaseUrl/provider/${identity.slug}/$fixedToken',
         'path': './providers/${identity.slug}.yaml',
         'interval': profile.updateIntervalMinutes * 60,
       };
@@ -143,8 +143,7 @@ class UnifiedV1Exporter {
         'type': 'remote',
         'name': profile.name,
         'file': '${identity.profileUid}.yaml',
-        'url':
-            '$unifiedBackupPublicBaseUrl/config/${identity.slug}/$fixedToken',
+        'url': '$outputBaseUrl/config/${identity.slug}/$fixedToken',
         'updated': profile.updated,
         'option': {
           'allow_auto_update': profile.autoUpdate,
@@ -188,7 +187,7 @@ class UnifiedV1Exporter {
       mainConfig: Map<String, Object?>.from(
         trusted.manifest.raw['mainConfig'] as Map,
       ),
-      publicBaseUrl: unifiedBackupPublicBaseUrl,
+      publicBaseUrl: outputBaseUrl,
     );
     final archive = Archive();
     for (final entry in files.entries) {

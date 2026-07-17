@@ -6,7 +6,15 @@ import 'models.dart';
 
 const unifiedBackupPublicBaseUrl =
     'https://mihomo-subscription-vault.nudymanu.workers.dev';
+const unifiedBackupCustomBaseUrl = 'https://sub.misaeng.eu.org';
+const unifiedBackupTrustedBaseUrls = <String>{
+  unifiedBackupPublicBaseUrl,
+  unifiedBackupCustomBaseUrl,
+};
 const _identityNamespace = 'slclash-unified-backup-v1';
+
+bool isTrustedUnifiedBackupBaseUrl(Object? value) =>
+    value is String && unifiedBackupTrustedBaseUrls.contains(value);
 
 UnifiedIdentity deriveUnifiedIdentity(int androidId) {
   final digest = sha256
