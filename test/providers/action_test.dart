@@ -6,6 +6,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  group('ensureRestoreValidationCoreReady', () {
+    test('connects and initializes the core once before validation', () async {
+      var connectCalls = 0;
+      var initCalls = 0;
+      final ready = await ensureRestoreValidationCoreReady(
+        isConnected: false,
+        connectCore: () async {
+          connectCalls++;
+          return true;
+        },
+        isCoreInitialized: () async => false,
+        initializeCore: () async {
+          initCalls++;
+          return true;
+        },
+      );
+
+      expect(ready, isTrue);
+      expect(connectCalls, 1);
+      expect(initCalls, 1);
+    });
+
+    test('does not reconnect or initialize an available core', () async {
+      var connectCalls = 0;
+      var initCalls = 0;
+      final ready = await ensureRestoreValidationCoreReady(
+        isConnected: true,
+        connectCore: () async {
+          connectCalls++;
+          return true;
+        },
+        isCoreInitialized: () async => true,
+        initializeCore: () async {
+          initCalls++;
+          return true;
+        },
+      );
+
+      expect(ready, isTrue);
+      expect(connectCalls, 0);
+      expect(initCalls, 0);
+    });
+  });
+
   test('activation failure remains a committed restore outcome', () async {
     final outcome = await activateCommittedRestore(
       applyProfile: () async => false,

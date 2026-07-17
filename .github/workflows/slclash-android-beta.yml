@@ -56,7 +56,10 @@ jobs:
             exit 1
           fi
 
-          VERSION_NAME="${TAG_NAME}"
+          # Beta builds use a sentinel version so they never prompt for a
+          # stable GitHub release as an update. Stable builds still derive
+          # their version from the release tag in the release workflow.
+          VERSION_NAME="9.9.9"
           BUILD_NUMBER="$(date -u +%s)"
 
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
