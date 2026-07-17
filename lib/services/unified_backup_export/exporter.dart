@@ -20,6 +20,17 @@ class UnifiedV1Exporter {
     if (input.profiles.isEmpty) {
       throw StateError('Cannot export an empty unified archive');
     }
+    for (final profile in input.profiles) {
+      if (profile.updateIntervalMinutes <= 0 ||
+          profile.updateIntervalMinutes > maxClientUpdateIntervalMinutes) {
+        throw RangeError.range(
+          profile.updateIntervalMinutes,
+          1,
+          maxClientUpdateIntervalMinutes,
+          'updateIntervalMinutes',
+        );
+      }
+    }
     final createdAt = input.createdAt ?? DateTime.now();
     final trusted = const WorkerV1Parser().parse(input.trustedArchive);
     final trustedBase = trusted.manifest.raw['publicBaseUrl'];
@@ -78,7 +89,10 @@ class UnifiedV1Exporter {
           'subscriptionUserinfo': _subscriptionUserinfo(
             profile.subscriptionInfo!,
           ),
-        'profileUpdateInterval': profile.updateIntervalMinutes.toString(),
+        'clientUpdatePolicy': {
+          'allowAutoUpdate': profile.autoUpdate,
+          'updateIntervalMinutes': profile.updateIntervalMinutes,
+        },
       };
       final meta = <String, Object?>{
         'schemaVersion': 1,

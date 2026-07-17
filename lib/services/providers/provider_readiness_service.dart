@@ -176,6 +176,7 @@ class ProviderReadinessService<P, G> {
         );
       }
 
+      var appliedForMissingProviders = forceApply;
       var appliedAfterEmptyGroups = forceApply;
       var interval = const Duration(milliseconds: 250);
       while (watch.elapsed < timeout) {
@@ -191,6 +192,21 @@ class ProviderReadinessService<P, G> {
             result(ProviderReadinessStatus.failed),
             watch.elapsed,
           );
+          if (definitions.proxy &&
+              proxyProviders == 0 &&
+              !appliedForMissingProviders) {
+            if (changed()) return changedResult();
+            await applyProfileForDisplay();
+            appliedForMissingProviders = true;
+            appliedAfterEmptyGroups = true;
+            if (changed()) return changedResult();
+            log?.call(
+              'provider-readiness:profile-applied-for-missing-providers',
+              result(ProviderReadinessStatus.failed),
+              watch.elapsed,
+            );
+            continue;
+          }
           if (!definitions.proxy || proxyProviders > 0) {
             final groups = await readGroups();
             groupCount = groups.length;

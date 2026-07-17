@@ -23,6 +23,7 @@ void main() {
     Future<List<_Provider>> Function()? providers,
     Future<List<int>> Function()? groups,
     Future<void> Function(List<_Provider>, List<int>)? commit,
+    bool forceApply = true,
     Duration timeout = const Duration(milliseconds: 120),
   }) => (instance ?? service()).ensureCurrentProfileReady(
     targetProfileId: target,
@@ -36,7 +37,7 @@ void main() {
     readGroups: groups ?? () async => const [1],
     groupsAreValid: (value) => value.isNotEmpty && value.every((e) => e > 0),
     commitReady: commit ?? (_, _) async {},
-    forceApply: true,
+    forceApply: forceApply,
     timeout: timeout,
   );
 
@@ -69,6 +70,53 @@ void main() {
     expect(result.status, ProviderReadinessStatus.ready);
     expect(calls, 2);
   });
+
+  test(
+    'missing proxy Provider triggers one apply without forceApply',
+    () async {
+      var syncCalls = 0;
+      var applyCalls = 0;
+      final result = await run(
+        forceApply: false,
+        apply: () async => applyCalls++,
+        providers: () async =>
+            ++syncCalls == 1 ? const [] : const [_Provider(true)],
+        timeout: const Duration(seconds: 1),
+      );
+      expect(result.status, ProviderReadinessStatus.ready);
+      expect(applyCalls, 1);
+      expect(syncCalls, 2);
+    },
+  );
+
+  test('missing proxy Provider applies only once before timeout', () async {
+    var applyCalls = 0;
+    final result = await run(
+      forceApply: false,
+      apply: () async => applyCalls++,
+      providers: () async => const [],
+      timeout: const Duration(milliseconds: 40),
+    );
+    expect(result.status, ProviderReadinessStatus.timeout);
+    expect(applyCalls, 1);
+  });
+
+  test(
+    'profile change during missing Provider apply prevents commit',
+    () async {
+      var current = 1;
+      var commits = 0;
+      final result = await run(
+        forceApply: false,
+        current: () => current,
+        providers: () async => const [],
+        apply: () async => current = 2,
+        commit: (_, _) async => commits++,
+      );
+      expect(result.status, ProviderReadinessStatus.profileChanged);
+      expect(commits, 0);
+    },
+  );
 
   test('groups initially empty then become valid', () async {
     var calls = 0;

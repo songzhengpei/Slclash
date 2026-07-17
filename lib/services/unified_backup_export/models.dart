@@ -20,6 +20,8 @@ class UnifiedExportProfile {
   final Map<String, int>? subscriptionInfo;
 }
 
+const maxClientUpdateIntervalMinutes = 153722867280;
+
 class UnifiedExportInput {
   const UnifiedExportInput({
     required this.profiles,

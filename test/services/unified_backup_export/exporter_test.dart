@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -76,8 +77,19 @@ void main() {
         utf8.decode(parsed.files['providers/$slug/provider.yaml']!),
         contains('node-4'),
       );
-    final manifestFiles = parsed.manifest.files.keys.toSet();
-    expect(manifestFiles, names.difference({'manifest.json'}));
+      final localMeta =
+          jsonDecode(utf8.decode(parsed.files['providers/$slug/meta.json']!))
+              as Map<String, dynamic>;
+      expect(localMeta['distribution']['clientUpdatePolicy'], {
+        'allowAutoUpdate': true,
+        'updateIntervalMinutes': 120,
+      });
+      expect(
+        localMeta['distribution'],
+        isNot(contains('profileUpdateInterval')),
+      );
+      final manifestFiles = parsed.manifest.files.keys.toSet();
+      expect(manifestFiles, names.difference({'manifest.json'}));
     },
   );
 
@@ -102,6 +114,102 @@ void main() {
       ),
       throwsA(anything),
     );
+  });
+
+  test('preserves disabled auto update and rejects invalid intervals', () {
+    final profile = UnifiedExportProfile(
+      androidId: 999999999,
+      name: '备用',
+      yaml: Uint8List.fromList(utf8.encode(_profileYaml(4))),
+      updated: 1700000000,
+      autoUpdate: false,
+      updateIntervalMinutes: 1440,
+    );
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: [profile],
+        currentAndroidId: profile.androidId,
+        trustedArchive: Uint8List.fromList(_trustedArchive()),
+        generatorVersion: '1.0.0',
+        createdAt: DateTime.utc(2026, 7, 17),
+      ),
+    );
+    final parsed = const WorkerV1Parser().parse(bytes);
+    final item = (parsed.profilesYaml['items'] as List).single as Map;
+    expect(item['option'], {
+      'allow_auto_update': false,
+      'update_interval': 1440,
+    });
+
+    expect(
+      () => const UnifiedV1Exporter().build(
+        UnifiedExportInput(
+          profiles: [
+            UnifiedExportProfile(
+              androidId: 1,
+              name: 'invalid',
+              yaml: Uint8List(1),
+              updated: 0,
+              autoUpdate: false,
+              updateIntervalMinutes: 0,
+            ),
+          ],
+          currentAndroidId: 1,
+          trustedArchive: Uint8List(0),
+          generatorVersion: '1.0.0',
+        ),
+      ),
+      throwsRangeError,
+    );
+  });
+
+  test('generates the client policy cross-repository fixture', () {
+    final profiles = [
+      UnifiedExportProfile(
+        androidId: 0x10000000,
+        name: 'Worker Profile',
+        yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
+        updated: 1700000000,
+        autoUpdate: false,
+        updateIntervalMinutes: 60,
+      ),
+      UnifiedExportProfile(
+        androidId: 0x10000001,
+        name: 'Slclash Remote',
+        yaml: Uint8List.fromList(utf8.encode(_profileYaml(1))),
+        updated: 1700000001,
+        autoUpdate: true,
+        updateIntervalMinutes: 1440,
+      ),
+      UnifiedExportProfile(
+        androidId: 999999999,
+        name: '备用',
+        yaml: Uint8List.fromList(utf8.encode(_profileYaml(2))),
+        updated: 1700000002,
+        autoUpdate: false,
+        updateIntervalMinutes: 1440,
+      ),
+    ];
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: profiles,
+        currentAndroidId: profiles[1].androidId,
+        trustedArchive: Uint8List.fromList(_trustedArchive()),
+        generatorVersion: '1.0.0',
+        createdAt: DateTime.utc(2026, 7, 17),
+      ),
+    );
+    final output = Platform.environment['SLCLASH_CROSS_FIXTURE_OUT'];
+    if (output != null && output.isNotEmpty) {
+      File(output).writeAsBytesSync(bytes, flush: true);
+    }
+    final parsed = const WorkerV1Parser().parse(bytes);
+    final items = parsed.profilesYaml['items'] as List;
+    expect(items.map((item) => (item as Map)['option']).toList(), [
+      {'allow_auto_update': false, 'update_interval': 60},
+      {'allow_auto_update': true, 'update_interval': 1440},
+      {'allow_auto_update': false, 'update_interval': 1440},
+    ]);
   });
 }
 
