@@ -3,6 +3,7 @@ export 'activate_box.dart';
 export 'builder.dart';
 export 'button.dart';
 export 'card.dart';
+export 'changelog_dialog.dart';
 export 'chip.dart';
 export 'color_scheme_box.dart';
 export 'container.dart';

@@ -75,6 +75,17 @@ Future<BackupRestoreOutcome> activateCommittedRestore({
   }
 }
 
+Future<bool> ensureRestoreValidationCoreReady({
+  required bool isConnected,
+  required Future<bool> Function() connectCore,
+  required Future<bool> Function() isCoreInitialized,
+  required Future<bool> Function() initializeCore,
+}) async {
+  if (!isConnected && !await connectCore()) return false;
+  if (await isCoreInitialized()) return true;
+  return initializeCore();
+}
+
 bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
   return isRunning || autoRun;
 }
@@ -1171,6 +1182,19 @@ class BackupAction extends _$BackupAction {
     );
     final backup = File(await appPath.backupFilePath);
     await validateBackupArchiveFile(backup);
+    final coreWatch = Stopwatch()..start();
+    final coreReady = await ensureRestoreValidationCoreReady(
+      isConnected: coreController.isCompleted,
+      connectCore: ref.read(coreActionProvider.notifier).connectCore,
+      isCoreInitialized: () async => coreController.isInit,
+      initializeCore: () => coreController.init(ref.read(versionProvider)),
+    );
+    commonPrint.log(
+      'backup-restore:core-ready elapsedMs=${coreWatch.elapsedMilliseconds} ready=$coreReady',
+    );
+    if (!coreReady) {
+      throw StateError('代理内核暂不可用，无法校验备份中的订阅配置');
+    }
     final result =
         await UnifiedBackupService(
           database: database,

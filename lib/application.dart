@@ -12,6 +12,7 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/widgets/changelog_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -298,10 +299,40 @@ class ApplicationState extends ConsumerState<Application> {
       } else {
         exit(0);
       }
+      await _showChangelogAfterUpdate();
       _autoUpdateProfilesTask();
       _initLink();
       app?.initShortcuts();
     });
+  }
+
+  Future<void> _showChangelogAfterUpdate() async {
+    const entries = appChangelogEntries;
+    if (entries.isEmpty) return;
+    final wasUpdated = await app?.wasUpdated() ?? false;
+    final lastShownVersion = await preferences.getString(
+      lastShownChangelogVersionKey,
+    );
+    if (!shouldShowChangelogAfterUpdate(
+      wasUpdated: wasUpdated,
+      lastShownVersion: lastShownVersion,
+      entries: entries,
+    )) {
+      return;
+    }
+    final confirmed = await globalState.showCommonDialog<bool>(
+      child: const AppChangelogDialog(
+        entries: entries,
+        requireConfirmation: true,
+      ),
+      dismissible: false,
+    );
+    if (confirmed == true) {
+      await preferences.setString(
+        lastShownChangelogVersionKey,
+        entries.first.version,
+      );
+    }
   }
 
   void _initLink() {

@@ -34,6 +34,11 @@ class App {
     return methodChannel.invokeMethod<bool>('moveTaskToBack');
   }
 
+  Future<bool> wasUpdated() async {
+    if (!Platform.isAndroid) return false;
+    return await methodChannel.invokeMethod<bool>('wasUpdated') ?? false;
+  }
+
   Future<List<Package>> getPackages() async {
     final packagesString = await methodChannel.invokeMethod<String>(
       'getPackages',
@@ -112,12 +117,14 @@ class App {
 
   Future<bool> isActiveNetworkMetered() async {
     if (!Platform.isAndroid) return false;
-    return await methodChannel.invokeMethod<bool>('isActiveNetworkMetered') ?? true;
+    return await methodChannel.invokeMethod<bool>('isActiveNetworkMetered') ??
+        true;
   }
 
   Future<bool> isActiveNetworkCellular() async {
     if (!Platform.isAndroid) return false;
-    return await methodChannel.invokeMethod<bool>('isActiveNetworkCellular') ?? true;
+    return await methodChannel.invokeMethod<bool>('isActiveNetworkCellular') ??
+        true;
   }
 }
 

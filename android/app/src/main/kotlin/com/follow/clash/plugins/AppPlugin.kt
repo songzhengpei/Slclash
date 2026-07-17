@@ -132,6 +132,14 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(true)
             }
 
+            "wasUpdated" -> {
+                val packageInfo = GlobalState.application.packageManager.getPackageInfo(
+                    GlobalState.application.packageName,
+                    0
+                )
+                result.success(packageInfo.lastUpdateTime > packageInfo.firstInstallTime)
+            }
+
             "updateExcludeFromRecents" -> {
                 val value = call.argument<Boolean>("value")
                 updateExcludeFromRecents(value)

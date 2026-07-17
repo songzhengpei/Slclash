@@ -4,6 +4,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/scaffold.dart';
+import 'package:fl_clash/widgets/changelog_dialog.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +51,12 @@ class AboutView extends StatelessWidget {
         .checkUpdateResultHandle(data: data, isUser: true);
   }
 
+  Future<void> _showChangelog(BuildContext context) {
+    return globalState.showCommonDialog<bool>(
+      child: const AppChangelogDialog(),
+    );
+  }
+
   Widget _buildMoreSection(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     return SurgeSection(
@@ -61,6 +68,11 @@ class AboutView extends StatelessWidget {
           icon: SurgeIcons.systemUpdate,
           title: appLocalizations.checkUpdate,
           onTap: () => _checkUpdate(context),
+        ),
+        _AboutLinkItem(
+          icon: SurgeIcons.newRelease,
+          title: '更新日志',
+          onTap: () => _showChangelog(context),
         ),
         _AboutLinkItem(
           icon: SurgeIcons.code,
