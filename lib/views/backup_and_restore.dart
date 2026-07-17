@@ -452,7 +452,8 @@ class _WebDAVFileList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      shrinkWrap: true,
+      primary: false,
+      physics: const ClampingScrollPhysics(),
       padding: EdgeInsets.zero,
       itemCount: files.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -482,7 +483,8 @@ class _CenteredWebDAVFileListState extends State<_CenteredWebDAVFileList> {
   Widget build(BuildContext context) {
     return _SoftOsBackupDialog(
       title: '选择备份',
-      maxContentHeight: 420,
+      maxContentHeight: 350,
+      childScrolls: true,
       actions: [
         _SoftOsDialogAction(
           label: context.appLocalizations.cancel,
@@ -700,8 +702,13 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
       title: appLocalizations.webDAVConfiguration,
       actions: [
         _SoftOsDialogAction(
-          label: appLocalizations.cancel,
-          onPressed: () => Navigator.pop(context),
+          label: widget.dav == null
+              ? appLocalizations.cancel
+              : appLocalizations.delete,
+          destructive: widget.dav != null,
+          onPressed: widget.dav == null
+              ? () => Navigator.pop(context)
+              : _delete,
         ),
         _SoftOsDialogAction(
           label: appLocalizations.save,
@@ -779,12 +786,6 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
                 );
               },
             ),
-            if (widget.dav != null)
-              _SoftOsDialogAction(
-                label: appLocalizations.delete,
-                destructive: true,
-                onPressed: _delete,
-              ),
           ],
         ),
       ),
@@ -799,6 +800,7 @@ class _SoftOsBackupDialog extends StatelessWidget {
     this.message,
     this.child,
     this.maxContentHeight = 500,
+    this.childScrolls = false,
   });
 
   final String title;
@@ -806,6 +808,7 @@ class _SoftOsBackupDialog extends StatelessWidget {
   final Widget? child;
   final List<Widget> actions;
   final double maxContentHeight;
+  final bool childScrolls;
 
   @override
   Widget build(BuildContext context) {
@@ -820,18 +823,39 @@ class _SoftOsBackupDialog extends StatelessWidget {
         children: [
           if (message != null && message!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 18),
-              child: Text(
-                message!,
-                textAlign: TextAlign.center,
-                style: surge.typography.rowSubtitle.copyWith(height: 1.45),
+              padding: EdgeInsets.only(bottom: child == null ? 0 : 18),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 56),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: surge.fill.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(surge.radii.card),
+                  border: Border.all(
+                    color: surge.separator,
+                    width: surge.spacing.hairline,
+                  ),
+                ),
+                child: Text(
+                  message!,
+                  textAlign: TextAlign.center,
+                  style: surge.typography.rowSubtitle.copyWith(
+                    color: surge.textPrimary,
+                    height: 1.45,
+                  ),
+                ),
               ),
             ),
           if (child != null)
             Flexible(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: maxContentHeight),
-                child: SingleChildScrollView(child: child),
+                child: childScrolls
+                    ? child
+                    : SingleChildScrollView(child: child),
               ),
             ),
           const SizedBox(height: 20),
@@ -872,15 +896,20 @@ class _SoftOsDialogAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final enabled = onPressed != null;
     final background = destructive
         ? surge.red.withValues(alpha: 0.10)
         : primary
-        ? surge.primary
+        ? enabled
+              ? surge.primary
+              : surge.primary.withValues(alpha: 0.14)
         : surge.fill;
     final foreground = destructive
         ? surge.red
         : primary
-        ? surge.onPrimary
+        ? enabled
+              ? surge.onPrimary
+              : surge.textSecondary.withValues(alpha: 0.72)
         : surge.textPrimary;
     return Semantics(
       button: true,
@@ -892,6 +921,8 @@ class _SoftOsDialogAction extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           foregroundColor: foreground,
           backgroundColor: background,
+          disabledForegroundColor: foreground,
+          disabledBackgroundColor: background,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(surge.radii.button),
             side: primary

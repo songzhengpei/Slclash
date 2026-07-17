@@ -56,6 +56,14 @@ class UnifiedV1Exporter {
           subscriptionId: airport['subscriptionId'] as String,
           profileUid: uid,
         ),
+        meta: Map<String, Object?>.from(
+          jsonDecode(
+                utf8.decode(
+                  trusted.files['providers/${airport['slug']}/meta.json']!,
+                ),
+              )
+              as Map,
+        ),
       );
     }
 
@@ -70,19 +78,45 @@ class UnifiedV1Exporter {
     final profileItems = <Map<String, Object?>>[];
     final seenUids = <String>{};
     final seenSlugs = <String>{};
+    final prepared = input.profiles
+        .map((profile) {
+          final identity =
+              trustedByAndroidId[profile.androidId]?.identity ??
+              deriveUnifiedIdentity(profile.androidId);
+          if (!seenUids.add(identity.profileUid) ||
+              !seenSlugs.add(identity.slug)) {
+            throw StateError('Unified profile identity collision');
+          }
+          final projected = projectProfile(profile.yaml);
+          final profileHash = sha256.convert(profile.yaml).toString();
+          final providerHash = sha256
+              .convert(projected.providerYaml)
+              .toString();
+          final versionId = 'sha256-${profileHash.substring(0, 16)}';
+          return _PreparedProfile(
+            profile: profile,
+            identity: identity,
+            projected: projected,
+            profileHash: profileHash,
+            providerHash: providerHash,
+            versionId: versionId,
+            trustedMeta: trustedByAndroidId[profile.androidId]?.meta,
+          );
+        })
+        .toList(growable: false);
+    final preparedBySlug = {
+      for (final item in prepared) item.identity.slug: item,
+    };
 
-    for (final profile in input.profiles) {
-      final identity =
-          trustedByAndroidId[profile.androidId]?.identity ??
-          deriveUnifiedIdentity(profile.androidId);
-      if (!seenUids.add(identity.profileUid) || !seenSlugs.add(identity.slug)) {
-        throw StateError('Unified profile identity collision');
-      }
-      final projected = projectProfile(profile.yaml);
-      final profileHash = sha256.convert(profile.yaml).toString();
-      final providerHash = sha256.convert(projected.providerYaml).toString();
-      final versionId = 'sha256-${profileHash.substring(0, 16)}';
+    for (final item in prepared) {
+      final profile = item.profile;
+      final identity = item.identity;
+      final projected = item.projected;
+      final profileHash = item.profileHash;
+      final providerHash = item.providerHash;
+      final versionId = item.versionId;
       final versionRoot = 'providers/${identity.slug}/versions/$versionId';
+      final dependencyState = _rewriteDependencyState(item, preparedBySlug);
       final distribution = <String, Object?>{
         'providerName': profile.name,
         'sourceHost': '',
@@ -96,14 +130,14 @@ class UnifiedV1Exporter {
         },
       };
       final meta = <String, Object?>{
-        'schemaVersion': 1,
+        'schemaVersion': dependencyState == null ? 1 : 2,
         'providerSlug': identity.slug,
         'subscriptionId': identity.subscriptionId,
         'uid': identity.profileUid,
         'versionId': versionId,
         'createdAt': createdAt.toUtc().toIso8601String(),
         'sourceSha256': profileHash,
-        'nodeCount': projected.nodeCount,
+        'nodeCount': dependencyState?.nodeCount ?? projected.nodeCount,
         'generatorVersion': input.generatorVersion,
         'distribution': distribution,
         'artifacts': {
@@ -122,6 +156,10 @@ class UnifiedV1Exporter {
             'sha256': profileHash,
             'contentLength': profile.yaml.length,
           },
+        },
+        if (dependencyState != null) ...{
+          'nodeStats': dependencyState.nodeStats,
+          'internalDependencies': dependencyState.dependencies,
         },
       };
       files['profiles/${identity.profileUid}.yaml'] = profile.yaml;
@@ -157,7 +195,7 @@ class UnifiedV1Exporter {
         'name': profile.name,
         'profileUid': identity.profileUid,
         'versionId': versionId,
-        'nodeCount': projected.nodeCount,
+        'nodeCount': dependencyState?.nodeCount ?? projected.nodeCount,
         'providerSha256': providerHash,
         'profileSha256': profileHash,
       });
@@ -223,8 +261,100 @@ class UnifiedV1Exporter {
 }
 
 class _TrustedIdentity {
-  const _TrustedIdentity({required this.identity});
+  const _TrustedIdentity({required this.identity, required this.meta});
   final UnifiedIdentity identity;
+  final Map<String, Object?> meta;
+}
+
+class _PreparedProfile {
+  const _PreparedProfile({
+    required this.profile,
+    required this.identity,
+    required this.projected,
+    required this.profileHash,
+    required this.providerHash,
+    required this.versionId,
+    required this.trustedMeta,
+  });
+
+  final UnifiedExportProfile profile;
+  final UnifiedIdentity identity;
+  final ProjectedProfile projected;
+  final String profileHash;
+  final String providerHash;
+  final String versionId;
+  final Map<String, Object?>? trustedMeta;
+}
+
+class _DependencyState {
+  const _DependencyState({
+    required this.nodeCount,
+    required this.nodeStats,
+    required this.dependencies,
+  });
+
+  final int nodeCount;
+  final Map<String, Object?> nodeStats;
+  final List<Map<String, Object?>> dependencies;
+}
+
+_DependencyState? _rewriteDependencyState(
+  _PreparedProfile parent,
+  Map<String, _PreparedProfile> preparedBySlug,
+) {
+  final trusted = parent.trustedMeta;
+  if (trusted == null || trusted['schemaVersion'] != 2) return null;
+  final rawStats = trusted['nodeStats'];
+  final rawDependencies = trusted['internalDependencies'];
+  if (rawStats is! Map || rawDependencies is! List || rawDependencies.isEmpty) {
+    throw StateError(
+      'Trusted schema v2 Provider is missing dependency statistics',
+    );
+  }
+  final stats = Map<String, Object?>.from(rawStats);
+  final inline = stats['inline'];
+  final effective = stats['effective'];
+  if (inline != parent.projected.nodeCount ||
+      effective is! int ||
+      effective <= 0) {
+    throw StateError('Trusted Provider dependency statistics are stale');
+  }
+  final dependencies = <Map<String, Object?>>[];
+  for (final raw in rawDependencies) {
+    if (raw is! Map || raw['slug'] is! String) {
+      throw StateError('Trusted Provider dependency identity is invalid');
+    }
+    final original = Map<String, Object?>.from(raw);
+    final target = preparedBySlug[original['slug']];
+    if (target == null || original['profileSha256'] != target.profileHash) {
+      throw StateError(
+        'Trusted Provider dependency content changed; refresh the Worker snapshot',
+      );
+    }
+    dependencies.add({
+      ...original,
+      'subscriptionId': target.identity.subscriptionId,
+      'uid': target.identity.profileUid,
+      'versionId': target.versionId,
+      'nodeCount': target.projected.nodeCount,
+      'providerSha256': target.providerHash,
+      'profileSha256': target.profileHash,
+    });
+  }
+  final computedEffective =
+      parent.projected.nodeCount +
+      dependencies.fold<int>(
+        0,
+        (sum, dependency) => sum + (dependency['effectiveCount'] as int),
+      );
+  if (computedEffective != effective) {
+    throw StateError('Trusted Provider effective node count is inconsistent');
+  }
+  return _DependencyState(
+    nodeCount: effective,
+    nodeStats: stats,
+    dependencies: dependencies,
+  );
 }
 
 Object? _plain(Object? value) {

@@ -238,6 +238,58 @@ void main() {
       startsWith('$unifiedBackupCustomBaseUrl/config/'),
     );
   });
+
+  test('preserves visible dependency statistics and rewrites versions', () {
+    final profiles = List.generate(3, (index) {
+      return UnifiedExportProfile(
+        androidId: 0x10000000 + index,
+        name: 'Worker $index',
+        yaml: Uint8List.fromList(utf8.encode(_profileYaml(index))),
+        updated: 1700000000 + index,
+        autoUpdate: false,
+        updateIntervalMinutes: 60,
+      );
+    });
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: profiles,
+        currentAndroidId: profiles.first.androidId,
+        trustedArchive: Uint8List.fromList(
+          _trustedArchive(includeDependencyStats: true),
+        ),
+        generatorVersion: '1.0.0',
+      ),
+    );
+    final parsed = const WorkerV1Parser().parse(bytes);
+    final parentMeta =
+        jsonDecode(utf8.decode(parsed.files['providers/worker-0/meta.json']!))
+            as Map<String, dynamic>;
+    expect(parentMeta['schemaVersion'], 2);
+    expect(parentMeta['nodeCount'], 3);
+    expect(parentMeta['nodeStats'], {
+      'dependencyRaw': 2,
+      'effective': 3,
+      'excluded': 0,
+      'inline': 1,
+    });
+    final dependencies = parentMeta['internalDependencies'] as List;
+    expect(dependencies, hasLength(2));
+    for (final raw in dependencies.cast<Map>()) {
+      final slug = raw['slug'] as String;
+      final airport = parsed.manifest.airports.singleWhere(
+        (value) => value['slug'] == slug,
+      );
+      expect(raw['versionId'], airport['versionId']);
+      expect(raw['providerSha256'], airport['providerSha256']);
+      expect(raw['profileSha256'], airport['profileSha256']);
+    }
+    expect(
+      parsed.manifest.airports.singleWhere(
+        (value) => value['slug'] == 'worker-0',
+      )['nodeCount'],
+      3,
+    );
+  });
 }
 
 String _profileYaml(int index) =>
@@ -250,7 +302,10 @@ proxy-groups:
     proxies: [node-$index]
 ''';
 
-List<int> _trustedArchive({String publicBaseUrl = unifiedBackupPublicBaseUrl}) {
+List<int> _trustedArchive({
+  String publicBaseUrl = unifiedBackupPublicBaseUrl,
+  bool includeDependencyStats = false,
+}) {
   final files = <String, List<int>>{
     'config.yaml': utf8.encode('mixed-port: 7890\nproxy-providers: {}\n'),
     'verge.yaml': utf8.encode('{}\n'),
@@ -288,6 +343,35 @@ List<int> _trustedArchive({String publicBaseUrl = unifiedBackupPublicBaseUrl}) {
     files['providers/$slug/provider.yaml'] = provider;
     files['providers/$slug/profile.yaml'] = profile;
     files['providers/$slug/meta.json'] = utf8.encode('{}');
+  }
+  if (includeDependencyStats) {
+    final parent = airports[0];
+    final dependencies = [
+      for (final index in [1, 2])
+        {
+          'slug': airports[index]['slug'],
+          'subscriptionId': airports[index]['subscriptionId'],
+          'uid': airports[index]['profileUid'],
+          'versionId': airports[index]['versionId'],
+          'nodeCount': 1,
+          'effectiveCount': 1,
+          'excludedCount': 0,
+          'providerSha256': airports[index]['providerSha256'],
+          'profileSha256': airports[index]['profileSha256'],
+        },
+    ];
+    files['providers/${parent['slug']}/meta.json'] = utf8.encode(
+      jsonEncode({
+        'schemaVersion': 2,
+        'nodeStats': {
+          'dependencyRaw': 2,
+          'effective': 3,
+          'excluded': 0,
+          'inline': 1,
+        },
+        'internalDependencies': dependencies,
+      }),
+    );
   }
   files['profiles.yaml'] = utf8.encode('''current: R10000000
 items:
