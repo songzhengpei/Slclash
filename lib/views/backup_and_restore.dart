@@ -10,7 +10,6 @@ import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/state.dart';
-import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/fade_box.dart';
 import 'package:fl_clash/widgets/input.dart';
 import 'package:fl_clash/widgets/list.dart';
@@ -61,6 +60,52 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
     );
   }
 
+  Future<bool> _showBackupConfirmation({
+    required String title,
+    required String message,
+    IconData icon = SurgeIcons.info,
+    String? confirmLabel,
+  }) async {
+    return await globalState.showCommonDialog<bool>(
+          child: _SoftOsBackupDialog(
+            title: title,
+            message: message,
+            icon: icon,
+            actions: [
+              _SoftOsDialogAction(
+                label: context.appLocalizations.cancel,
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              _SoftOsDialogAction(
+                label: confirmLabel ?? context.appLocalizations.confirm,
+                primary: true,
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _showBackupInfo({
+    required String title,
+    required String message,
+    IconData icon = SurgeIcons.info,
+  }) => globalState.showCommonDialog<void>(
+    child: _SoftOsBackupDialog(
+      title: title,
+      message: message,
+      icon: icon,
+      actions: [
+        _SoftOsDialogAction(
+          label: context.appLocalizations.confirm,
+          primary: true,
+          onPressed: () => Navigator.pop(context),
+        ),
+      ],
+    ),
+  );
+
   Future<void> _backupOnWebDAV() async {
     final appLocalizations = context.appLocalizations;
     final res = await globalState.loadingRun<bool>(
@@ -77,9 +122,10 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
       title: appLocalizations.backup,
     );
     if (res != true) return;
-    globalState.showMessage(
+    _showBackupInfo(
       title: appLocalizations.backup,
-      message: TextSpan(text: appLocalizations.backupSuccess),
+      message: appLocalizations.backupSuccess,
+      icon: SurgeIcons.success,
     );
   }
 
@@ -90,12 +136,13 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
     final files = await globalState.loadingRun<List<DAVFileEntry>>(
       () => _client!.listFiles(),
       tag: LoadingTag.backup_restore,
-      title: '正在列出备份...',
+      title: '正在读取备份...',
     );
     if (files == null || files.isEmpty) {
-      globalState.showMessage(
+      _showBackupInfo(
         title: appLocalizations.restore,
-        message: const TextSpan(text: 'WebDAV 上没有找到备份文件'),
+        message: '没有可用备份。',
+        icon: SurgeIcons.cloudSync,
       );
       return;
     }
@@ -105,9 +152,11 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
     );
     if (selected == null || !context.mounted) return;
 
-    final confirmed = await globalState.showMessage(
+    final confirmed = await _showBackupConfirmation(
       title: appLocalizations.restore,
-      message: TextSpan(text: '将从 $selected 恢复，仅恢复订阅和配置数据。'),
+      message: '请注意，只会恢复订阅数据，不会恢复其他设置。',
+      icon: SurgeIcons.download,
+      confirmLabel: appLocalizations.restore,
     );
     if (confirmed != true || !context.mounted) return;
 
@@ -145,9 +194,10 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
       tag: LoadingTag.backup_restore,
     );
     if (res != true) return;
-    globalState.showMessage(
+    _showBackupInfo(
       title: appLocalizations.backup,
-      message: TextSpan(text: appLocalizations.backupSuccess),
+      message: appLocalizations.backupSuccess,
+      icon: SurgeIcons.success,
     );
   }
 
@@ -156,9 +206,11 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
     final file = await picker.pickerFile(withData: false);
     final path = file?.path;
     if (path == null) return;
-    final confirmed = await globalState.showMessage(
+    final confirmed = await _showBackupConfirmation(
       title: appLocalizations.restore,
-      message: TextSpan(text: appLocalizations.restoreProfilesOnlyDesc),
+      message: '请注意，只会恢复订阅数据，不会恢复其他设置。',
+      icon: SurgeIcons.uploadFile,
+      confirmLabel: appLocalizations.restore,
     );
     if (confirmed != true || !mounted) return;
     final outcome = await globalState.loadingRun<BackupRestoreOutcome>(
@@ -178,13 +230,14 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
   void _showRestoreOutcome(BackupRestoreOutcome outcome) {
     final appLocalizations = context.appLocalizations;
     final message = outcome.activationSucceeded
-        ? appLocalizations.restoreSuccess
-        : '${appLocalizations.restoreSuccess}\n\n'
-              'The backup was restored, but the proxy core could not reload '
-              'the current profile. Retry enabling it or restart the app.';
-    globalState.showMessage(
+        ? '订阅数据已恢复。'
+        : '订阅数据已恢复，代理暂未加载。';
+    _showBackupInfo(
       title: appLocalizations.restore,
-      message: TextSpan(text: message),
+      message: message,
+      icon: outcome.activationSucceeded
+          ? SurgeIcons.success
+          : SurgeIcons.warning,
     );
   }
 
@@ -202,12 +255,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
       appSettingProvider.select((state) => state.restoreStrategy),
     );
     final res = await globalState.showCommonDialog(
-      child: OptionsDialog<RestoreStrategy>(
-        title: currentAppLocalizations.restoreStrategy,
-        options: RestoreStrategy.values,
-        textBuilder: (mode) => Intl.message('restoreStrategy_${mode.name}'),
-        value: restoreStrategy,
-      ),
+      child: _SoftOsRestoreStrategyDialog(value: restoreStrategy),
     );
     if (res == null) {
       return;
@@ -218,9 +266,11 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
   }
 
   Future<void> _handleFactoryReset() async {
-    final res = await globalState.showMessage(
+    final res = await _showBackupConfirmation(
       title: context.appLocalizations.factoryReset,
-      message: TextSpan(text: context.appLocalizations.confirmFactoryReset),
+      message: context.appLocalizations.confirmFactoryReset,
+      icon: SurgeIcons.warning,
+      confirmLabel: context.appLocalizations.factoryReset,
     );
     if (res != true) {
       return;
@@ -409,15 +459,15 @@ class _WebDAVFileList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SurgeSection(
-      showDividers: true,
-      children: [
-        for (var i = 0; i < files.length; i++)
-          _WebDAVFileItem(
-            entry: files[i],
-            onTap: () => Navigator.pop(context, files[i].name),
-          ),
-      ],
+    return ListView.separated(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      itemCount: files.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (_, index) => _WebDAVFileItem(
+        entry: files[index],
+        onTap: () => Navigator.pop(context, files[index].name),
+      ),
     );
   }
 }
@@ -429,7 +479,16 @@ class _CenteredWebDAVFileList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return _SoftOsBackupDialog(
+      title: '选择备份',
+      icon: SurgeIcons.cloudSync,
+      maxContentHeight: 420,
+      actions: [
+        _SoftOsDialogAction(
+          label: context.appLocalizations.cancel,
+          onPressed: () => Navigator.pop(context),
+        ),
+      ],
       child: _WebDAVFileList(files: files),
     );
   }
@@ -463,12 +522,22 @@ class _WebDAVFileItem extends StatelessWidget {
         ? '${(entry.size / 1024 / 1024).toStringAsFixed(1)}MB'
         : '${(entry.size / 1024).toStringAsFixed(0)}KB';
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    return SurgePressable(
+      onTap: onTap,
+      semanticLabel: '恢复 ${entry.name}',
+      borderRadius: BorderRadius.circular(surge.radii.list),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 64),
+        decoration: BoxDecoration(
+          color: surge.fill.withValues(alpha: 0.62),
+          borderRadius: BorderRadius.circular(surge.radii.list),
+          border: Border.all(
+            color: surge.separator,
+            width: surge.spacing.hairline,
+          ),
+        ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
               Expanded(
@@ -491,7 +560,10 @@ class _WebDAVFileItem extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(surge.radii.button),
@@ -504,6 +576,12 @@ class _WebDAVFileItem extends StatelessWidget {
                   label,
                   style: surge.typography.badge.copyWith(color: color),
                 ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                SurgeIcons.chevronRight,
+                size: SurgeIconSize.compact,
+                color: surge.textSecondary,
               ),
             ],
           ),
@@ -598,13 +676,26 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
-    return CommonDialog(
+    return _SoftOsBackupDialog(
       title: appLocalizations.webDAVConfiguration,
       actions: [
         if (widget.dav != null)
-          TextButton(onPressed: _delete, child: Text(appLocalizations.delete)),
-        TextButton(onPressed: _submit, child: Text(appLocalizations.save)),
+          _SoftOsDialogAction(
+            label: appLocalizations.delete,
+            destructive: true,
+            onPressed: _delete,
+          ),
+        _SoftOsDialogAction(
+          label: appLocalizations.cancel,
+          onPressed: () => Navigator.pop(context),
+        ),
+        _SoftOsDialogAction(
+          label: appLocalizations.save,
+          primary: true,
+          onPressed: _submit,
+        ),
       ],
+      icon: SurgeIcons.cloudSync,
       child: Form(
         key: _formKey,
         child: Column(
@@ -677,6 +768,249 @@ class _WebDAVFormDialogState extends ConsumerState<WebDAVFormDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SoftOsBackupDialog extends StatelessWidget {
+  const _SoftOsBackupDialog({
+    required this.title,
+    required this.icon,
+    required this.actions,
+    this.message,
+    this.child,
+    this.maxContentHeight = 500,
+  });
+
+  final String title;
+  final String? message;
+  final IconData icon;
+  final Widget? child;
+  final List<Widget> actions;
+  final double maxContentHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final metrics = SoftOsMetrics.of(context);
+    final width = MediaQuery.sizeOf(context).width;
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 380,
+            maxHeight: MediaQuery.sizeOf(context).height - 48,
+          ),
+          child: Container(
+            width: width - 32,
+            decoration: BoxDecoration(
+              color: surge.elevatedCard,
+              borderRadius: BorderRadius.circular(surge.radii.card + 6),
+              border: Border.all(
+                color: surge.separator,
+                width: surge.spacing.hairline,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: surge.shadow.withValues(alpha: 0.72),
+                  blurRadius: 28,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: metrics.value(42),
+                      height: metrics.value(42),
+                      decoration: BoxDecoration(
+                        color: surge.primary.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(surge.radii.button),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        icon,
+                        size: metrics.value(21),
+                        color: surge.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: surge.typography.title),
+                            if (message != null && message!.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                message!,
+                                style: surge.typography.rowSubtitle.copyWith(
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (child != null) ...[
+                  const SizedBox(height: 18),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: maxContentHeight),
+                      child: SingleChildScrollView(child: child),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: actions,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftOsDialogAction extends StatelessWidget {
+  const _SoftOsDialogAction({
+    required this.label,
+    required this.onPressed,
+    this.primary = false,
+    this.destructive = false,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final bool primary;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final background = destructive
+        ? surge.red.withValues(alpha: 0.10)
+        : primary
+        ? surge.primary
+        : surge.fill;
+    final foreground = destructive
+        ? surge.red
+        : primary
+        ? surge.onPrimary
+        : surge.textPrimary;
+    return Semantics(
+      button: true,
+      label: label,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(72, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          foregroundColor: foreground,
+          backgroundColor: background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(surge.radii.button),
+            side: primary
+                ? BorderSide.none
+                : BorderSide(
+                    color: destructive
+                        ? surge.red.withValues(alpha: 0.18)
+                        : surge.separator,
+                    width: surge.spacing.hairline,
+                  ),
+          ),
+          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+}
+
+class _SoftOsRestoreStrategyDialog extends StatelessWidget {
+  const _SoftOsRestoreStrategyDialog({required this.value});
+
+  final RestoreStrategy value;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    return _SoftOsBackupDialog(
+      title: currentAppLocalizations.restoreStrategy,
+      message: '选择恢复方式。',
+      icon: SurgeIcons.tune,
+      actions: [
+        _SoftOsDialogAction(
+          label: context.appLocalizations.cancel,
+          onPressed: () => Navigator.pop(context),
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final strategy in RestoreStrategy.values) ...[
+            SurgePressable(
+              onTap: () => Navigator.pop(context, strategy),
+              semanticLabel: Intl.message('restoreStrategy_${strategy.name}'),
+              borderRadius: BorderRadius.circular(surge.radii.list),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 52),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: strategy == value
+                      ? surge.primary.withValues(alpha: 0.10)
+                      : surge.fill.withValues(alpha: 0.62),
+                  borderRadius: BorderRadius.circular(surge.radii.list),
+                  border: Border.all(
+                    color: strategy == value
+                        ? surge.primary.withValues(alpha: 0.24)
+                        : surge.separator,
+                    width: surge.spacing.hairline,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        Intl.message('restoreStrategy_${strategy.name}'),
+                        style: surge.typography.rowTitle,
+                      ),
+                    ),
+                    if (strategy == value)
+                      Icon(
+                        SurgeIcons.confirm,
+                        color: surge.primary,
+                        size: SurgeIconSize.regular,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            if (strategy != RestoreStrategy.values.last)
+              const SizedBox(height: 8),
+          ],
+        ],
       ),
     );
   }
