@@ -16,6 +16,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
+import 'package:fl_clash/services/providers/provider_readiness_service.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:fl_clash/state.dart';
@@ -39,11 +40,13 @@ class BackupRestoreOutcome {
     required this.committed,
     required this.activationSucceeded,
     this.activationError,
+    this.providerReadinessStatus,
   });
 
   final bool committed;
   final bool activationSucceeded;
   final String? activationError;
+  final ProviderReadinessStatus? providerReadinessStatus;
 }
 
 Future<BackupRestoreOutcome> activateCommittedRestore({
@@ -1220,11 +1223,20 @@ class BackupAction extends _$BackupAction {
       ref.read(patchClashConfigProvider.notifier).value =
           restoredConfig.patchClashConfig;
     }
-    return activateCommittedRestore(
-      applyProfile: () =>
-          ref.read(setupActionProvider.notifier).applyProfile(force: true),
-      updateGroups: () =>
-          ref.read(proxiesActionProvider.notifier).updateGroups(),
+    final readiness = await ref
+        .read(proxiesActionProvider.notifier)
+        .ensureCurrentProfileReady(forceApply: true);
+    final succeeded =
+        readiness.status == ProviderReadinessStatus.ready ||
+        readiness.status == ProviderReadinessStatus.noProviders;
+    return BackupRestoreOutcome(
+      committed: true,
+      activationSucceeded: succeeded,
+      activationError: succeeded
+          ? null
+          : readiness.error?.toString() ??
+                'Provider and proxy groups are not ready yet',
+      providerReadinessStatus: readiness.status,
     );
   }
 }
@@ -1466,56 +1478,82 @@ class ThemeAction extends _$ThemeAction {
 
 @Riverpod(keepAlive: true)
 class ProxiesAction extends _$ProxiesAction {
-  Future<void>? _ensureProvidersFuture;
+  late final ProviderReadinessService<ExternalProvider, Group>
+  _providerReadiness = ProviderReadinessService(
+    log: (stage, result, elapsed) {
+      commonPrint.log(
+        '$stage profileId=${result.profileId} elapsedMs=${elapsed.inMilliseconds} '
+        'providerCount=${result.providerCount} groupCount=${result.groupCount} '
+        'status=${result.status.name} lastError=${result.error ?? '-'}',
+        logLevel:
+            result.status == ProviderReadinessStatus.failed ||
+                result.status == ProviderReadinessStatus.timeout ||
+                result.status == ProviderReadinessStatus.coreUnavailable
+            ? LogLevel.warning
+            : LogLevel.info,
+      );
+    },
+  );
 
   @override
   void build() {}
 
-  Future<void> ensureProvidersForCurrentProfile() {
-    final running = _ensureProvidersFuture;
-    if (running != null) return running;
-
-    final future = _ensureProvidersForCurrentProfile();
-    _ensureProvidersFuture = future;
-    future.whenComplete(() {
-      if (_ensureProvidersFuture == future) {
-        _ensureProvidersFuture = null;
-      }
-    });
-    return future;
-  }
-
-  Future<void> _ensureProvidersForCurrentProfile() async {
+  Future<ProviderReadinessResult> ensureCurrentProfileReady({
+    bool forceApply = false,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     final profileId = ref.read(currentProfileIdProvider);
-    if (profileId == null) {
-      ref.read(providersProvider.notifier).clear();
-      return;
-    }
-
-    try {
-      final config = await ref.read(clashConfigProvider(profileId).future);
-      if (ref.read(currentProfileIdProvider) != profileId) return;
-
-      if (!hasExternalProviderDefinitions(config)) {
+    ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
+    final result = await _providerReadiness.ensureCurrentProfileReady(
+      targetProfileId: profileId,
+      currentProfileId: () => ref.read(currentProfileIdProvider),
+      readProviderDefinitions: () async {
+        if (profileId == null) return (external: false, proxy: false);
+        final config = await ref.read(clashConfigProvider(profileId).future);
+        return (
+          external: hasExternalProviderDefinitions(config),
+          proxy: config.proxyProviders.isNotEmpty,
+        );
+      },
+      ensureCoreReady: _ensureCoreReadyForDisplay,
+      applyProfileForDisplay: () =>
+          ref.read(setupActionProvider.notifier).applyProfileForDisplay(),
+      syncProviders: coreController.getExternalProviders,
+      isProxyProvider: (provider) => provider.type.toLowerCase() == 'proxy',
+      readGroups: _readRuntimeGroups,
+      groupsAreValid: _isSnapshotWritableGroups,
+      commitReady: (providers, groups) =>
+          _commitReady(profileId, providers, groups),
+      forceApply: forceApply,
+      timeout: timeout,
+    );
+    if (ref.read(currentProfileIdProvider) != profileId) return result;
+    switch (result.status) {
+      case ProviderReadinessStatus.ready:
+        break;
+      case ProviderReadinessStatus.noProviders:
         ref.read(providersProvider.notifier).clear();
-        return;
-      }
-
-      if (ref.read(providersProvider).isNotEmpty) return;
-
-      final coreReady = await _ensureCoreReadyForDisplay();
-      if (!coreReady) return;
-
-      await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
-      if (ref.read(currentProfileIdProvider) != profileId) return;
-
-      await ref.read(providersProvider.notifier).syncProviders();
-    } catch (e) {
-      commonPrint.log(
-        'ensureProvidersForCurrentProfile failed: $e',
-        logLevel: LogLevel.warning,
-      );
+        await updateGroups();
+        break;
+      case ProviderReadinessStatus.timeout:
+        ref
+            .read(proxyGroupsSnapshotProvider.notifier)
+            .failed(const ProviderReadinessTimeout());
+        break;
+      case ProviderReadinessStatus.coreUnavailable:
+        ref
+            .read(proxyGroupsSnapshotProvider.notifier)
+            .failed(const ProviderReadinessCoreUnavailable());
+        break;
+      case ProviderReadinessStatus.failed:
+        ref
+            .read(proxyGroupsSnapshotProvider.notifier)
+            .failed(result.error ?? StateError('Provider readiness failed'));
+        break;
+      case ProviderReadinessStatus.profileChanged:
+        break;
     }
+    return result;
   }
 
   Future<bool> _ensureCoreReadyForDisplay() async {
@@ -1536,6 +1574,49 @@ class ProxiesAction extends _$ProxiesAction {
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
     }
     return initialized;
+  }
+
+  Future<List<Group>> _readRuntimeGroups() {
+    final sortType = ref.read(
+      proxiesStyleSettingProvider.select((state) => state.sortType),
+    );
+    final delayMap = ref.read(delayDataSourceProvider);
+    final testUrl = ref.read(
+      appSettingProvider.select((state) => state.testUrl),
+    );
+    final selectedMap = ref.read(
+      currentProfileProvider.select((state) => state?.selectedMap ?? {}),
+    );
+    return coreController.getProxiesGroups(
+      selectedMap: selectedMap,
+      sortType: sortType,
+      delayMap: delayMap,
+      defaultTestUrl: testUrl,
+    );
+  }
+
+  Future<void> _commitReady(
+    int? profileId,
+    List<ExternalProvider> providers,
+    List<Group> groups,
+  ) async {
+    if (profileId == null ||
+        ref.read(currentProfileIdProvider) != profileId ||
+        !_isSnapshotWritableGroups(groups)) {
+      return;
+    }
+    ref.read(providersProvider.notifier).value = providers;
+    ref.read(groupsProvider.notifier).value = groups;
+    ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
+    ref.read(lastGroupsRefreshAtProvider.notifier).update();
+    ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
+    final profile = _findProfileById(profileId);
+    if (profile != null) {
+      await _putProxyGroupsSnapshot(profile: profile, groups: groups);
+    }
+    if (ref.read(currentProfileIdProvider) == profileId) {
+      _syncComputedSelectedMap(groups);
+    }
   }
 
   bool _groupsEqual(List<Group> a, List<Group> b) {

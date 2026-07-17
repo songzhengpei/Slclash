@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_clash/common/common.dart';
@@ -163,16 +164,26 @@ class _ProfilesViewState extends State<ProfilesView> {
                                     profileId == state.currentProfileId) {
                                   return;
                                 }
+                                ref.read(providersProvider.notifier).clear();
+                                ref.read(groupsProvider.notifier).value =
+                                    const [];
+                                ref
+                                    .read(groupsOwnerProfileIdProvider.notifier)
+                                    .set(null);
                                 ref
                                         .read(currentProfileIdProvider.notifier)
                                         .value =
                                     profileId;
-                                ref
-                                    .read(setupActionProvider.notifier)
-                                    .applyProfileDebounce(
-                                      silence: true,
-                                      force: true,
-                                    );
+                                unawaited(() async {
+                                  await ref
+                                      .read(proxiesActionProvider.notifier)
+                                      .hydrateProxyGroupsSnapshot();
+                                  await ref
+                                      .read(proxiesActionProvider.notifier)
+                                      .ensureCurrentProfileReady(
+                                        forceApply: true,
+                                      );
+                                }());
                               },
                             ),
                           ],

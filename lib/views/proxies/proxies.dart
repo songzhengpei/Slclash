@@ -37,9 +37,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
   }
 
   Future<void> _handleProvidersPressed(BuildContext context) async {
-    await ref
-        .read(proxiesActionProvider.notifier)
-        .ensureProvidersForCurrentProfile();
+    await ref.read(proxiesActionProvider.notifier).ensureCurrentProfileReady();
     if (!context.mounted) return;
     showSheet(
       context: context,
@@ -104,7 +102,11 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
           DateTime.now().difference(lastRefresh) > const Duration(seconds: 30);
 
       if (groupsEmpty || expired) {
-        ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+        unawaited(
+          ref
+              .read(proxiesActionProvider.notifier)
+              .ensureCurrentProfileReady(forceApply: groupsEmpty),
+        );
       }
     });
   }
