@@ -257,7 +257,8 @@ class WorkerV1Parser {
   void _requireManifestShape(Map<String, Object?> manifest) {
     if (manifest['createdAt'] is! String ||
         DateTime.tryParse(manifest['createdAt'] as String) == null ||
-        manifest['generator'] != 'worker' ||
+        (manifest['generator'] != 'worker' &&
+            manifest['generator'] != 'slclash') ||
         manifest['generatorVersion'] != '1.0.0' ||
         manifest['publicBaseUrl'] is! String ||
         manifest['mainConfig'] is! Map ||

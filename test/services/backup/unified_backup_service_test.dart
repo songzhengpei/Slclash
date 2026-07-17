@@ -115,6 +115,8 @@ void main() {
 
     final profile = (await db.profilesDao.query().get()).single;
     expect(profile.url, 'https://vault.example/config/example/fixed-token');
+    expect(profile.autoUpdate, false);
+    expect(profile.autoUpdateDuration, const Duration(minutes: 1440));
     expect(result.currentProfileId, profile.id);
     expect(
       await File(
@@ -133,6 +135,51 @@ void main() {
           .length,
       1,
     );
+  });
+
+  test('restores the real Worker client policy roundtrip fixture', () async {
+    final bytes = await File(
+      p.join(
+        Directory.current.path,
+        'test',
+        'fixtures',
+        'worker-client-policy-roundtrip-v1.zip',
+      ),
+    ).readAsBytes();
+    final parsed = const WorkerV1Parser().parse(bytes);
+    expect(parsed.manifest.airports, hasLength(3));
+
+    final temp = await Directory.systemTemp.createTemp('policy-roundtrip-');
+    final db = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await db.close();
+      await temp.delete(recursive: true);
+    });
+    await UnifiedBackupService(
+      database: db,
+      paths: RestorePaths(
+        profilesDirectory: p.join(temp.path, 'profiles'),
+        scriptsDirectory: p.join(temp.path, 'scripts'),
+        workerUnifiedArchivePath: p.join(temp.path, 'worker-v1.zip'),
+      ),
+    ).restoreBytes(bytes, override: true);
+
+    final profiles = {
+      for (final profile in await db.profilesDao.query().get())
+        profile.label: profile,
+    };
+    expect(profiles['Worker Profile']?.autoUpdate, false);
+    expect(
+      profiles['Worker Profile']?.autoUpdateDuration,
+      const Duration(minutes: 60),
+    );
+    expect(profiles['Slclash Remote']?.autoUpdate, true);
+    expect(
+      profiles['Slclash Remote']?.autoUpdateDuration,
+      const Duration(minutes: 1440),
+    );
+    expect(profiles['备用']?.autoUpdate, false);
+    expect(profiles['备用']?.autoUpdateDuration, const Duration(minutes: 1440));
   });
 
   test('old Worker full config imports without applying config', () async {
@@ -296,6 +343,9 @@ items:
     name: Example
     file: R1234abcd.yaml
     url: https://vault.example/config/example/fixed-token
+    option:
+      allow_auto_update: false
+      update_interval: 1440
 '''),
     'profiles/R1234abcd.yaml': profile,
     'providers/example/provider.yaml': provider,

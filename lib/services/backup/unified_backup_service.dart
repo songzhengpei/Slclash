@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:path/path.dart' as p;
 
 import 'backup_format_detector.dart';
@@ -62,18 +63,14 @@ class UnifiedBackupService {
           return Profile.fromJson(map);
         })
         .toList(growable: false);
-    final scripts = _maps(package.metadata['scripts'])
-        .map(Script.fromJson)
-        .toList();
-    final rules = _maps(package.metadata['rules'])
-        .map(Rule.fromJson)
-        .toList();
-    final links = _maps(package.metadata['links'])
-        .map(_linkFromJson)
-        .toList();
-    final proxyGroups = _maps(package.metadata['proxyGroups'])
-        .map(ProxyGroup.fromJson)
-        .toList();
+    final scripts = _maps(
+      package.metadata['scripts'],
+    ).map(Script.fromJson).toList();
+    final rules = _maps(package.metadata['rules']).map(Rule.fromJson).toList();
+    final links = _maps(package.metadata['links']).map(_linkFromJson).toList();
+    final proxyGroups = _maps(
+      package.metadata['proxyGroups'],
+    ).map(ProxyGroup.fromJson).toList();
     final config = _restoreConfig(
       package.metadata['config'] is Map
           ? Map<String, dynamic>.from(package.metadata['config'] as Map)
@@ -152,6 +149,18 @@ class UnifiedBackupService {
       final option = item['option'] is Map
           ? Map<Object?, Object?>.from(item['option'] as Map)
           : const <Object?, Object?>{};
+      final allowAutoUpdate = option['allow_auto_update'];
+      final updateIntervalMinutes = option['update_interval'];
+      if ((allowAutoUpdate != null && allowAutoUpdate is! bool) ||
+          (updateIntervalMinutes != null &&
+              (updateIntervalMinutes is! int ||
+                  updateIntervalMinutes <= 0 ||
+                  updateIntervalMinutes > maxClientUpdateIntervalMinutes))) {
+        throw const BackupFormatException(
+          BackupErrorCode.invalidProfiles,
+          'profiles.yaml contains an invalid client update policy',
+        );
+      }
       final extra = item['extra'] is Map
           ? Map<Object?, Object?>.from(item['extra'] as Map)
           : const <Object?, Object?>{};
@@ -165,11 +174,9 @@ class UnifiedBackupService {
               ? DateTime.fromMillisecondsSinceEpoch(updated * 1000, isUtc: true)
               : null,
           autoUpdateDuration: Duration(
-            minutes: option['update_interval'] is int
-                ? option['update_interval'] as int
-                : 60,
+            minutes: updateIntervalMinutes is int ? updateIntervalMinutes : 60,
           ),
-          autoUpdate: option['allow_auto_update'] != false,
+          autoUpdate: allowAutoUpdate is bool ? allowAutoUpdate : true,
           subscriptionInfo: extra.isEmpty
               ? null
               : SubscriptionInfo(

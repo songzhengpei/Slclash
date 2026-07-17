@@ -4,6 +4,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/services/providers/provider_readiness_service.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -318,7 +319,6 @@ class _ProxiesListViewState extends State<ProxiesListView> {
 
   @override
   Widget build(BuildContext context) {
-    final appLocalizations = context.appLocalizations;
     return Consumer(
       builder: (_, ref, _) {
         final state = ref.watch(proxiesListStateProvider);
@@ -331,25 +331,47 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           final isRefreshing =
               freshness == ProxyGroupsFreshnessState.refreshing;
           final canRefresh = freshness != ProxyGroupsFreshnessState.refreshing;
+          final readinessError = snapshotState.error;
+          final emptyKind = isRefreshing
+              ? ProxiesEmptyStateKind.loading
+              : readinessError is ProviderReadinessCoreUnavailable
+              ? ProxiesEmptyStateKind.coreUnavailable
+              : readinessError is ProviderReadinessTimeout
+              ? ProxiesEmptyStateKind.timeout
+              : isFailed
+              ? ProxiesEmptyStateKind.failed
+              : ProxiesEmptyStateKind.empty;
+          final emptyLabel = switch (emptyKind) {
+            ProxiesEmptyStateKind.loading => '正在加载 Provider',
+            ProxiesEmptyStateKind.timeout => 'Provider 尚未加载完成',
+            ProxiesEmptyStateKind.coreUnavailable => '代理内核暂不可用',
+            ProxiesEmptyStateKind.failed => 'Provider 加载失败',
+            ProxiesEmptyStateKind.empty => '当前配置没有可显示代理组',
+          };
+          final emptyDescription = switch (emptyKind) {
+            ProxiesEmptyStateKind.loading => '正在获取代理组。',
+            ProxiesEmptyStateKind.timeout => '请检查网络后重试。',
+            ProxiesEmptyStateKind.coreUnavailable => '请重新连接。',
+            ProxiesEmptyStateKind.failed => '请稍后重试。',
+            ProxiesEmptyStateKind.empty => null,
+          };
           return ProxiesEmptyState(
-            label: isRefreshing
-                ? '正在刷新代理组'
-                : isFailed
-                ? '代理组暂不可用'
-                : appLocalizations.nullTip(appLocalizations.proxies),
-            description: isRefreshing
-                ? '正在重新读取当前配置的代理组。'
-                : isFailed
-                ? '配置已加载，但当前代理组数据为空。你可以尝试刷新代理组。'
-                : '当前配置暂时没有可显示的代理组。你可以尝试刷新代理组。',
-            actionLabel: canRefresh ? '刷新代理组' : null,
+            label: emptyLabel,
+            description: emptyDescription,
+            actionLabel: canRefresh
+                ? emptyKind == ProxiesEmptyStateKind.coreUnavailable
+                      ? '重新连接'
+                      : emptyKind == ProxiesEmptyStateKind.empty
+                      ? '刷新代理组'
+                      : '重新加载'
+                : null,
             onAction: canRefresh
                 ? () {
                     globalState.loadingRun(
                       () async {
                         await ref
                             .read(proxiesActionProvider.notifier)
-                            .updateGroups();
+                            .ensureCurrentProfileReady(forceApply: true);
                       },
                       silence: false,
                       tag: LoadingTag.proxies,
@@ -357,6 +379,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                   }
                 : null,
             actionLoading: isRefreshing,
+            kind: emptyKind,
           );
         }
         final items = _buildItems(
@@ -366,19 +389,10 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           cardType: state.proxyCardType,
         );
         if (items.isEmpty) {
-          return ProxiesEmptyState(
-            label: appLocalizations.nullTip(appLocalizations.proxies),
-            description: '当前筛选条件下没有可显示的代理组。你可以尝试刷新代理组。',
-            actionLabel: '刷新代理组',
-            onAction: () {
-              globalState.loadingRun(
-                () async {
-                  await ref.read(proxiesActionProvider.notifier).updateGroups();
-                },
-                silence: false,
-                tag: LoadingTag.proxies,
-              );
-            },
+          return const ProxiesEmptyState(
+            label: '没有匹配的代理组',
+            description: '请调整筛选条件。',
+            kind: ProxiesEmptyStateKind.empty,
           );
         }
         _getItemHeightList(items);

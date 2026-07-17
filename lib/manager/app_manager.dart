@@ -59,7 +59,11 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
             DateTime.now().difference(lastRefresh) >
                 const Duration(seconds: 30);
         if (groupsEmpty || expired) {
-          ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+          unawaited(
+            ref
+                .read(proxiesActionProvider.notifier)
+                .ensureCurrentProfileReady(forceApply: groupsEmpty),
+          );
         }
       }
     });
@@ -117,6 +121,16 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
           hasGroups: hasGroups,
         )) {
           container.read(coreActionProvider.notifier).tryStartCore();
+        }
+        final profileId = container.read(currentProfileIdProvider);
+        final ownerId = container.read(groupsOwnerProfileIdProvider);
+        if (profileId != null &&
+            (ownerId != profileId || container.read(groupsProvider).isEmpty)) {
+          unawaited(
+            container
+                .read(proxiesActionProvider.notifier)
+                .ensureCurrentProfileReady(),
+          );
         }
       });
     } else if (state == AppLifecycleState.inactive ||

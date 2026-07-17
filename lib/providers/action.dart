@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
@@ -15,11 +14,11 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/services/backup/restore_service.dart';
-import 'package:fl_clash/services/backup/backup_config.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
-import 'package:fl_clash/services/backup/worker_v1_exporter.dart';
-import 'package:fl_clash/services/backup/worker_v1_capsule_store.dart';
+import 'package:fl_clash/services/providers/provider_readiness_service.dart';
+import 'package:fl_clash/services/unified_backup_export/exporter.dart';
+import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/input.dart';
@@ -41,11 +40,13 @@ class BackupRestoreOutcome {
     required this.committed,
     required this.activationSucceeded,
     this.activationError,
+    this.providerReadinessStatus,
   });
 
   final bool committed;
   final bool activationSucceeded;
   final String? activationError;
+  final ProviderReadinessStatus? providerReadinessStatus;
 }
 
 Future<BackupRestoreOutcome> activateCommittedRestore({
@@ -1111,48 +1112,10 @@ class BackupAction extends _$BackupAction {
   void build() {}
 
   Future<String> backup() async {
-    final profileFileNames = await database.profilesDao.fileNames().get();
     final profiles = ref.read(profilesProvider);
     final currentProfileId = ref.read(currentProfileIdProvider);
-    final appVersion = ref.read(versionProvider).toString();
-    final profilesJson = profiles.map((p) {
-      final json = p.toJson();
-      // v2: keep both scriptId and overwriteType for correct restore
-      return json;
-    }).toList();
-
-    // Query scripts, rules, links for v2 backup
-    // Filter out scripts whose .js file is missing on disk
-    final scriptsFromDb = await database.scriptsDao.query().get();
-    final scriptsDir = Directory(await appPath.scriptsDirPath);
-    final jsFileNames = <String>[];
-    final scriptJsons = <Map<String, dynamic>>[];
-    for (final s in scriptsFromDb) {
-      final jsFileName = '${s.id}.js';
-      final jsFile = File(join(scriptsDir.path, jsFileName));
-      if (await jsFile.exists()) {
-        scriptJsons.add(s.toJson());
-        jsFileNames.add(jsFileName);
-      } else {
-        throw StateError(
-          'Cannot create backup: script ${s.id} is missing its JavaScript file',
-        );
-      }
-    }
-    final rulesFromDb = await database.rulesDao.queryAllRules();
-    final ruleJsons = rulesFromDb.map((r) => r.toJson()).toList();
-    final linksFromDb = await database.rulesDao.queryAllLinks();
-    final linkJsons = linksFromDb.map((link) {
-      return <String, dynamic>{
-        'profileId': link.profileId,
-        'ruleId': link.ruleId,
-        'scene': link.scene?.name,
-        'order': link.order,
-      };
-    }).toList();
-    final proxyGroupsFromDb = await database.proxyGroupsDao.queryAll().get();
-
     final profilesPath = await appPath.profilesPath;
+    final exportProfiles = <UnifiedExportProfile>[];
     for (final profile in profiles) {
       final file = File(join(profilesPath, '${profile.id}.yaml'));
       if (!await file.exists()) {
@@ -1160,70 +1123,46 @@ class BackupAction extends _$BackupAction {
           'Cannot create backup: profile ${profile.id} is missing its YAML file',
         );
       }
-    }
-    Uint8List? importedArchive;
-    final importedArchiveFile = File(await appPath.workerUnifiedArchivePath);
-    if (await importedArchiveFile.exists()) {
-      importedArchive = await importedArchiveFile.readAsBytes();
-    }
-    Uint8List? workerUnifiedArchive;
-    var workerUnifiedStatus = profiles.isEmpty ? 'not-applicable' : 'complete';
-    if (profiles.isNotEmpty) {
-      try {
-        workerUnifiedArchive = const WorkerV1Exporter().export(
-          profiles: profiles
-              .map(
-                (profile) => WorkerV1ExportProfile(
-                  name: profile.label,
-                  url: profile.url,
-                ),
-              )
-              .toList(growable: false),
-          currentProfileUrl: profiles
-              .where((profile) => profile.id == currentProfileId)
-              .firstOrNull
-              ?.url,
-          trustedPackages:
-              await WorkerV1CapsuleStore(
-                directory: await appPath.workerV1CapsulesPath,
-                fetch: (url) async {
-                  final response = await request
-                      .getFileResponseForUrlWithHeaders(url, {
-                        'Accept': workerV1CapsuleMediaType,
-                      });
-                  final bytes = response.data;
-                  if (bytes == null) {
-                    throw StateError('Worker returned an empty export capsule');
-                  }
-                  return bytes;
+      final info = profile.subscriptionInfo;
+      exportProfiles.add(
+        UnifiedExportProfile(
+          androidId: profile.id,
+          name: profile.realLabel,
+          yaml: await file.readAsBytes(),
+          updated:
+              (profile.lastUpdateDate ?? DateTime.fromMillisecondsSinceEpoch(0))
+                  .millisecondsSinceEpoch ~/
+              1000,
+          autoUpdate: profile.realAutoUpdate,
+          updateIntervalMinutes: profile.autoUpdateDuration.inMinutes,
+          subscriptionInfo: info == null
+              ? null
+              : {
+                  'upload': info.upload,
+                  'download': info.download,
+                  'total': info.total,
+                  'expire': info.expire,
                 },
-              ).resolve(
-                urls: profiles.map((profile) => profile.url).toList(),
-                importedArchive: importedArchive,
-              ),
-        );
-      } catch (error) {
-        workerUnifiedStatus = 'unavailable-missing-trusted-capsule';
-        commonPrint.log(
-          'Worker v1 compatibility export unavailable: $error',
-          logLevel: LogLevel.warning,
-        );
-      }
+        ),
+      );
     }
-
-    final backupPayload = <String, dynamic>{
-      'profiles': profilesJson,
-      'yamlFileNames': profileFileNames,
-      'jsFileNames': jsFileNames,
-      'scripts': scriptJsons,
-      'rules': ruleJsons,
-      'links': linkJsons,
-      'proxyGroups': proxyGroupsFromDb.map((group) => group.toJson()).toList(),
-      'config': backupConfigJson(ref.read(configProvider)),
-      'workerUnifiedArchive': ?workerUnifiedArchive,
-      'workerUnifiedStatus': workerUnifiedStatus,
-    };
-    return backupProfilesOnlyTask(backupPayload, currentProfileId, appVersion);
+    final importedArchiveFile = File(await appPath.workerUnifiedArchivePath);
+    if (!await importedArchiveFile.exists()) {
+      throw StateError(
+        'Cannot export unified archive: trusted Worker identity context is missing',
+      );
+    }
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: exportProfiles,
+        currentAndroidId: currentProfileId,
+        trustedArchive: await importedArchiveFile.readAsBytes(),
+        generatorVersion: '1.0.0',
+      ),
+    );
+    final target = File(await appPath.tempFilePath);
+    await target.writeAsBytes(bytes, flush: true);
+    return target.path;
   }
 
   Future<BackupRestoreOutcome> restore() async {
@@ -1284,11 +1223,20 @@ class BackupAction extends _$BackupAction {
       ref.read(patchClashConfigProvider.notifier).value =
           restoredConfig.patchClashConfig;
     }
-    return activateCommittedRestore(
-      applyProfile: () =>
-          ref.read(setupActionProvider.notifier).applyProfile(force: true),
-      updateGroups: () =>
-          ref.read(proxiesActionProvider.notifier).updateGroups(),
+    final readiness = await ref
+        .read(proxiesActionProvider.notifier)
+        .ensureCurrentProfileReady(forceApply: true);
+    final succeeded =
+        readiness.status == ProviderReadinessStatus.ready ||
+        readiness.status == ProviderReadinessStatus.noProviders;
+    return BackupRestoreOutcome(
+      committed: true,
+      activationSucceeded: succeeded,
+      activationError: succeeded
+          ? null
+          : readiness.error?.toString() ??
+                'Provider and proxy groups are not ready yet',
+      providerReadinessStatus: readiness.status,
     );
   }
 }
@@ -1530,56 +1478,82 @@ class ThemeAction extends _$ThemeAction {
 
 @Riverpod(keepAlive: true)
 class ProxiesAction extends _$ProxiesAction {
-  Future<void>? _ensureProvidersFuture;
+  late final ProviderReadinessService<ExternalProvider, Group>
+  _providerReadiness = ProviderReadinessService(
+    log: (stage, result, elapsed) {
+      commonPrint.log(
+        '$stage profileId=${result.profileId} elapsedMs=${elapsed.inMilliseconds} '
+        'providerCount=${result.providerCount} groupCount=${result.groupCount} '
+        'status=${result.status.name} lastError=${result.error ?? '-'}',
+        logLevel:
+            result.status == ProviderReadinessStatus.failed ||
+                result.status == ProviderReadinessStatus.timeout ||
+                result.status == ProviderReadinessStatus.coreUnavailable
+            ? LogLevel.warning
+            : LogLevel.info,
+      );
+    },
+  );
 
   @override
   void build() {}
 
-  Future<void> ensureProvidersForCurrentProfile() {
-    final running = _ensureProvidersFuture;
-    if (running != null) return running;
-
-    final future = _ensureProvidersForCurrentProfile();
-    _ensureProvidersFuture = future;
-    future.whenComplete(() {
-      if (_ensureProvidersFuture == future) {
-        _ensureProvidersFuture = null;
-      }
-    });
-    return future;
-  }
-
-  Future<void> _ensureProvidersForCurrentProfile() async {
+  Future<ProviderReadinessResult> ensureCurrentProfileReady({
+    bool forceApply = false,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     final profileId = ref.read(currentProfileIdProvider);
-    if (profileId == null) {
-      ref.read(providersProvider.notifier).clear();
-      return;
-    }
-
-    try {
-      final config = await ref.read(clashConfigProvider(profileId).future);
-      if (ref.read(currentProfileIdProvider) != profileId) return;
-
-      if (!hasExternalProviderDefinitions(config)) {
+    ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
+    final result = await _providerReadiness.ensureCurrentProfileReady(
+      targetProfileId: profileId,
+      currentProfileId: () => ref.read(currentProfileIdProvider),
+      readProviderDefinitions: () async {
+        if (profileId == null) return (external: false, proxy: false);
+        final config = await ref.read(clashConfigProvider(profileId).future);
+        return (
+          external: hasExternalProviderDefinitions(config),
+          proxy: config.proxyProviders.isNotEmpty,
+        );
+      },
+      ensureCoreReady: _ensureCoreReadyForDisplay,
+      applyProfileForDisplay: () =>
+          ref.read(setupActionProvider.notifier).applyProfileForDisplay(),
+      syncProviders: coreController.getExternalProviders,
+      isProxyProvider: (provider) => provider.type.toLowerCase() == 'proxy',
+      readGroups: _readRuntimeGroups,
+      groupsAreValid: _isSnapshotWritableGroups,
+      commitReady: (providers, groups) =>
+          _commitReady(profileId, providers, groups),
+      forceApply: forceApply,
+      timeout: timeout,
+    );
+    if (ref.read(currentProfileIdProvider) != profileId) return result;
+    switch (result.status) {
+      case ProviderReadinessStatus.ready:
+        break;
+      case ProviderReadinessStatus.noProviders:
         ref.read(providersProvider.notifier).clear();
-        return;
-      }
-
-      if (ref.read(providersProvider).isNotEmpty) return;
-
-      final coreReady = await _ensureCoreReadyForDisplay();
-      if (!coreReady) return;
-
-      await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
-      if (ref.read(currentProfileIdProvider) != profileId) return;
-
-      await ref.read(providersProvider.notifier).syncProviders();
-    } catch (e) {
-      commonPrint.log(
-        'ensureProvidersForCurrentProfile failed: $e',
-        logLevel: LogLevel.warning,
-      );
+        await updateGroups();
+        break;
+      case ProviderReadinessStatus.timeout:
+        ref
+            .read(proxyGroupsSnapshotProvider.notifier)
+            .failed(const ProviderReadinessTimeout());
+        break;
+      case ProviderReadinessStatus.coreUnavailable:
+        ref
+            .read(proxyGroupsSnapshotProvider.notifier)
+            .failed(const ProviderReadinessCoreUnavailable());
+        break;
+      case ProviderReadinessStatus.failed:
+        ref
+            .read(proxyGroupsSnapshotProvider.notifier)
+            .failed(result.error ?? StateError('Provider readiness failed'));
+        break;
+      case ProviderReadinessStatus.profileChanged:
+        break;
     }
+    return result;
   }
 
   Future<bool> _ensureCoreReadyForDisplay() async {
@@ -1600,6 +1574,49 @@ class ProxiesAction extends _$ProxiesAction {
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
     }
     return initialized;
+  }
+
+  Future<List<Group>> _readRuntimeGroups() {
+    final sortType = ref.read(
+      proxiesStyleSettingProvider.select((state) => state.sortType),
+    );
+    final delayMap = ref.read(delayDataSourceProvider);
+    final testUrl = ref.read(
+      appSettingProvider.select((state) => state.testUrl),
+    );
+    final selectedMap = ref.read(
+      currentProfileProvider.select((state) => state?.selectedMap ?? {}),
+    );
+    return coreController.getProxiesGroups(
+      selectedMap: selectedMap,
+      sortType: sortType,
+      delayMap: delayMap,
+      defaultTestUrl: testUrl,
+    );
+  }
+
+  Future<void> _commitReady(
+    int? profileId,
+    List<ExternalProvider> providers,
+    List<Group> groups,
+  ) async {
+    if (profileId == null ||
+        ref.read(currentProfileIdProvider) != profileId ||
+        !_isSnapshotWritableGroups(groups)) {
+      return;
+    }
+    ref.read(providersProvider.notifier).value = providers;
+    ref.read(groupsProvider.notifier).value = groups;
+    ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
+    ref.read(lastGroupsRefreshAtProvider.notifier).update();
+    ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
+    final profile = _findProfileById(profileId);
+    if (profile != null) {
+      await _putProxyGroupsSnapshot(profile: profile, groups: groups);
+    }
+    if (ref.read(currentProfileIdProvider) == profileId) {
+      _syncComputedSelectedMap(groups);
+    }
   }
 
   bool _groupsEqual(List<Group> a, List<Group> b) {
