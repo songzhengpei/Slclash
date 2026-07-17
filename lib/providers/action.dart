@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
@@ -15,11 +14,10 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/services/backup/restore_service.dart';
-import 'package:fl_clash/services/backup/backup_config.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
-import 'package:fl_clash/services/backup/worker_v1_exporter.dart';
-import 'package:fl_clash/services/backup/worker_v1_capsule_store.dart';
+import 'package:fl_clash/services/unified_backup_export/exporter.dart';
+import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/input.dart';
@@ -1111,48 +1109,10 @@ class BackupAction extends _$BackupAction {
   void build() {}
 
   Future<String> backup() async {
-    final profileFileNames = await database.profilesDao.fileNames().get();
     final profiles = ref.read(profilesProvider);
     final currentProfileId = ref.read(currentProfileIdProvider);
-    final appVersion = ref.read(versionProvider).toString();
-    final profilesJson = profiles.map((p) {
-      final json = p.toJson();
-      // v2: keep both scriptId and overwriteType for correct restore
-      return json;
-    }).toList();
-
-    // Query scripts, rules, links for v2 backup
-    // Filter out scripts whose .js file is missing on disk
-    final scriptsFromDb = await database.scriptsDao.query().get();
-    final scriptsDir = Directory(await appPath.scriptsDirPath);
-    final jsFileNames = <String>[];
-    final scriptJsons = <Map<String, dynamic>>[];
-    for (final s in scriptsFromDb) {
-      final jsFileName = '${s.id}.js';
-      final jsFile = File(join(scriptsDir.path, jsFileName));
-      if (await jsFile.exists()) {
-        scriptJsons.add(s.toJson());
-        jsFileNames.add(jsFileName);
-      } else {
-        throw StateError(
-          'Cannot create backup: script ${s.id} is missing its JavaScript file',
-        );
-      }
-    }
-    final rulesFromDb = await database.rulesDao.queryAllRules();
-    final ruleJsons = rulesFromDb.map((r) => r.toJson()).toList();
-    final linksFromDb = await database.rulesDao.queryAllLinks();
-    final linkJsons = linksFromDb.map((link) {
-      return <String, dynamic>{
-        'profileId': link.profileId,
-        'ruleId': link.ruleId,
-        'scene': link.scene?.name,
-        'order': link.order,
-      };
-    }).toList();
-    final proxyGroupsFromDb = await database.proxyGroupsDao.queryAll().get();
-
     final profilesPath = await appPath.profilesPath;
+    final exportProfiles = <UnifiedExportProfile>[];
     for (final profile in profiles) {
       final file = File(join(profilesPath, '${profile.id}.yaml'));
       if (!await file.exists()) {
@@ -1160,70 +1120,46 @@ class BackupAction extends _$BackupAction {
           'Cannot create backup: profile ${profile.id} is missing its YAML file',
         );
       }
-    }
-    Uint8List? importedArchive;
-    final importedArchiveFile = File(await appPath.workerUnifiedArchivePath);
-    if (await importedArchiveFile.exists()) {
-      importedArchive = await importedArchiveFile.readAsBytes();
-    }
-    Uint8List? workerUnifiedArchive;
-    var workerUnifiedStatus = profiles.isEmpty ? 'not-applicable' : 'complete';
-    if (profiles.isNotEmpty) {
-      try {
-        workerUnifiedArchive = const WorkerV1Exporter().export(
-          profiles: profiles
-              .map(
-                (profile) => WorkerV1ExportProfile(
-                  name: profile.label,
-                  url: profile.url,
-                ),
-              )
-              .toList(growable: false),
-          currentProfileUrl: profiles
-              .where((profile) => profile.id == currentProfileId)
-              .firstOrNull
-              ?.url,
-          trustedPackages:
-              await WorkerV1CapsuleStore(
-                directory: await appPath.workerV1CapsulesPath,
-                fetch: (url) async {
-                  final response = await request
-                      .getFileResponseForUrlWithHeaders(url, {
-                        'Accept': workerV1CapsuleMediaType,
-                      });
-                  final bytes = response.data;
-                  if (bytes == null) {
-                    throw StateError('Worker returned an empty export capsule');
-                  }
-                  return bytes;
+      final info = profile.subscriptionInfo;
+      exportProfiles.add(
+        UnifiedExportProfile(
+          androidId: profile.id,
+          name: profile.realLabel,
+          yaml: await file.readAsBytes(),
+          updated:
+              (profile.lastUpdateDate ?? DateTime.fromMillisecondsSinceEpoch(0))
+                  .millisecondsSinceEpoch ~/
+              1000,
+          autoUpdate: profile.realAutoUpdate,
+          updateIntervalMinutes: profile.autoUpdateDuration.inMinutes,
+          subscriptionInfo: info == null
+              ? null
+              : {
+                  'upload': info.upload,
+                  'download': info.download,
+                  'total': info.total,
+                  'expire': info.expire,
                 },
-              ).resolve(
-                urls: profiles.map((profile) => profile.url).toList(),
-                importedArchive: importedArchive,
-              ),
-        );
-      } catch (error) {
-        workerUnifiedStatus = 'unavailable-missing-trusted-capsule';
-        commonPrint.log(
-          'Worker v1 compatibility export unavailable: $error',
-          logLevel: LogLevel.warning,
-        );
-      }
+        ),
+      );
     }
-
-    final backupPayload = <String, dynamic>{
-      'profiles': profilesJson,
-      'yamlFileNames': profileFileNames,
-      'jsFileNames': jsFileNames,
-      'scripts': scriptJsons,
-      'rules': ruleJsons,
-      'links': linkJsons,
-      'proxyGroups': proxyGroupsFromDb.map((group) => group.toJson()).toList(),
-      'config': backupConfigJson(ref.read(configProvider)),
-      'workerUnifiedArchive': ?workerUnifiedArchive,
-      'workerUnifiedStatus': workerUnifiedStatus,
-    };
-    return backupProfilesOnlyTask(backupPayload, currentProfileId, appVersion);
+    final importedArchiveFile = File(await appPath.workerUnifiedArchivePath);
+    if (!await importedArchiveFile.exists()) {
+      throw StateError(
+        'Cannot export unified archive: trusted Worker identity context is missing',
+      );
+    }
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: exportProfiles,
+        currentAndroidId: currentProfileId,
+        trustedArchive: await importedArchiveFile.readAsBytes(),
+        generatorVersion: '1.0.0',
+      ),
+    );
+    final target = File(await appPath.tempFilePath);
+    await target.writeAsBytes(bytes, flush: true);
+    return target.path;
   }
 
   Future<BackupRestoreOutcome> restore() async {
