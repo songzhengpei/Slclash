@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:yaml/yaml.dart';
 
 import 'backup_error.dart';
@@ -48,6 +49,8 @@ class ClashVergeBackupParser {
     final files = <StagedRestoreFile>[];
     final uidToId = <String, int>{};
     final ids = <int>{};
+    final seenUids = <String>{};
+    final seenFiles = <String>{};
     for (var index = 0; index < rawItems.length; index++) {
       final raw = rawItems[index];
       if (raw is! Map) continue;
@@ -62,12 +65,19 @@ class ClashVergeBackupParser {
           'Clash Verge Rev subscription identity is invalid',
         );
       }
-      if (fileName.contains('/') ||
-          fileName.contains('\\') ||
-          !fileName.endsWith('.yaml')) {
+      if (!seenUids.add(uid) ||
+          !seenFiles.add(fileName) ||
+          fileName != '$uid.yaml') {
         throw const BackupFormatException(
           BackupErrorCode.invalidProfiles,
-          'Clash Verge Rev subscription file is invalid',
+          'Clash Verge Rev subscription identity or file is duplicated',
+        );
+      }
+      final url = item['url'];
+      if (type == 'remote' && (url is! String || url.trim().isEmpty)) {
+        throw const BackupFormatException(
+          BackupErrorCode.invalidProfiles,
+          'Clash Verge Rev remote subscription URL is missing',
         );
       }
       final yamlBytes = zip.files['profiles/$fileName'];
@@ -77,23 +87,41 @@ class ClashVergeBackupParser {
           'Clash Verge Rev subscription file is missing: $fileName',
         );
       }
-      final contentHash = sha256.convert(yamlBytes).toString();
-      var id = int.parse(
+      final id = int.parse(
         sha256
-            .convert(utf8.encode('clash-verge-rev\n$uid\n$contentHash'))
+            .convert(utf8.encode('clash-verge-rev\n$uid'))
             .toString()
             .substring(0, 15),
         radix: 16,
       );
-      while (!ids.add(id)) {
-        id++;
+      if (!ids.add(id)) {
+        throw const BackupFormatException(
+          BackupErrorCode.invalidProfiles,
+          'Clash Verge Rev subscription identity collision',
+        );
       }
       uidToId[uid] = id;
       final option = item['option'] is Map
           ? Map<Object?, Object?>.from(item['option'] as Map)
           : const <Object?, Object?>{};
       final interval = option['update_interval'];
-      final intervalMinutes = interval is int && interval > 0 ? interval : 1440;
+      if (interval != null &&
+          (interval is! int ||
+              interval <= 0 ||
+              interval > maxClientUpdateIntervalMinutes)) {
+        throw const BackupFormatException(
+          BackupErrorCode.invalidProfiles,
+          'Clash Verge Rev update interval is invalid',
+        );
+      }
+      final allowAutoUpdate = option['allow_auto_update'];
+      if (allowAutoUpdate != null && allowAutoUpdate is! bool) {
+        throw const BackupFormatException(
+          BackupErrorCode.invalidProfiles,
+          'Clash Verge Rev auto update policy is invalid',
+        );
+      }
+      final intervalMinutes = interval is int ? interval : 1440;
       final extra = item['extra'] is Map
           ? Map<Object?, Object?>.from(item['extra'] as Map)
           : const <Object?, Object?>{};
@@ -102,14 +130,12 @@ class ClashVergeBackupParser {
         Profile(
           id: id,
           label: item['name'] is String ? item['name'] as String : uid,
-          url: type == 'remote' && item['url'] is String
-              ? item['url'] as String
-              : '',
+          url: type == 'remote' ? url as String : '',
           lastUpdateDate: updated is int
               ? DateTime.fromMillisecondsSinceEpoch(updated * 1000, isUtc: true)
               : null,
           autoUpdateDuration: Duration(minutes: intervalMinutes),
-          autoUpdate: type == 'remote' && option['allow_auto_update'] != false,
+          autoUpdate: type == 'remote' && allowAutoUpdate != false,
           subscriptionInfo: extra.isEmpty
               ? null
               : SubscriptionInfo(

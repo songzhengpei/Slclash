@@ -13,6 +13,8 @@ enum BackupSourceFormat {
 
 enum ProviderCachePolicy { preserve, invalidateRestoredProfiles }
 
+enum RestoreScope { all, profilesOnly }
+
 class StagedRestoreFile {
   final String relativePath;
   final Uint8List bytes;
@@ -36,6 +38,7 @@ class RestoreBundle {
   final int? currentProfileId;
   final List<StagedRestoreFile> files;
   final ProviderCachePolicy providerCachePolicy;
+  final RestoreScope scope;
 
   /// Original, fully validated Worker v1 archive retained in normal backups.
   ///
@@ -56,6 +59,7 @@ class RestoreBundle {
     this.currentProfileId,
     this.files = const [],
     this.providerCachePolicy = ProviderCachePolicy.preserve,
+    this.scope = RestoreScope.all,
     this.workerUnifiedArchive,
     this.replaceWorkerUnifiedArchive = false,
   });

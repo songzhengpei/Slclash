@@ -44,6 +44,7 @@ class UnifiedV1Exporter {
         .toList();
     final fixedToken = _fixedToken(trustedItems);
     final trustedByAndroidId = <int, _TrustedIdentity>{};
+    final trustedByUrl = <String, _TrustedIdentity>{};
     final trustedByProfileHash = <String, List<_TrustedIdentity>>{};
     for (final item in trustedItems) {
       final uid = item['uid'] as String;
@@ -67,6 +68,7 @@ class UnifiedV1Exporter {
         ),
       );
       trustedByAndroidId[id] = trustedIdentity;
+      trustedByUrl[item['url'] as String] = trustedIdentity;
       final profileHash = airport['profileSha256'] as String;
       trustedByProfileHash
           .putIfAbsent(profileHash, () => <_TrustedIdentity>[])
@@ -84,15 +86,22 @@ class UnifiedV1Exporter {
     final profileItems = <Map<String, Object?>>[];
     final seenUids = <String>{};
     final seenSlugs = <String>{};
+    final claimedTrustedUids = <String>{};
     final prepared = input.profiles
         .map((profile) {
           final profileHash = sha256.convert(profile.yaml).toString();
           final hashMatches = trustedByProfileHash[profileHash];
-          final trustedIdentity =
+          final candidate =
               trustedByAndroidId[profile.androidId] ??
+              trustedByUrl[profile.sourceUrl] ??
               (hashMatches != null && hashMatches.length == 1
                   ? hashMatches.single
                   : null);
+          final trustedIdentity =
+              candidate != null &&
+                  claimedTrustedUids.add(candidate.identity.profileUid)
+              ? candidate
+              : null;
           final identity =
               trustedIdentity?.identity ??
               deriveUnifiedIdentity(profile.androidId);

@@ -1146,6 +1146,7 @@ class BackupAction extends _$BackupAction {
               1000,
           autoUpdate: profile.realAutoUpdate,
           updateIntervalMinutes: profile.autoUpdateDuration.inMinutes,
+          sourceUrl: profile.url,
           subscriptionInfo: info == null
               ? null
               : {

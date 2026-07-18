@@ -43,8 +43,9 @@ class UnifiedBackupService {
         const WorkerV1Parser().parse(bytes),
         bytes,
       ),
-      BackupFormat.clashVergeRev => _clashVergeBundle(
+      BackupFormat.clashVergeRev => await _clashVergeBundle(
         const ClashVergeBackupParser().parse(bytes),
+        override: override,
       ),
       _ => await _legacyBundle(const LegacyBackupParser().parseBytes(bytes)),
     };
@@ -233,18 +234,47 @@ class UnifiedBackupService {
     );
   }
 
-  RestoreBundle _clashVergeBundle(ClashVergeBackupPackage package) {
+  Future<RestoreBundle> _clashVergeBundle(
+    ClashVergeBackupPackage package, {
+    required bool override,
+  }) async {
+    final profiles = override
+        ? package.profiles
+        : await _appendNewProfilesAfterExisting(package.profiles);
     return RestoreBundle(
       sourceFormat: BackupSourceFormat.clashVergeRev,
-      profiles: package.profiles,
+      profiles: profiles,
       currentProfileId: package.currentProfileId,
       files: package.files,
       providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
+      scope: RestoreScope.profilesOnly,
       // Verge carries no Worker capsule. Keep the existing trusted baseline so
       // the V1 exporter can reuse identities by profile SHA and issue stable
       // identities for genuinely new subscriptions.
       replaceWorkerUnifiedArchive: false,
     );
+  }
+
+  Future<List<Profile>> _appendNewProfilesAfterExisting(
+    List<Profile> imported,
+  ) async {
+    final existing = await database.profilesDao.query().get();
+    final byId = {for (final profile in existing) profile.id: profile};
+    var nextOrder =
+        existing
+            .map((profile) => profile.order ?? -1)
+            .fold<int>(
+              -1,
+              (highest, order) => order > highest ? order : highest,
+            ) +
+        1;
+    return imported
+        .map((profile) {
+          final old = byId[profile.id];
+          if (old != null) return profile.copyWith(order: old.order);
+          return profile.copyWith(order: nextOrder++);
+        })
+        .toList(growable: false);
   }
 
   Future<RestoreBundle> _traditionalBundle(LegacyParsedPackage package) async {

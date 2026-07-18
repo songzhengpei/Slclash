@@ -9,6 +9,7 @@ class UnifiedExportProfile {
     required this.autoUpdate,
     required this.updateIntervalMinutes,
     this.subscriptionInfo,
+    this.sourceUrl,
   });
 
   final int androidId;
@@ -18,6 +19,9 @@ class UnifiedExportProfile {
   final bool autoUpdate;
   final int updateIntervalMinutes;
   final Map<String, int>? subscriptionInfo;
+
+  /// Local-only identity hint. It is never serialized into the archive.
+  final String? sourceUrl;
 }
 
 const maxClientUpdateIntervalMinutes = 153722867280;
