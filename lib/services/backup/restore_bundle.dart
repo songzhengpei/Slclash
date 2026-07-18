@@ -4,6 +4,7 @@ import 'package:fl_clash/models/models.dart';
 
 enum BackupSourceFormat {
   workerUnifiedV1,
+  clashVergeRev,
   slclashProfilesV2,
   slclashProfilesV1,
   slclashDatabase,

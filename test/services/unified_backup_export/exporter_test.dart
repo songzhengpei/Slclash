@@ -239,6 +239,34 @@ void main() {
     );
   });
 
+  test(
+    'reuses trusted identity by profile SHA after Verge import changes ID',
+    () {
+      final profile = UnifiedExportProfile(
+        androidId: 987654321,
+        name: 'Imported Worker 0',
+        yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
+        updated: 1700000000,
+        autoUpdate: true,
+        updateIntervalMinutes: 60,
+      );
+      final bytes = const UnifiedV1Exporter().build(
+        UnifiedExportInput(
+          profiles: [profile],
+          currentAndroidId: profile.androidId,
+          trustedArchive: Uint8List.fromList(_trustedArchive()),
+          generatorVersion: '1.0.0',
+        ),
+      );
+      final parsed = const WorkerV1Parser().parse(bytes);
+      final airport = parsed.manifest.airports.single;
+      expect(airport['slug'], 'worker-0');
+      expect(airport['subscriptionId'], 'subscription-0');
+      expect(airport['profileUid'], 'R10000000');
+      expect(parsed.profilesYaml['current'], 'R10000000');
+    },
+  );
+
   test('preserves visible dependency statistics and rewrites versions', () {
     final profiles = List.generate(3, (index) {
       return UnifiedExportProfile(

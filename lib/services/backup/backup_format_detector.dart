@@ -10,7 +10,7 @@ enum BackupFormat {
   workerUnifiedV1,
   profilesOnlyV1,
   profilesOnlyV2,
-  profilesOnlyV3,
+  clashVergeRev,
   traditional,
   legacyConfigOnly,
 }
@@ -37,12 +37,24 @@ class BackupFormatDetector {
       return switch (metadata['backupType']) {
         'profiles_only_v1' => BackupFormat.profilesOnlyV1,
         'profiles_only_v2' => BackupFormat.profilesOnlyV2,
-        'profiles_only_v3' => BackupFormat.profilesOnlyV3,
+        'profiles_only_v3' => throw const BackupFormatException(
+          BackupErrorCode.unsupportedFormat,
+          'profiles_only_v3 backups are no longer supported',
+        ),
         final Object? value => throw BackupFormatException(
           BackupErrorCode.unsupportedFormat,
           'Unsupported profiles backup type: ${value ?? '(missing)'}',
         ),
       };
+    }
+
+    if (files.containsKey('profiles.yaml') &&
+        files.containsKey('config.yaml') &&
+        files.containsKey('verge.yaml') &&
+        files.keys.any(
+          (name) => name.startsWith('profiles/') && name.endsWith('.yaml'),
+        )) {
+      return BackupFormat.clashVergeRev;
     }
 
     final hasDatabase = files.containsKey('database.sqlite');

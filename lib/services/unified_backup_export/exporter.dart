@@ -44,13 +44,14 @@ class UnifiedV1Exporter {
         .toList();
     final fixedToken = _fixedToken(trustedItems);
     final trustedByAndroidId = <int, _TrustedIdentity>{};
+    final trustedByProfileHash = <String, List<_TrustedIdentity>>{};
     for (final item in trustedItems) {
       final uid = item['uid'] as String;
       final id = int.parse(uid.substring(1), radix: 16);
       final airport = trusted.manifest.airports.singleWhere(
         (value) => value['profileUid'] == uid,
       );
-      trustedByAndroidId[id] = _TrustedIdentity(
+      final trustedIdentity = _TrustedIdentity(
         identity: UnifiedIdentity(
           slug: airport['slug'] as String,
           subscriptionId: airport['subscriptionId'] as String,
@@ -65,6 +66,11 @@ class UnifiedV1Exporter {
               as Map,
         ),
       );
+      trustedByAndroidId[id] = trustedIdentity;
+      final profileHash = airport['profileSha256'] as String;
+      trustedByProfileHash
+          .putIfAbsent(profileHash, () => <_TrustedIdentity>[])
+          .add(trustedIdentity);
     }
 
     final config = _plain(loadYaml(utf8.decode(trusted.files['config.yaml']!)));
@@ -80,15 +86,21 @@ class UnifiedV1Exporter {
     final seenSlugs = <String>{};
     final prepared = input.profiles
         .map((profile) {
+          final profileHash = sha256.convert(profile.yaml).toString();
+          final hashMatches = trustedByProfileHash[profileHash];
+          final trustedIdentity =
+              trustedByAndroidId[profile.androidId] ??
+              (hashMatches != null && hashMatches.length == 1
+                  ? hashMatches.single
+                  : null);
           final identity =
-              trustedByAndroidId[profile.androidId]?.identity ??
+              trustedIdentity?.identity ??
               deriveUnifiedIdentity(profile.androidId);
           if (!seenUids.add(identity.profileUid) ||
               !seenSlugs.add(identity.slug)) {
             throw StateError('Unified profile identity collision');
           }
           final projected = projectProfile(profile.yaml);
-          final profileHash = sha256.convert(profile.yaml).toString();
           final providerHash = sha256
               .convert(projected.providerYaml)
               .toString();
@@ -100,7 +112,7 @@ class UnifiedV1Exporter {
             profileHash: profileHash,
             providerHash: providerHash,
             versionId: versionId,
-            trustedMeta: trustedByAndroidId[profile.androidId]?.meta,
+            trustedMeta: trustedIdentity?.meta,
           );
         })
         .toList(growable: false);
@@ -206,8 +218,11 @@ class UnifiedV1Exporter {
         .firstOrNull;
     final currentIdentity = current == null
         ? airports.first['profileUid']
-        : (trustedByAndroidId[current.androidId]?.identity ??
-                  deriveUnifiedIdentity(current.androidId))
+        : prepared
+              .singleWhere(
+                (item) => item.profile.androidId == current.androidId,
+              )
+              .identity
               .profileUid;
     files['config.yaml'] = utf8.encode(
       '${yaml.encode(configMap).trimRight()}\n',

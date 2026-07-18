@@ -9,6 +9,7 @@ import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:path/path.dart' as p;
 
 import 'backup_format_detector.dart';
+import 'clash_verge_backup_parser.dart';
 import 'legacy_backup_parser.dart';
 import 'restore_bundle.dart';
 import 'restore_service.dart';
@@ -42,6 +43,9 @@ class UnifiedBackupService {
         const WorkerV1Parser().parse(bytes),
         bytes,
       ),
+      BackupFormat.clashVergeRev => _clashVergeBundle(
+        const ClashVergeBackupParser().parse(bytes),
+      ),
       _ => await _legacyBundle(const LegacyBackupParser().parseBytes(bytes)),
     };
     return RestoreService(
@@ -51,49 +55,6 @@ class UnifiedBackupService {
       readConfig: readConfig,
       writeConfig: writeConfig,
     ).restore(bundle, override: override);
-  }
-
-  Future<RestoreBundle> _legacyBundleV3(LegacyParsedPackage package) async {
-    // v3 format is treated like v2 for core logic
-    // The Clash Verge Rev compatibility projections (profiles.yaml, profiles/R*.yaml)
-    // are in the outer ZIP but don't affect Slclash restore
-    final profiles = package.profiles
-        .map((raw) {
-          final map = _normalizeLegacyProfile(raw);
-          return Profile.fromJson(map);
-        })
-        .toList(growable: false);
-    final scripts = _maps(
-      package.metadata['scripts'],
-    ).map(Script.fromJson).toList();
-    final rules = _maps(package.metadata['rules']).map(Rule.fromJson).toList();
-    final links = _maps(package.metadata['links']).map(_linkFromJson).toList();
-    final proxyGroups = _maps(
-      package.metadata['proxyGroups'],
-    ).map(ProxyGroup.fromJson).toList();
-    final config = _restoreConfig(
-      package.metadata['config'] is Map
-          ? Map<String, dynamic>.from(package.metadata['config'] as Map)
-          : package.config,
-    );
-    final workerUnifiedArchive = _validatedEmbeddedWorkerArchiveV3(
-      package,
-      profiles,
-    );
-    return RestoreBundle(
-      sourceFormat: BackupSourceFormat.slclashProfilesV2, // v3 treated as v2
-      profiles: profiles,
-      scripts: scripts,
-      rules: rules,
-      links: links,
-      proxyGroups: proxyGroups,
-      config: config,
-      currentProfileId: package.currentProfileId,
-      files: _currentFiles(package.files, profiles, scripts),
-      providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
-      workerUnifiedArchive: workerUnifiedArchive,
-      replaceWorkerUnifiedArchive: true,
-    );
   }
 
   RestoreBundle _workerBundle(WorkerV1Package package, Uint8List archiveBytes) {
@@ -216,9 +177,6 @@ class UnifiedBackupService {
     if (package.format == BackupFormat.traditional) {
       return _traditionalBundle(package);
     }
-    if (package.format == BackupFormat.profilesOnlyV3) {
-      return _legacyBundleV3(package);
-    }
     final isV2 = package.format == BackupFormat.profilesOnlyV2;
     final profiles = package.profiles
         .map((raw) {
@@ -271,7 +229,21 @@ class UnifiedBackupService {
       // metadata and stale cache contents from disagreeing.
       providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
       workerUnifiedArchive: workerUnifiedArchive,
-      replaceWorkerUnifiedArchive: true,
+      replaceWorkerUnifiedArchive: workerUnifiedArchive != null,
+    );
+  }
+
+  RestoreBundle _clashVergeBundle(ClashVergeBackupPackage package) {
+    return RestoreBundle(
+      sourceFormat: BackupSourceFormat.clashVergeRev,
+      profiles: package.profiles,
+      currentProfileId: package.currentProfileId,
+      files: package.files,
+      providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
+      // Verge carries no Worker capsule. Keep the existing trusted baseline so
+      // the V1 exporter can reuse identities by profile SHA and issue stable
+      // identities for genuinely new subscriptions.
+      replaceWorkerUnifiedArchive: false,
     );
   }
 
@@ -344,72 +316,6 @@ Uint8List? _validatedEmbeddedWorkerArchive(
       throw const BackupFormatException(
         BackupErrorCode.hashMismatch,
         'Slclash backup and subscription-center snapshot disagree',
-      );
-    }
-  }
-  return Uint8List.fromList(bytes);
-}
-
-Uint8List? _validatedEmbeddedWorkerArchiveV3(
-  LegacyParsedPackage package,
-  List<Profile> profiles,
-) {
-  final bytes = package.files['subscription-center/worker-v1.zip'];
-  if (bytes == null) return null;
-  final worker = const WorkerV1Parser().parse(bytes);
-  final outerProfiles = {for (final profile in profiles) profile.id: profile};
-  final items = worker.profilesYaml['items'];
-  if (items is! List) {
-    throw const BackupFormatException(
-      BackupErrorCode.invalidProfiles,
-      'Embedded subscription-center snapshot has invalid profiles',
-    );
-  }
-
-  // v3: Validate outer profiles.yaml matches embedded Worker capsule
-  final outerProfilesYaml = package.files['profiles.yaml'];
-  final innerProfilesYaml = worker.files['profiles.yaml'];
-  if (outerProfilesYaml == null ||
-      innerProfilesYaml == null ||
-      !_sameBytes(outerProfilesYaml, innerProfilesYaml)) {
-    throw const BackupFormatException(
-      BackupErrorCode.hashMismatch,
-      'Outer profiles.yaml does not match embedded Worker capsule',
-    );
-  }
-
-  for (final value in items) {
-    if (value is! Map || value['uid'] is! String || value['file'] is! String) {
-      throw const BackupFormatException(
-        BackupErrorCode.invalidProfiles,
-        'Embedded subscription-center snapshot has invalid profile identity',
-      );
-    }
-    final uid = value['uid'] as String;
-    final id = int.parse(uid.substring(1), radix: 16);
-    final outer = outerProfiles[id];
-    final innerYaml = worker.files['profiles/${value['file']}'];
-    final outerYaml = package.files['profiles/$id.yaml'];
-    if (outer == null ||
-        outer.url != value['url'] ||
-        innerYaml == null ||
-        outerYaml == null ||
-        !_sameBytes(innerYaml, outerYaml)) {
-      throw const BackupFormatException(
-        BackupErrorCode.hashMismatch,
-        'Slclash backup and subscription-center snapshot disagree',
-      );
-    }
-
-    // v3: Validate outer profiles/R*.yaml matches embedded Worker capsule
-    final outerRYaml = package.files['profiles/$uid.yaml'];
-    final innerRYaml = worker.files['profiles/$uid.yaml'];
-    if (outerRYaml == null ||
-        innerRYaml == null ||
-        !_sameBytes(outerRYaml, innerRYaml)) {
-      throw BackupFormatException(
-        BackupErrorCode.hashMismatch,
-        'Outer profiles/$uid.yaml does not match embedded Worker capsule',
       );
     }
   }
