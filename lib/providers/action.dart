@@ -19,6 +19,7 @@ import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/services/providers/provider_readiness_service.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
+import 'package:fl_clash/services/unified_backup_export/profile_materializer.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/input.dart';
@@ -1135,11 +1136,16 @@ class BackupAction extends _$BackupAction {
         );
       }
       final info = profile.subscriptionInfo;
+      final materializedYaml = await materializeProfileForUnifiedExport(
+        profileId: profile.id,
+        profileBytes: await file.readAsBytes(),
+        profilesDirectory: profilesPath,
+      );
       exportProfiles.add(
         UnifiedExportProfile(
           androidId: profile.id,
           name: profile.realLabel,
-          yaml: await file.readAsBytes(),
+          yaml: materializedYaml,
           updated:
               (profile.lastUpdateDate ?? DateTime.fromMillisecondsSinceEpoch(0))
                   .millisecondsSinceEpoch ~/
