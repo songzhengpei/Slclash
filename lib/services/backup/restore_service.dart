@@ -168,6 +168,11 @@ class RestoreService {
 
     final profileIds = bundle.profiles.map((e) => e.id).toSet();
     final scriptIds = bundle.scripts.map((e) => e.id).toSet();
+    if (bundle.scope == RestoreScope.profilesOnly) {
+      scriptIds.addAll(
+        (await database.scriptsDao.query().get()).map((script) => script.id),
+      );
+    }
     final ruleIds = bundle.rules.map((e) => e.id).toSet();
     if (bundle.currentProfileId != null &&
         !profileIds.contains(bundle.currentProfileId)) {

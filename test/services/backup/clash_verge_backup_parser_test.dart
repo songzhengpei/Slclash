@@ -88,8 +88,20 @@ void main() {
       content: 'example.com',
       ruleTarget: 'DIRECT',
     );
+    final originalSelectedMap = {'Proxy': 'Node A'};
+    final originalComputedSelectedMap = {'Fallback': 'Node B'};
+    final originalUnfoldSet = {'Proxy', 'Fallback'};
     await db.restore(
-      [imported.profiles.first.copyWith(scriptId: script.id)],
+      [
+        imported.profiles.first.copyWith(
+          currentGroupName: 'Proxy',
+          selectedMap: originalSelectedMap,
+          computedSelectedMap: originalComputedSelectedMap,
+          unfoldSet: originalUnfoldSet,
+          overwriteType: OverwriteType.script,
+          scriptId: script.id,
+        ),
+      ],
       [script],
       [rule],
       [const ProfileRuleLink(ruleId: 10, scene: RuleScene.added, order: 'a')],
@@ -123,6 +135,15 @@ void main() {
       'Keep Group',
     );
     expect(await scriptFile.readAsString(), 'keep');
+    final restoredProfile = (await db.profilesDao.query().get()).singleWhere(
+      (profile) => profile.id == imported.profiles.first.id,
+    );
+    expect(restoredProfile.currentGroupName, 'Proxy');
+    expect(restoredProfile.selectedMap, originalSelectedMap);
+    expect(restoredProfile.computedSelectedMap, originalComputedSelectedMap);
+    expect(restoredProfile.unfoldSet, originalUnfoldSet);
+    expect(restoredProfile.overwriteType, OverwriteType.script);
+    expect(restoredProfile.scriptId, script.id);
   });
 
   test('same Verge UID does not duplicate profile when YAML changes', () async {

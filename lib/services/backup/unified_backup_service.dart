@@ -238,9 +238,10 @@ class UnifiedBackupService {
     ClashVergeBackupPackage package, {
     required bool override,
   }) async {
-    final profiles = override
-        ? package.profiles
-        : await _appendNewProfilesAfterExisting(package.profiles);
+    final profiles = await _mergeClashVergeProfiles(
+      package.profiles,
+      override: override,
+    );
     return RestoreBundle(
       sourceFormat: BackupSourceFormat.clashVergeRev,
       profiles: profiles,
@@ -255,9 +256,10 @@ class UnifiedBackupService {
     );
   }
 
-  Future<List<Profile>> _appendNewProfilesAfterExisting(
-    List<Profile> imported,
-  ) async {
+  Future<List<Profile>> _mergeClashVergeProfiles(
+    List<Profile> imported, {
+    required bool override,
+  }) async {
     final existing = await database.profilesDao.query().get();
     final byId = {for (final profile in existing) profile.id: profile};
     var nextOrder =
@@ -271,8 +273,18 @@ class UnifiedBackupService {
     return imported
         .map((profile) {
           final old = byId[profile.id];
-          if (old != null) return profile.copyWith(order: old.order);
-          return profile.copyWith(order: nextOrder++);
+          if (old != null) {
+            return profile.copyWith(
+              currentGroupName: old.currentGroupName,
+              selectedMap: old.selectedMap,
+              computedSelectedMap: old.computedSelectedMap,
+              unfoldSet: old.unfoldSet,
+              overwriteType: old.overwriteType,
+              scriptId: old.scriptId,
+              order: override ? profile.order : old.order,
+            );
+          }
+          return override ? profile : profile.copyWith(order: nextOrder++);
         })
         .toList(growable: false);
   }

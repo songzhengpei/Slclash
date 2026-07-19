@@ -296,35 +296,31 @@ void main() {
     );
   });
 
-  test(
-    'reuses trusted identity by fixed URL after profile content changes',
-    () {
-      final profile = UnifiedExportProfile(
-        androidId: 987654321,
-        name: 'Updated Worker 0',
-        yaml: Uint8List.fromList(utf8.encode(_profileYaml(99))),
-        updated: 1700000000,
-        autoUpdate: true,
-        updateIntervalMinutes: 60,
-        sourceUrl: '$unifiedBackupPublicBaseUrl/config/worker-0/fixed-token',
-      );
-      final bytes = const UnifiedV1Exporter().build(
-        UnifiedExportInput(
-          profiles: [profile],
-          currentAndroidId: profile.androidId,
-          trustedArchive: Uint8List.fromList(_trustedArchive()),
-          generatorVersion: '1.0.0',
-        ),
-      );
-      final airport = const WorkerV1Parser()
-          .parse(bytes)
-          .manifest
-          .airports
-          .single;
-      expect(airport['slug'], 'worker-0');
-      expect(airport['profileUid'], 'R10000000');
-    },
-  );
+  test('reuses trusted identity by stable Verge UID after content changes', () {
+    final profile = UnifiedExportProfile(
+      androidId: deriveClashVergeProfileId('R10000000'),
+      name: 'Updated Worker 0',
+      yaml: Uint8List.fromList(utf8.encode(_profileYaml(99))),
+      updated: 1700000000,
+      autoUpdate: true,
+      updateIntervalMinutes: 60,
+    );
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: [profile],
+        currentAndroidId: profile.androidId,
+        trustedArchive: Uint8List.fromList(_trustedArchive()),
+        generatorVersion: '1.0.0',
+      ),
+    );
+    final airport = const WorkerV1Parser()
+        .parse(bytes)
+        .manifest
+        .airports
+        .single;
+    expect(airport['slug'], 'worker-0');
+    expect(airport['profileUid'], 'R10000000');
+  });
 
   test('preserves visible dependency statistics and rewrites versions', () {
     final profiles = List.generate(3, (index) {

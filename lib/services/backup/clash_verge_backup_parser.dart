@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/services/unified_backup_export/identity.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:yaml/yaml.dart';
 
@@ -87,13 +87,7 @@ class ClashVergeBackupParser {
           'Clash Verge Rev subscription file is missing: $fileName',
         );
       }
-      final id = int.parse(
-        sha256
-            .convert(utf8.encode('clash-verge-rev\n$uid'))
-            .toString()
-            .substring(0, 15),
-        radix: 16,
-      );
+      final id = deriveClashVergeProfileId(uid);
       if (!ids.add(id)) {
         throw const BackupFormatException(
           BackupErrorCode.invalidProfiles,

@@ -44,7 +44,7 @@ class UnifiedV1Exporter {
         .toList();
     final fixedToken = _fixedToken(trustedItems);
     final trustedByAndroidId = <int, _TrustedIdentity>{};
-    final trustedByUrl = <String, _TrustedIdentity>{};
+    final trustedByClashVergeId = <int, _TrustedIdentity>{};
     final trustedByProfileHash = <String, List<_TrustedIdentity>>{};
     for (final item in trustedItems) {
       final uid = item['uid'] as String;
@@ -68,7 +68,7 @@ class UnifiedV1Exporter {
         ),
       );
       trustedByAndroidId[id] = trustedIdentity;
-      trustedByUrl[item['url'] as String] = trustedIdentity;
+      trustedByClashVergeId[deriveClashVergeProfileId(uid)] = trustedIdentity;
       final profileHash = airport['profileSha256'] as String;
       trustedByProfileHash
           .putIfAbsent(profileHash, () => <_TrustedIdentity>[])
@@ -93,7 +93,7 @@ class UnifiedV1Exporter {
           final hashMatches = trustedByProfileHash[profileHash];
           final candidate =
               trustedByAndroidId[profile.androidId] ??
-              trustedByUrl[profile.sourceUrl] ??
+              trustedByClashVergeId[profile.androidId] ??
               (hashMatches != null && hashMatches.length == 1
                   ? hashMatches.single
                   : null);
