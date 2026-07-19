@@ -216,6 +216,110 @@ void main() {
     expect(profiles.map((profile) => profile.order), [7, 8, 9]);
   });
 
+  test('compatible import reuses unified V1 profile identity', () async {
+    final temp = await Directory.systemTemp.createTemp('clash-verge-v1-id-');
+    final db = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await db.close();
+      await temp.delete(recursive: true);
+    });
+    const existing = Profile(
+      id: 0x10000000,
+      label: 'Existing Worker Profile',
+      url: 'https://sub.example/config/main/token',
+      autoUpdateDuration: Duration(days: 1),
+      selectedMap: {'Proxy': 'Node A'},
+      order: 4,
+    );
+    await db.restoreProfilesOnly([existing], isOverride: true);
+    final storedExisting = (await db.profilesDao.query().get()).single;
+
+    final result =
+        await UnifiedBackupService(
+          database: db,
+          paths: RestorePaths(
+            profilesDirectory: p.join(temp.path, 'profiles'),
+            scriptsDirectory: p.join(temp.path, 'scripts'),
+          ),
+        ).restoreBytes(
+          _clashVergeBackup(
+            profilesYaml: '''
+current: R10000000
+items:
+  - uid: R10000000
+    type: remote
+    name: Imported Worker Profile
+    file: R10000000.yaml
+    url: https://sub.example/config/main/token
+''',
+            remoteFileName: 'R10000000.yaml',
+          ),
+          override: false,
+        );
+
+    final profiles = await db.profilesDao.query().get();
+    expect(profiles, hasLength(1));
+    expect(profiles.single.id, existing.id);
+    expect(profiles.single.label, 'Imported Worker Profile');
+    expect(profiles.single.selectedMap, existing.selectedMap);
+    expect(profiles.single.order, storedExisting.order);
+    expect(result.currentProfileId, existing.id);
+    expect(
+      File(p.join(temp.path, 'profiles', '${existing.id}.yaml')).existsSync(),
+      isTrue,
+    );
+  });
+
+  test(
+    'compatible import reuses a unique normalized subscription URL',
+    () async {
+      final temp = await Directory.systemTemp.createTemp('clash-verge-url-id-');
+      final db = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await db.close();
+        await temp.delete(recursive: true);
+      });
+      const existing = Profile(
+        id: 42,
+        label: 'Existing',
+        url: 'HTTPS://AIRPORT.EXAMPLE/sub',
+        autoUpdateDuration: Duration(days: 1),
+        order: 3,
+      );
+      await db.restoreProfilesOnly([existing], isOverride: true);
+      final storedExisting = (await db.profilesDao.query().get()).single;
+
+      final result =
+          await UnifiedBackupService(
+            database: db,
+            paths: RestorePaths(
+              profilesDirectory: p.join(temp.path, 'profiles'),
+              scriptsDirectory: p.join(temp.path, 'scripts'),
+            ),
+          ).restoreBytes(
+            _clashVergeBackup(
+              profilesYaml: '''
+current: Rremote1
+items:
+  - uid: Rremote1
+    type: remote
+    name: Remote
+    file: Rremote1.yaml
+    url: https://airport.example/sub
+''',
+            ),
+            override: false,
+          );
+
+      final profiles = await db.profilesDao.query().get();
+      expect(profiles, hasLength(1));
+      expect(profiles.single.id, existing.id);
+      expect(profiles.single.label, 'Remote');
+      expect(profiles.single.order, storedExisting.order);
+      expect(result.currentProfileId, existing.id);
+    },
+  );
+
   test('rejects missing referenced subscription YAML', () {
     expect(
       () => const ClashVergeBackupParser().parse(
@@ -306,6 +410,7 @@ Uint8List _clashVergeBackup({
   bool includeRemoteYaml = true,
   String? remoteYaml,
   String? profilesYaml,
+  String remoteFileName = 'Rremote1.yaml',
 }) {
   final profilesContent =
       profilesYaml ??
@@ -345,7 +450,7 @@ items:
   if (includeRemoteYaml) {
     archive.addFile(
       ArchiveFile.string(
-        'profiles/Rremote1.yaml',
+        'profiles/$remoteFileName',
         remoteYaml ?? 'proxies:\n  - name: remote-node\n    type: direct\n',
       ),
     );

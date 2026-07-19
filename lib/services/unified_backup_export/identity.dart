@@ -16,13 +16,18 @@ const _identityNamespace = 'slclash-unified-backup-v1';
 bool isTrustedUnifiedBackupBaseUrl(Object? value) =>
     value is String && unifiedBackupTrustedBaseUrls.contains(value);
 
-int deriveClashVergeProfileId(String uid) => int.parse(
-  sha256
-      .convert(utf8.encode('clash-verge-rev\n$uid'))
-      .toString()
-      .substring(0, 15),
-  radix: 16,
-);
+int deriveClashVergeProfileId(String uid) {
+  if (RegExp(r'^R[0-9a-f]{8}$').hasMatch(uid)) {
+    return int.parse(uid.substring(1), radix: 16);
+  }
+  return int.parse(
+    sha256
+        .convert(utf8.encode('clash-verge-rev\n$uid'))
+        .toString()
+        .substring(0, 15),
+    radix: 16,
+  );
+}
 
 UnifiedIdentity deriveUnifiedIdentity(int androidId) {
   final digest = sha256

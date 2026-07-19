@@ -238,15 +238,12 @@ class UnifiedBackupService {
     ClashVergeBackupPackage package, {
     required bool override,
   }) async {
-    final profiles = await _mergeClashVergeProfiles(
-      package.profiles,
-      override: override,
-    );
+    final merged = await _mergeClashVergeProfiles(package, override: override);
     return RestoreBundle(
       sourceFormat: BackupSourceFormat.clashVergeRev,
-      profiles: profiles,
-      currentProfileId: package.currentProfileId,
-      files: package.files,
+      profiles: merged.profiles,
+      currentProfileId: merged.currentProfileId,
+      files: merged.files,
       providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
       scope: RestoreScope.profilesOnly,
       // Verge carries no Worker capsule. Keep the existing trusted baseline so
@@ -256,12 +253,22 @@ class UnifiedBackupService {
     );
   }
 
-  Future<List<Profile>> _mergeClashVergeProfiles(
-    List<Profile> imported, {
+  Future<
+    ({
+      List<Profile> profiles,
+      List<StagedRestoreFile> files,
+      int? currentProfileId,
+    })
+  >
+  _mergeClashVergeProfiles(
+    ClashVergeBackupPackage package, {
     required bool override,
   }) async {
     final existing = await database.profilesDao.query().get();
     final byId = {for (final profile in existing) profile.id: profile};
+    final byUrl = _uniqueProfilesByUrl(existing);
+    final claimedExistingIds = <int>{};
+    final remappedIds = <int, int>{};
     var nextOrder =
         existing
             .map((profile) => profile.order ?? -1)
@@ -270,11 +277,21 @@ class UnifiedBackupService {
               (highest, order) => order > highest ? order : highest,
             ) +
         1;
-    return imported
+    final profiles = package.profiles
         .map((profile) {
-          final old = byId[profile.id];
+          final oldById = byId[profile.id];
+          final normalizedUrl = _normalizeSubscriptionUrl(profile.url);
+          final oldByUrl = oldById == null && normalizedUrl != null
+              ? byUrl[normalizedUrl]
+              : null;
+          final candidate = oldById ?? oldByUrl;
+          final old = candidate != null && claimedExistingIds.add(candidate.id)
+              ? candidate
+              : null;
           if (old != null) {
+            remappedIds[profile.id] = old.id;
             return profile.copyWith(
+              id: old.id,
               currentGroupName: old.currentGroupName,
               selectedMap: old.selectedMap,
               computedSelectedMap: old.computedSelectedMap,
@@ -287,6 +304,57 @@ class UnifiedBackupService {
           return override ? profile : profile.copyWith(order: nextOrder++);
         })
         .toList(growable: false);
+    final files = package.files
+        .map((file) {
+          final match = RegExp(
+            r'^profiles/(\d+)\.yaml$',
+          ).firstMatch(file.relativePath);
+          if (match == null) return file;
+          final oldId = int.parse(match.group(1)!);
+          final newId = remappedIds[oldId];
+          return newId == null || newId == oldId
+              ? file
+              : StagedRestoreFile(
+                  relativePath: 'profiles/$newId.yaml',
+                  bytes: file.bytes,
+                );
+        })
+        .toList(growable: false);
+    return (
+      profiles: profiles,
+      files: files,
+      currentProfileId: package.currentProfileId == null
+          ? null
+          : remappedIds[package.currentProfileId!] ?? package.currentProfileId,
+    );
+  }
+
+  Map<String, Profile> _uniqueProfilesByUrl(List<Profile> profiles) {
+    final grouped = <String, List<Profile>>{};
+    for (final profile in profiles) {
+      final url = _normalizeSubscriptionUrl(profile.url);
+      if (url == null) continue;
+      grouped.putIfAbsent(url, () => <Profile>[]).add(profile);
+    }
+    return {
+      for (final entry in grouped.entries)
+        if (entry.value.length == 1) entry.key: entry.value.single,
+    };
+  }
+
+  String? _normalizeSubscriptionUrl(String raw) {
+    final uri = Uri.tryParse(raw.trim());
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) {
+      return null;
+    }
+    final scheme = uri.scheme.toLowerCase();
+    return uri
+        .replace(scheme: scheme, host: uri.host.toLowerCase(), fragment: '')
+        .normalizePath()
+        .toString();
   }
 
   Future<RestoreBundle> _traditionalBundle(LegacyParsedPackage package) async {
