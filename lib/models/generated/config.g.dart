@@ -31,7 +31,7 @@ _AppSettingProps _$AppSettingPropsFromJson(Map<String, dynamic> json) =>
             _$RestoreStrategyEnumMap,
             json['restoreStrategy'],
           ) ??
-          RestoreStrategy.compatible,
+          RestoreStrategy.override,
       showTrayTitle: json['showTrayTitle'] as bool? ?? true,
     );
 
