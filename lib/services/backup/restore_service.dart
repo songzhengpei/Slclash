@@ -49,7 +49,10 @@ class RestoreService {
     await _validate(bundle);
 
     final oldProfiles = await database.profilesDao.query().get();
-    final oldScripts = await database.scriptsDao.query().get();
+    final profilesOnly = bundle.scope == RestoreScope.profilesOnly;
+    final oldScripts = profilesOnly
+        ? const <Script>[]
+        : await database.scriptsDao.query().get();
     final profileIds = bundle.profiles.map((e) => e.id).toSet();
     final selected =
         bundle.currentProfileId != null &&
@@ -68,7 +71,7 @@ class RestoreService {
         ...oldProfiles.map(
           (e) => p.join(paths.profilesDirectory, '${e.id}.yaml'),
         ),
-      if (override)
+      if (override && !profilesOnly)
         ...oldScripts.map((e) => p.join(paths.scriptsDirectory, '${e.id}.js')),
       if (override &&
           bundle.providerCachePolicy ==
@@ -89,20 +92,32 @@ class RestoreService {
 
     try {
       await database.transaction(() async {
-        await database.restore(
-          bundle.profiles,
-          bundle.scripts,
-          bundle.rules,
-          bundle.links,
-          bundle.proxyGroups,
-          isOverride: override,
-        );
+        if (profilesOnly) {
+          await database.restoreProfilesOnly(
+            bundle.profiles,
+            isOverride: override,
+          );
+          await database.proxyGroupsSnapshotsDao.deleteSnapshots({
+            ...profileIds,
+            if (override) ...oldProfiles.map((profile) => profile.id),
+          });
+        } else {
+          await database.restore(
+            bundle.profiles,
+            bundle.scripts,
+            bundle.rules,
+            bundle.links,
+            bundle.proxyGroups,
+            isOverride: override,
+          );
+        }
         try {
           await _commitFiles(
             bundle,
             override: override,
             oldProfiles: oldProfiles,
             oldScripts: oldScripts,
+            replaceScripts: !profilesOnly,
           );
           await _commitWorkerArchive(bundle);
           if (restoredConfig case final config?) {
@@ -153,6 +168,11 @@ class RestoreService {
 
     final profileIds = bundle.profiles.map((e) => e.id).toSet();
     final scriptIds = bundle.scripts.map((e) => e.id).toSet();
+    if (bundle.scope == RestoreScope.profilesOnly) {
+      scriptIds.addAll(
+        (await database.scriptsDao.query().get()).map((script) => script.id),
+      );
+    }
     final ruleIds = bundle.rules.map((e) => e.id).toSet();
     if (bundle.currentProfileId != null &&
         !profileIds.contains(bundle.currentProfileId)) {
@@ -265,6 +285,7 @@ class RestoreService {
     required bool override,
     required List<Profile> oldProfiles,
     required List<Script> oldScripts,
+    required bool replaceScripts,
   }) async {
     if (override) {
       final wantedProfiles = bundle.profiles.map((e) => e.id).toSet();
@@ -276,11 +297,13 @@ class RestoreService {
           ).deleteIfExists();
         }
       }
-      for (final script in oldScripts) {
-        if (!wantedScripts.contains(script.id)) {
-          await File(
-            p.join(paths.scriptsDirectory, '${script.id}.js'),
-          ).deleteIfExists();
+      if (replaceScripts) {
+        for (final script in oldScripts) {
+          if (!wantedScripts.contains(script.id)) {
+            await File(
+              p.join(paths.scriptsDirectory, '${script.id}.js'),
+            ).deleteIfExists();
+          }
         }
       }
     }

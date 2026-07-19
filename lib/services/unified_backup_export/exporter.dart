@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:fl_clash/common/yaml.dart';
 import 'package:fl_clash/services/backup/worker_v1_parser.dart';
+import 'package:fl_clash/services/backup/worker_v1_models.dart';
 import 'package:yaml/yaml.dart';
 
 import 'identity.dart';
@@ -32,44 +33,64 @@ class UnifiedV1Exporter {
       }
     }
     final createdAt = input.createdAt ?? DateTime.now();
-    final trusted = const WorkerV1Parser().parse(input.trustedArchive);
-    final trustedBase = trusted.manifest.raw['publicBaseUrl'];
-    if (!isTrustedUnifiedBackupBaseUrl(trustedBase)) {
+    final trustedArchive = input.trustedArchive;
+    final trusted = trustedArchive == null
+        ? null
+        : const WorkerV1Parser().parse(trustedArchive);
+    final trustedBase = trusted?.manifest.raw['publicBaseUrl'];
+    if (trusted != null && !isTrustedUnifiedBackupBaseUrl(trustedBase)) {
       throw StateError('Trusted archive belongs to another Worker');
     }
-    final outputBaseUrl = trustedBase as String;
-    final trustedItems = (trusted.profilesYaml['items'] as List)
-        .cast<Map>()
-        .map((item) => Map<String, Object?>.from(item))
-        .toList();
-    final fixedToken = _fixedToken(trustedItems);
+    final standalone = trusted == null;
+    final outputBaseUrl = standalone
+        ? standaloneUnifiedBackupBaseUrl
+        : trustedBase as String;
+    final trustedItems = standalone
+        ? <Map<String, Object?>>[]
+        : (trusted.profilesYaml['items'] as List)
+              .cast<Map>()
+              .map((item) => Map<String, Object?>.from(item))
+              .toList();
+    final fixedToken = standalone
+        ? standaloneUnifiedBackupToken
+        : _fixedToken(trustedItems);
     final trustedByAndroidId = <int, _TrustedIdentity>{};
-    for (final item in trustedItems) {
-      final uid = item['uid'] as String;
-      final id = int.parse(uid.substring(1), radix: 16);
-      final airport = trusted.manifest.airports.singleWhere(
-        (value) => value['profileUid'] == uid,
-      );
-      trustedByAndroidId[id] = _TrustedIdentity(
-        identity: UnifiedIdentity(
-          slug: airport['slug'] as String,
-          subscriptionId: airport['subscriptionId'] as String,
-          profileUid: uid,
-        ),
-        meta: Map<String, Object?>.from(
-          jsonDecode(
-                utf8.decode(
-                  trusted.files['providers/${airport['slug']}/meta.json']!,
-                ),
-              )
-              as Map,
-        ),
-      );
+    final trustedByClashVergeId = <int, _TrustedIdentity>{};
+    final trustedByProfileHash = <String, List<_TrustedIdentity>>{};
+    if (trusted != null) {
+      for (final item in trustedItems) {
+        final uid = item['uid'] as String;
+        final id = int.parse(uid.substring(1), radix: 16);
+        final airport = trusted.manifest.airports.singleWhere(
+          (value) => value['profileUid'] == uid,
+        );
+        final trustedIdentity = _TrustedIdentity(
+          identity: UnifiedIdentity(
+            slug: airport['slug'] as String,
+            subscriptionId: airport['subscriptionId'] as String,
+            profileUid: uid,
+          ),
+          meta: Map<String, Object?>.from(
+            jsonDecode(
+                  utf8.decode(
+                    trusted.files['providers/${airport['slug']}/meta.json']!,
+                  ),
+                )
+                as Map,
+          ),
+        );
+        trustedByAndroidId[id] = trustedIdentity;
+        trustedByClashVergeId[deriveClashVergeProfileId(uid)] = trustedIdentity;
+        final profileHash = airport['profileSha256'] as String;
+        trustedByProfileHash
+            .putIfAbsent(profileHash, () => <_TrustedIdentity>[])
+            .add(trustedIdentity);
+      }
     }
 
-    final config = _plain(loadYaml(utf8.decode(trusted.files['config.yaml']!)));
-    if (config is! Map) throw StateError('Trusted config.yaml is invalid');
-    final configMap = Map<Object?, Object?>.from(config);
+    final configMap = standalone
+        ? <Object?, Object?>{}
+        : _trustedConfig(trusted);
     final providers = configMap['proxy-providers'] is Map
         ? Map<Object?, Object?>.from(configMap['proxy-providers'] as Map)
         : <Object?, Object?>{};
@@ -78,17 +99,30 @@ class UnifiedV1Exporter {
     final profileItems = <Map<String, Object?>>[];
     final seenUids = <String>{};
     final seenSlugs = <String>{};
+    final claimedTrustedUids = <String>{};
     final prepared = input.profiles
         .map((profile) {
+          final profileHash = sha256.convert(profile.yaml).toString();
+          final hashMatches = trustedByProfileHash[profileHash];
+          final candidate =
+              trustedByAndroidId[profile.androidId] ??
+              trustedByClashVergeId[profile.androidId] ??
+              (hashMatches != null && hashMatches.length == 1
+                  ? hashMatches.single
+                  : null);
+          final trustedIdentity =
+              candidate != null &&
+                  claimedTrustedUids.add(candidate.identity.profileUid)
+              ? candidate
+              : null;
           final identity =
-              trustedByAndroidId[profile.androidId]?.identity ??
+              trustedIdentity?.identity ??
               deriveUnifiedIdentity(profile.androidId);
           if (!seenUids.add(identity.profileUid) ||
               !seenSlugs.add(identity.slug)) {
             throw StateError('Unified profile identity collision');
           }
           final projected = projectProfile(profile.yaml);
-          final profileHash = sha256.convert(profile.yaml).toString();
           final providerHash = sha256
               .convert(projected.providerYaml)
               .toString();
@@ -100,7 +134,7 @@ class UnifiedV1Exporter {
             profileHash: profileHash,
             providerHash: providerHash,
             versionId: versionId,
-            trustedMeta: trustedByAndroidId[profile.androidId]?.meta,
+            trustedMeta: trustedIdentity?.meta,
           );
         })
         .toList(growable: false);
@@ -115,6 +149,7 @@ class UnifiedV1Exporter {
       final profileHash = item.profileHash;
       final providerHash = item.providerHash;
       final versionId = item.versionId;
+      final allowAutoUpdate = standalone ? false : profile.autoUpdate;
       final versionRoot = 'providers/${identity.slug}/versions/$versionId';
       final dependencyState = _rewriteDependencyState(item, preparedBySlug);
       final distribution = <String, Object?>{
@@ -125,7 +160,7 @@ class UnifiedV1Exporter {
             profile.subscriptionInfo!,
           ),
         'clientUpdatePolicy': {
-          'allowAutoUpdate': profile.autoUpdate,
+          'allowAutoUpdate': allowAutoUpdate,
           'updateIntervalMinutes': profile.updateIntervalMinutes,
         },
       };
@@ -184,7 +219,7 @@ class UnifiedV1Exporter {
         'url': '$outputBaseUrl/config/${identity.slug}/$fixedToken',
         'updated': profile.updated,
         'option': {
-          'allow_auto_update': profile.autoUpdate,
+          'allow_auto_update': allowAutoUpdate,
           'update_interval': profile.updateIntervalMinutes,
         },
         'extra': ?extra,
@@ -206,25 +241,38 @@ class UnifiedV1Exporter {
         .firstOrNull;
     final currentIdentity = current == null
         ? airports.first['profileUid']
-        : (trustedByAndroidId[current.androidId]?.identity ??
-                  deriveUnifiedIdentity(current.androidId))
+        : prepared
+              .singleWhere(
+                (item) => item.profile.androidId == current.androidId,
+              )
+              .identity
               .profileUid;
     files['config.yaml'] = utf8.encode(
       '${yaml.encode(configMap).trimRight()}\n',
     );
-    files['verge.yaml'] = trusted.files['verge.yaml']!;
+    files['verge.yaml'] = standalone
+        ? utf8.encode('language: zh\n')
+        : trusted.files['verge.yaml']!;
     files['profiles.yaml'] = utf8.encode(
       '${yaml.encode({'current': currentIdentity, 'items': profileItems}).trimRight()}\n',
     );
     validateUnifiedFiles(files, airports);
+    final configHash = sha256.convert(files['config.yaml']!).toString();
     final manifest = buildUnifiedManifest(
       createdAt: createdAt,
       generatorVersion: input.generatorVersion,
       files: files,
       airports: airports,
-      mainConfig: Map<String, Object?>.from(
-        trusted.manifest.raw['mainConfig'] as Map,
-      ),
+      mainConfig: standalone
+          ? {
+              'configId': 'slclash-standalone',
+              'versionId': 'sha256-${configHash.substring(0, 16)}',
+              'name': 'Slclash standalone snapshot',
+              'sourceSha256': configHash,
+            }
+          : Map<String, Object?>.from(
+              trusted.manifest.raw['mainConfig'] as Map,
+            ),
       publicBaseUrl: outputBaseUrl,
     );
     final archive = Archive();
@@ -253,6 +301,12 @@ class UnifiedV1Exporter {
       throw StateError('Trusted profiles do not share one fixed token');
     }
     return tokens.single;
+  }
+
+  Map<Object?, Object?> _trustedConfig(WorkerV1Package trusted) {
+    final config = _plain(loadYaml(utf8.decode(trusted.files['config.yaml']!)));
+    if (config is! Map) throw StateError('Trusted config.yaml is invalid');
+    return Map<Object?, Object?>.from(config);
   }
 
   String _subscriptionUserinfo(Map<String, int> info) =>

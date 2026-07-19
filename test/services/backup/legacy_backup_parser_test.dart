@@ -50,6 +50,22 @@ void main() {
     );
   });
 
+  test('rejects retired profiles_only_v3 backups explicitly', () {
+    final bytes = _zip({
+      'metadata.json': '{"backupType":"profiles_only_v3","profiles":[]}',
+    });
+    expect(
+      () => detector.detectBytes(bytes),
+      throwsA(
+        isA<BackupFormatException>().having(
+          (error) => error.code,
+          'code',
+          BackupErrorCode.unsupportedFormat,
+        ),
+      ),
+    );
+  });
+
   test('parses v2.0.1 traditional package without opening its database', () {
     final bytes = _zip({
       'database.sqlite': [1, 2, 3],

@@ -1158,16 +1158,14 @@ class BackupAction extends _$BackupAction {
       );
     }
     final importedArchiveFile = File(await appPath.workerUnifiedArchivePath);
-    if (!await importedArchiveFile.exists()) {
-      throw StateError(
-        'Cannot export unified archive: trusted Worker identity context is missing',
-      );
-    }
+    final trustedArchive = await importedArchiveFile.exists()
+        ? await importedArchiveFile.readAsBytes()
+        : null;
     final bytes = const UnifiedV1Exporter().build(
       UnifiedExportInput(
         profiles: exportProfiles,
         currentAndroidId: currentProfileId,
-        trustedArchive: await importedArchiveFile.readAsBytes(),
+        trustedArchive: trustedArchive,
         generatorVersion: '1.0.0',
       ),
     );

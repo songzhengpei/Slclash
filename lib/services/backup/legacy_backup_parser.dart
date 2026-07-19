@@ -51,7 +51,6 @@ class LegacyBackupParser {
     switch (format) {
       case BackupFormat.profilesOnlyV1:
       case BackupFormat.profilesOnlyV2:
-      case BackupFormat.profilesOnlyV3:
         final metadata = _jsonObject(files['metadata.json']!, 'metadata.json');
         _validateProfiles(metadata);
         return LegacyParsedPackage(
@@ -82,6 +81,7 @@ class LegacyBackupParser {
           files: files,
         );
       case BackupFormat.workerUnifiedV1:
+      case BackupFormat.clashVergeRev:
         throw StateError('unreachable');
     }
   }

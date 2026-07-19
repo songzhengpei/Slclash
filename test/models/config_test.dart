@@ -34,7 +34,7 @@ void main() {
       expect(restored.autoCheckUpdate, true);
       expect(restored.showLabel, false);
       expect(restored.minimizeOnExit, true);
-      expect(restored.restoreStrategy, RestoreStrategy.compatible);
+      expect(restored.restoreStrategy, RestoreStrategy.override);
       expect(restored.testUrl, defaultTestUrl);
     });
 

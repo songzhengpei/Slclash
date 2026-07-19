@@ -1,11 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import 'backup_error.dart';
-import 'worker_v1_exporter.dart';
 import 'worker_v1_models.dart';
 import 'worker_v1_parser.dart';
 
@@ -53,12 +53,7 @@ class WorkerV1CapsuleStore {
           'Worker capsule does not identify the requested subscription',
         );
       }
-      // This also rejects empty/invalid ProviderVersionMeta before persisting.
-      const WorkerV1Exporter().export(
-        profiles: [WorkerV1ExportProfile(name: '_validation_', url: url)],
-        currentProfileUrl: url,
-        trustedPackages: [package],
-      );
+      _validateProviderMetadata(package);
       await cache.create(recursive: true);
       final name = sha256.convert(url.codeUnits).toString();
       final target = File(p.join(cache.path, '$name.zip'));
@@ -76,4 +71,19 @@ class WorkerV1CapsuleStore {
       for (final raw in package.profilesYaml['items'] as List)
         (raw as Map)['url'] as String,
   };
+
+  void _validateProviderMetadata(WorkerV1Package package) {
+    for (final airport in package.manifest.airports) {
+      final slug = airport['slug'] as String;
+      final bytes = package.files['providers/$slug/meta.json'];
+      try {
+        final value = jsonDecode(utf8.decode(bytes!, allowMalformed: false));
+        if (value is Map && value.isNotEmpty) continue;
+      } catch (_) {}
+      throw const BackupFormatException(
+        BackupErrorCode.missingTrustedMetadata,
+        'Worker ProviderVersionMeta is empty or invalid',
+      );
+    }
+  }
 }

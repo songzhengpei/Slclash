@@ -26,14 +26,14 @@ class UnifiedExportInput {
   const UnifiedExportInput({
     required this.profiles,
     required this.currentAndroidId,
-    required this.trustedArchive,
     required this.generatorVersion,
+    this.trustedArchive,
     this.createdAt,
   });
 
   final List<UnifiedExportProfile> profiles;
   final int? currentAndroidId;
-  final Uint8List trustedArchive;
+  final Uint8List? trustedArchive;
   final String generatorVersion;
   final DateTime? createdAt;
 }
