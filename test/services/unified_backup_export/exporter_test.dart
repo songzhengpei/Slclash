@@ -93,7 +93,41 @@ void main() {
     },
   );
 
-  test('fails explicitly without a trusted Worker baseline', () {
+  test('builds a standalone V1 snapshot without a Worker baseline', () {
+    final profile = UnifiedExportProfile(
+      androidId: 1,
+      name: 'Standalone',
+      yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
+      updated: 0,
+      autoUpdate: true,
+      updateIntervalMinutes: 60,
+    );
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: [profile],
+        currentAndroidId: profile.androidId,
+        generatorVersion: '1.0.0',
+        createdAt: DateTime.utc(2026, 7, 19),
+      ),
+    );
+    final parsed = const WorkerV1Parser().parse(bytes);
+    expect(
+      parsed.manifest.raw['publicBaseUrl'],
+      standaloneUnifiedBackupBaseUrl,
+    );
+    final item = (parsed.profilesYaml['items'] as List).single as Map;
+    expect(item['type'], 'remote');
+    expect(item['url'], startsWith('$standaloneUnifiedBackupBaseUrl/config/'));
+    expect(item['option'], {'allow_auto_update': false, 'update_interval': 60});
+    expect(parsed.manifest.raw['mainConfig'], {
+      'configId': 'slclash-standalone',
+      'versionId': startsWith('sha256-'),
+      'name': 'Slclash standalone snapshot',
+      'sourceSha256': matches(RegExp(r'^[0-9a-f]{64}$')),
+    });
+  });
+
+  test('rejects an invalid non-empty trusted baseline', () {
     expect(
       () => const UnifiedV1Exporter().build(
         UnifiedExportInput(

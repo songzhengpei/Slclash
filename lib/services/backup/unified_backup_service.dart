@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/services/unified_backup_export/identity.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:path/path.dart' as p;
 
@@ -163,14 +164,17 @@ class UnifiedBackupService {
         'profiles.yaml current profile is invalid',
       );
     }
+    final standalone = isStandaloneUnifiedBackupBaseUrl(publicBaseUrl);
     return RestoreBundle(
       sourceFormat: BackupSourceFormat.workerUnifiedV1,
       profiles: profiles,
       currentProfileId: uidToId[currentUid],
       files: files,
       providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
-      workerUnifiedArchive: Uint8List.fromList(archiveBytes),
-      replaceWorkerUnifiedArchive: true,
+      workerUnifiedArchive: standalone
+          ? null
+          : Uint8List.fromList(archiveBytes),
+      replaceWorkerUnifiedArchive: !standalone,
     );
   }
 

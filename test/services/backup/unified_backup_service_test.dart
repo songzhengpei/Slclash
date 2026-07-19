@@ -11,6 +11,9 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/services/backup/worker_v1_parser.dart';
+import 'package:fl_clash/services/unified_backup_export/exporter.dart';
+import 'package:fl_clash/services/unified_backup_export/identity.dart';
+import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -322,6 +325,52 @@ void main() {
       );
       expect(result.config?.overrideDns, true);
       expect(result.currentProfileId, 7);
+    },
+  );
+
+  test(
+    'standalone V1 restore does not replace the trusted Worker baseline',
+    () async {
+      final temp = await Directory.systemTemp.createTemp('standalone-v1-test-');
+      final db = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await db.close();
+        await temp.delete(recursive: true);
+      });
+      final bytes = const UnifiedV1Exporter().build(
+        UnifiedExportInput(
+          profiles: [
+            UnifiedExportProfile(
+              androidId: 7,
+              name: 'Standalone',
+              yaml: Uint8List.fromList(
+                utf8.encode('proxies:\n  - name: direct\n    type: direct\n'),
+              ),
+              updated: 0,
+              autoUpdate: true,
+              updateIntervalMinutes: 60,
+            ),
+          ],
+          currentAndroidId: 7,
+          generatorVersion: '1.0.0',
+          createdAt: DateTime.utc(2026, 7, 19),
+        ),
+      );
+      final snapshot = p.join(temp.path, 'unified', 'worker-v1.zip');
+      final result = await UnifiedBackupService(
+        database: db,
+        paths: RestorePaths(
+          profilesDirectory: p.join(temp.path, 'profiles'),
+          scriptsDirectory: p.join(temp.path, 'scripts'),
+          workerUnifiedArchivePath: snapshot,
+        ),
+      ).restoreBytes(bytes, override: true);
+
+      final restored = (await db.profilesDao.query().get()).single;
+      expect(result.currentProfileId, restored.id);
+      expect(restored.autoUpdate, isFalse);
+      expect(restored.url, startsWith(standaloneUnifiedBackupBaseUrl));
+      expect(File(snapshot).existsSync(), isFalse);
     },
   );
 }
