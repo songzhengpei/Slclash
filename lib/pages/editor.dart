@@ -312,8 +312,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                   const DefaultCodeShortcutsActivatorsBuilder(),
               controller: _controller,
               style: CodeEditorStyle(
-                fontSize: context.textTheme.bodyLarge?.fontSize?.ap,
-                fontFamily: FontFamily.jetBrainsMono.value,
+                fontSize: context.typography.technical.fontSize,
+                fontFamily: context.typography.technical.fontFamily,
                 codeTheme: CodeHighlightTheme(
                   languages: {
                     if (widget.languages.contains(Language.yaml))

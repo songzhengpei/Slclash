@@ -89,7 +89,7 @@ class SurgeListTile extends StatelessWidget {
                                     title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: surge.typography.rowTitle.copyWith(
+                                    style: context.typography.rowTitle.copyWith(
                                       color: titleColor,
                                     ),
                                   ),
@@ -99,7 +99,7 @@ class SurgeListTile extends StatelessWidget {
                                       subtitle!,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style: surge.typography.rowSubtitle,
+                                      style: context.typography.supporting,
                                     ),
                                   ],
                                 ],

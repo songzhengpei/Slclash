@@ -1,11 +1,22 @@
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _app(Widget child) => MaterialApp(
-  theme: ThemeData(extensions: [SurgeTheme.light()]),
-  home: Scaffold(body: Center(child: child)),
-);
+Widget _app(Widget child) {
+  final textTheme = buildSlclashTextTheme();
+  final typography = SurgeTypography.fromTextTheme(textTheme);
+  return MaterialApp(
+    theme: ThemeData(
+      textTheme: textTheme,
+      extensions: [
+        SurgeTheme.light(),
+        typography,
+      ],
+    ),
+    home: Scaffold(body: Center(child: child)),
+  );
+}
 
 void main() {
   test('motion tokens keep the agreed interaction rhythm', () {

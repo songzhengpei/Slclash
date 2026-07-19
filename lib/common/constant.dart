@@ -18,15 +18,12 @@ const methodChannelPrefix = 'com.follow.clash';
 const helperPort = 47890;
 const maxTextScale = 1.4;
 const minTextScale = 0.8;
-final baseInfoEdgeInsets = EdgeInsets.symmetric(
-  vertical: 16.mAp,
-  horizontal: 16.mAp,
-);
-final listHeaderPadding = EdgeInsets.only(
-  left: 16.mAp,
-  right: 8.mAp,
-  top: 24.mAp,
-  bottom: 8.mAp,
+const baseInfoEdgeInsets = EdgeInsets.symmetric(vertical: 16, horizontal: 16);
+const listHeaderPadding = EdgeInsets.only(
+  left: 16,
+  right: 8,
+  top: 24,
+  bottom: 8,
 );
 const sheetAppBarHeight = 68.0;
 
@@ -105,8 +102,8 @@ const legacyGraySeedColor = 0xFFEEEEEE;
 const deprecatedLegacyGraySeedColor = 0xFF000000;
 
 double getWidgetHeight(num lines) {
-  final space = 14.mAp;
-  return max(lines * (80.ap + space) - space, 0);
+  const space = 14.0;
+  return max(lines * (80 + space) - space, 0);
 }
 
 const maxLength = 1000;

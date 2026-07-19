@@ -221,11 +221,8 @@ class LogItem extends StatelessWidget {
                 children: [
                   SelectableText(
                     log.payload,
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    style: context.typography.technical.copyWith(
                       color: surge.textPrimary.withValues(alpha: 0.9),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -255,12 +252,8 @@ class LogItem extends StatelessWidget {
                           ),
                           child: Text(
                             log.logLevel.name,
-                            style: context.textTheme.labelSmall?.copyWith(
+                            style: context.typography.badgeLabel.copyWith(
                               color: levelColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              height: 1,
-                              letterSpacing: 0,
                             ),
                           ),
                         ),
@@ -268,12 +261,8 @@ class LogItem extends StatelessWidget {
                       const Spacer(),
                       Text(
                         log.dateTime,
-                        style: context.textTheme.labelSmall?.copyWith(
+                        style: context.typography.technical.copyWith(
                           color: surge.textSecondary.withValues(alpha: 0.62),
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w400,
-                          height: 1,
-                          letterSpacing: 0,
                         ),
                       ),
                     ],

@@ -125,12 +125,9 @@ class _SoftOsSelectTarget<T> extends StatelessWidget {
             Expanded(
               child: Text(
                 item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                maxLines: 2,
+                style: context.typography.controlLabel.copyWith(
                   color: enabled ? surge.textPrimary : surge.textSecondary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -234,30 +231,21 @@ class _SoftOsSelectPopup<T> extends StatelessWidget {
                             children: [
                               Text(
                                 item.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: selected
-                                          ? surge.primary
-                                          : surge.textPrimary,
-                                      fontWeight: selected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      letterSpacing: 0,
-                                    ),
+                                maxLines: 2,
+                                style: context.typography.rowTitle.copyWith(
+                                  color: selected
+                                      ? surge.primary
+                                      : surge.textPrimary,
+                                ),
                               ),
                               if (item.subtitle case final subtitle?) ...[
                                 const SizedBox(height: 2),
                                 Text(
                                   subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: surge.textSecondary,
-                                        letterSpacing: 0,
-                                      ),
+                                  maxLines: 2,
+                                  style: context.typography.supporting.copyWith(
+                                    color: surge.textSecondary,
+                                  ),
                                 ),
                               ],
                             ],

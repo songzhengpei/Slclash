@@ -1,0 +1,122 @@
+import 'package:flutter/material.dart';
+
+import 'font_families.dart';
+
+/// The single source of truth for every structural typography value.
+abstract final class SlclashTypeScale {
+  static const _letterSpacing = 0.0;
+
+  static const screenTitle = TextStyle(
+    fontSize: 22,
+    height: 1.2727,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const appBarTitle = TextStyle(
+    fontSize: 20,
+    height: 1.3,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const dialogTitle = TextStyle(
+    fontSize: 18,
+    height: 1.3333,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const sectionTitle = TextStyle(
+    fontSize: 15,
+    height: 1.4667,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const cardTitle = TextStyle(
+    fontSize: 16,
+    height: 1.375,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const rowTitle = TextStyle(
+    fontSize: 15,
+    height: 1.4667,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const body = TextStyle(
+    fontSize: 15,
+    height: 1.4667,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+  static const supporting = TextStyle(
+    fontSize: 13,
+    height: 1.3846,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+  static const controlLabel = TextStyle(
+    fontSize: 14,
+    height: 1.4286,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const navigationLabel = TextStyle(
+    fontSize: 11,
+    height: 1.4545,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const badgeLabel = TextStyle(
+    fontSize: 11,
+    height: 1.4545,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const metricLarge = TextStyle(
+    fontSize: 24,
+    height: 1.25,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const metric = TextStyle(
+    fontSize: 16,
+    height: 1.375,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const technical = TextStyle(
+    fontFamily: SlclashFontFamilies.jetBrainsMono,
+    fontSize: 13,
+    height: 1.3846,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const chartLabel = TextStyle(
+    fontFamily: SlclashFontFamilies.jetBrainsMono,
+    fontSize: 10,
+    height: 1.4,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+
+  // Material-only fallback slots. They are intentionally not exposed through
+  // SurgeTypography, so product code cannot use them as semantic roles.
+  static const materialDisplayLarge = TextStyle(
+    fontSize: 32,
+    height: 1.25,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const materialDisplayMedium = TextStyle(
+    fontSize: 28,
+    height: 1.2857,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const materialBodySmall = TextStyle(
+    fontSize: 11,
+    height: 1.4545,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+}

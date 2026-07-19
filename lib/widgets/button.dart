@@ -1,4 +1,3 @@
-import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 
@@ -83,11 +82,10 @@ class MoreActionButton extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyLarge?.copyWith(
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: context.typography.controlLabel.copyWith(
                   color: surge.textPrimary,
-                  letterSpacing: 0,
                 ),
               ),
             ),

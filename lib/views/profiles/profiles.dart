@@ -240,12 +240,8 @@ class _MediaCheckCompactRow extends StatelessWidget {
                     '流媒体检测',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.titleSmall?.copyWith(
+                    style: context.typography.rowTitle.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1.05,
-                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -253,12 +249,8 @@ class _MediaCheckCompactRow extends StatelessWidget {
                     profileCount > 1 ? '按订阅手动检测 · 结果缓存' : '手动检测 · 结果缓存',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelSmall?.copyWith(
+                    style: context.typography.supporting.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      height: 1.05,
-                      letterSpacing: 0,
                     ),
                   ),
                 ],
@@ -662,24 +654,16 @@ class _ProfileSettingSection extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: context.textTheme.titleSmall?.copyWith(
+                style: context.typography.cardTitle.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                  letterSpacing: 0,
                 ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(width: 8),
                 Text(
                   subtitle!,
-                  style: context.textTheme.labelSmall?.copyWith(
+                  style: context.typography.chartLabel.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    height: 1,
-                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -747,14 +731,10 @@ class _ProfileSettingOption extends StatelessWidget {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.bodyMedium?.copyWith(
+                      style: context.typography.rowTitle.copyWith(
                         color: enabled
                             ? surge.textPrimary
                             : surge.textSecondary.withValues(alpha: 0.4),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                        letterSpacing: 0,
                       ),
                     ),
                     if (subtitle != null) ...[
@@ -763,11 +743,8 @@ class _ProfileSettingOption extends StatelessWidget {
                         subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.labelSmall?.copyWith(
+                        style: context.typography.supporting.copyWith(
                           color: surge.textSecondary,
-                          fontSize: 11,
-                          height: 1,
-                          letterSpacing: 0,
                         ),
                       ),
                     ],
@@ -813,12 +790,8 @@ class _ProfileSortOption extends StatelessWidget {
                 profile.realLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.rowTitle.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  height: 1,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -933,11 +906,8 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                       widget.profile.realLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.titleMedium?.copyWith(
+                      style: context.typography.sectionTitle.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -990,11 +960,8 @@ class _CurrentProfileDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final infoStyle = context.textTheme.labelSmall?.copyWith(
+    final infoStyle = context.typography.supporting.copyWith(
       color: surge.textSecondary,
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0,
     );
 
     return Row(
@@ -1083,12 +1050,8 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: context.textTheme.labelSmall?.copyWith(
+            style: context.typography.badgeLabel.copyWith(
               color: color.withValues(alpha: 0.96),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              letterSpacing: 0,
             ),
           ),
         ],
@@ -1136,11 +1099,8 @@ class _CurrentProfileExpandButton extends StatelessWidget {
               Expanded(
                 child: Text(
                   enabled ? '展开显示当前订阅节点' : '正在读取当前订阅节点',
-                  style: context.textTheme.labelMedium?.copyWith(
+                  style: context.typography.controlLabel.copyWith(
                     color: enabled ? surge.textPrimary : surge.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -1177,10 +1137,8 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
     if (proxies.isEmpty) {
       return Text(
         '当前订阅没有可展示的节点',
-        style: context.textTheme.labelSmall?.copyWith(
+        style: context.typography.supporting.copyWith(
           color: surge.textSecondary,
-          fontSize: 11,
-          letterSpacing: 0,
         ),
       );
     }
@@ -1198,20 +1156,15 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
                     '节点列表',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.controlLabel.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
                 Text(
                   '${proxies.length}',
-                  style: context.textTheme.labelSmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 11,
-                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1341,11 +1294,8 @@ class _ProfileProxyPreviewCard extends StatelessWidget {
                   proxy.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodyMedium?.copyWith(
+                  style: context.typography.controlLabel.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1353,10 +1303,8 @@ class _ProfileProxyPreviewCard extends StatelessWidget {
                   proxy.type,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodySmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 11,
-                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -1686,10 +1634,8 @@ class ProfileItem extends StatelessWidget {
         SubscriptionInfoView(subscriptionInfo: subscriptionInfo),
       LastUpdateTimeText(
         lastUpdateDate: profile.lastUpdateDate,
-        style: context.textTheme.labelSmall?.copyWith(
+        style: context.typography.supporting.copyWith(
           color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
         ),
       ),
     ];
@@ -1701,10 +1647,8 @@ class ProfileItem extends StatelessWidget {
       const SizedBox(height: 6),
       LastUpdateTimeText(
         lastUpdateDate: profile.lastUpdateDate,
-        style: context.textTheme.labelSmall?.copyWith(
+        style: context.typography.supporting.copyWith(
           color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
         ),
       ),
     ];
@@ -2021,11 +1965,8 @@ class _ProfileActionMenuItem extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.controlLabel.copyWith(
                   color: danger ? color : surge.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -2051,11 +1992,8 @@ class _ProfileTextBlock extends StatelessWidget {
       children: [
         Text(
           profile.realLabel,
-          style: context.textTheme.titleMedium?.copyWith(
+          style: context.typography.cardTitle.copyWith(
             color: surge.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -2093,11 +2031,8 @@ class _ProfileListSummary extends StatelessWidget {
           ).show.toString()
         : '永久有效';
     final trafficText = '${used.traffic.show} / ${total.traffic.show}';
-    final detailStyle = context.textTheme.labelSmall?.copyWith(
+    final detailStyle = context.typography.supporting.copyWith(
       color: surge.textSecondary,
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0,
     );
 
     if (!hasTraffic) {
@@ -2247,8 +2182,8 @@ class _ProfilePill extends StatelessWidget {
       constraints: BoxConstraints(
         minWidth: metrics.value(46),
         maxWidth: metrics.value(68),
+        minHeight: height,
       ),
-      height: height,
       padding: EdgeInsets.symmetric(horizontal: metrics.value(9)),
       alignment: Alignment.center,
       decoration: BoxDecoration(
@@ -2259,20 +2194,11 @@ class _ProfilePill extends StatelessWidget {
           width: surge.spacing.hairline,
         ),
       ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          label,
-          maxLines: 1,
-          textScaler: TextScaler.noScaling,
-          style: context.textTheme.labelSmall?.copyWith(
-            color: textColor,
-            fontSize: metrics.value(11),
-            fontWeight: FontWeight.w600,
-            height: 1.1,
-            letterSpacing: 0,
-          ),
-        ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: context.typography.badgeLabel.copyWith(color: textColor),
       ),
     );
   }

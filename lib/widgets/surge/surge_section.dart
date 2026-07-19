@@ -60,7 +60,7 @@ class SurgeSection extends StatelessWidget {
                         title!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: surge.typography.sectionTitle,
+                        style: context.typography.sectionTitle,
                       ),
                     )
                   else
@@ -84,7 +84,9 @@ class SurgeSection extends StatelessWidget {
               padding: const EdgeInsets.only(left: 4, top: 8, right: 4),
               child: Text(
                 footer!,
-                style: surge.typography.micro.copyWith(fontSize: 12),
+                style: context.typography.supporting.copyWith(
+                  color: surge.textSecondary,
+                ),
               ),
             ),
           ],

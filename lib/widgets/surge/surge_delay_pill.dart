@@ -67,14 +67,8 @@ class SurgeMetricBadge extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      strutStyle: const StrutStyle(
-                        forceStrutHeight: true,
-                        height: 1,
-                      ),
-                      style: surge.typography.micro.copyWith(
+                      style: context.typography.badgeLabel.copyWith(
                         color: foreground,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
                       ),
                     ),
             ),

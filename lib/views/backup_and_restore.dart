@@ -570,12 +570,12 @@ class _WebDAVFileItem extends StatelessWidget {
                       entry.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: surge.typography.rowTitle,
+                      style: context.typography.rowTitle,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '$dateStr  ·  $sizeStr',
-                      style: surge.typography.rowSubtitle,
+                      style: context.typography.supporting,
                     ),
                   ],
                 ),
@@ -596,7 +596,7 @@ class _WebDAVFileItem extends StatelessWidget {
                 ),
                 child: Text(
                   label,
-                  style: surge.typography.badge.copyWith(color: color),
+                  style: context.typography.badgeLabel.copyWith(color: color),
                 ),
               ),
               const SizedBox(width: 4),
@@ -636,12 +636,7 @@ class _BackupPillButton extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: context.textTheme.labelMedium?.copyWith(
-          color: surge.textPrimary,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
-        ),
+        style: context.typography.badgeLabel.copyWith(color: surge.textPrimary),
       ),
     );
   }
@@ -842,9 +837,8 @@ class _SoftOsBackupDialog extends StatelessWidget {
                 child: Text(
                   message!,
                   textAlign: TextAlign.center,
-                  style: surge.typography.rowSubtitle.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: surge.textPrimary,
-                    height: 1.45,
                   ),
                 ),
               ),
@@ -934,10 +928,7 @@ class _SoftOsDialogAction extends StatelessWidget {
                     width: surge.spacing.hairline,
                   ),
           ),
-          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
-          ),
+          textStyle: context.typography.controlLabel,
         ),
         child: Text(label),
       ),
@@ -1004,7 +995,7 @@ class _SoftOsRestoreStrategyDialogState
                     Expanded(
                       child: Text(
                         Intl.message('restoreStrategy_${strategy.name}'),
-                        style: surge.typography.rowTitle,
+                        style: context.typography.rowTitle,
                       ),
                     ),
                     if (strategy == selected)

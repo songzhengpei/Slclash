@@ -1,4 +1,6 @@
 export '../../common/icons.dart';
+export '../../theme/typography/surge_typography.dart';
+export '../../theme/typography/typography_context.dart';
 export 'soft_os_control_dock.dart';
 export 'soft_os_metrics.dart';
 export 'soft_os_select_pill.dart';

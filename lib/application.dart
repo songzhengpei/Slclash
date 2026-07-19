@@ -11,6 +11,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/changelog_dialog.dart';
 import 'package:flutter/material.dart';
@@ -85,17 +86,17 @@ class ApplicationState extends ConsumerState<Application> {
     );
   }
 
-  NavigationBarThemeData _getNavigationBarTheme(SurgeTheme surge) {
+  NavigationBarThemeData _getNavigationBarTheme(
+    SurgeTheme surge,
+    SurgeTypography typography,
+  ) {
     return NavigationBarThemeData(
       backgroundColor: surge.card,
       indicatorColor: surge.selectedFill,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
-        return TextStyle(
+        return typography.navigationLabel.copyWith(
           color: selected ? surge.primary : surge.textSecondary,
-          fontSize: 11,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          letterSpacing: 0,
         );
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -199,6 +200,8 @@ class ApplicationState extends ConsumerState<Application> {
               outline: useFixedSurge ? fixedSurge.separator : null,
               outlineVariant: useFixedSurge ? fixedSurge.separator : null,
             );
+    final textTheme = buildSlclashTextTheme();
+    final typography = SurgeTypography.fromTextTheme(textTheme);
     final surge = _getSurgeTheme(
       brightness: brightness,
       themeProps: themeProps,
@@ -207,7 +210,8 @@ class ApplicationState extends ConsumerState<Application> {
     return ThemeData(
       useMaterial3: true,
       pageTransitionsTheme: _pageTransitionsTheme,
-      extensions: [surge],
+      textTheme: textTheme,
+      extensions: [surge, typography],
       scaffoldBackgroundColor: surge.background,
       canvasColor: surge.background,
       appBarTheme: AppBarTheme(
@@ -218,9 +222,11 @@ class ApplicationState extends ConsumerState<Application> {
         shadowColor: Colors.transparent,
         iconTheme: IconThemeData(color: surge.textPrimary),
         actionsIconTheme: IconThemeData(color: surge.textPrimary),
-        titleTextStyle: surge.typography.appBarTitle,
+        titleTextStyle: typography.appBarTitle.copyWith(
+          color: surge.textPrimary,
+        ),
       ),
-      navigationBarTheme: _getNavigationBarTheme(surge),
+      navigationBarTheme: _getNavigationBarTheme(surge, typography),
       switchTheme: _getSwitchTheme(surge),
       radioTheme: _getRadioTheme(surge),
       checkboxTheme: _getCheckboxTheme(surge),
@@ -344,7 +350,7 @@ class ApplicationState extends ConsumerState<Application> {
             TextSpan(text: currentAppLocalizations.doYouWantToPass),
             TextSpan(
               text: ' $url ',
-              style: TextStyle(
+              style: context.typography.body.copyWith(
                 color: context.colorScheme.primary,
                 decoration: TextDecoration.underline,
                 decorationColor: context.colorScheme.primary,

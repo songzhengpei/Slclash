@@ -38,7 +38,7 @@ void main() {
 
       expect(layout.density, DashboardDensity.regular);
       expect(layout.geometryScale, 1);
-      expect(layout.typographyScale, 1);
+      expect(layout.textScale, 1);
       expect(layout.requiresReflow, isFalse);
       expect(layout.viewportExpansionFraction, 0);
     });
@@ -48,7 +48,7 @@ void main() {
 
       expect(layout.density, DashboardDensity.regular);
       expect(layout.geometryScale, 0.9375);
-      expect(layout.typographyScale, 0.9375);
+      expect(layout.textScale, 1);
       expect(layout.requiresReflow, isFalse);
     });
 
@@ -188,17 +188,12 @@ void main() {
       expect(hero.switchToSelectorGap - layout.legacy(10), closeTo(14, 0.001));
     });
 
-    test('caps enlarged dashboard text without changing the primary rows', () {
+    test('preserves enlarged dashboard text without changing primary rows', () {
       final layout = _layout(384, textScale: 1.3);
 
       expect(layout.density, DashboardDensity.regular);
       expect(layout.requiresReflow, isFalse);
-      expect(
-        DashboardResponsiveLayout.textScalerForDashboard(
-          const TextScaler.linear(2),
-        ).scale(12),
-        closeTo(13.8, 0.001),
-      );
+      expect(layout.textScale, 1.3);
       expect(DashboardResponsiveLayout.scrollEndBottomGap, 30);
     });
   });

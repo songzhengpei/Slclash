@@ -17,11 +17,7 @@ class DashboardView extends StatelessWidget {
     final bottomPadding = SurgeBottomNavLayout.mainPageBottomPadding(context);
 
     return MediaQuery(
-      data: mediaQuery.copyWith(
-        textScaler: DashboardResponsiveLayout.textScalerForDashboard(
-          mediaQuery.textScaler,
-        ),
-      ),
+      data: mediaQuery,
       child: CommonScaffold(
         title: context.appLocalizations.dashboard,
         backgroundColor: pageBackground,

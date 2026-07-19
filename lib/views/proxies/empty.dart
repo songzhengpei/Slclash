@@ -35,7 +35,6 @@ class ProxiesEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final textTheme = Theme.of(context).textTheme;
     final metrics = SoftOsMetrics.of(context);
     final (icon, accent) = _visuals(surge);
 
@@ -84,18 +83,15 @@ class ProxiesEmptyState extends StatelessWidget {
                 ),
                 child: Text(
                   kind == ProxiesEmptyStateKind.loading ? '连接中' : '代理状态',
-                  style: surge.typography.badge.copyWith(color: accent),
+                  style: context.typography.badgeLabel.copyWith(color: accent),
                 ),
               ),
               const SizedBox(height: 10),
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: textTheme.bodyMedium?.copyWith(
+                style: context.typography.cardTitle.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
                 ),
               ),
               if (description != null && description!.isNotEmpty) ...[
@@ -105,11 +101,8 @@ class ProxiesEmptyState extends StatelessWidget {
                   child: Text(
                     description!,
                     textAlign: TextAlign.center,
-                    style: textTheme.bodySmall?.copyWith(
+                    style: context.typography.supporting.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 13,
-                      height: 1.5,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),

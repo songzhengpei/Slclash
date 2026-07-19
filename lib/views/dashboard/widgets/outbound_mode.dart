@@ -121,12 +121,7 @@ class _ModeDescription extends StatelessWidget {
         text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: surge.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-        ),
+        style: context.typography.rowTitle.copyWith(color: surge.textPrimary),
       ),
     );
   }

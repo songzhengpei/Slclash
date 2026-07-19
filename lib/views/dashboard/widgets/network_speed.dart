@@ -52,10 +52,8 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
                     speed.speedText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelSmall?.copyWith(
+                    style: context.typography.chartLabel.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 11,
-                      letterSpacing: 0,
                     ),
                   );
                 },

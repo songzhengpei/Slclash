@@ -90,11 +90,8 @@ class _MemoryCardContent extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.labelLarge?.copyWith(
+                style: context.typography.cardTitle.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -108,20 +105,15 @@ class _MemoryCardContent extends StatelessWidget {
               children: [
                 Text(
                   traffic.value,
-                  style: context.textTheme.titleMedium?.copyWith(
+                  style: context.typography.metric.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   traffic.unit,
-                  style: context.textTheme.bodyMedium?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 13,
-                    letterSpacing: 0,
                   ),
                 ),
               ],

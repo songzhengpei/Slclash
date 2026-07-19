@@ -498,27 +498,12 @@ class _SurgeListItemRow extends StatelessWidget {
 
   TextStyle _titleStyle(BuildContext context, SurgeTheme surge) {
     return titleTextStyle ??
-        Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: surge.textPrimary,
-          fontSize: dense == true ? 15 : 16,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0,
-        ) ??
-        TextStyle(
-          color: surge.textPrimary,
-          fontSize: dense == true ? 15 : 16,
-          fontWeight: FontWeight.w500,
-        );
+        context.typography.rowTitle.copyWith(color: surge.textPrimary);
   }
 
   TextStyle _subtitleStyle(BuildContext context, SurgeTheme surge) {
     return subtitleTextStyle ??
-        Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: surge.textSecondary,
-          fontSize: 13,
-          letterSpacing: 0,
-        ) ??
-        TextStyle(color: surge.textSecondary, fontSize: 13);
+        context.typography.supporting.copyWith(color: surge.textSecondary);
   }
 
   @override
@@ -671,7 +656,7 @@ class ListHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final effectivePadding =
-        padding ?? EdgeInsets.fromLTRB(20, 14.ap, 16, 8.ap);
+        padding ?? const EdgeInsets.fromLTRB(20, 14, 16, 8);
     return Padding(
       padding: effectivePadding,
       child: Row(
@@ -684,13 +669,9 @@ class ListHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.labelLarge?.copyWith(
+                  maxLines: 2,
+                  style: context.typography.sectionTitle.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
                   ),
                 ),
                 if (subTitle != null) ...[
@@ -699,10 +680,8 @@ class ListHeader extends StatelessWidget {
                     subTitle!,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodySmall?.copyWith(
+                    style: context.typography.supporting.copyWith(
                       color: surge.textSecondary.withValues(alpha: 0.78),
-                      fontSize: 12,
-                      letterSpacing: 0,
                     ),
                   ),
                 ],
@@ -739,7 +718,7 @@ List<Widget> generateSection({
         title: title,
         actions: actions,
         padding: isFirst
-            ? listHeaderPadding.copyWith(top: 8.ap)
+            ? listHeaderPadding.copyWith(top: 8)
             : listHeaderPadding,
       ),
     ...genItems,

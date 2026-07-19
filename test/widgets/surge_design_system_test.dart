@@ -1,11 +1,19 @@
 import 'dart:io';
 import 'dart:ui' show Tristate;
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-ThemeData _theme(SurgeTheme surge) => ThemeData(extensions: [surge]);
+ThemeData _theme(SurgeTheme surge) {
+  final textTheme = buildSlclashTextTheme();
+  final typography = SurgeTypography.fromTextTheme(textTheme);
+  return ThemeData(textTheme: textTheme, extensions: [surge, typography]);
+}
+
+SurgeTypography _typography() =>
+    SurgeTypography.fromTextTheme(buildSlclashTextTheme());
 
 Widget _host(Widget child, {SurgeTheme? surge}) {
   return MaterialApp(
@@ -29,15 +37,12 @@ void main() {
         surge.semantic.profileSelectionBorderFixed,
         const Color(0xFFD8DAE0),
       );
-      expect(surge.typography.dashboardMicro.fontSize, 8);
-      expect(surge.typography.dashboardTiny.fontSize, 10);
-      expect(surge.typography.dashboardValue.fontSize, 12);
-      expect(surge.typography.dashboardValue.fontWeight, FontWeight.w700);
-      expect(surge.typography.dashboardLabel.fontWeight, FontWeight.w500);
-      expect(surge.typography.dashboardLoading.fontSize, 10);
-      expect(surge.typography.fieldInput.fontSize, 14);
-      expect(surge.typography.fieldHint.color, surge.textSecondary);
-      expect(surge.typography.emptyState.color, surge.textSecondary);
+      final typography = _typography();
+      expect(typography.chartLabel.fontSize, 10);
+      expect(typography.metric.fontSize, 16);
+      expect(typography.metric.fontWeight, FontWeight.w600);
+      expect(typography.supporting.fontWeight, FontWeight.w400);
+      expect(typography.body.fontSize, 15);
       expect(surge.controls.minimumTapExtent, 44);
       expect(surge.controls.actionTapExtent, 48);
       expect(surge.controls.actionVisualHeight, 34);
@@ -59,7 +64,7 @@ void main() {
       expect(surge.radii.button, 999);
     });
 
-    testWidgets('text compatibility facade reads the active theme', (
+    testWidgets('semantic typography extension reads the active theme', (
       tester,
     ) async {
       late TextStyle style;
@@ -71,7 +76,7 @@ void main() {
             data: _theme(surge),
             child: Builder(
               builder: (context) {
-                style = SurgeTextStyles.title(context);
+                style = context.typography.cardTitle;
                 return const SizedBox();
               },
             ),
@@ -79,9 +84,9 @@ void main() {
         ),
       );
 
-      expect(style.color, surge.textPrimary);
-      expect(style.fontSize, 17);
-      expect(style.fontWeight, FontWeight.w600);
+      expect(style.color, isNull);
+      expect(style.fontSize, 16);
+      expect(style.fontWeight, FontWeight.w500);
     });
 
     test('retain dark and dynamic-color mappings without changing tokens', () {
@@ -94,7 +99,7 @@ void main() {
 
       expect(dark.background, const Color(0xFF08090B));
       expect(dark.primary, const Color(0xFF4DA3FF));
-      expect(dark.typography.title.color, dark.textPrimary);
+      expect(_typography().cardTitle.color, isNull);
       expect(dynamic.background, dynamicScheme.surface);
       expect(dynamic.card, dynamicScheme.surfaceContainerLow);
       expect(dynamic.primary, dynamicScheme.primary);
@@ -261,7 +266,7 @@ void main() {
               itemRadius: 18,
               dividerHeight: 20,
               dividerMargin: 4,
-              labelStyle: SurgeTheme.light().typography.rowTitle,
+              labelStyle: _typography().rowTitle,
               iconSize: 16,
               labelGap: 4,
             ),
@@ -366,7 +371,7 @@ void main() {
                 unselectedColor: surge.textSecondary,
                 outerRadius: 26,
                 selectedRadius: 24,
-                labelStyle: surge.typography.rowTitle,
+                labelStyle: _typography().rowTitle,
               );
             },
           ),
@@ -411,10 +416,8 @@ void main() {
       final themeSource = File(
         'lib/widgets/surge/surge_theme_extension.dart',
       ).readAsStringSync();
-      final compatibilityFacade = themeSource.substring(
-        themeSource.indexOf('class SurgeTextStyles'),
-      );
-      expect(compatibilityFacade, isNot(contains('SurgeColors.light')));
+      expect(themeSource, isNot(contains('class SurgeTextStyles')));
+      expect(themeSource, isNot(contains('SurgeTypography typography')));
     },
   );
 }

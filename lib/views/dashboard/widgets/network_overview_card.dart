@@ -754,12 +754,8 @@ class _SurgeNetworkOverviewCardState
                   children: [
                     Text(
                       _overviewTitle(context),
-                      style: context.textTheme.titleMedium?.copyWith(
+                      style: context.typography.cardTitle.copyWith(
                         color: surge.textPrimary,
-                        fontSize: responsiveLayout.type(14),
-                        fontWeight: FontWeight.w700,
-                        height: 1.08,
-                        letterSpacing: 0,
                       ),
                     ),
                   ],
@@ -822,12 +818,8 @@ class _SurgeNetworkOverviewCardState
                           appLocalizations.trafficUsage,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: context.textTheme.titleSmall?.copyWith(
+                          style: context.typography.cardTitle.copyWith(
                             color: surge.textPrimary,
-                            fontSize: responsiveLayout.type(14),
-                            fontWeight: FontWeight.w700,
-                            height: 1.08,
-                            letterSpacing: 0,
                           ),
                         ),
                       ],
@@ -1041,19 +1033,12 @@ class _LiveSpeedLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: layout.geometry(15), color: color),
         SizedBox(width: layout.geometry(4)),
-        Text(
-          value,
-          style: surge.typography.dashboardValue.copyWith(
-            color: color,
-            fontSize: layout.type(13),
-          ),
-        ),
+        Text(value, style: context.typography.metric.copyWith(color: color)),
       ],
     );
   }
@@ -1099,7 +1084,6 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
     final height = NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
       layout,
     );
@@ -1122,11 +1106,8 @@ class _NetworkDetectionBar extends StatelessWidget {
                   _countryCodeToEmoji(localIpInfo.countryCode),
                   maxLines: 1,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: context.typography.controlLabel.copyWith(
                     fontFamily: FontFamily.twEmoji.value,
-                    fontSize: layout.type(14),
-                    height: 1.0,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -1140,11 +1121,7 @@ class _NetworkDetectionBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
-                style: surge.typography.dashboardValue.copyWith(
-                  color: textColor,
-                  fontSize: layout.type(12),
-                  leadingDistribution: TextLeadingDistribution.even,
-                ),
+                style: context.typography.metric.copyWith(color: textColor),
               ),
             ),
           ),
@@ -1168,9 +1145,8 @@ class _NetworkDetectionBar extends StatelessWidget {
           Text(
             context.appLocalizations.loading,
             maxLines: 1,
-            style: surge.typography.dashboardLoading.copyWith(
+            style: context.typography.chartLabel.copyWith(
               color: secondaryTextColor,
-              fontSize: layout.type(10),
             ),
           ),
         ],
@@ -1179,10 +1155,7 @@ class _NetworkDetectionBar extends StatelessWidget {
       valueWidget = Text(
         'Timeout',
         maxLines: 1,
-        style: surge.typography.dashboardValue.copyWith(
-          color: dangerColor,
-          fontSize: layout.type(12),
-        ),
+        style: context.typography.metric.copyWith(color: dangerColor),
       );
     } else {
       valueWidget = const SizedBox.shrink();
@@ -1208,9 +1181,8 @@ class _NetworkDetectionBar extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: surge.typography.dashboardLabel.copyWith(
+            style: context.typography.supporting.copyWith(
               color: secondaryTextColor,
-              fontSize: layout.type(12),
             ),
           ),
           SizedBox(width: layout.geometry(12)),
@@ -1324,13 +1296,7 @@ class _TrafficAmount extends StatelessWidget {
         SizedBox(width: layout.geometry(4)),
         Text(
           formatted,
-          style: context.textTheme.labelMedium?.copyWith(
-            color: color,
-            fontSize: layout.type(13),
-            fontWeight: FontWeight.w700,
-            height: 1.0,
-            letterSpacing: 0,
-          ),
+          style: context.typography.metric.copyWith(color: color),
         ),
       ],
     );
@@ -1412,9 +1378,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
         maxLines: 1,
         softWrap: false,
         overflow: TextOverflow.clip,
-        style: _valueStyle(
-          context,
-        ).copyWith(color: dangerColor, fontSize: layout.type(10)),
+        style: _valueStyle(context).copyWith(color: dangerColor),
       );
     }
     final latency = result?.latency;
@@ -1437,9 +1401,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
   }
 
   TextStyle _valueStyle(BuildContext context) {
-    return SurgeTheme.of(
-      context,
-    ).typography.dashboardLabel.copyWith(fontSize: layout.type(12));
+    return context.typography.supporting;
   }
 
   @override
@@ -1528,11 +1490,7 @@ class _PlatformLatencyRow extends StatelessWidget {
         SizedBox(width: layout.geometry(8)),
         SizedBox(
           width: layout.geometry(50),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: trailing,
-          ),
+          child: Align(alignment: Alignment.centerRight, child: trailing),
         ),
       ],
     );
@@ -1643,10 +1601,8 @@ class _RouteFlagBadge extends StatelessWidget {
               child: Text(
                 flag,
                 maxLines: 1,
-                style: TextStyle(
+                style: context.typography.controlLabel.copyWith(
                   fontFamily: 'Twemoji',
-                  fontSize: layout.type(15),
-                  height: 1.0,
                 ),
               ),
             ),

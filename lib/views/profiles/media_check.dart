@@ -631,11 +631,8 @@ class _MediaCheckControlCard extends StatelessWidget {
                   '节点体检',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.titleMedium?.copyWith(
+                  style: context.typography.sectionTitle.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -713,11 +710,8 @@ class _MediaCheckControlCard extends StatelessWidget {
                             : cachedCount > 0
                             ? '已缓存'
                             : '未检测',
-                        style: context.textTheme.labelSmall?.copyWith(
+                        style: context.typography.badgeLabel.copyWith(
                           color: surge.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
                         ),
                       ),
                     ],
@@ -799,11 +793,8 @@ class _ObservationControl extends StatelessWidget {
               '健康观测',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.textTheme.labelMedium?.copyWith(
+              style: context.typography.controlLabel.copyWith(
                 color: observing ? surge.green : surge.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -817,11 +808,8 @@ class _ObservationControl extends StatelessWidget {
             ),
             child: Text(
               intervalLabel,
-              style: context.textTheme.labelSmall?.copyWith(
+              style: context.typography.badgeLabel.copyWith(
                 color: observing ? surge.green : surge.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -951,11 +939,8 @@ class _ControlMetricText extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.textTheme.labelSmall?.copyWith(
+          style: context.typography.badgeLabel.copyWith(
             color: surge.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0,
           ),
         ),
         const SizedBox(width: 6),
@@ -963,11 +948,8 @@ class _ControlMetricText extends StatelessWidget {
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.textTheme.titleSmall?.copyWith(
+          style: context.typography.cardTitle.copyWith(
             color: surge.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0,
           ),
         ),
       ],
@@ -1057,11 +1039,8 @@ class _InlineFilterMetric extends StatelessWidget {
                       filter.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelMedium?.copyWith(
+                      style: context.typography.controlLabel.copyWith(
                         color: textColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -1076,27 +1055,16 @@ class _InlineFilterMetric extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      style: context.typography.chartLabel.copyWith(
                         color: selected
                             ? color.withValues(alpha: 0.82)
                             : surge.textSecondary,
-                        fontSize: 10,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        letterSpacing: 0,
                       ),
                     ),
                   ),
                   Text(
                     value,
-                    style: context.textTheme.titleSmall?.copyWith(
-                      color: color,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                      height: 1,
-                    ),
+                    style: context.typography.metric.copyWith(color: color),
                   ),
                 ],
               ),
@@ -1145,11 +1113,8 @@ class _MediaCheckResultList extends StatelessWidget {
                     filter.subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.cardTitle.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -1163,11 +1128,8 @@ class _MediaCheckResultList extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   cacheText,
-                  style: context.textTheme.labelSmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -1236,11 +1198,8 @@ class _MediaCheckResultCard extends StatelessWidget {
                   row.target.proxy.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodyMedium?.copyWith(
+                  style: context.typography.rowTitle.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -1253,10 +1212,8 @@ class _MediaCheckResultCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
-                    style: context.textTheme.labelSmall?.copyWith(
+                    style: context.typography.chartLabel.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 10,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -1274,11 +1231,8 @@ class _MediaCheckResultCard extends StatelessWidget {
                   ),
                   child: Text(
                     '已过期',
-                    style: context.textTheme.labelSmall?.copyWith(
+                    style: context.typography.badgeLabel.copyWith(
                       color: surge.orange,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -1345,12 +1299,7 @@ class _SingleResultLine extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.textTheme.labelMedium?.copyWith(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
+              style: context.typography.controlLabel.copyWith(color: color),
             ),
           ),
           if (meta.isNotEmpty)
@@ -1359,10 +1308,8 @@ class _SingleResultLine extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
-              style: context.textTheme.labelSmall?.copyWith(
+              style: context.typography.chartLabel.copyWith(
                 color: surge.textSecondary,
-                fontSize: 10,
-                letterSpacing: 0,
               ),
             ),
         ],
@@ -1400,11 +1347,8 @@ class _HealthResultLine extends StatelessWidget {
                     result.https.compactLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.controlLabel.copyWith(
                       color: color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -1414,12 +1358,7 @@ class _HealthResultLine extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: context.textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
+                  style: context.typography.badgeLabel.copyWith(color: color),
                 ),
               ],
             ),
@@ -1458,11 +1397,8 @@ class _PendingResultLine extends StatelessWidget {
               '检测中',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.textTheme.labelMedium?.copyWith(
+              style: context.typography.controlLabel.copyWith(
                 color: surge.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -1471,12 +1407,7 @@ class _PendingResultLine extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.right,
-            style: context.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
+            style: context.typography.badgeLabel.copyWith(color: color),
           ),
         ],
       ),
@@ -1506,11 +1437,8 @@ class _MediaCheckEmptyResultCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 11),
             child: Text(
               title,
-              style: context.textTheme.labelMedium?.copyWith(
+              style: context.typography.cardTitle.copyWith(
                 color: surge.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -1520,9 +1448,8 @@ class _MediaCheckEmptyResultCard extends StatelessWidget {
             child: Text(
               message,
               textAlign: TextAlign.center,
-              style: context.textTheme.bodySmall?.copyWith(
+              style: context.typography.supporting.copyWith(
                 color: surge.textSecondary,
-                letterSpacing: 0,
               ),
             ),
           ),

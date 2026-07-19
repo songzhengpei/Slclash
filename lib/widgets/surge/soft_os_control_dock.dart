@@ -528,7 +528,7 @@ class SoftOsActionTextButton extends StatelessWidget {
     return IconTheme.merge(
       data: IconThemeData(color: foreground),
       child: DefaultTextStyle.merge(
-        style: TextStyle(color: foreground),
+        style: context.typography.controlLabel.copyWith(color: foreground),
         child: result,
       ),
     );
@@ -588,7 +588,7 @@ class SoftOsActionDockTextButton extends StatelessWidget {
     return IconTheme.merge(
       data: IconThemeData(color: foreground),
       child: DefaultTextStyle.merge(
-        style: TextStyle(color: foreground),
+        style: context.typography.controlLabel.copyWith(color: foreground),
         child: result,
       ),
     );
@@ -745,13 +745,7 @@ class _SoftOsActionText extends StatelessWidget {
         applyHeightToFirstAscent: false,
         applyHeightToLastDescent: false,
       ),
-      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-        color: color,
-        fontSize: 14,
-        height: 1,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0,
-      ),
+      style: context.typography.controlLabel.copyWith(color: color),
     );
   }
 }

@@ -219,13 +219,10 @@ class _SurgeSegment<T> extends StatelessWidget {
               Flexible(
                 child: Text(
                   item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  style: context.typography.controlLabel.copyWith(
                     color: foreground,
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    letterSpacing: 0,
                   ),
                 ),
               ),

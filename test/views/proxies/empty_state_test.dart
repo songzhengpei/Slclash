@@ -1,12 +1,23 @@
 import 'package:fl_clash/views/proxies/empty.dart';
+import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _app(Widget child) => MaterialApp(
-  theme: ThemeData(extensions: <ThemeExtension<dynamic>>[SurgeTheme.light()]),
-  home: Scaffold(body: child),
-);
+Widget _app(Widget child) {
+  final textTheme = buildSlclashTextTheme();
+  final typography = SurgeTypography.fromTextTheme(textTheme);
+  return MaterialApp(
+    theme: ThemeData(
+      textTheme: textTheme,
+      extensions: <ThemeExtension<dynamic>>[
+        SurgeTheme.light(),
+        typography,
+      ],
+    ),
+    home: Scaffold(body: child),
+  );
+}
 
 void main() {
   testWidgets('renders loading state with progress and disabled action', (

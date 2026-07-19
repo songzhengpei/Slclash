@@ -72,18 +72,15 @@ class _ChangelogCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   entry.version,
-                  style: context.textTheme.titleMedium?.copyWith(
+                  style: context.typography.cardTitle.copyWith(
                     color: surge.textPrimary,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
               Text(
                 entry.date,
-                style: context.textTheme.labelSmall?.copyWith(
+                style: context.typography.supporting.copyWith(
                   color: surge.textSecondary,
-                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -125,10 +122,8 @@ class _ChangelogLine extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: context.textTheme.bodySmall?.copyWith(
+            style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
-              height: 1.4,
-              letterSpacing: 0,
             ),
           ),
         ),

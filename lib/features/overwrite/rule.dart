@@ -75,11 +75,7 @@ class RuleItem extends StatelessWidget {
             ),
           );
         },
-        icon: Icon(
-          SurgeIcons.info,
-          size: 16.ap,
-          color: context.colorScheme.error,
-        ),
+        icon: Icon(SurgeIcons.info, size: 16, color: context.colorScheme.error),
       ),
     );
   }
@@ -106,20 +102,13 @@ class RuleItem extends StatelessWidget {
             Expanded(
               child: Builder(
                 builder: (context) {
-                  final style = DefaultTextStyle.of(
-                    context,
-                  ).style.toJetBrainsMono;
+                  final style = context.typography.technical;
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        rule.ruleAction.name,
-                        style: style.copyWith(
-                          fontSize: context.textTheme.bodyLarge?.fontSize,
-                        ),
-                      ),
+                      Text(rule.ruleAction.name, style: style),
                       Flexible(
                         child: Builder(
                           builder: (context) {
@@ -129,9 +118,7 @@ class RuleItem extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: style.copyWith(
-                                  fontSize:
-                                      context.textTheme.bodyMedium?.fontSize,
-                                  color: style.color?.opacity60,
+                                  color: context.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             );
@@ -150,8 +137,7 @@ class RuleItem extends StatelessWidget {
                 if (rule.realTarget != null)
                   Text(
                     rule.realTarget!,
-                    style: context.textTheme.bodyMedium?.toJetBrainsMono
-                        .copyWith(color: vm2.b),
+                    style: context.typography.technical.copyWith(color: vm2.b),
                   ),
               ],
             ),
@@ -185,7 +171,7 @@ class RuleStatusItem extends StatelessWidget {
           rule.rawValue,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: context.textTheme.bodyMedium?.toJetBrainsMono,
+          style: context.typography.technical,
         ),
       ),
       trailing: Switch(value: status, onChanged: onChange),
@@ -291,10 +277,8 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
                 width: 1.2,
               ),
             ),
-            labelStyle: context.textTheme.bodyLarge?.copyWith(
+            labelStyle: context.typography.controlLabel.copyWith(
               color: surge.textSecondary,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
               overflow: TextOverflow.ellipsis,
             ),
           ),

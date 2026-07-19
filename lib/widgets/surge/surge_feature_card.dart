@@ -80,15 +80,10 @@ class SurgeFeatureCard extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: onBaseColor,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0,
-                                ),
+                            maxLines: 2,
+                            style: context.typography.cardTitle.copyWith(
+                              color: onBaseColor,
+                            ),
                           ),
                           if (subtitle != null) ...[
                             const SizedBox(height: 4),
@@ -96,12 +91,9 @@ class SurgeFeatureCard extends StatelessWidget {
                               subtitle!,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: onBaseColor.withValues(alpha: 0.78),
-                                    fontSize: 13,
-                                    letterSpacing: 0,
-                                  ),
+                              style: context.typography.supporting.copyWith(
+                                color: onBaseColor.withValues(alpha: 0.78),
+                              ),
                             ),
                           ],
                         ],

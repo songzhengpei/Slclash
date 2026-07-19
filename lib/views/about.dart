@@ -134,30 +134,20 @@ class AboutView extends StatelessWidget {
                                 children: [
                                   Text(
                                     appName,
-                                    style: context.textTheme.titleLarge
-                                        ?.copyWith(
-                                          color: surge.textPrimary,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0,
-                                        ),
+                                    style: context.typography.appBarTitle
+                                        .copyWith(color: surge.textPrimary),
                                   ),
                                   const SizedBox(height: 5),
                                   Text(
                                     globalState.packageInfo.version,
-                                    style: context.textTheme.labelMedium
-                                        ?.copyWith(
-                                          color: surge.textSecondary,
-                                          letterSpacing: 0,
-                                        ),
+                                    style: context.typography.supporting
+                                        .copyWith(color: surge.textSecondary),
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
                                     _coreInfo,
-                                    style: context.textTheme.labelSmall
-                                        ?.copyWith(
-                                          color: surge.textSecondary,
-                                          letterSpacing: 0,
-                                        ),
+                                    style: context.typography.supporting
+                                        .copyWith(color: surge.textSecondary),
                                   ),
                                 ],
                               ),
@@ -182,10 +172,8 @@ class AboutView extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     _slclashDesc,
-                    style: context.textTheme.bodySmall?.copyWith(
+                    style: context.typography.supporting.copyWith(
                       color: surge.textSecondary,
-                      height: 1.35,
-                      letterSpacing: 0,
                     ),
                   ),
                 ],
@@ -235,18 +223,9 @@ class _AboutLinkItem extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    strutStyle: const StrutStyle(
-                      forceStrutHeight: true,
-                      height: 1.2,
-                    ),
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    maxLines: 2,
+                    style: context.typography.rowTitle.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),

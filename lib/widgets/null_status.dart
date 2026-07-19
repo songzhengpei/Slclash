@@ -26,10 +26,9 @@ class NullStatus extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             label,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            textAlign: TextAlign.center,
+            style: context.typography.supporting.copyWith(
               color: SurgeTheme.of(context).textSecondary,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
             ),
           ),
         ],

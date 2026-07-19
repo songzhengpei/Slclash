@@ -32,11 +32,8 @@ class IntranetIP extends StatelessWidget {
                       key: ValueKey(localIp),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.titleSmall?.copyWith(
+                      style: context.typography.rowTitle.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0,
                       ),
                     )
                   : Align(

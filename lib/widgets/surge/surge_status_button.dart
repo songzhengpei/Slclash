@@ -60,11 +60,7 @@ class SurgeStatusButton extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(surge.radii.button),
         ),
-        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontSize: compact ? 13 : 14,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-        ),
+        textStyle: context.typography.controlLabel,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

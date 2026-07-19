@@ -47,13 +47,9 @@ class InfoHeader extends StatelessWidget {
                   child: TooltipText(
                     text: Text(
                       info.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      maxLines: 2,
+                      style: context.typography.sectionTitle.copyWith(
                         color: surge.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
                       ),
                     ),
                   ),

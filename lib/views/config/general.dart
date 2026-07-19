@@ -621,11 +621,7 @@ class _PortDialogState extends ConsumerState<_PortDialog> {
                         color: surge.separator.withValues(alpha: 0.9),
                         width: surge.spacing.hairline,
                       ),
-                      textStyle: context.textTheme.labelMedium?.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0,
-                      ),
+                      textStyle: context.typography.controlLabel,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(surge.radii.button),
                       ),

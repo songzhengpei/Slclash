@@ -112,10 +112,8 @@ class _Title extends ConsumerWidget {
             children: [
               Text(
                 appLocalizations.overrideMode,
-                style: context.textTheme.labelMedium?.copyWith(
+                style: context.typography.sectionTitle.copyWith(
                   color: SurgeTheme.of(context).textSecondary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
                 ),
               ),
               const SizedBox(height: 10),
@@ -152,9 +150,8 @@ class _Title extends ConsumerWidget {
                 child: Text(
                   _getDesc(context, overwriteType),
                   key: ValueKey(overwriteType),
-                  style: context.textTheme.bodySmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: SurgeTheme.of(context).textSecondary,
-                    letterSpacing: 0,
                   ),
                 ),
               ),

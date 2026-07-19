@@ -268,7 +268,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
       title: Text(widget.title),
       titleTextStyle: type == SheetType.bottomSheet
-          ? context.textTheme.titleLarge?.adjustSize(-4)
+          ? context.typography.appBarTitle
           : null,
       actions: !suffixPop
           ? genActions(actions, endSpace: 16)

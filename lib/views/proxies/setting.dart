@@ -124,12 +124,8 @@ class _SettingSection extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: context.textTheme.titleSmall?.copyWith(
+                style: context.typography.rowTitle.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -188,12 +184,8 @@ class _SettingOption extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodyMedium?.copyWith(
+                  style: context.typography.rowTitle.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 15,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    height: 1,
-                    letterSpacing: 0,
                   ),
                 ),
               ),

@@ -1,4 +1,3 @@
-import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 
@@ -35,9 +34,8 @@ class SettingInfoCard extends StatelessWidget {
             Flexible(
               child: Text(
                 info.label,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.rowTitle.copyWith(
                   color: surge.textPrimary,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -70,10 +68,7 @@ class SettingTextCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Text(
         text,
-        style: context.textTheme.bodyMedium?.copyWith(
-          color: surge.textPrimary,
-          letterSpacing: 0,
-        ),
+        style: context.typography.body.copyWith(color: surge.textPrimary),
       ),
     );
   }
@@ -115,14 +110,9 @@ class SurgeSettingSection extends StatelessWidget {
                 Flexible(
                   child: Text(
                     title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.titleSmall?.copyWith(
+                    maxLines: 2,
+                    style: context.typography.rowTitle.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -131,14 +121,9 @@ class SurgeSettingSection extends StatelessWidget {
                   Flexible(
                     child: Text(
                       subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      maxLines: 2,
+                      style: context.typography.supporting.copyWith(
                         color: surge.textSecondary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        height: 1,
-                        letterSpacing: 0,
                       ),
                     ),
                   ),

@@ -219,14 +219,12 @@ class CommonPopupMenu extends StatelessWidget {
   final List<PopupMenuItemData> items;
   final double minWidth;
   final double minItemVerticalPadding;
-  final double fontSize;
 
   const CommonPopupMenu({
     super.key,
     required this.items,
     this.minWidth = 200,
     this.minItemVerticalPadding = 16,
-    this.fontSize = 15,
   });
 
   @override
@@ -241,7 +239,6 @@ class CommonPopupMenu extends StatelessWidget {
           items: items,
           minWidth: minWidth,
           minItemVerticalPadding: minItemVerticalPadding,
-          fontSize: fontSize,
         ),
       ),
     );
@@ -252,13 +249,11 @@ class _CommonPopupMenuItems extends StatefulWidget {
   final List<PopupMenuItemData> items;
   final double minWidth;
   final double minItemVerticalPadding;
-  final double fontSize;
 
   const _CommonPopupMenuItems({
     required this.items,
     required this.minWidth,
     required this.minItemVerticalPadding,
-    required this.fontSize,
   });
 
   @override
@@ -319,19 +314,14 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
           mainAxisSize: MainAxisSize.max,
           children: [
             if (item.icon != null) ...[
-              Icon(
-                item.icon,
-                size: widget.fontSize + 4,
-                color: foregroundColor,
-              ),
+              Icon(item.icon, size: 18, color: foregroundColor),
               const SizedBox(width: 16),
             ],
             Flexible(
               child: Text(
                 item.label,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.controlLabel.copyWith(
                   color: foregroundColor,
-                  fontSize: widget.fontSize,
                 ),
               ),
             ),
@@ -384,7 +374,7 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
               if (_subTitle != null)
                 Text(
                   _subTitle!,
-                  style: context.textTheme.bodySmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: context.colorScheme.onSurfaceVariant.opacity80,
                   ),
                 ),
@@ -395,7 +385,6 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
           items: _nextItems,
           minWidth: widget.minWidth,
           minItemVerticalPadding: widget.minItemVerticalPadding,
-          fontSize: widget.fontSize,
         ),
       ],
     );

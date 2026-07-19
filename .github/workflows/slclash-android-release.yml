@@ -145,6 +145,9 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 
+      - name: Enforce typography source contract
+        run: flutter test test/theme/typography/typography_source_contract_test.dart
+
       - name: Verify Go modules are tidy
         shell: bash
         run: |

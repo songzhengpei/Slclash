@@ -874,7 +874,7 @@ class _CheckIcon extends StatelessWidget {
       padding: const EdgeInsets.all(6),
       child: Icon(
         SurgeIcons.successOutline,
-        size: 20.ap,
+        size: 20,
         color: Colors.greenAccent.harmonizeWith(context.colorScheme.primary),
       ),
     );

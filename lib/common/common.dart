@@ -42,3 +42,4 @@ export 'task.dart';
 export 'text.dart';
 export 'utils.dart';
 export 'yaml.dart';
+export '../theme/typography/typography_context.dart';

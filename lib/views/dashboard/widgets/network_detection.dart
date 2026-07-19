@@ -43,10 +43,8 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
       currentPageLabelProvider.select((l) => l == PageLabel.dashboard),
     );
     final shouldAnimate = isForeground && isDashboardActive && isLoading;
-    final emojiTextStyle = context.textTheme.titleMedium?.copyWith(
+    final emojiTextStyle = context.typography.metric.copyWith(
       fontFamily: FontFamily.twEmoji.value,
-      fontSize: 18,
-      letterSpacing: 0,
     );
 
     return SizedBox(
@@ -86,11 +84,8 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                         ipInfo.ip,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.titleSmall?.copyWith(
+                        style: context.typography.cardTitle.copyWith(
                           color: surge.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
                         ),
                       ),
                     ),
@@ -118,11 +113,8 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                               appLocalizations.loading,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: context.textTheme.titleSmall?.copyWith(
+                              style: context.typography.supporting.copyWith(
                                 color: surge.textSecondary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0,
                               ),
                             ),
                           ),
@@ -137,11 +129,8 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                   'Timeout',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.titleSmall?.copyWith(
+                  style: context.typography.controlLabel.copyWith(
                     color: surge.red.withValues(alpha: 0.82),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
                   ),
                 )
               : const SizedBox.shrink(key: ValueKey('network-idle')),

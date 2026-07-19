@@ -6,11 +6,7 @@ class CommonCircleLoading extends StatefulWidget {
   final Color? color;
   final bool active;
 
-  const CommonCircleLoading({
-    super.key,
-    this.color,
-    this.active = true,
-  });
+  const CommonCircleLoading({super.key, this.color, this.active = true});
 
   @override
   State<CommonCircleLoading> createState() => _CommonCircleLoadingState();

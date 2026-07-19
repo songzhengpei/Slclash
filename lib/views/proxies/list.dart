@@ -553,14 +553,14 @@ class _ListHeaderState extends State<ListHeader> {
                     height: constraints.maxHeight,
                     width: constraints.maxWidth,
                     alignment: Alignment.center,
-                    padding: EdgeInsets.all(5.ap),
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(surge.radii.input),
                       color: surge.textSecondary.withValues(alpha: 0.08),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: IconTheme.merge(
-                      data: IconThemeData(size: constraints.maxHeight - 12.ap),
+                      data: IconThemeData(size: constraints.maxHeight - 12),
                       child: CommonTargetIcon(src: icon),
                     ),
                   ),
@@ -573,7 +573,7 @@ class _ListHeaderState extends State<ListHeader> {
             child: LayoutBuilder(
               builder: (_, constraints) {
                 return IconTheme.merge(
-                  data: IconThemeData(size: constraints.maxHeight - 8.ap),
+                  data: IconThemeData(size: constraints.maxHeight - 8),
                   child: CommonTargetIcon(src: icon),
                 );
               },
@@ -675,14 +675,9 @@ class _ListHeaderState extends State<ListHeader> {
                                   groupName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: context.textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: surge.textPrimary,
-                                        fontSize: 15.5,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.05,
-                                        letterSpacing: 0,
-                                      ),
+                                  style: context.typography.rowTitle.copyWith(
+                                    color: surge.textPrimary,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Flexible(
@@ -697,12 +692,9 @@ class _ListHeaderState extends State<ListHeader> {
                                         groupType,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: context.textTheme.labelMedium
-                                            ?.copyWith(
+                                        style: context.typography.supporting
+                                            .copyWith(
                                               color: surge.textSecondary,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              letterSpacing: 0,
                                             ),
                                       ),
                                       Flexible(
@@ -781,18 +773,14 @@ class _ListHeaderState extends State<ListHeader> {
                                                     overflow:
                                                         TextOverflow.ellipsis,
                                                     style: context
-                                                        .textTheme
-                                                        .labelMedium
-                                                        ?.copyWith(
+                                                        .typography
+                                                        .supporting
+                                                        .copyWith(
                                                           color: surge
                                                               .textPrimary
                                                               .withValues(
                                                                 alpha: 0.78,
                                                               ),
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          letterSpacing: 0,
                                                         ),
                                                   ),
                                                 ),

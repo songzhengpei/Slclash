@@ -291,7 +291,6 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final textTheme = context.textTheme;
     return CommonDialog(
       title: '下载更新',
       overrideScroll: true,
@@ -336,17 +335,9 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
                     Expanded(
                       child: Text(
                         percent == null ? '正在下载 APK' : '正在下载 APK · $percent%',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        strutStyle: const StrutStyle(
-                          forceStrutHeight: true,
-                          height: 1.2,
-                        ),
-                        style: textTheme.bodyMedium?.copyWith(
+                        maxLines: 2,
+                        style: context.typography.rowTitle.copyWith(
                           color: surge.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                          letterSpacing: 0,
                         ),
                       ),
                     ),
@@ -366,10 +357,8 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 '下载完成后将自动打开系统安装界面。',
-                style: textTheme.bodySmall?.copyWith(
+                style: context.typography.supporting.copyWith(
                   color: surge.textSecondary,
-                  height: 1.35,
-                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -394,7 +383,6 @@ class _UpdateAvailableDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final textTheme = context.textTheme;
     return CommonDialog(
       title: currentAppLocalizations.discoverNewVersion,
       overrideScroll: true,
@@ -417,18 +405,9 @@ class _UpdateAvailableDialog extends StatelessWidget {
                 Expanded(
                   child: Text(
                     tagName.takeFirstValid(['新版本']),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    strutStyle: const StrutStyle(
-                      forceStrutHeight: true,
-                      height: 1.2,
-                    ),
-                    style: textTheme.titleMedium?.copyWith(
+                    maxLines: 2,
+                    style: context.typography.cardTitle.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -500,10 +479,8 @@ class _UpdateStatusDialog extends StatelessWidget {
                 Expanded(
                   child: Text(
                     message,
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    style: context.typography.body.copyWith(
                       color: surge.textPrimary,
-                      height: 1.35,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -552,10 +529,8 @@ class _UpdateChangeItem extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: context.textTheme.bodySmall?.copyWith(
+            style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
-              height: 1.35,
-              letterSpacing: 0,
             ),
           ),
         ),

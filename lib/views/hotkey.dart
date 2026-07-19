@@ -345,7 +345,7 @@ class KeyboardKeyBox extends StatelessWidget {
       type: CommonCardType.filled,
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Text(keyboardKey.label, style: const TextStyle(fontSize: 16)),
+        child: Text(keyboardKey.label, style: context.typography.controlLabel),
       ),
       onPressed: () {},
     );

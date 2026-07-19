@@ -104,11 +104,8 @@ class ItemCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     info.label,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.supporting.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -312,18 +309,9 @@ class _SurgeSegmentedButton<T> extends StatelessWidget {
               AnimatedDefaultTextStyle(
                 duration: SurgeMotion.state,
                 curve: SurgeMotion.stateCurve,
-                style:
-                    context.textTheme.labelMedium?.copyWith(
-                      color: selected ? surge.textPrimary : surge.textSecondary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
-                    ) ??
-                    TextStyle(
-                      color: selected ? surge.textPrimary : surge.textSecondary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                    ),
+                style: context.typography.controlLabel.copyWith(
+                  color: selected ? surge.textPrimary : surge.textSecondary,
+                ),
                 child: Text(item.label),
               ),
             ],
@@ -362,10 +350,8 @@ class _DynamicColorItem extends ConsumerWidget {
                 : isLegacyGray
                 ? '灰黑单色风格'
                 : '蓝白单色风格',
-            style: context.textTheme.bodySmall?.copyWith(
+            style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
-              fontSize: 12,
-              letterSpacing: 0,
             ),
           ),
           delegate: SwitchDelegate(
@@ -805,10 +791,8 @@ class _TextScaleFactorItem extends ConsumerWidget {
                   ),
                   child: Text(
                     process,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.controlLabel.copyWith(
                       color: surge.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -822,12 +806,7 @@ class _TextScaleFactorItem extends ConsumerWidget {
 }
 
 TextStyle? _themePageTitleStyle(BuildContext context, SurgeTheme surge) {
-  return context.textTheme.bodyMedium?.copyWith(
-    color: surge.textPrimary,
-    fontSize: 15,
-    fontWeight: FontWeight.w400,
-    letterSpacing: 0,
-  );
+  return context.typography.body.copyWith(color: surge.textPrimary);
 }
 
 class _PaletteDialog extends StatefulWidget {

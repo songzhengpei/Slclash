@@ -354,12 +354,8 @@ class _ResourceStatusCard extends StatelessWidget {
                     mode.statusText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    style: context.typography.rowTitle.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1,
-                      letterSpacing: 0,
                     ),
                   ),
                   if (mode != _ResourceAutoUpdateMode.off) ...[
@@ -368,11 +364,8 @@ class _ResourceStatusCard extends StatelessWidget {
                       mode.subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      style: context.typography.supporting.copyWith(
                         color: surge.textSecondary,
-                        fontSize: 11,
-                        height: 1,
-                        letterSpacing: 0,
                       ),
                     ),
                   ],
@@ -493,11 +486,8 @@ class _ResourceItemCard extends ConsumerWidget {
                         item.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.bodyMedium?.copyWith(
+                        style: context.typography.rowTitle.copyWith(
                           color: surge.textPrimary,
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -509,12 +499,8 @@ class _ResourceItemCard extends ConsumerWidget {
                             text,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: context.textTheme.labelSmall?.copyWith(
+                            style: context.typography.supporting.copyWith(
                               color: surge.textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              height: 1,
-                              letterSpacing: 0,
                             ),
                           );
                         },
@@ -524,12 +510,8 @@ class _ResourceItemCard extends ConsumerWidget {
                         url,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.bodySmall?.copyWith(
+                        style: context.typography.supporting.copyWith(
                           color: surge.textSecondary.withValues(alpha: 0.82),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
-                          height: 1,
-                          letterSpacing: 0,
                         ),
                       ),
                     ],
@@ -608,23 +590,15 @@ class _ResourceAutoUpdateSheetState extends State<_ResourceAutoUpdateSheet> {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Text(
               '更新频率',
-              style: context.textTheme.titleSmall?.copyWith(
+              style: context.typography.rowTitle.copyWith(
                 color: surge.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                height: 1,
-                letterSpacing: 0,
               ),
             ),
           ),
           Text(
             '首次打开资源页时触发',
-            style: context.textTheme.labelSmall?.copyWith(
+            style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              height: 1,
-              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 8),
@@ -709,14 +683,8 @@ class _ResourceSheetOption extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.bodyMedium?.copyWith(
+                      style: context.typography.rowTitle.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 15,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        height: 1,
-                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -724,11 +692,8 @@ class _ResourceSheetOption extends StatelessWidget {
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      style: context.typography.supporting.copyWith(
                         color: surge.textSecondary,
-                        fontSize: 11,
-                        height: 1.1,
-                        letterSpacing: 0,
                       ),
                     ),
                   ],

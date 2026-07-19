@@ -49,12 +49,8 @@ class SurgeDashboardCard extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        style: context.typography.cardTitle.copyWith(
                           color: surge.textPrimary,
-                          fontSize: 13,
-                          height: 1,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
                         ),
                       ),
                       if (subtitle != null) ...[
@@ -63,13 +59,9 @@ class SurgeDashboardCard extends StatelessWidget {
                           subtitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: surge.textSecondary,
-                                fontSize: 10,
-                                height: 1,
-                                letterSpacing: 0,
-                              ),
+                          style: context.typography.chartLabel.copyWith(
+                            color: surge.textSecondary,
+                          ),
                         ),
                       ],
                     ],

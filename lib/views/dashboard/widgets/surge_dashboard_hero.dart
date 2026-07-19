@@ -487,12 +487,8 @@ class _HeroModeCardSurface extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.titleLarge?.copyWith(
+                style: context.typography.cardTitle.copyWith(
                   color: foregroundColor,
-                  fontSize: layout.type(16),
-                  fontWeight: FontWeight.w600,
-                  height: 1.05,
-                  letterSpacing: 0,
                 ),
               ),
               SizedBox(height: layout.geometry(4)),
@@ -500,12 +496,8 @@ class _HeroModeCardSurface extends StatelessWidget {
                 modeLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.supporting.copyWith(
                   color: secondaryColor,
-                  fontSize: layout.type(13),
-                  fontWeight: FontWeight.w500,
-                  height: 1.08,
-                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -630,11 +622,8 @@ class _HeroActionButton extends StatelessWidget {
                     children: [
                       Text(
                         label,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        style: context.typography.controlLabel.copyWith(
                           color: Colors.white,
-                          fontSize: layout.legacyType(14),
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
                         ),
                       ),
                       // Animated dots during loading
@@ -793,12 +782,8 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
               profileLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              style: context.typography.screenTitle.copyWith(
                 color: surge.textPrimary,
-                fontSize: layout.legacyType(19),
-                fontWeight: FontWeight.w500,
-                height: 1.0,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -876,19 +861,15 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
                             profile.realLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: context.textTheme.bodyMedium?.copyWith(
+                            style: context.typography.rowTitle.copyWith(
                               color: surge.textPrimary,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
                             ),
                           ),
                         ),
                         Text(
                           profile.type == ProfileType.url ? 'URL' : '本地',
-                          style: context.textTheme.labelSmall?.copyWith(
+                          style: context.typography.badgeLabel.copyWith(
                             color: surge.textSecondary,
-                            fontSize: 11,
                           ),
                         ),
                         if (isSelected) ...[
@@ -967,13 +948,7 @@ class _StatusPill extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: textColor,
-              fontSize: layout.type(11),
-              fontWeight: FontWeight.w600,
-              height: 1.0,
-              letterSpacing: 0,
-            ),
+            style: context.typography.badgeLabel.copyWith(color: textColor),
           ),
         ],
       ),
@@ -1128,11 +1103,7 @@ class _ModeSwitch extends StatelessWidget {
       unselectedColor: surge.textSecondary,
       outerRadius: layout.geometry(26),
       selectedRadius: layout.geometry(24),
-      labelStyle: surge.typography.rowTitle.copyWith(
-        fontSize: layout.type(14),
-        fontWeight: FontWeight.w600,
-        height: 1,
-      ),
+      labelStyle: context.typography.rowTitle,
       indicatorDuration: SurgeMotion.container,
       textDuration: SurgeMotion.state,
     );
@@ -1146,7 +1117,6 @@ class _HeroProxySelectorBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final surge = SurgeTheme.of(context);
     final groups = ref.watch(currentGroupsStateProvider).value;
     final currentGroupName = ref.watch(
       currentProfileProvider.select((state) => state?.currentGroupName ?? ''),
@@ -1184,11 +1154,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
       dividerMargin: layout.geometry(10),
       iconSize: layout.geometry(16),
       labelGap: layout.geometry(2),
-      labelStyle: surge.typography.badge.copyWith(
-        fontSize: layout.type(12),
-        fontWeight: FontWeight.w700,
-        height: 1,
-      ),
+      labelStyle: context.typography.badgeLabel,
     );
   }
 
@@ -1253,19 +1219,15 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                               group.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: context.textTheme.bodyMedium?.copyWith(
+                              style: context.typography.rowTitle.copyWith(
                                 color: surge.textPrimary,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
                               ),
                             ),
                           ),
                           Text(
                             group.type.name,
-                            style: context.textTheme.labelSmall?.copyWith(
+                            style: context.typography.badgeLabel.copyWith(
                               color: surge.textSecondary,
-                              fontSize: 11,
                             ),
                           ),
                           if (isSelected) ...[
@@ -1406,17 +1368,7 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                   const SizedBox(width: 48),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        '节点',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize:
-                              (Theme.of(
-                                    context,
-                                  ).textTheme.titleLarge?.fontSize ??
-                                  22) -
-                              4,
-                        ),
-                      ),
+                      child: Text('节点', style: context.typography.appBarTitle),
                     ),
                   ),
                   SoftOsActionButton(
@@ -1435,10 +1387,12 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
             child: TextField(
               controller: _searchController,
               onChanged: (value) => setState(() => _searchQuery = value),
-              style: surge.typography.fieldInput,
+              style: context.typography.body,
               decoration: InputDecoration(
                 hintText: context.appLocalizations.search,
-                hintStyle: surge.typography.fieldHint,
+                hintStyle: context.typography.body.copyWith(
+                  color: surge.textSecondary,
+                ),
                 prefixIcon: Icon(
                   SurgeIcons.search,
                   color: surge.textSecondary,
@@ -1506,7 +1460,7 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                 ? Center(
                     child: Text(
                       context.appLocalizations.noData,
-                      style: surge.typography.emptyState,
+                      style: context.typography.supporting,
                     ),
                   )
                 : ListView.builder(
@@ -1624,11 +1578,8 @@ class _NodeCard extends ConsumerWidget {
                     proxy.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    style: context.typography.rowTitle.copyWith(
                       color: surge.textPrimary,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1645,10 +1596,8 @@ class _NodeCard extends ConsumerWidget {
                     ),
                     child: Text(
                       delayLabel,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      style: context.typography.badgeLabel.copyWith(
                         color: delayColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

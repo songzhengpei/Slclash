@@ -326,20 +326,16 @@ class _AddProxyProvidersViewState extends ConsumerState<_AddProxyProvidersView>
   }
 
   void _handleRealAdd() {
-    debouncer.call(
-      'AddProxyProvidersViewState_handleRealAdd',
-      () {
-        if (!ref.context.mounted) {
-          return;
-        }
-        final dismissItems = ref.read(itemsProvider(key));
-        ref.read(proxyGroupProvider.notifier).update((state) {
-          return state.copyWith(use: [...state.use ?? [], ...dismissItems]);
-        });
-        ref.read(itemsProvider(key).notifier).update((state) => <dynamic>{});
-      },
-      duration: SurgeMotion.reveal,
-    );
+    debouncer.call('AddProxyProvidersViewState_handleRealAdd', () {
+      if (!ref.context.mounted) {
+        return;
+      }
+      final dismissItems = ref.read(itemsProvider(key));
+      ref.read(proxyGroupProvider.notifier).update((state) {
+        return state.copyWith(use: [...state.use ?? [], ...dismissItems]);
+      });
+      ref.read(itemsProvider(key).notifier).update((state) => <dynamic>{});
+    }, duration: SurgeMotion.reveal);
   }
 
   Widget _buildItem({

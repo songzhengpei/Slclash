@@ -167,10 +167,8 @@ class _CustomNavigationRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.rowTitle.copyWith(
                   color: surge.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -178,9 +176,8 @@ class _CustomNavigationRow extends StatelessWidget {
               width: 44,
               child: Text(
                 '$count',
-                style: context.textTheme.labelSmall?.copyWith(
+                style: context.typography.badgeLabel.copyWith(
                   color: surge.primary,
-                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

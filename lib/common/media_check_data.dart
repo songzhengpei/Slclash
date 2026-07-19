@@ -115,7 +115,6 @@ class MediaCheckCacheStore {
   Future<void> save(MediaCheckCache cache) async {
     await preferences.setString(mediaCheckCacheKey, json.encode(cache));
   }
-
 }
 
 // ── MediaCheckCache ────────────────────────────────────────────────────────

@@ -1,0 +1,49 @@
+import 'package:fl_clash/theme/typography/font_families.dart';
+import 'package:fl_clash/theme/typography/type_scale.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('the 15 semantic roles match the frozen type scale', () {
+    final cases = <(TextStyle, double, double, FontWeight, String?)>[
+      (SlclashTypeScale.screenTitle, 22, 1.2727, FontWeight.w600, null),
+      (SlclashTypeScale.appBarTitle, 20, 1.3, FontWeight.w600, null),
+      (SlclashTypeScale.dialogTitle, 18, 1.3333, FontWeight.w600, null),
+      (SlclashTypeScale.sectionTitle, 15, 1.4667, FontWeight.w600, null),
+      (SlclashTypeScale.cardTitle, 16, 1.375, FontWeight.w500, null),
+      (SlclashTypeScale.rowTitle, 15, 1.4667, FontWeight.w500, null),
+      (SlclashTypeScale.body, 15, 1.4667, FontWeight.w400, null),
+      (SlclashTypeScale.supporting, 13, 1.3846, FontWeight.w400, null),
+      (SlclashTypeScale.controlLabel, 14, 1.4286, FontWeight.w500, null),
+      (SlclashTypeScale.navigationLabel, 11, 1.4545, FontWeight.w500, null),
+      (SlclashTypeScale.badgeLabel, 11, 1.4545, FontWeight.w600, null),
+      (SlclashTypeScale.metricLarge, 24, 1.25, FontWeight.w600, null),
+      (SlclashTypeScale.metric, 16, 1.375, FontWeight.w600, null),
+      (
+        SlclashTypeScale.technical,
+        13,
+        1.3846,
+        FontWeight.w500,
+        SlclashFontFamilies.jetBrainsMono,
+      ),
+      (
+        SlclashTypeScale.chartLabel,
+        10,
+        1.4,
+        FontWeight.w500,
+        SlclashFontFamilies.jetBrainsMono,
+      ),
+    ];
+
+    expect(cases, hasLength(15));
+    for (final (style, size, height, weight, family) in cases) {
+      expect(style.fontSize, size);
+      expect(style.height, closeTo(height, 0.00001));
+      expect(style.fontWeight, weight);
+      expect(style.fontFamily, family);
+      expect(style.letterSpacing, 0);
+      expect(style.color, isNull);
+      expect(style.backgroundColor, isNull);
+    }
+  });
+}
