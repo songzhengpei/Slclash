@@ -168,6 +168,12 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
+  static const countLabel = TextStyle(
+    fontSize: 12,
+    height: 1.2308,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
   static const chartLabel = TextStyle(
     fontFamily: SlclashFontFamilies.jetBrainsMono,
     fontSize: 10,

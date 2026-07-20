@@ -25,6 +25,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.sheetRowTitle,
     required this.sheetLabel,
     required this.sheetTitle,
+    required this.countLabel,
     required this.badgeLabel,
     required this.selectedRowTitle,
     required this.selectorLabel,
@@ -57,6 +58,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       sheetRowTitle: SlclashTypeScale.sheetRowTitle,
       sheetLabel: SlclashTypeScale.sheetLabel,
       sheetTitle: SlclashTypeScale.sheetTitle,
+      countLabel: SlclashTypeScale.countLabel,
       badgeLabel: SlclashTypeScale.badgeLabel,
       selectedRowTitle: SlclashTypeScale.selectedRowTitle,
       selectorLabel: SlclashTypeScale.selectorLabel,
@@ -88,6 +90,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle sheetRowTitle;
   final TextStyle sheetLabel;
   final TextStyle sheetTitle;
+  final TextStyle countLabel;
   final TextStyle badgeLabel;
   final TextStyle selectedRowTitle;
   final TextStyle selectorLabel;
@@ -119,6 +122,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? sheetRowTitle,
     TextStyle? sheetLabel,
     TextStyle? sheetTitle,
+    TextStyle? countLabel,
     TextStyle? badgeLabel,
     TextStyle? selectedRowTitle,
     TextStyle? selectorLabel,
@@ -150,6 +154,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       sheetRowTitle: sheetRowTitle ?? this.sheetRowTitle,
       sheetLabel: sheetLabel ?? this.sheetLabel,
       sheetTitle: sheetTitle ?? this.sheetTitle,
+      countLabel: countLabel ?? this.countLabel,
       badgeLabel: badgeLabel ?? this.badgeLabel,
       selectedRowTitle: selectedRowTitle ?? this.selectedRowTitle,
       selectorLabel: selectorLabel ?? this.selectorLabel,
@@ -227,6 +232,11 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       sheetTitle: TextStyle.lerp(
         sheetTitle,
         other.sheetTitle,
+        t,
+      )!,
+      countLabel: TextStyle.lerp(
+        countLabel,
+        other.countLabel,
         t,
       )!,
       badgeLabel: TextStyle.lerp(badgeLabel, other.badgeLabel, t)!,

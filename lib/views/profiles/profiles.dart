@@ -1163,7 +1163,7 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
                 ),
                 Text(
                   '${proxies.length}',
-                  style: context.typography.supporting.copyWith(
+                  style: context.typography.countLabel.copyWith(
                     color: surge.textSecondary,
                   ),
                 ),
@@ -2177,14 +2177,14 @@ class _ProfilePill extends StatelessWidget {
     const backgroundAlpha = 0.055;
     const borderAlpha = 0.38;
     final textColor = surge.textPrimary.withValues(alpha: 0.68);
-    final height = metrics.value(26);
+    final height = metrics.value(surge.controls.statusPillHeight);
     return Container(
       height: height,
       constraints: BoxConstraints(
-        minWidth: metrics.value(46),
-        maxWidth: metrics.value(68),
+        minWidth: metrics.value(48),
+        maxWidth: metrics.value(64),
       ),
-      padding: EdgeInsets.symmetric(horizontal: metrics.value(9)),
+      padding: EdgeInsets.symmetric(horizontal: metrics.value(10)),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: backgroundAlpha),
@@ -2200,7 +2200,7 @@ class _ProfilePill extends StatelessWidget {
           label,
           maxLines: 1,
           textScaler: TextScaler.noScaling,
-          style: context.typography.sheetLabel.copyWith(color: textColor),
+          style: context.typography.badgeLabel.copyWith(color: textColor),
         ),
       ),
     );
