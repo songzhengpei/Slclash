@@ -12,6 +12,15 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.0.5',
+    date: '2026-07-19',
+    changes: [
+      'Slclash 与 Clash Verge Rev 的订阅备份现已支持双向导入。',
+      '修复未使用统一订阅中心时，首次无法备份的问题。',
+      '优化兼容与覆盖恢复，避免重复订阅并保留本地配置状态。',
+    ],
+  ),
+  AppChangelogEntry(
     version: 'v2.0.4',
     date: '2026-07-17',
     changes: [
