@@ -18,7 +18,8 @@ void main() {
       profileBytes: bytes,
       profilesDirectory: 'unused',
     );
-    expect(result, bytes);
+    expect(result.yaml, bytes);
+    expect(result.externalProvidersFlattened, isFalse);
   });
 
   test('materializes complete cached Provider nodes and group uses', () async {
@@ -69,13 +70,14 @@ rules: []
       profileBytes: source,
       profilesDirectory: directory.path,
     );
-    final yaml = loadYaml(utf8.decode(result)) as YamlMap;
+    final yaml = loadYaml(utf8.decode(result.yaml)) as YamlMap;
+    expect(result.externalProvidersFlattened, isTrue);
     expect(yaml.containsKey('proxy-providers'), isFalse);
     expect(yaml['proxies'], hasLength(3));
     expect(yaml['proxies'][1]['server'], '1.2.3.4');
     expect(yaml['proxy-groups'][0].containsKey('use'), isFalse);
     expect(yaml['proxy-groups'][0]['proxies'], ['first', 'second']);
-    expect(utf8.decode(result), isNot(contains(url)));
+    expect(utf8.decode(result.yaml), isNot(contains(url)));
   });
 
   test('fails explicitly when declared Provider cache is unavailable', () {

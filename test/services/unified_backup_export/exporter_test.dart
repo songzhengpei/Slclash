@@ -407,6 +407,42 @@ void main() {
       3,
     );
   });
+
+  test('drops stale dependency statistics after Provider flattening', () {
+    final flattened = UnifiedExportProfile(
+      androidId: 0x10000000,
+      name: 'Worker 0',
+      yaml: Uint8List.fromList(
+        utf8.encode('''proxies:
+  - {name: inline, type: direct}
+  - {name: dependency-1, type: direct}
+  - {name: dependency-2, type: direct}
+'''),
+      ),
+      updated: 1700000000,
+      autoUpdate: false,
+      updateIntervalMinutes: 60,
+      externalProvidersFlattened: true,
+    );
+    final bytes = const UnifiedV1Exporter().build(
+      UnifiedExportInput(
+        profiles: [flattened],
+        currentAndroidId: flattened.androidId,
+        trustedArchive: Uint8List.fromList(
+          _trustedArchive(includeDependencyStats: true),
+        ),
+        generatorVersion: '1.0.0',
+      ),
+    );
+    final parsed = const WorkerV1Parser().parse(bytes);
+    final meta =
+        jsonDecode(utf8.decode(parsed.files['providers/worker-0/meta.json']!))
+            as Map<String, dynamic>;
+    expect(meta['schemaVersion'], 1);
+    expect(meta['nodeCount'], 3);
+    expect(meta, isNot(contains('nodeStats')));
+    expect(meta, isNot(contains('internalDependencies')));
+  });
 }
 
 String _profileYaml(int index) =>

@@ -356,6 +356,7 @@ _DependencyState? _rewriteDependencyState(
   _PreparedProfile parent,
   Map<String, _PreparedProfile> preparedBySlug,
 ) {
+  if (parent.profile.externalProvidersFlattened) return null;
   final trusted = parent.trustedMeta;
   if (trusted == null || trusted['schemaVersion'] != 2) return null;
   final rawStats = trusted['nodeStats'];

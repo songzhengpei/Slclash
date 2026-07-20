@@ -7,7 +7,17 @@ import 'package:fl_clash/common/yaml.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-Future<Uint8List> materializeProfileForUnifiedExport({
+class UnifiedMaterializedProfile {
+  const UnifiedMaterializedProfile({
+    required this.yaml,
+    required this.externalProvidersFlattened,
+  });
+
+  final Uint8List yaml;
+  final bool externalProvidersFlattened;
+}
+
+Future<UnifiedMaterializedProfile> materializeProfileForUnifiedExport({
   required int profileId,
   required Uint8List profileBytes,
   required String profilesDirectory,
@@ -18,7 +28,12 @@ Future<Uint8List> materializeProfileForUnifiedExport({
   }
   final config = Map<Object?, Object?>.from(_plain(decoded) as Map);
   final definitions = config['proxy-providers'];
-  if (definitions is! Map || definitions.isEmpty) return profileBytes;
+  if (definitions is! Map || definitions.isEmpty) {
+    return UnifiedMaterializedProfile(
+      yaml: profileBytes,
+      externalProvidersFlattened: false,
+    );
+  }
 
   final nodes = <Object?>[
     if (config['proxies'] case final List existing) ...existing,
@@ -57,7 +72,10 @@ Future<Uint8List> materializeProfileForUnifiedExport({
   _materializeProxyGroups(config, providerNodeNames);
   config.remove('proxy-providers');
   final text = '${yaml.encode(config).trimRight()}\n';
-  return Uint8List.fromList(utf8.encode(text));
+  return UnifiedMaterializedProfile(
+    yaml: Uint8List.fromList(utf8.encode(text)),
+    externalProvidersFlattened: true,
+  );
 }
 
 Future<List<Object?>> _readProviderNodes({
