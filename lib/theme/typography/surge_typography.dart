@@ -16,6 +16,8 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.controlLabel,
     required this.navigationLabel,
     required this.selectedNavigationLabel,
+    required this.detailLabel,
+    required this.compactRowTitle,
     required this.badgeLabel,
     required this.selectedRowTitle,
     required this.selectorLabel,
@@ -39,6 +41,8 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       controlLabel: textTheme.labelLarge!,
       navigationLabel: textTheme.labelMedium!,
       selectedNavigationLabel: SlclashTypeScale.selectedNavigationLabel,
+      detailLabel: SlclashTypeScale.detailLabel,
+      compactRowTitle: SlclashTypeScale.compactRowTitle,
       badgeLabel: SlclashTypeScale.badgeLabel,
       selectedRowTitle: SlclashTypeScale.selectedRowTitle,
       selectorLabel: SlclashTypeScale.selectorLabel,
@@ -61,6 +65,8 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle controlLabel;
   final TextStyle navigationLabel;
   final TextStyle selectedNavigationLabel;
+  final TextStyle detailLabel;
+  final TextStyle compactRowTitle;
   final TextStyle badgeLabel;
   final TextStyle selectedRowTitle;
   final TextStyle selectorLabel;
@@ -83,6 +89,8 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? controlLabel,
     TextStyle? navigationLabel,
     TextStyle? selectedNavigationLabel,
+    TextStyle? detailLabel,
+    TextStyle? compactRowTitle,
     TextStyle? badgeLabel,
     TextStyle? selectedRowTitle,
     TextStyle? selectorLabel,
@@ -105,6 +113,8 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       navigationLabel: navigationLabel ?? this.navigationLabel,
       selectedNavigationLabel: selectedNavigationLabel ??
           this.selectedNavigationLabel,
+      detailLabel: detailLabel ?? this.detailLabel,
+      compactRowTitle: compactRowTitle ?? this.compactRowTitle,
       badgeLabel: badgeLabel ?? this.badgeLabel,
       selectedRowTitle: selectedRowTitle ?? this.selectedRowTitle,
       selectorLabel: selectorLabel ?? this.selectorLabel,
@@ -137,6 +147,16 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       selectedNavigationLabel: TextStyle.lerp(
         selectedNavigationLabel,
         other.selectedNavigationLabel,
+        t,
+      )!,
+      detailLabel: TextStyle.lerp(
+        detailLabel,
+        other.detailLabel,
+        t,
+      )!,
+      compactRowTitle: TextStyle.lerp(
+        compactRowTitle,
+        other.compactRowTitle,
         t,
       )!,
       badgeLabel: TextStyle.lerp(badgeLabel, other.badgeLabel, t)!,

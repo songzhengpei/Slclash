@@ -10,12 +10,12 @@ enum ProxyListRowPosition { single, first, middle, last }
 
 double getProxyTileHeight() {
   final measure = globalState.measure;
-  return 22 + measure.bodyMediumHeight + measure.bodySmallHeight + 3;
+  return 26 + measure.bodyMediumHeight + measure.bodySmallHeight + 3;
 }
 
 double get listHeaderHeight {
   final measure = globalState.measure;
-  return 24 + measure.titleMediumHeight + 4 + measure.bodyMediumHeight + 2;
+  return 34 + measure.titleMediumHeight + 4 + measure.bodyMediumHeight + 2;
 }
 
 double getItemHeight(ProxyCardType proxyCardType) {

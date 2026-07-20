@@ -115,6 +115,17 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
+  static const detailLabel = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+  static const compactRowTitle = TextStyle(
+    fontSize: 13,
+    height: 1.4667,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
   static const chartLabel = TextStyle(
     fontFamily: SlclashFontFamilies.jetBrainsMono,
     fontSize: 10,

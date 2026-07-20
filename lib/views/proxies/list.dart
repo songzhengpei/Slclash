@@ -692,7 +692,7 @@ class _ListHeaderState extends State<ListHeader> {
                                         groupType,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: context.typography.supporting
+                                        style: context.typography.detailLabel
                                             .copyWith(
                                               color: surge.textSecondary,
                                             ),
@@ -774,7 +774,7 @@ class _ListHeaderState extends State<ListHeader> {
                                                         TextOverflow.ellipsis,
                                                     style: context
                                                         .typography
-                                                        .supporting
+                                                        .detailLabel
                                                         .copyWith(
                                                           color: surge
                                                               .textPrimary
