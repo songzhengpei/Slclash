@@ -18,6 +18,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.selectedNavigationLabel,
     required this.detailLabel,
     required this.compactRowTitle,
+    required this.featuredTitle,
+    required this.pillLabel,
+    required this.itemLabel,
+    required this.previewLabel,
+    required this.sheetRowTitle,
+    required this.sheetLabel,
+    required this.sheetTitle,
     required this.badgeLabel,
     required this.selectedRowTitle,
     required this.selectorLabel,
@@ -43,6 +50,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       selectedNavigationLabel: SlclashTypeScale.selectedNavigationLabel,
       detailLabel: SlclashTypeScale.detailLabel,
       compactRowTitle: SlclashTypeScale.compactRowTitle,
+      featuredTitle: SlclashTypeScale.featuredTitle,
+      pillLabel: SlclashTypeScale.pillLabel,
+      itemLabel: SlclashTypeScale.itemLabel,
+      previewLabel: SlclashTypeScale.previewLabel,
+      sheetRowTitle: SlclashTypeScale.sheetRowTitle,
+      sheetLabel: SlclashTypeScale.sheetLabel,
+      sheetTitle: SlclashTypeScale.sheetTitle,
       badgeLabel: SlclashTypeScale.badgeLabel,
       selectedRowTitle: SlclashTypeScale.selectedRowTitle,
       selectorLabel: SlclashTypeScale.selectorLabel,
@@ -67,6 +81,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle selectedNavigationLabel;
   final TextStyle detailLabel;
   final TextStyle compactRowTitle;
+  final TextStyle featuredTitle;
+  final TextStyle pillLabel;
+  final TextStyle itemLabel;
+  final TextStyle previewLabel;
+  final TextStyle sheetRowTitle;
+  final TextStyle sheetLabel;
+  final TextStyle sheetTitle;
   final TextStyle badgeLabel;
   final TextStyle selectedRowTitle;
   final TextStyle selectorLabel;
@@ -91,6 +112,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? selectedNavigationLabel,
     TextStyle? detailLabel,
     TextStyle? compactRowTitle,
+    TextStyle? featuredTitle,
+    TextStyle? pillLabel,
+    TextStyle? itemLabel,
+    TextStyle? previewLabel,
+    TextStyle? sheetRowTitle,
+    TextStyle? sheetLabel,
+    TextStyle? sheetTitle,
     TextStyle? badgeLabel,
     TextStyle? selectedRowTitle,
     TextStyle? selectorLabel,
@@ -115,6 +143,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
           this.selectedNavigationLabel,
       detailLabel: detailLabel ?? this.detailLabel,
       compactRowTitle: compactRowTitle ?? this.compactRowTitle,
+      featuredTitle: featuredTitle ?? this.featuredTitle,
+      pillLabel: pillLabel ?? this.pillLabel,
+      itemLabel: itemLabel ?? this.itemLabel,
+      previewLabel: previewLabel ?? this.previewLabel,
+      sheetRowTitle: sheetRowTitle ?? this.sheetRowTitle,
+      sheetLabel: sheetLabel ?? this.sheetLabel,
+      sheetTitle: sheetTitle ?? this.sheetTitle,
       badgeLabel: badgeLabel ?? this.badgeLabel,
       selectedRowTitle: selectedRowTitle ?? this.selectedRowTitle,
       selectorLabel: selectorLabel ?? this.selectorLabel,
@@ -157,6 +192,41 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       compactRowTitle: TextStyle.lerp(
         compactRowTitle,
         other.compactRowTitle,
+        t,
+      )!,
+      featuredTitle: TextStyle.lerp(
+        featuredTitle,
+        other.featuredTitle,
+        t,
+      )!,
+      pillLabel: TextStyle.lerp(
+        pillLabel,
+        other.pillLabel,
+        t,
+      )!,
+      itemLabel: TextStyle.lerp(
+        itemLabel,
+        other.itemLabel,
+        t,
+      )!,
+      previewLabel: TextStyle.lerp(
+        previewLabel,
+        other.previewLabel,
+        t,
+      )!,
+      sheetRowTitle: TextStyle.lerp(
+        sheetRowTitle,
+        other.sheetRowTitle,
+        t,
+      )!,
+      sheetLabel: TextStyle.lerp(
+        sheetLabel,
+        other.sheetLabel,
+        t,
+      )!,
+      sheetTitle: TextStyle.lerp(
+        sheetTitle,
+        other.sheetTitle,
         t,
       )!,
       badgeLabel: TextStyle.lerp(badgeLabel, other.badgeLabel, t)!,

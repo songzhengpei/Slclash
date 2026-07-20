@@ -240,7 +240,7 @@ class _MediaCheckCompactRow extends StatelessWidget {
                     '流媒体检测',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.typography.rowTitle.copyWith(
+                    style: context.typography.itemLabel.copyWith(
                       color: surge.textPrimary,
                     ),
                   ),
@@ -906,7 +906,7 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                       widget.profile.realLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.typography.sectionTitle.copyWith(
+                      style: context.typography.featuredTitle.copyWith(
                         color: surge.textPrimary,
                       ),
                     ),
@@ -960,7 +960,7 @@ class _CurrentProfileDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final infoStyle = context.typography.supporting.copyWith(
+    final infoStyle = context.typography.detailLabel.copyWith(
       color: surge.textSecondary,
     );
 
@@ -1050,7 +1050,7 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: context.typography.badgeLabel.copyWith(
+            style: context.typography.pillLabel.copyWith(
               color: color.withValues(alpha: 0.96),
             ),
           ),
@@ -1099,7 +1099,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
               Expanded(
                 child: Text(
                   enabled ? '展开显示当前订阅节点' : '正在读取当前订阅节点',
-                  style: context.typography.controlLabel.copyWith(
+                  style: context.typography.itemLabel.copyWith(
                     color: enabled ? surge.textPrimary : surge.textSecondary,
                   ),
                 ),
@@ -1156,7 +1156,7 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
                     '节点列表',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.typography.controlLabel.copyWith(
+                    style: context.typography.previewLabel.copyWith(
                       color: surge.textPrimary,
                     ),
                   ),
@@ -1294,7 +1294,7 @@ class _ProfileProxyPreviewCard extends StatelessWidget {
                   proxy.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.typography.controlLabel.copyWith(
+                  style: context.typography.previewLabel.copyWith(
                     color: surge.textPrimary,
                   ),
                 ),
@@ -1634,7 +1634,7 @@ class ProfileItem extends StatelessWidget {
         SubscriptionInfoView(subscriptionInfo: subscriptionInfo),
       LastUpdateTimeText(
         lastUpdateDate: profile.lastUpdateDate,
-        style: context.typography.supporting.copyWith(
+        style: context.typography.detailLabel.copyWith(
           color: surge.textSecondary,
         ),
       ),
@@ -1647,7 +1647,7 @@ class ProfileItem extends StatelessWidget {
       const SizedBox(height: 6),
       LastUpdateTimeText(
         lastUpdateDate: profile.lastUpdateDate,
-        style: context.typography.supporting.copyWith(
+        style: context.typography.detailLabel.copyWith(
           color: surge.textSecondary,
         ),
       ),
@@ -1992,7 +1992,7 @@ class _ProfileTextBlock extends StatelessWidget {
       children: [
         Text(
           profile.realLabel,
-          style: context.typography.cardTitle.copyWith(
+          style: context.typography.rowTitle.copyWith(
             color: surge.textPrimary,
           ),
           maxLines: 1,
@@ -2031,7 +2031,7 @@ class _ProfileListSummary extends StatelessWidget {
           ).show.toString()
         : '永久有效';
     final trafficText = '${used.traffic.show} / ${total.traffic.show}';
-    final detailStyle = context.typography.supporting.copyWith(
+    final detailStyle = context.typography.detailLabel.copyWith(
       color: surge.textSecondary,
     );
 
@@ -2179,10 +2179,10 @@ class _ProfilePill extends StatelessWidget {
     final textColor = surge.textPrimary.withValues(alpha: 0.68);
     final height = metrics.value(26);
     return Container(
+      height: height,
       constraints: BoxConstraints(
         minWidth: metrics.value(46),
         maxWidth: metrics.value(68),
-        minHeight: height,
       ),
       padding: EdgeInsets.symmetric(horizontal: metrics.value(9)),
       alignment: Alignment.center,
@@ -2194,11 +2194,14 @@ class _ProfilePill extends StatelessWidget {
           width: surge.spacing.hairline,
         ),
       ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: context.typography.badgeLabel.copyWith(color: textColor),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          maxLines: 1,
+          textScaler: TextScaler.noScaling,
+          style: context.typography.sheetLabel.copyWith(color: textColor),
+        ),
       ),
     );
   }

@@ -268,7 +268,9 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
       title: Text(widget.title),
       titleTextStyle: type == SheetType.bottomSheet
-          ? context.typography.appBarTitle
+          ? context.typography.sheetTitle.copyWith(
+              color: SurgeTheme.of(context).textPrimary,
+            )
           : null,
       actions: !suffixPop
           ? genActions(actions, endSpace: 16)

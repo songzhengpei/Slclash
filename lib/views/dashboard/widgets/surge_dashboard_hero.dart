@@ -861,14 +861,14 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
                             profile.realLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: context.typography.rowTitle.copyWith(
+                            style: context.typography.sheetRowTitle.copyWith(
                               color: surge.textPrimary,
                             ),
                           ),
                         ),
                         Text(
                           profile.type == ProfileType.url ? 'URL' : '本地',
-                          style: context.typography.badgeLabel.copyWith(
+                          style: context.typography.sheetLabel.copyWith(
                             color: surge.textSecondary,
                           ),
                         ),
@@ -1220,14 +1220,14 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                               group.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: context.typography.rowTitle.copyWith(
+                              style: context.typography.sheetRowTitle.copyWith(
                                 color: surge.textPrimary,
                               ),
                             ),
                           ),
                           Text(
                             group.type.name,
-                            style: context.typography.badgeLabel.copyWith(
+                            style: context.typography.sheetLabel.copyWith(
                               color: surge.textSecondary,
                             ),
                           ),
@@ -1579,7 +1579,7 @@ class _NodeCard extends ConsumerWidget {
                     proxy.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.typography.rowTitle.copyWith(
+                    style: context.typography.sheetRowTitle.copyWith(
                       color: surge.textPrimary,
                     ),
                   ),
@@ -1589,7 +1589,7 @@ class _NodeCard extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
-                      vertical: 3,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color: delayColor.withValues(alpha: 0.1),
@@ -1597,7 +1597,7 @@ class _NodeCard extends ConsumerWidget {
                     ),
                     child: Text(
                       delayLabel,
-                      style: context.typography.badgeLabel.copyWith(
+                      style: context.typography.sheetLabel.copyWith(
                         color: delayColor,
                       ),
                     ),

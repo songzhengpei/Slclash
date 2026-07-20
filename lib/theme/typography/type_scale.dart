@@ -25,9 +25,9 @@ abstract final class SlclashTypeScale {
     letterSpacing: _letterSpacing,
   );
   static const sectionTitle = TextStyle(
-    fontSize: 15,
+    fontSize: 14,
     height: 1.4667,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
   static const cardTitle = TextStyle(
@@ -123,6 +123,48 @@ abstract final class SlclashTypeScale {
   static const compactRowTitle = TextStyle(
     fontSize: 13,
     height: 1.4667,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+  static const featuredTitle = TextStyle(
+    fontSize: 17,
+    height: 1.4667,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const pillLabel = TextStyle(
+    fontSize: 12,
+    height: 1.0,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const itemLabel = TextStyle(
+    fontSize: 14,
+    height: 1.2308,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const previewLabel = TextStyle(
+    fontSize: 13,
+    height: 1.4286,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const sheetRowTitle = TextStyle(
+    fontSize: 14,
+    height: 1.4667,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+  static const sheetLabel = TextStyle(
+    fontSize: 12,
+    height: 1.0,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const sheetTitle = TextStyle(
+    fontSize: 18,
+    height: 1.3,
     fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
