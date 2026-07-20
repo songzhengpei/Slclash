@@ -83,6 +83,7 @@ class SurgeSlidingSegmentedControl<T> extends StatelessWidget {
     required this.outerRadius,
     required this.selectedRadius,
     required this.labelStyle,
+    this.selectedLabelStyle,
     this.indicatorDuration = SurgeMotion.container,
     this.textDuration = SurgeMotion.state,
   });
@@ -99,6 +100,7 @@ class SurgeSlidingSegmentedControl<T> extends StatelessWidget {
   final double outerRadius;
   final double selectedRadius;
   final TextStyle labelStyle;
+  final TextStyle? selectedLabelStyle;
   final Duration indicatorDuration;
   final Duration textDuration;
 
@@ -145,11 +147,15 @@ class SurgeSlidingSegmentedControl<T> extends StatelessWidget {
                             child: AnimatedDefaultTextStyle(
                               duration: textDuration,
                               curve: SurgeMotion.stateCurve,
-                              style: labelStyle.copyWith(
-                                color: item.value == value
-                                    ? selectedColor
-                                    : unselectedColor,
-                              ),
+                              style:
+                                  (item.value == value
+                                          ? selectedLabelStyle ?? labelStyle
+                                          : labelStyle)
+                                      .copyWith(
+                                        color: item.value == value
+                                            ? selectedColor
+                                            : unselectedColor,
+                                      ),
                               child: Text(
                                 item.label,
                                 maxLines: 1,

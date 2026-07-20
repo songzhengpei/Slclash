@@ -39,8 +39,10 @@ void main() {
       );
       final typography = _typography();
       expect(typography.chartLabel.fontSize, 10);
-      expect(typography.metric.fontSize, 16);
+      expect(typography.metric.fontSize, 14);
       expect(typography.metric.fontWeight, FontWeight.w600);
+      expect(typography.compactMetric.fontSize, 13);
+      expect(typography.compactMetric.fontWeight, FontWeight.w400);
       expect(typography.supporting.fontWeight, FontWeight.w400);
       expect(typography.body.fontSize, 15);
       expect(surge.controls.minimumTapExtent, 44);

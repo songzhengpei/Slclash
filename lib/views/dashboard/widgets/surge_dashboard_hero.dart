@@ -274,7 +274,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         layout.cardHorizontalPadding,
         layout.legacy(18),
         layout.cardHorizontalPadding,
-        layout.legacy(16),
+        layout.legacy(18),
       ),
       decoration: BoxDecoration(
         color: surge.card,
@@ -1104,6 +1104,7 @@ class _ModeSwitch extends StatelessWidget {
       outerRadius: layout.geometry(26),
       selectedRadius: layout.geometry(24),
       labelStyle: context.typography.rowTitle,
+      selectedLabelStyle: context.typography.selectedRowTitle,
       indicatorDuration: SurgeMotion.container,
       textDuration: SurgeMotion.state,
     );
@@ -1154,7 +1155,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
       dividerMargin: layout.geometry(10),
       iconSize: layout.geometry(16),
       labelGap: layout.geometry(2),
-      labelStyle: context.typography.badgeLabel,
+      labelStyle: context.typography.selectorLabel,
     );
   }
 

@@ -15,9 +15,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.supporting,
     required this.controlLabel,
     required this.navigationLabel,
+    required this.selectedNavigationLabel,
     required this.badgeLabel,
+    required this.selectedRowTitle,
+    required this.selectorLabel,
     required this.metricLarge,
     required this.metric,
+    required this.compactMetric,
     required this.technical,
     required this.chartLabel,
   });
@@ -34,9 +38,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       supporting: textTheme.bodyMedium!,
       controlLabel: textTheme.labelLarge!,
       navigationLabel: textTheme.labelMedium!,
+      selectedNavigationLabel: SlclashTypeScale.selectedNavigationLabel,
       badgeLabel: SlclashTypeScale.badgeLabel,
+      selectedRowTitle: SlclashTypeScale.selectedRowTitle,
+      selectorLabel: SlclashTypeScale.selectorLabel,
       metricLarge: textTheme.headlineLarge!,
       metric: SlclashTypeScale.metric,
+      compactMetric: SlclashTypeScale.compactMetric,
       technical: SlclashTypeScale.technical,
       chartLabel: SlclashTypeScale.chartLabel,
     );
@@ -52,9 +60,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle supporting;
   final TextStyle controlLabel;
   final TextStyle navigationLabel;
+  final TextStyle selectedNavigationLabel;
   final TextStyle badgeLabel;
+  final TextStyle selectedRowTitle;
+  final TextStyle selectorLabel;
   final TextStyle metricLarge;
   final TextStyle metric;
+  final TextStyle compactMetric;
   final TextStyle technical;
   final TextStyle chartLabel;
 
@@ -70,9 +82,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? supporting,
     TextStyle? controlLabel,
     TextStyle? navigationLabel,
+    TextStyle? selectedNavigationLabel,
     TextStyle? badgeLabel,
+    TextStyle? selectedRowTitle,
+    TextStyle? selectorLabel,
     TextStyle? metricLarge,
     TextStyle? metric,
+    TextStyle? compactMetric,
     TextStyle? technical,
     TextStyle? chartLabel,
   }) {
@@ -87,9 +103,14 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       supporting: supporting ?? this.supporting,
       controlLabel: controlLabel ?? this.controlLabel,
       navigationLabel: navigationLabel ?? this.navigationLabel,
+      selectedNavigationLabel: selectedNavigationLabel ??
+          this.selectedNavigationLabel,
       badgeLabel: badgeLabel ?? this.badgeLabel,
+      selectedRowTitle: selectedRowTitle ?? this.selectedRowTitle,
+      selectorLabel: selectorLabel ?? this.selectorLabel,
       metricLarge: metricLarge ?? this.metricLarge,
       metric: metric ?? this.metric,
+      compactMetric: compactMetric ?? this.compactMetric,
       technical: technical ?? this.technical,
       chartLabel: chartLabel ?? this.chartLabel,
     );
@@ -113,9 +134,21 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
         other.navigationLabel,
         t,
       )!,
+      selectedNavigationLabel: TextStyle.lerp(
+        selectedNavigationLabel,
+        other.selectedNavigationLabel,
+        t,
+      )!,
       badgeLabel: TextStyle.lerp(badgeLabel, other.badgeLabel, t)!,
+      selectedRowTitle: TextStyle.lerp(
+        selectedRowTitle,
+        other.selectedRowTitle,
+        t,
+      )!,
+      selectorLabel: TextStyle.lerp(selectorLabel, other.selectorLabel, t)!,
       metricLarge: TextStyle.lerp(metricLarge, other.metricLarge, t)!,
       metric: TextStyle.lerp(metric, other.metric, t)!,
+      compactMetric: TextStyle.lerp(compactMetric, other.compactMetric, t)!,
       technical: TextStyle.lerp(technical, other.technical, t)!,
       chartLabel: TextStyle.lerp(chartLabel, other.chartLabel, t)!,
     );

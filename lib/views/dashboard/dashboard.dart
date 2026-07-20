@@ -69,13 +69,8 @@ class DashboardView extends StatelessWidget {
                               : null,
                         ),
                         SizedBox(height: layout.cardGap),
-                        SizedBox(
-                          height: pageHeights.networkHeight,
-                          child: SurgeNetworkOverviewCard(
-                            layout: layout,
-                            contentExpansionFraction:
-                                pageHeights.networkContentExpansionFraction,
-                          ),
+                        SurgeNetworkOverviewCard(
+                          layout: layout,
                         ),
                       ],
                     ),

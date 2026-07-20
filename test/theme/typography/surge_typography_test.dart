@@ -24,7 +24,10 @@ void main() {
     expect(typography.dialogTitle, SlclashTypeScale.dialogTitle);
     expect(typography.sectionTitle, SlclashTypeScale.sectionTitle);
     expect(typography.badgeLabel, SlclashTypeScale.badgeLabel);
+    expect(typography.selectedRowTitle, SlclashTypeScale.selectedRowTitle);
+    expect(typography.selectorLabel, SlclashTypeScale.selectorLabel);
     expect(typography.metric, SlclashTypeScale.metric);
+    expect(typography.compactMetric, SlclashTypeScale.compactMetric);
     expect(typography.technical, SlclashTypeScale.technical);
     expect(typography.chartLabel, SlclashTypeScale.chartLabel);
   });

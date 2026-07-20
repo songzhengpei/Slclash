@@ -229,7 +229,10 @@ class _SurgeBottomNavTile extends StatelessWidget {
                 item.label,
                 maxLines: 2,
                 textAlign: TextAlign.center,
-                style: context.typography.navigationLabel.copyWith(
+                style: (selected
+                        ? context.typography.selectedNavigationLabel
+                        : context.typography.navigationLabel)
+                    .copyWith(
                   color: color,
                 ),
               ),

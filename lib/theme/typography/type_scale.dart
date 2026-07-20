@@ -7,9 +7,9 @@ abstract final class SlclashTypeScale {
   static const _letterSpacing = 0.0;
 
   static const screenTitle = TextStyle(
-    fontSize: 22,
-    height: 1.2727,
-    fontWeight: FontWeight.w600,
+    fontSize: 19,
+    height: 1.4737,
+    fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
   static const appBarTitle = TextStyle(
@@ -32,7 +32,7 @@ abstract final class SlclashTypeScale {
   );
   static const cardTitle = TextStyle(
     fontSize: 16,
-    height: 1.375,
+    height: 1.125,
     fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
@@ -50,25 +50,43 @@ abstract final class SlclashTypeScale {
   );
   static const supporting = TextStyle(
     fontSize: 13,
-    height: 1.3846,
+    height: 1.2308,
     fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
   static const controlLabel = TextStyle(
     fontSize: 14,
     height: 1.4286,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
   );
   static const navigationLabel = TextStyle(
     fontSize: 11,
-    height: 1.4545,
+    height: 1.0,
     fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const selectedNavigationLabel = TextStyle(
+    fontSize: 11,
+    height: 1.0,
+    fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
   );
   static const badgeLabel = TextStyle(
     fontSize: 11,
-    height: 1.4545,
+    height: 1,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const selectedRowTitle = TextStyle(
+    fontSize: 15,
+    height: 1.4667,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const selectorLabel = TextStyle(
+    fontSize: 13,
+    height: 1.2308,
     fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
   );
@@ -79,9 +97,15 @@ abstract final class SlclashTypeScale {
     letterSpacing: _letterSpacing,
   );
   static const metric = TextStyle(
-    fontSize: 16,
-    height: 1.375,
+    fontSize: 14,
+    height: 1.2857,
     fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const compactMetric = TextStyle(
+    fontSize: 13,
+    height: 1.2308,
+    fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
   static const technical = TextStyle(

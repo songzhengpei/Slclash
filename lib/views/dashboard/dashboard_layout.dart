@@ -49,7 +49,7 @@ class DashboardHeroLayoutCalculator {
       topRowToModeGap: responsiveLayout.legacy(16) + extraHeight * 0.32,
       modeCardHeight: responsiveLayout.legacy(80) + extraHeight * 0.38,
       modeToSwitchGap: responsiveLayout.legacy(12) + extraHeight * 0.16,
-      switchToSelectorGap: responsiveLayout.legacy(10) + extraHeight * 0.14,
+      switchToSelectorGap: responsiveLayout.legacy(12) + extraHeight * 0.14,
     );
   }
 }
@@ -159,6 +159,10 @@ class DashboardResponsiveLayout {
   /// Scales a visual token whose reference value is measured on the 384dp
   /// reference viewport.
   double geometry(double referenceValue) => referenceValue * geometryScale;
+
+  /// Keeps icon geometry in step with the semantic text beside it.
+  double textIcon(double referenceValue) =>
+      referenceValue * geometryScale * textScale;
 
   /// Preserves dimensions which previously used `value * layoutScale` at the
   /// reference viewport, while making that scaling shared by both cards.
