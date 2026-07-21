@@ -135,6 +135,29 @@ void main() {
       );
       expect(find.byType(SlAppBarIconButton), findsNothing);
     });
+
+    testWidgets('leading button maintains 48dp inside AppBar', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          CommonScaffold(
+            title: 'Test',
+            body: const SizedBox(),
+            appBarActions: [
+              SlAppBarIconAction(
+                icon: SurgeIcons.refresh,
+                tooltip: '刷新',
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+      final size = tester.getSize(find.byType(SlAppBarIconButton));
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
+    });
   });
 
   group('CommonScaffold legacy actions', () {
@@ -174,6 +197,30 @@ void main() {
       );
       expect(find.byIcon(SurgeIcons.search), findsOneWidget);
     });
+
+    testWidgets('legacy double actions preserve SoftOsActionDock', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          CommonScaffold(
+            title: 'Test',
+            body: const SizedBox(),
+            actions: [
+              IconButton(
+                icon: const Icon(SurgeIcons.refresh),
+                onPressed: () {},
+              ),
+              IconButton(
+                icon: const Icon(SurgeIcons.settings),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(find.byType(SoftOsActionDock), findsOneWidget);
+    });
   });
 
   group('CommonScaffold assert', () {
@@ -193,5 +240,43 @@ void main() {
         throwsAssertionError,
       );
     });
+
+    testWidgets(
+      'throws FlutterError when auto-search plus two page actions',
+      (tester) async {
+        await tester.pumpWidget(
+          _app(
+            CommonScaffold(
+              title: 'Test',
+              body: const SizedBox(),
+              searchState: AppBarSearchState(
+                onSearch: (_) {},
+                autoAddSearch: true,
+              ),
+              appBarActions: [
+                SlAppBarIconAction(
+                  icon: SurgeIcons.refresh,
+                  tooltip: '刷新',
+                  onPressed: () {},
+                ),
+                SlAppBarIconAction(
+                  icon: SurgeIcons.settings,
+                  tooltip: '设置',
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+        );
+        expect(
+          tester.takeException(),
+          isA<FlutterError>().having(
+            (e) => e.message,
+            'message',
+            contains('at most 2'),
+          ),
+        );
+      },
+    );
   });
 }
