@@ -133,6 +133,7 @@ class _RequestsViewState extends ConsumerState<RequestsView> {
     final appLocalizations = context.appLocalizations;
     return CommonScaffold(
       title: appLocalizations.requests,
+      appBarActions: const [],
       searchState: AppBarSearchState(onSearch: _onSearch),
       onKeywordsUpdate: _onKeywordsUpdate,
       floatingActionButton: ValueListenableBuilder(
