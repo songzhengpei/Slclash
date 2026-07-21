@@ -141,14 +141,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     this.actions = const [],
     this.appBarActions,
     this.backAction,
-  }) : assert(
-         !(appBarActions != null && actions.length > 0),
-         'AdaptiveSheetScaffold cannot use both actions and appBarActions.',
-       ),
-       assert(
-         appBarActions == null || appBarActions.length <= 1,
-         'AdaptiveSheetScaffold supports at most one semantic app bar action.',
-       );
+  });
 
   @override
   State<AdaptiveSheetScaffold> createState() => _AdaptiveSheetScaffoldState();
@@ -351,32 +344,50 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     required bool useCloseIcon,
     required ModalRoute<dynamic>? route,
   }) {
-    final appLocalizations = context.appLocalizations;
+    final materialLocalizations = MaterialLocalizations.of(context);
 
+    Widget? leading;
     VoidCallback? leadingOnPressed;
-    IconData leadingIcon;
     if (type != SheetType.page) {
       if (useCloseIcon) {
-        leadingIcon = SurgeIcons.close;
         leadingOnPressed = context.safeNestedPop;
+        leading = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: SlAppBarIconButton(
+            icon: SurgeIcons.close,
+            tooltip: materialLocalizations.closeButtonTooltip,
+            onPressed: leadingOnPressed,
+          ),
+        );
       } else {
-        leadingIcon = backIconData;
         leadingOnPressed =
             widget.backAction ??
             () {
               Navigator.of(context).pop();
             };
+        leading = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: SlAppBarIconButton(
+            icon: backIconData,
+            tooltip: materialLocalizations.backButtonTooltip,
+            onPressed: leadingOnPressed,
+          ),
+        );
       }
     } else if (route?.impliesAppBarDismissal == true) {
-      leadingIcon = backIconData;
       leadingOnPressed =
           widget.backAction ??
           () {
             Navigator.of(context).maybePop();
           };
-    } else {
-      leadingIcon = backIconData;
-      leadingOnPressed = null;
+      leading = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: SlAppBarIconButton(
+          icon: backIconData,
+          tooltip: materialLocalizations.backButtonTooltip,
+          onPressed: leadingOnPressed,
+        ),
+      );
     }
 
     final trailing =
@@ -400,17 +411,8 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      leading: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: SlAppBarIconButton(
-          icon: leadingIcon,
-          tooltip: useCloseIcon
-              ? appLocalizations.cancel
-              : appLocalizations.exit,
-          onPressed: leadingOnPressed,
-        ),
-      ),
-      leadingWidth: 56,
+      leading: leading,
+      leadingWidth: leading != null ? 72 : 0,
       actions: [
         if (trailing != null)
           SizedBox(
