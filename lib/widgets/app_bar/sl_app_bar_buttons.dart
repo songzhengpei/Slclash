@@ -106,10 +106,10 @@ class SlAppBarTextButton extends StatelessWidget {
             onPressed: enabled ? onPressed : null,
             style: ButtonStyle(
               padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 12),
+                EdgeInsets.symmetric(horizontal: 8),
               ),
               minimumSize: const WidgetStatePropertyAll(
-                Size(0, _minHeight),
+                Size(_minHeight, _minHeight),
               ),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.standard,

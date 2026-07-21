@@ -16,7 +16,6 @@ Widget _sheetApp(
   SheetType sheetType = SheetType.page,
   SurgeTheme? surge,
   double textScaleFactor = 1.0,
-  Size surfaceSize = const Size(800, 600),
 }) {
   final textTheme = buildSlclashTextTheme();
   final typography = SurgeTypography.fromTextTheme(textTheme);
@@ -225,7 +224,30 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(48));
     });
 
-    testWidgets('title centered with no trailing', (tester) async {
+    testWidgets('text button maintains 48x48dp', (tester) async {
+      await tester.pumpWidget(
+        _sheetApp(
+          AdaptiveSheetScaffold(
+            title: 'Size',
+            body: const SizedBox(height: 200),
+            appBarActions: [
+              SlAppBarTextAction(
+                label: '删除',
+                tooltip: '删除',
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+      final size = tester.getSize(find.byType(SlAppBarTextButton));
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('bottom sheet title centered with no trailing', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _sheetApp(
           AdaptiveSheetScaffold(
@@ -233,15 +255,17 @@ void main() {
             body: const SizedBox(height: 200),
             appBarActions: const [],
           ),
+          sheetType: SheetType.bottomSheet,
         ),
       );
       final titleCenter = tester.getCenter(find.text('Centered'));
-      final screenWidth =
-          tester.view.physicalSize.width / tester.view.devicePixelRatio;
-      expect((titleCenter.dx - screenWidth / 2).abs(), lessThan(4));
+      final appBarCenter = tester.getCenter(find.byType(AppBar));
+      expect((titleCenter.dx - appBarCenter.dx).abs(), lessThan(4));
     });
 
-    testWidgets('title centered with icon action', (tester) async {
+    testWidgets('bottom sheet title centered with icon action', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _sheetApp(
           AdaptiveSheetScaffold(
@@ -255,15 +279,17 @@ void main() {
               ),
             ],
           ),
+          sheetType: SheetType.bottomSheet,
         ),
       );
       final titleCenter = tester.getCenter(find.text('Centered'));
-      final screenWidth =
-          tester.view.physicalSize.width / tester.view.devicePixelRatio;
-      expect((titleCenter.dx - screenWidth / 2).abs(), lessThan(4));
+      final appBarCenter = tester.getCenter(find.byType(AppBar));
+      expect((titleCenter.dx - appBarCenter.dx).abs(), lessThan(4));
     });
 
-    testWidgets('title centered with text action', (tester) async {
+    testWidgets('bottom sheet title centered with text action', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _sheetApp(
           AdaptiveSheetScaffold(
@@ -277,12 +303,12 @@ void main() {
               ),
             ],
           ),
+          sheetType: SheetType.bottomSheet,
         ),
       );
       final titleCenter = tester.getCenter(find.text('Centered'));
-      final screenWidth =
-          tester.view.physicalSize.width / tester.view.devicePixelRatio;
-      expect((titleCenter.dx - screenWidth / 2).abs(), lessThan(4));
+      final appBarCenter = tester.getCenter(find.byType(AppBar));
+      expect((titleCenter.dx - appBarCenter.dx).abs(), lessThan(4));
     });
 
     testWidgets('does not use SoftOsActionDock', (tester) async {
@@ -319,16 +345,18 @@ void main() {
               ),
             ],
           ),
+          sheetType: SheetType.bottomSheet,
         ),
       );
-      final button = tester.widget<SlAppBarIconButton>(
-        find.byType(SlAppBarIconButton),
+      final leadingFinder = find.byWidgetPredicate(
+        (w) => w is SlAppBarIconButton && w.icon == SurgeIcons.close,
       );
-      expect(button.tooltip, isNotEmpty);
-      expect(button.tooltip, isNot(contains('back')));
-      expect(button.tooltip, isNot(contains('Back')));
-      expect(button.tooltip, isNot(contains('exit')));
-      expect(button.tooltip, isNot(contains('Exit')));
+      expect(leadingFinder, findsOneWidget);
+      final button = tester.widget<SlAppBarIconButton>(leadingFinder);
+      final materialLocalizations = MaterialLocalizations.of(
+        tester.element(leadingFinder),
+      );
+      expect(button.tooltip, materialLocalizations.closeButtonTooltip);
     });
   });
 
@@ -450,9 +478,7 @@ void main() {
       expect(find.text('删除'), findsOneWidget);
     });
 
-    testWidgets('scale 2.0 text action overflows — known issue', (
-      tester,
-    ) async {
+    testWidgets('scale 2.0 no overflow', (tester) async {
       await tester.pumpWidget(
         _sheetApp(
           AdaptiveSheetScaffold(
@@ -469,13 +495,8 @@ void main() {
           textScaleFactor: 2.0,
         ),
       );
+      expect(tester.takeException(), isNull);
       expect(find.text('删除'), findsOneWidget);
-      final exception = tester.takeException();
-      expect(exception, isA<FlutterError>());
-      expect(
-        (exception as FlutterError).message,
-        contains('overflowed'),
-      );
     });
 
     testWidgets('scale 2.0 title still single line ellipsis', (tester) async {

@@ -335,6 +335,9 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         ),
       );
     }
+    if (isSemantic && type != SheetType.bottomSheet) {
+      return CommonScaffold(appBar: appBar, body: widget.body);
+    }
     return CommonScaffold(appBar: appBar, body: widget.body);
   }
 
@@ -395,6 +398,8 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         ? SlAppBarActionsRenderer(actions: widget.appBarActions!)
         : null;
 
+    const slotWidth = 72.0;
+
     return AppBar(
       backgroundColor: backgroundColor,
       forceMaterialTransparency: type == SheetType.bottomSheet,
@@ -412,11 +417,11 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         overflow: TextOverflow.ellipsis,
       ),
       leading: leading,
-      leadingWidth: leading != null ? 72 : 0,
+      leadingWidth: leading != null ? slotWidth : 0,
       actions: [
         if (trailing != null)
           SizedBox(
-            width: 72,
+            width: slotWidth,
             child: Align(
               alignment: Alignment.centerRight,
               child: trailing,
