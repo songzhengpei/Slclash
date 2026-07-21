@@ -12,15 +12,15 @@ void main() {
       (theme.headlineLarge, 24, 1.25, FontWeight.w600),
       (theme.headlineMedium, 19, 1.4737, FontWeight.w500),
       (theme.headlineSmall, 19, 1.4737, FontWeight.w500),
-      (theme.titleLarge, 19, 1.3, FontWeight.w500),
+      (theme.titleLarge, 20, 1.3, FontWeight.w600),
       (theme.titleMedium, 16, 1.125, FontWeight.w500),
       (theme.titleSmall, 15, 1.4667, FontWeight.w500),
       (theme.bodyLarge, 15, 1.4667, FontWeight.w400),
       (theme.bodyMedium, 13, 1.2308, FontWeight.w400),
       (theme.bodySmall, 11, 1.4545, FontWeight.w400),
       (theme.labelLarge, 14, 1.4286, FontWeight.w600),
-      (theme.labelMedium, 11, 1.0, FontWeight.w500),
-      (theme.labelSmall, 11, 1.0, FontWeight.w500),
+      (theme.labelMedium, 11, 1.4545, FontWeight.w500),
+      (theme.labelSmall, 11, 1.4545, FontWeight.w500),
     ];
 
     expect(cases, hasLength(15));

@@ -1,15 +1,16 @@
+import 'dart:ui';
+
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/app.dart';
-import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/inherited.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'app_bar/sl_app_bar_action.dart';
-import 'app_bar/sl_app_bar_buttons.dart';
-import 'app_bar/sl_app_bar.dart';
 import 'scaffold.dart';
+import 'side_sheet.dart';
 
 @immutable
 class SheetProps {
@@ -57,188 +58,75 @@ Future<T?> showSheet<T>({
   final Future<T?> route = switch (isMobile) {
     true => showModalBottomSheet<T>(
       context: context,
-      builder: builder,
       isScrollControlled: props.isScrollControlled,
-      useSafeArea: props.useSafeArea,
+      builder: (_) {
+        return SheetProvider(
+          type: SheetType.bottomSheet,
+          child: builder(context),
+        );
+      },
       backgroundColor: props.backgroundColor,
-      constraints: BoxConstraints(
-        maxWidth: props.maxWidth ?? 400,
-        maxHeight: props.maxHeight ?? MediaQuery.of(context).size.height - 60,
+      barrierColor: Colors.black.withValues(
+        alpha: SurgeMotion.modalBarrierOpacity,
       ),
+      sheetAnimationStyle: const AnimationStyle(
+        duration: SurgeMotion.sheetEnter,
+        reverseDuration: SurgeMotion.sheetExit,
+      ),
+      showDragHandle: false,
+      useSafeArea: props.useSafeArea,
     ),
-    false => Navigator.of(context).push<T>(
-      _SheetRoute<T>(
-        builder: builder,
-        props: props,
-      ),
+    false => showModalSideSheet<T>(
+      useSafeArea: props.useSafeArea,
+      isScrollControlled: props.isScrollControlled,
+      context: context,
+      backgroundColor: props.backgroundColor,
+      constraints: BoxConstraints(maxWidth: props.maxWidth ?? 360),
+      filter: props.blur ? commonFilter : null,
+      builder: (_) {
+        return SheetProvider(
+          type: SheetType.sideSheet,
+          child: builder(context),
+        );
+      },
     ),
   };
-  return route;
+  final result = await route;
+  FocusManager.instance.primaryFocus?.unfocus();
+  return result;
 }
 
 Future<T?> showExtend<T>(
   BuildContext context, {
   required WidgetBuilder builder,
   ExtendProps props = const ExtendProps(),
-}) async {
-  FocusManager.instance.primaryFocus?.unfocus();
-  return Navigator.of(context).push<T>(
-    _ExtendRoute<T>(
-      builder: builder,
-      props: props,
+}) {
+  final isMobile = globalState.container.read(isMobileViewProvider);
+  return switch (isMobile || props.forceFull) {
+    true => BaseNavigator.push(
+      context,
+      SheetProvider(type: SheetType.page, child: builder(context)),
     ),
-  );
-}
-
-class _SheetRoute<T> extends PageRoute<T> {
-  _SheetRoute({required this.builder, required this.props});
-
-  final WidgetBuilder builder;
-  final SheetProps props;
-
-  @override
-  Color? get barrierColor => Colors.black54;
-
-  @override
-  String? get barrierLabel => 'sheet';
-
-  @override
-  bool get maintainState => true;
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 300);
-
-  @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 200);
-
-  @override
-  bool get opaque => false;
-
-  @override
-  bool get barrierDismissible => true;
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) {
-    return builder(context);
-  }
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    final theme = Theme.of(context);
-    final surface = Theme.of(context).colorScheme.surface;
-    final shadowColor = theme.shadowColor;
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        return Stack(
-          children: [
-            Positioned(
-              right: 0,
-              top: 6,
-              bottom: 6,
-              width: MediaQuery.of(context).size.width * (1 - animation.value),
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: surface.withValues(alpha: 0.5 * (1 - animation.value)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: shadowColor.withValues(alpha: 0.3 * animation.value),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: SizedBox(
-                width: MediaQuery.of(context).size.width * animation.value,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(28),
-                    bottomLeft: Radius.circular(28),
-                  ),
-                  child: child,
-                ),
-              ),
-            ),
-          ],
+    false => showModalSideSheet<T>(
+      useSafeArea: props.useSafeArea,
+      context: context,
+      constraints: BoxConstraints(maxWidth: props.maxWidth ?? 360),
+      filter: props.blur ? commonFilter : null,
+      builder: (context) {
+        return SheetProvider(
+          type: SheetType.sideSheet,
+          child: builder(context),
         );
       },
-      child: child,
-    );
-  }
-}
-
-class _ExtendRoute<T> extends PageRoute<T> {
-  _ExtendRoute({required this.builder, required this.props});
-
-  final WidgetBuilder builder;
-  final ExtendProps props;
-
-  @override
-  Color? get barrierColor => Colors.black54;
-
-  @override
-  String? get barrierLabel => 'extend';
-
-  @override
-  bool get maintainState => true;
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 300);
-
-  @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 200);
-
-  @override
-  bool get opaque => false;
-
-  @override
-  bool get barrierDismissible => true;
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) {
-    return builder(context);
-  }
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return SlideTransition(
-      position: animation.drive(
-        Tween(begin: const Offset(0, 0.15), end: Offset.zero),
-      ),
-      child: FadeTransition(opacity: animation, child: child),
-    );
-  }
+    ),
+  };
 }
 
 class AdaptiveSheetScaffold extends StatefulWidget {
   final Widget body;
   final String title;
   final bool sheetTransparentToolBar;
-  final List<SlAppBarAction> actions;
+  final List<IconButtonData> actions;
   final VoidCallback? backAction;
 
   const AdaptiveSheetScaffold({
@@ -300,76 +188,94 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         type != SheetType.page &&
         (nestedNavigatorPop != null && route?.impliesAppBarDismissal == false ||
             nestedNavigatorPop == null);
+    final compact = type == SheetType.bottomSheet;
 
-    // Leading button.
-    final leading = () {
-      if (type == SheetType.page) {
-        if (route?.impliesAppBarDismissal == true) {
-          return slAppBarLeadingButton(
-            tooltip: 'Back',
-            onPressed: widget.backAction ?? () => Navigator.of(context).maybePop(),
-          );
-        }
+    Widget buildIconButton(IconButtonData data) {
+      return SoftOsActionButton(
+        icon: data.icon,
+        onPressed: data.onPressed,
+        compact: compact,
+      );
+    }
+
+    Widget? buildActionGroup(List<IconButtonData> data) {
+      if (data.isEmpty) {
         return null;
       }
-      return slAppBarLeadingButton(
-        tooltip: useCloseIcon ? 'Close' : 'Back',
-        onPressed: useCloseIcon
-            ? context.safeNestedPop
-            : widget.backAction ?? () => Navigator.of(context).pop(),
-        isClose: useCloseIcon,
-      );
-    }();
-
-    // Right actions rendered via the new action model.
-    final actionWidgets = widget.actions.isEmpty
-        ? null
-        : buildAppBarActions(context, widget.actions);
-
-    // Symmetrical toolbar: left slot | centred title | right slot.
-    const slotWidth = 64.0;
-    final toolbarHeight = type == SheetType.bottomSheet ? 48.0 : kToolbarHeight;
-    final appBar = AppBar(
-      toolbarHeight: toolbarHeight,
-      backgroundColor: backgroundColor,
-      forceMaterialTransparency: true,
-      automaticallyImplyLeading: false,
-      titleSpacing: 0,
-      title: Row(
-        children: [
-          SizedBox(
-            width: slotWidth,
-            child: leading != null
-                ? Align(alignment: Alignment.centerLeft, child: leading)
-                : null,
+      if (data.length == 1) {
+        return buildIconButton(data.first);
+      }
+      final children = <Widget>[];
+      for (var index = 0; index < data.length; index++) {
+        if (index > 0) {
+          children.add(const SoftOsActionDivider());
+        }
+        children.add(
+          SoftOsActionDockButton(
+            icon: data[index].icon,
+            onPressed: data[index].onPressed,
+            compact: compact,
           ),
-          Expanded(
-            child: Center(
-              child: Text(
-                widget.title,
-                style: context.typography.sheetTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
+        );
+      }
+      return SoftOsActionDock(compact: compact, children: children);
+    }
+
+    final actions = [?buildActionGroup(widget.actions)];
+
+    final popButton = type != SheetType.page
+        ? (useCloseIcon
+              ? buildIconButton(
+                  IconButtonData(
+                    icon: SurgeIcons.close,
+                    onPressed: context.safeNestedPop,
+                  ),
+                )
+              : buildIconButton(
+                  IconButtonData(
+                    icon: backIconData,
+                    onPressed:
+                        widget.backAction ??
+                        () {
+                          Navigator.of(context).pop();
+                        },
+                  ),
+                ))
+        : null;
+    final suffixPop = type != SheetType.page && actions.isEmpty && useCloseIcon;
+    final pagePopButton =
+        type == SheetType.page && route?.impliesAppBarDismissal == true
+        ? buildIconButton(
+            IconButtonData(
+              icon: backIconData,
+              onPressed:
+                  widget.backAction ??
+                  () {
+                    Navigator.of(context).maybePop();
+                  },
             ),
-          ),
-          SizedBox(
-            width: slotWidth,
-            child: actionWidgets != null
-                ? Align(
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: actionWidgets,
-                    ),
-                  )
-                : null,
-          ),
-        ],
-      ),
-    );
+          )
+        : null;
+    final leading = suffixPop ? null : popButton ?? pagePopButton;
 
+    final appBar = AppBar(
+      backgroundColor: backgroundColor,
+      forceMaterialTransparency: type == SheetType.bottomSheet ? true : false,
+      leading: leading,
+      leadingWidth: leading != null ? 56 : null,
+      automaticallyImplyLeading: false,
+      centerTitle: true,
+      toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
+      title: Text(widget.title),
+      titleTextStyle: type == SheetType.bottomSheet
+          ? context.typography.sheetTitle.copyWith(
+              color: SurgeTheme.of(context).textPrimary,
+            )
+          : null,
+      actions: !suffixPop
+          ? genActions(actions, endSpace: 16)
+          : genActions([?popButton], endSpace: 16),
+    );
     if (type == SheetType.bottomSheet) {
       const handleSize = Size(28, 4);
       final sheetAppBar = Column(
@@ -381,61 +287,81 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
               alignment: Alignment.center,
               height: handleSize.height,
               width: handleSize.width,
-              decoration: BoxDecoration(
-                color: SurgeTheme.of(context).separator,
-                borderRadius: BorderRadius.circular(handleSize.height / 2),
+              decoration: ShapeDecoration(
+                color: context.colorScheme.onSurfaceVariant,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(handleSize.height / 2),
+                ),
               ),
             ),
           ),
-          appBar,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: appBar,
+          ),
+          const SizedBox(height: 6),
         ],
       );
-
-      if (widget.sheetTransparentToolBar) {
-        final scrollThreshold = type == SheetType.bottomSheet ? 0.0 : 100.0;
-        return ValueListenableBuilder<bool>(
-          valueListenable: _isScrolledController,
-          builder: (context, isScrolled, child) {
-            final topOpacity = isScrolled ? 1.0 : 0.0;
-            return Stack(
-              children: [
-                child!,
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: AnimatedOpacity(
-                    opacity: topOpacity,
-                    duration: SurgeMotion.state,
-                    child: appBar,
-                  ),
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!widget.sheetTransparentToolBar) ...[
+              sheetAppBar,
+              Flexible(child: widget.body),
+            ] else ...[
+              Flexible(
+                child: Stack(
+                  children: [
+                    NotificationListener<ScrollNotification>(
+                      child: widget.body,
+                      onNotification: (notification) {
+                        if (notification is ScrollUpdateNotification) {
+                          final pixels = notification.metrics.pixels;
+                          _isScrolledController.value = pixels > 6;
+                        }
+                        return false;
+                      },
+                    ),
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: ValueListenableBuilder(
+                        valueListenable: _isScrolledController,
+                        builder: (_, isScrolled, child) {
+                          return ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(28),
+                            ),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(
+                                sigmaX: 12.0,
+                                sigmaY: 12.0,
+                              ),
+                              child: ColoredBox(
+                                color: isScrolled
+                                    ? backgroundColor.opacity60
+                                    : backgroundColor,
+                                child: child!,
+                              ),
+                            ),
+                          );
+                        },
+                        child: sheetAppBar,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            );
-          },
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical) {
-                _isScrolledController.value =
-                    notification.metrics.pixels > scrollThreshold;
-              }
-              return false;
-            },
-            child: widget.body,
-          ),
-        );
-      }
-      return Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: backgroundColor,
-        appBar: PreferredSize(
-          preferredSize: Size.fromHeight(48 + 6 + handleSize.height),
-          child: sheetAppBar,
+              ),
+            ],
+            SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
+            SizedBox(height: MediaQuery.of(context).viewPadding.bottom),
+          ],
         ),
-        body: widget.body,
       );
     }
-
     return CommonScaffold(appBar: appBar, body: widget.body);
   }
 }

@@ -48,7 +48,7 @@ void main() {
     final dark = _theme(Brightness.dark).extension<SurgeTypography>()!;
     expect(light.screenTitle, dark.screenTitle);
     expect(light.chartLabel, dark.chartLabel);
-    expect(light.supporting, dark.supporting);
+    expect(light.compactMetric, dark.compactMetric);
     expect(light.screenTitle.color, isNull);
     expect(light.technical.color, isNull);
   });

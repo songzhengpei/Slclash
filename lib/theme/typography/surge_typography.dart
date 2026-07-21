@@ -15,10 +15,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.supporting,
     required this.controlLabel,
     required this.navigationLabel,
+    required this.selectedNavigationLabel,
     required this.detailLabel,
     required this.compactRowTitle,
     required this.featuredTitle,
     required this.pillLabel,
+    required this.itemLabel,
     required this.previewLabel,
     required this.sheetRowTitle,
     required this.sheetLabel,
@@ -27,14 +29,18 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.badgeLabel,
     required this.selectedRowTitle,
     required this.selectorLabel,
-    required this.metricLarge,
-    required this.metric,
-    required this.technical,
-    required this.chartLabel,
-    required this.toolTileTitle,
-    required this.compactDescription,
+    required this.modeTabLabel,
+    required this.selectedModeTabLabel,
     required this.dashboardMetric,
     required this.techLabel,
+    required this.metricLarge,
+    required this.metric,
+    required this.compactMetric,
+    required this.technical,
+    required this.chartLabel,
+    required this.toolTileSubtitle,
+    required this.toolTileTitle,
+    required this.compactDescription,
   });
 
   factory SurgeTypography.fromTextTheme(TextTheme textTheme) {
@@ -49,10 +55,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       supporting: textTheme.bodyMedium!,
       controlLabel: textTheme.labelLarge!,
       navigationLabel: textTheme.labelMedium!,
+      selectedNavigationLabel: SlclashTypeScale.selectedNavigationLabel,
       detailLabel: SlclashTypeScale.detailLabel,
       compactRowTitle: SlclashTypeScale.compactRowTitle,
       featuredTitle: SlclashTypeScale.featuredTitle,
       pillLabel: SlclashTypeScale.pillLabel,
+      itemLabel: SlclashTypeScale.itemLabel,
       previewLabel: SlclashTypeScale.previewLabel,
       sheetRowTitle: SlclashTypeScale.sheetRowTitle,
       sheetLabel: SlclashTypeScale.sheetLabel,
@@ -63,10 +71,14 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       selectorLabel: SlclashTypeScale.selectorLabel,
       metricLarge: textTheme.headlineLarge!,
       metric: SlclashTypeScale.metric,
+      compactMetric: SlclashTypeScale.compactMetric,
       technical: SlclashTypeScale.technical,
       chartLabel: SlclashTypeScale.chartLabel,
+      toolTileSubtitle: SlclashTypeScale.toolTileSubtitle,
       toolTileTitle: SlclashTypeScale.toolTileTitle,
       compactDescription: SlclashTypeScale.compactDescription,
+      modeTabLabel: SlclashTypeScale.modeTabLabel,
+      selectedModeTabLabel: SlclashTypeScale.selectedModeTabLabel,
       dashboardMetric: SlclashTypeScale.dashboardMetric,
       techLabel: SlclashTypeScale.techLabel,
     );
@@ -82,10 +94,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle supporting;
   final TextStyle controlLabel;
   final TextStyle navigationLabel;
+  final TextStyle selectedNavigationLabel;
   final TextStyle detailLabel;
   final TextStyle compactRowTitle;
   final TextStyle featuredTitle;
   final TextStyle pillLabel;
+  final TextStyle itemLabel;
   final TextStyle previewLabel;
   final TextStyle sheetRowTitle;
   final TextStyle sheetLabel;
@@ -96,10 +110,14 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle selectorLabel;
   final TextStyle metricLarge;
   final TextStyle metric;
+  final TextStyle compactMetric;
   final TextStyle technical;
   final TextStyle chartLabel;
+  final TextStyle toolTileSubtitle;
   final TextStyle toolTileTitle;
   final TextStyle compactDescription;
+  final TextStyle modeTabLabel;
+  final TextStyle selectedModeTabLabel;
   final TextStyle dashboardMetric;
   final TextStyle techLabel;
 
@@ -115,10 +133,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? supporting,
     TextStyle? controlLabel,
     TextStyle? navigationLabel,
+    TextStyle? selectedNavigationLabel,
     TextStyle? detailLabel,
     TextStyle? compactRowTitle,
     TextStyle? featuredTitle,
     TextStyle? pillLabel,
+    TextStyle? itemLabel,
     TextStyle? previewLabel,
     TextStyle? sheetRowTitle,
     TextStyle? sheetLabel,
@@ -129,10 +149,14 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? selectorLabel,
     TextStyle? metricLarge,
     TextStyle? metric,
+    TextStyle? compactMetric,
     TextStyle? technical,
     TextStyle? chartLabel,
+    TextStyle? toolTileSubtitle,
     TextStyle? toolTileTitle,
     TextStyle? compactDescription,
+    TextStyle? modeTabLabel,
+    TextStyle? selectedModeTabLabel,
     TextStyle? dashboardMetric,
     TextStyle? techLabel,
   }) {
@@ -147,10 +171,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       supporting: supporting ?? this.supporting,
       controlLabel: controlLabel ?? this.controlLabel,
       navigationLabel: navigationLabel ?? this.navigationLabel,
+      selectedNavigationLabel: selectedNavigationLabel ??
+          this.selectedNavigationLabel,
       detailLabel: detailLabel ?? this.detailLabel,
       compactRowTitle: compactRowTitle ?? this.compactRowTitle,
       featuredTitle: featuredTitle ?? this.featuredTitle,
       pillLabel: pillLabel ?? this.pillLabel,
+      itemLabel: itemLabel ?? this.itemLabel,
       previewLabel: previewLabel ?? this.previewLabel,
       sheetRowTitle: sheetRowTitle ?? this.sheetRowTitle,
       sheetLabel: sheetLabel ?? this.sheetLabel,
@@ -161,10 +188,14 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       selectorLabel: selectorLabel ?? this.selectorLabel,
       metricLarge: metricLarge ?? this.metricLarge,
       metric: metric ?? this.metric,
+      compactMetric: compactMetric ?? this.compactMetric,
       technical: technical ?? this.technical,
       chartLabel: chartLabel ?? this.chartLabel,
+      toolTileSubtitle: toolTileSubtitle ?? this.toolTileSubtitle,
       toolTileTitle: toolTileTitle ?? this.toolTileTitle,
       compactDescription: compactDescription ?? this.compactDescription,
+      modeTabLabel: modeTabLabel ?? this.modeTabLabel,
+      selectedModeTabLabel: selectedModeTabLabel ?? this.selectedModeTabLabel,
       dashboardMetric: dashboardMetric ?? this.dashboardMetric,
       techLabel: techLabel ?? this.techLabel,
     );
@@ -188,6 +219,11 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
         other.navigationLabel,
         t,
       )!,
+      selectedNavigationLabel: TextStyle.lerp(
+        selectedNavigationLabel,
+        other.selectedNavigationLabel,
+        t,
+      )!,
       detailLabel: TextStyle.lerp(
         detailLabel,
         other.detailLabel,
@@ -206,6 +242,11 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       pillLabel: TextStyle.lerp(
         pillLabel,
         other.pillLabel,
+        t,
+      )!,
+      itemLabel: TextStyle.lerp(
+        itemLabel,
+        other.itemLabel,
         t,
       )!,
       previewLabel: TextStyle.lerp(
@@ -242,8 +283,14 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       selectorLabel: TextStyle.lerp(selectorLabel, other.selectorLabel, t)!,
       metricLarge: TextStyle.lerp(metricLarge, other.metricLarge, t)!,
       metric: TextStyle.lerp(metric, other.metric, t)!,
+      compactMetric: TextStyle.lerp(compactMetric, other.compactMetric, t)!,
       technical: TextStyle.lerp(technical, other.technical, t)!,
       chartLabel: TextStyle.lerp(chartLabel, other.chartLabel, t)!,
+      toolTileSubtitle: TextStyle.lerp(
+        toolTileSubtitle,
+        other.toolTileSubtitle,
+        t,
+      )!,
       toolTileTitle: TextStyle.lerp(
         toolTileTitle,
         other.toolTileTitle,
@@ -252,6 +299,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       compactDescription: TextStyle.lerp(
         compactDescription,
         other.compactDescription,
+        t,
+      )!,
+      modeTabLabel: TextStyle.lerp(modeTabLabel, other.modeTabLabel, t)!,
+      selectedModeTabLabel: TextStyle.lerp(
+        selectedModeTabLabel,
+        other.selectedModeTabLabel,
         t,
       )!,
       dashboardMetric: TextStyle.lerp(

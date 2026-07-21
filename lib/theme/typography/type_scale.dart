@@ -13,9 +13,9 @@ abstract final class SlclashTypeScale {
     letterSpacing: _letterSpacing,
   );
   static const appBarTitle = TextStyle(
-    fontSize: 19,
+    fontSize: 20,
     height: 1.3,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
   );
   static const dialogTitle = TextStyle(
@@ -40,6 +40,12 @@ abstract final class SlclashTypeScale {
     fontSize: 15,
     height: 1.4667,
     fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const toolTileSubtitle = TextStyle(
+    fontSize: 13,
+    height: 1.2308,
+    fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
   static const toolTileTitle = TextStyle(
@@ -78,6 +84,12 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
+  static const selectedNavigationLabel = TextStyle(
+    fontSize: 11,
+    height: 1.0,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
   static const badgeLabel = TextStyle(
     fontSize: 11,
     height: 1,
@@ -86,6 +98,18 @@ abstract final class SlclashTypeScale {
   );
   static const selectedRowTitle = TextStyle(
     fontSize: 15,
+    height: 1.4667,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const modeTabLabel = TextStyle(
+    fontSize: 14,
+    height: 1.4667,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const selectedModeTabLabel = TextStyle(
+    fontSize: 14,
     height: 1.4667,
     fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
@@ -106,6 +130,12 @@ abstract final class SlclashTypeScale {
     fontSize: 14,
     height: 1.2857,
     fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const compactMetric = TextStyle(
+    fontSize: 13,
+    height: 1.2308,
+    fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
   static const technical = TextStyle(
@@ -138,6 +168,12 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
   );
+  static const itemLabel = TextStyle(
+    fontSize: 14,
+    height: 1.4667,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
   static const previewLabel = TextStyle(
     fontSize: 13,
     height: 1.4286,
@@ -159,7 +195,7 @@ abstract final class SlclashTypeScale {
   static const sheetTitle = TextStyle(
     fontSize: 18,
     height: 1.3,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
   static const countLabel = TextStyle(

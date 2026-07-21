@@ -234,11 +234,7 @@ class _EditProfileViewState extends State<EditProfileView> {
           _handleBack();
         },
         actions: [
-          SlAppBarIconAction(
-            icon: SurgeIcons.confirm,
-            tooltip: appLocalizations.confirm,
-            onPressed: _handleConfirm,
-          ),
+          IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleConfirm),
         ],
         body: Form(
           key: _formKey,

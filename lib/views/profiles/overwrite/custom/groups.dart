@@ -116,10 +116,8 @@ class _CustomProxyGroupsViewState extends ConsumerState<CustomProxyGroupsView> {
     return CommonScaffold(
       title: appLocalizations.proxyGroup,
       actions: [
-        SlAppBarTextAction(
-          onPressed: _handleAdd,
-          label: appLocalizations.add,
-        ),
+        SurgeAddButton(onPressed: _handleAdd, label: appLocalizations.add),
+        const SizedBox(width: 8),
       ],
       body: proxyGroups.isEmpty
           ? NullStatus(label: appLocalizations.proxyGroupEmpty)
@@ -795,11 +793,7 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
       actions: [
-        SlAppBarIconAction(
-          icon: SurgeIcons.confirm,
-          tooltip: appLocalizations.confirm,
-          onPressed: _handleSave,
-        ),
+        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
       ],
       body: SizedBox(
         height: height,

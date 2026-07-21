@@ -48,21 +48,21 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     );
   }
 
-  List<SlAppBarAction> _buildActions(BuildContext context) {
+  List<Widget> _buildActions(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final hasProviders = _hasProviders();
     return [
       if (hasProviders)
-        SlAppBarIconAction(
-          icon: SurgeIcons.providerDownload,
+        IconButton(
           tooltip: appLocalizations.providers,
+          icon: const Icon(SurgeIcons.providerDownload),
           onPressed: () {
             unawaited(_handleProvidersPressed(context));
           },
         ),
-      SlAppBarIconAction(
-        icon: SurgeIcons.tune,
+      IconButton(
         tooltip: appLocalizations.settings,
+        icon: const Icon(SurgeIcons.tune),
         onPressed: () {
           showSheet(
             context: context,

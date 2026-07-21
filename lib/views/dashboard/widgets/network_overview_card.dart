@@ -1148,7 +1148,7 @@ class _NetworkDetectionBar extends StatelessWidget {
           Text(
             context.appLocalizations.loading,
             maxLines: 1,
-            style: context.typography.supporting.copyWith(
+            style: context.typography.compactMetric.copyWith(
               color: secondaryTextColor,
             ),
           ),
@@ -1158,7 +1158,7 @@ class _NetworkDetectionBar extends StatelessWidget {
       valueWidget = Text(
         'Timeout',
         maxLines: 1,
-        style: context.typography.supporting.copyWith(color: dangerColor),
+        style: context.typography.compactMetric.copyWith(color: dangerColor),
       );
     } else {
       valueWidget = const SizedBox.shrink();

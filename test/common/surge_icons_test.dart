@@ -45,9 +45,6 @@ void main() {
       if (entity is! File || !entity.path.endsWith('.dart')) {
         continue;
       }
-      if (entity.path.replaceAll('\\', '/').contains('/app_bar/')) {
-        continue;
-      }
 
       final source = entity.readAsStringSync();
       final isIconDictionary =
