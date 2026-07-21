@@ -335,9 +335,6 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         ),
       );
     }
-    if (isSemantic && type != SheetType.bottomSheet) {
-      return CommonScaffold(appBar: appBar, body: widget.body);
-    }
     return CommonScaffold(appBar: appBar, body: widget.body);
   }
 
@@ -398,7 +395,9 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         ? SlAppBarActionsRenderer(actions: widget.appBarActions!)
         : null;
 
+    final reserveSlots = leading != null || trailing != null;
     const slotWidth = 72.0;
+    final effectiveSlotWidth = reserveSlots ? slotWidth : 0.0;
 
     return AppBar(
       backgroundColor: backgroundColor,
@@ -416,15 +415,20 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      leading: leading,
-      leadingWidth: leading != null ? slotWidth : 0,
+      leading: reserveSlots
+          ? Align(
+              alignment: Alignment.centerLeft,
+              child: leading ?? const SizedBox.shrink(),
+            )
+          : null,
+      leadingWidth: effectiveSlotWidth,
       actions: [
-        if (trailing != null)
+        if (reserveSlots)
           SizedBox(
-            width: slotWidth,
+            width: effectiveSlotWidth,
             child: Align(
               alignment: Alignment.centerRight,
-              child: trailing,
+              child: trailing ?? const SizedBox.shrink(),
             ),
           ),
       ],

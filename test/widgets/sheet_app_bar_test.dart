@@ -217,9 +217,14 @@ void main() {
               ),
             ],
           ),
+          sheetType: SheetType.bottomSheet,
         ),
       );
-      final size = tester.getSize(find.byType(SlAppBarIconButton));
+      final leadingFinder = find.byWidgetPredicate(
+        (w) => w is SlAppBarIconButton && w.icon == SurgeIcons.close,
+      );
+      expect(leadingFinder, findsOneWidget);
+      final size = tester.getSize(leadingFinder);
       expect(size.width, greaterThanOrEqualTo(48));
       expect(size.height, greaterThanOrEqualTo(48));
     });
@@ -433,6 +438,37 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('320dp + 2.0 scale no overflow', (tester) async {
+      tester.view.physicalSize = const Size(320, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        _sheetApp(
+          AdaptiveSheetScaffold(
+            title: '这是一个很长的标题用于测试省略号',
+            body: const SizedBox(height: 200),
+            appBarActions: [
+              SlAppBarTextAction(
+                label: '删除',
+                tooltip: '删除',
+                onPressed: () {},
+              ),
+            ],
+          ),
+          textScaleFactor: 2.0,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('删除'), findsOneWidget);
+      final titleFinder = find.text('这是一个很长的标题用于测试省略号');
+      expect(titleFinder, findsOneWidget);
+      final titleCenter = tester.getCenter(titleFinder);
+      final appBarCenter = tester.getCenter(find.byType(AppBar));
+      expect((titleCenter.dx - appBarCenter.dx).abs(), lessThan(4));
+    });
   });
 
   group('AdaptiveSheetScaffold font scale', () {
@@ -520,7 +556,7 @@ void main() {
   });
 
   group('AdaptiveSheetScaffold bottom sheet', () {
-    testWidgets('bottom sheet has drag handle and 48dp toolbar', (
+    testWidgets('bottom sheet toolbar height is 48dp', (
       tester,
     ) async {
       await tester.pumpWidget(
