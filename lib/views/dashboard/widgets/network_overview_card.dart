@@ -1120,7 +1120,9 @@ class _NetworkDetectionBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
-                style: context.typography.compactMetric.copyWith(
+                style: context.typography.dashboardMetric.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                   color: textColor,
                 ),
               ),
@@ -1402,7 +1404,10 @@ class _PlatformLatencyPanel extends StatelessWidget {
   }
 
   TextStyle _valueStyle(BuildContext context) {
-    return context.typography.compactMetric;
+    return context.typography.dashboardMetric.copyWith(
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+    );
   }
 
   @override

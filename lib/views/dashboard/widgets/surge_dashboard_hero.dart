@@ -1103,8 +1103,8 @@ class _ModeSwitch extends StatelessWidget {
       unselectedColor: surge.textSecondary,
       outerRadius: layout.geometry(26),
       selectedRadius: layout.geometry(24),
-      labelStyle: context.typography.rowTitle,
-      selectedLabelStyle: context.typography.selectedRowTitle,
+      labelStyle: context.typography.modeTabLabel,
+      selectedLabelStyle: context.typography.selectedModeTabLabel,
       indicatorDuration: SurgeMotion.container,
       textDuration: SurgeMotion.state,
     );

@@ -249,7 +249,7 @@ class _MediaCheckCompactRow extends StatelessWidget {
                     profileCount > 1 ? '按订阅手动检测 · 结果缓存' : '手动检测 · 结果缓存',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.typography.supporting.copyWith(
+                    style: context.typography.compactDescription.copyWith(
                       color: surge.textSecondary,
                     ),
                   ),

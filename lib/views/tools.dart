@@ -168,6 +168,8 @@ class _SurgeOpenTile extends StatelessWidget {
       subtitle: subtitle,
       showChevron: true,
       showDivider: _SurgeTileDividerProvider.of(context),
+      titleTextStyle: context.typography.toolTileTitle,
+      subtitleTextStyle: context.typography.toolTileSubtitle,
       onTap: () {
         showExtend(
           context,
@@ -200,6 +202,8 @@ class _SurgeActionTile extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       showDivider: _SurgeTileDividerProvider.of(context),
+      titleTextStyle: context.typography.toolTileTitle,
+      subtitleTextStyle: context.typography.toolTileSubtitle,
       onTap: onTap,
     );
   }

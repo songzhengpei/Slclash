@@ -29,11 +29,17 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.badgeLabel,
     required this.selectedRowTitle,
     required this.selectorLabel,
+    required this.modeTabLabel,
+    required this.selectedModeTabLabel,
+    required this.dashboardMetric,
     required this.metricLarge,
     required this.metric,
     required this.compactMetric,
     required this.technical,
     required this.chartLabel,
+    required this.toolTileSubtitle,
+    required this.toolTileTitle,
+    required this.compactDescription,
   });
 
   factory SurgeTypography.fromTextTheme(TextTheme textTheme) {
@@ -67,6 +73,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       compactMetric: SlclashTypeScale.compactMetric,
       technical: SlclashTypeScale.technical,
       chartLabel: SlclashTypeScale.chartLabel,
+      toolTileSubtitle: SlclashTypeScale.toolTileSubtitle,
+      toolTileTitle: SlclashTypeScale.toolTileTitle,
+      compactDescription: SlclashTypeScale.compactDescription,
+      modeTabLabel: SlclashTypeScale.modeTabLabel,
+      selectedModeTabLabel: SlclashTypeScale.selectedModeTabLabel,
+      dashboardMetric: SlclashTypeScale.dashboardMetric,
     );
   }
 
@@ -99,6 +111,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle compactMetric;
   final TextStyle technical;
   final TextStyle chartLabel;
+  final TextStyle toolTileSubtitle;
+  final TextStyle toolTileTitle;
+  final TextStyle compactDescription;
+  final TextStyle modeTabLabel;
+  final TextStyle selectedModeTabLabel;
+  final TextStyle dashboardMetric;
 
   @override
   SurgeTypography copyWith({
@@ -131,6 +149,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? compactMetric,
     TextStyle? technical,
     TextStyle? chartLabel,
+    TextStyle? toolTileSubtitle,
+    TextStyle? toolTileTitle,
+    TextStyle? compactDescription,
+    TextStyle? modeTabLabel,
+    TextStyle? selectedModeTabLabel,
+    TextStyle? dashboardMetric,
   }) {
     return SurgeTypography(
       screenTitle: screenTitle ?? this.screenTitle,
@@ -163,6 +187,12 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       compactMetric: compactMetric ?? this.compactMetric,
       technical: technical ?? this.technical,
       chartLabel: chartLabel ?? this.chartLabel,
+      toolTileSubtitle: toolTileSubtitle ?? this.toolTileSubtitle,
+      toolTileTitle: toolTileTitle ?? this.toolTileTitle,
+      compactDescription: compactDescription ?? this.compactDescription,
+      modeTabLabel: modeTabLabel ?? this.modeTabLabel,
+      selectedModeTabLabel: selectedModeTabLabel ?? this.selectedModeTabLabel,
+      dashboardMetric: dashboardMetric ?? this.dashboardMetric,
     );
   }
 
@@ -251,6 +281,32 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       compactMetric: TextStyle.lerp(compactMetric, other.compactMetric, t)!,
       technical: TextStyle.lerp(technical, other.technical, t)!,
       chartLabel: TextStyle.lerp(chartLabel, other.chartLabel, t)!,
+      toolTileSubtitle: TextStyle.lerp(
+        toolTileSubtitle,
+        other.toolTileSubtitle,
+        t,
+      )!,
+      toolTileTitle: TextStyle.lerp(
+        toolTileTitle,
+        other.toolTileTitle,
+        t,
+      )!,
+      compactDescription: TextStyle.lerp(
+        compactDescription,
+        other.compactDescription,
+        t,
+      )!,
+      modeTabLabel: TextStyle.lerp(modeTabLabel, other.modeTabLabel, t)!,
+      selectedModeTabLabel: TextStyle.lerp(
+        selectedModeTabLabel,
+        other.selectedModeTabLabel,
+        t,
+      )!,
+      dashboardMetric: TextStyle.lerp(
+        dashboardMetric,
+        other.dashboardMetric,
+        t,
+      )!,
     );
   }
 }

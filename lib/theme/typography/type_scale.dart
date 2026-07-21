@@ -42,6 +42,24 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
+  static const toolTileSubtitle = TextStyle(
+    fontSize: 13,
+    height: 1.2308,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+  static const toolTileTitle = TextStyle(
+    fontSize: 16,
+    height: 1.4667,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+  static const compactDescription = TextStyle(
+    fontSize: 12,
+    height: 1.4667,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
   static const body = TextStyle(
     fontSize: 15,
     height: 1.4667,
@@ -80,6 +98,18 @@ abstract final class SlclashTypeScale {
   );
   static const selectedRowTitle = TextStyle(
     fontSize: 15,
+    height: 1.4667,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const modeTabLabel = TextStyle(
+    fontSize: 14,
+    height: 1.4667,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const selectedModeTabLabel = TextStyle(
+    fontSize: 14,
     height: 1.4667,
     fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
@@ -140,7 +170,7 @@ abstract final class SlclashTypeScale {
   );
   static const itemLabel = TextStyle(
     fontSize: 14,
-    height: 1.2308,
+    height: 1.4667,
     fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
@@ -179,6 +209,12 @@ abstract final class SlclashTypeScale {
     fontSize: 10,
     height: 1.4,
     fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const dashboardMetric = TextStyle(
+    fontSize: 14,
+    height: 1.2857,
+    fontWeight: FontWeight.w700,
     letterSpacing: _letterSpacing,
   );
 

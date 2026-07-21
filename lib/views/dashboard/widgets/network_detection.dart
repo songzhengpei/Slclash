@@ -84,7 +84,9 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
                         ipInfo.ip,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: context.typography.cardTitle.copyWith(
+                        style: context.typography.dashboardMetric.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
                           color: surge.textPrimary,
                         ),
                       ),
