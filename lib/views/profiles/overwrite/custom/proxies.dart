@@ -178,6 +178,7 @@ class _EditProxiesViewState extends ConsumerState<EditProxiesView>
       child: AdaptiveSheetScaffold(
         title: appLocalizations.editProxy,
         sheetTransparentToolBar: true,
+        appBarActions: const [],
         body: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
@@ -436,6 +437,7 @@ class _AddProxiesViewState extends ConsumerState<_AddProxiesView>
       child: AdaptiveSheetScaffold(
         sheetTransparentToolBar: true,
         title: appLocalizations.addProxies,
+        appBarActions: const [],
         body: proxies.isEmpty && proxyGroups.isEmpty
             ? NullStatus(label: appLocalizations.noData)
             : CustomScrollView(

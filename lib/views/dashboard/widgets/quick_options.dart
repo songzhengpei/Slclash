@@ -34,6 +34,7 @@ class TUNButton extends StatelessWidget {
                       ),
                     ),
                     title: appLocalizations.tun,
+                    appBarActions: const [],
                   );
                 },
               );
@@ -82,6 +83,7 @@ class SystemProxyButton extends StatelessWidget {
                   ),
                 ),
                 title: appLocalizations.systemProxy,
+                appBarActions: const [],
               );
             },
           );
@@ -131,6 +133,7 @@ class VpnButton extends StatelessWidget {
                   ),
                 ),
                 title: 'VPN',
+                appBarActions: const [],
               );
             },
           );

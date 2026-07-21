@@ -62,6 +62,7 @@ class TrackerInfoItem extends ConsumerWidget {
               return AdaptiveSheetScaffold(
                 body: TrackerInfoDetailView(trackerInfo: trackerInfo),
                 title: detailTitle,
+                appBarActions: const [],
               );
             },
           );

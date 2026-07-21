@@ -814,6 +814,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
         final surge = SurgeTheme.of(sheetContext);
         return AdaptiveSheetScaffold(
           title: '选择订阅',
+          appBarActions: const [],
           body: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             itemCount: profiles.length,
@@ -1174,6 +1175,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
           height: MediaQuery.of(context).size.height * 0.65,
           child: AdaptiveSheetScaffold(
             title: sheetContext.appLocalizations.proxyGroup,
+            appBarActions: const [],
             body: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               itemCount: groups.length,

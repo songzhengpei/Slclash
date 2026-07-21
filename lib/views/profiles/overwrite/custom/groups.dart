@@ -795,8 +795,12 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
         : double.maxFinite;
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
-      actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSave,
+        ),
       ],
       body: SizedBox(
         height: height,

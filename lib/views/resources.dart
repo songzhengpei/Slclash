@@ -244,6 +244,7 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
       builder: (_) {
         return AdaptiveSheetScaffold(
           title: '资源自动更新',
+          appBarActions: const [],
           body: _ResourceAutoUpdateSheet(
             value: _autoUpdateMode,
             onChanged: (mode) async {

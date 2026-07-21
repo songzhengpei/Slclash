@@ -633,8 +633,12 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
         ? globalState.container.read(viewSizeProvider).height * 0.60
         : double.maxFinite;
     return AdaptiveSheetScaffold(
-      actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSave,
+        ),
       ],
       sheetTransparentToolBar: true,
       body: Container(
@@ -709,6 +713,7 @@ class _RuleTypeSelectedView extends ConsumerWidget {
     );
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
+      appBarActions: const [],
       body: SizedBox(
         height: height,
         child: ListView.builder(
@@ -792,6 +797,7 @@ class _RuleTargetSelectedView extends ConsumerWidget {
     );
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
+      appBarActions: const [],
       body: SizedBox(
         height: height,
         child: CustomScrollView(
@@ -927,6 +933,7 @@ class _RuleProviderSelectedView extends ConsumerWidget {
     );
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
+      appBarActions: const [],
       body: SizedBox(
         height: height,
         child: ruleProviders.isEmpty
@@ -999,6 +1006,7 @@ class _SubRuleSelectedView extends ConsumerWidget {
     );
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
+      appBarActions: const [],
       body: SizedBox(
         height: height,
         child: subRules.isEmpty

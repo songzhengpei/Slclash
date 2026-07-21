@@ -120,6 +120,7 @@ class _AccessViewState extends ConsumerState<AccessView> {
         return AdaptiveSheetScaffold(
           body: const AccessControlPanel(),
           title: appLocalizations.accessControlSettings,
+          appBarActions: const [],
         );
       },
     );

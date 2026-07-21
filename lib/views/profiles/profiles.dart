@@ -539,8 +539,12 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
     final appLocalizations = context.appLocalizations;
     return AdaptiveSheetScaffold(
       title: appLocalizations.importFromURL,
-      actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSubmit),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSubmit,
+        ),
       ],
       body: Form(
         key: _formKey,
@@ -2287,8 +2291,12 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
     final appLocalizations = context.appLocalizations;
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
-      actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSave,
+        ),
       ],
       body: Padding(
         padding: const EdgeInsets.only(bottom: 32),
