@@ -169,7 +169,7 @@ class _SurgeOpenTile extends StatelessWidget {
       showChevron: true,
       showDivider: _SurgeTileDividerProvider.of(context),
       titleTextStyle: context.typography.toolTileTitle,
-      subtitleTextStyle: context.typography.toolTileSubtitle,
+      subtitleTextStyle: context.typography.supporting,
       onTap: () {
         showExtend(
           context,
@@ -203,7 +203,7 @@ class _SurgeActionTile extends StatelessWidget {
       subtitle: subtitle,
       showDivider: _SurgeTileDividerProvider.of(context),
       titleTextStyle: context.typography.toolTileTitle,
-      subtitleTextStyle: context.typography.toolTileSubtitle,
+      subtitleTextStyle: context.typography.supporting,
       onTap: onTap,
     );
   }
@@ -315,12 +315,14 @@ class _DnsItem extends StatelessWidget {
       leading: const Icon(SurgeIcons.dns),
       title: 'DNS',
       subtitle: appLocalizations.dnsDesc,
-      child: BaseScaffold(
-        title: 'DNS',
-        actions: [
-          Consumer(
-            builder: (_, ref, _) {
-              return IconButton(
+      child: Consumer(
+        builder: (_, ref, _) {
+          return BaseScaffold(
+            title: 'DNS',
+            actions: [
+              SlAppBarIconAction(
+                icon: SurgeIcons.replay,
+                tooltip: appLocalizations.reset,
                 onPressed: () async {
                   final res = await globalState.showMessage(
                     title: appLocalizations.reset,
@@ -331,13 +333,11 @@ class _DnsItem extends StatelessWidget {
                       .read(patchClashConfigProvider.notifier)
                       .update((state) => state.copyWith(dns: defaultDns));
                 },
-                tooltip: appLocalizations.reset,
-                icon: const Icon(SurgeIcons.replay),
-              );
-            },
-          ),
-        ],
-        body: const DnsListView(),
+              ),
+            ],
+            body: const DnsListView(),
+          );
+        },
       ),
     );
   }

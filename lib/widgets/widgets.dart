@@ -1,5 +1,6 @@
 export '../common/icons.dart';
 export 'activate_box.dart';
+export 'app_bar/sl_app_bar_action.dart';
 export 'builder.dart';
 export 'button.dart';
 export 'card.dart';

@@ -27,7 +27,7 @@ void main() {
     expect(typography.selectedRowTitle, SlclashTypeScale.selectedRowTitle);
     expect(typography.selectorLabel, SlclashTypeScale.selectorLabel);
     expect(typography.metric, SlclashTypeScale.metric);
-    expect(typography.compactMetric, SlclashTypeScale.compactMetric);
+    expect(typography.supporting, SlclashTypeScale.supporting);
     expect(typography.technical, SlclashTypeScale.technical);
     expect(typography.chartLabel, SlclashTypeScale.chartLabel);
   });

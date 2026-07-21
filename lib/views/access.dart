@@ -213,20 +213,21 @@ class _AccessViewState extends ConsumerState<AccessView> {
     });
   }
 
-  Widget _buildAction(
+  SlAppBarAction _buildAction(
     BuildContext context, {
     required bool enable,
     required bool hasChanges,
   }) {
     final appLocalizations = context.appLocalizations;
     if (hasChanges) {
-      return SoftOsActionTextButton(
+      return SlAppBarTextAction(
         label: appLocalizations.save,
         onPressed: _handleSave,
-        tooltip: appLocalizations.save,
+        tone: SlAppBarActionTone.primary,
       );
     }
-    return SoftOsPopupActionButton(
+    return SlAppBarOverflowAction(
+      tooltip: appLocalizations.more,
       popup: CommonPopupMenu(
         items: [
           PopupMenuItemData(

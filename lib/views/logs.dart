@@ -45,13 +45,12 @@ class _LogsViewState extends ConsumerState<LogsView> {
     });
   }
 
-  List<Widget> _buildActions() {
+  List<SlAppBarAction> _buildActions() {
     return [
-      IconButton(
-        onPressed: () {
-          _handleExport();
-        },
-        icon: const Icon(SurgeIcons.save),
+      SlAppBarIconAction(
+        icon: SurgeIcons.save,
+        tooltip: context.appLocalizations.exportLogs,
+        onPressed: _handleExport,
       ),
     ];
   }

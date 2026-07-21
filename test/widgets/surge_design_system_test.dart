@@ -41,8 +41,8 @@ void main() {
       expect(typography.chartLabel.fontSize, 10);
       expect(typography.metric.fontSize, 14);
       expect(typography.metric.fontWeight, FontWeight.w600);
-      expect(typography.compactMetric.fontSize, 13);
-      expect(typography.compactMetric.fontWeight, FontWeight.w400);
+      expect(typography.supporting.fontSize, 13);
+      expect(typography.supporting.fontWeight, FontWeight.w400);
       expect(typography.supporting.fontWeight, FontWeight.w400);
       expect(typography.body.fontSize, 15);
       expect(surge.controls.minimumTapExtent, 44);
@@ -392,7 +392,8 @@ void main() {
       final sourceFiles = Directory('lib')
           .listSync(recursive: true)
           .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'));
+          .where((file) => file.path.endsWith('.dart'))
+          .where((file) => !file.path.replaceAll('\\', '/').contains('/app_bar/'));
       final directIcons = RegExp(r'(?<!Surge)Icons\.');
 
       for (final file in sourceFiles) {

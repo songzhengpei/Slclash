@@ -56,7 +56,11 @@ class _ProvidersViewState extends ConsumerState<ProvidersView> {
 
     return AdaptiveSheetScaffold(
       actions: [
-        IconButtonData(icon: SurgeIcons.sync, onPressed: _updateProviders),
+        SlAppBarIconAction(
+          icon: SurgeIcons.sync,
+          tooltip: appLocalizations.update,
+          onPressed: _updateProviders,
+        ),
       ],
       body: ColoredBox(
         color: surge.background,

@@ -166,24 +166,17 @@ class _CustomRulesViewState extends ConsumerState<CustomRulesView>
     return CommonScaffold(
       title: appLocalizations.rule,
       actions: [
-        if (selectedRules.isNotEmpty) ...[
-          OverwriteIconButton(
+        if (selectedRules.isNotEmpty)
+          SlAppBarIconAction(
             icon: SurgeIcons.delete,
-            destructive: true,
+            tooltip: appLocalizations.delete,
             onPressed: _handleDelete,
+            tone: SlAppBarActionTone.destructive,
           ),
-          const SizedBox(width: 8),
-        ],
-        selectedRules.isNotEmpty
-            ? SurgeAddButton(
-                onPressed: _handleSelectAll,
-                label: appLocalizations.selectAll,
-              )
-            : SurgeAddButton(
-                onPressed: _handleAddOrUpdate,
-                label: appLocalizations.add,
-              ),
-        const SizedBox(width: 8),
+        SlAppBarTextAction(
+          onPressed: selectedRules.isNotEmpty ? _handleSelectAll : _handleAddOrUpdate,
+          label: selectedRules.isNotEmpty ? appLocalizations.selectAll : appLocalizations.add,
+        ),
       ],
       body: rules.isEmpty
           ? NullStatus(label: appLocalizations.ruleEmpty)
@@ -630,7 +623,11 @@ class _AddOrEditRuleViewState extends ConsumerState<_AddOrEditRuleView> {
         : double.maxFinite;
     return AdaptiveSheetScaffold(
       actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSave,
+        ),
       ],
       sheetTransparentToolBar: true,
       body: Container(

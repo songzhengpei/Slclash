@@ -255,15 +255,17 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
     );
   }
 
-  List<Widget> _buildActions() {
+  List<SlAppBarAction> _buildActions() {
     return [
-      IconButton(
+      SlAppBarIconAction(
+        icon: SurgeIcons.sync,
+        tooltip: context.appLocalizations.update,
         onPressed: () => _handleUpdateAll(),
-        icon: const Icon(SurgeIcons.sync),
       ),
-      IconButton(
+      SlAppBarIconAction(
+        icon: SurgeIcons.schedule,
+        tooltip: context.appLocalizations.autoUpdate,
         onPressed: _showAutoUpdateSheet,
-        icon: const Icon(SurgeIcons.schedule),
       ),
     ];
   }

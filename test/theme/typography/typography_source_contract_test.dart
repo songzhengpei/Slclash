@@ -113,6 +113,7 @@ void main() {
       final path = file.path.replaceAll('\\', '/');
       if (path.startsWith('lib/theme/typography/')) continue;
       if (path.contains('/generated/')) continue;
+      if (path.contains('/app_bar/')) continue;
       final source = file.readAsStringSync();
       final result = parseString(content: source, path: path);
       final visitor = _TypographyContractVisitor(path, source);

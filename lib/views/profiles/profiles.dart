@@ -75,19 +75,19 @@ class _ProfilesViewState extends State<ProfilesView> {
     _isUpdating = false;
   }
 
-  List<Widget> _buildActions(List<Profile> profiles) {
+  List<SlAppBarAction> _buildActions(List<Profile> profiles) {
     return [
       if (profiles.isNotEmpty)
-        IconButton(
+        SlAppBarIconAction(
+          icon: SurgeIcons.sync,
           tooltip: context.appLocalizations.sync,
-          icon: const Icon(SurgeIcons.sync),
           onPressed: () {
             _updateProfiles(profiles);
           },
         ),
-      IconButton(
+      SlAppBarIconAction(
+        icon: SurgeIcons.tune,
         tooltip: context.appLocalizations.settings,
-        icon: const Icon(SurgeIcons.tune),
         onPressed: () {
           showSheet(
             context: context,
@@ -240,7 +240,7 @@ class _MediaCheckCompactRow extends StatelessWidget {
                     '流媒体检测',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.typography.itemLabel.copyWith(
+                    style: context.typography.sectionTitle.copyWith(
                       color: surge.textPrimary,
                     ),
                   ),
@@ -532,7 +532,11 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
     return AdaptiveSheetScaffold(
       title: appLocalizations.importFromURL,
       actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSubmit),
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSubmit,
+        ),
       ],
       body: Form(
         key: _formKey,
@@ -1099,7 +1103,7 @@ class _CurrentProfileExpandButton extends StatelessWidget {
               Expanded(
                 child: Text(
                   enabled ? '展开显示当前订阅节点' : '正在读取当前订阅节点',
-                  style: context.typography.itemLabel.copyWith(
+                  style: context.typography.sectionTitle.copyWith(
                     color: enabled ? surge.textPrimary : surge.textSecondary,
                   ),
                 ),
@@ -2280,7 +2284,11 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
       actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSave,
+        ),
       ],
       body: Padding(
         padding: const EdgeInsets.only(bottom: 32),

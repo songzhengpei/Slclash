@@ -47,14 +47,15 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   Timer? _timer;
   bool _isUpdating = false;
 
-  List<Widget> _buildActions() {
+  List<SlAppBarAction> _buildActions() {
     return [
-      IconButton(
+      SlAppBarIconAction(
+        icon: SurgeIcons.deleteAll,
+        tooltip: context.appLocalizations.connections,
         onPressed: () async {
           coreController.closeConnections();
           await _updateConnections(force: true);
         },
-        icon: const Icon(SurgeIcons.deleteAll),
       ),
     ];
   }
