@@ -447,18 +447,6 @@ class CommonScaffoldState extends State<CommonScaffold> {
   }
 
   List<Widget> _buildLegacyActions(bool hasSearch, List<Widget> actions) {
-    final appLocalizations = context.appLocalizations;
-    if (_isSearch) {
-      return genActions([
-        SoftOsActionButton(
-          icon: SurgeIcons.close,
-          onPressed: _handleClear,
-          tooltip: _textController.text.isNotEmpty
-              ? appLocalizations.search
-              : appLocalizations.cancel,
-        ),
-      ], endSpace: 16);
-    }
     final resolvedActions = [
       if (hasSearch && widget.searchState?.autoAddSearch == true)
         _SoftOsScaffoldAction(
@@ -525,15 +513,12 @@ class CommonScaffoldState extends State<CommonScaffold> {
                   final Widget actionsWidget;
                   if (_isSearch) {
                     final appLocalizations = context.appLocalizations;
-                    final clearTooltip = _textController.text.isNotEmpty
-                        ? appLocalizations.search
-                        : appLocalizations.cancel;
                     if (useNewActions) {
                       actionsWidget = SlAppBarActionsRenderer(
                         actions: [
                           SlAppBarIconAction(
                             icon: SurgeIcons.close,
-                            tooltip: clearTooltip,
+                            tooltip: appLocalizations.cancel,
                             onPressed: _handleClear,
                           ),
                         ],
@@ -545,7 +530,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
                           SoftOsActionButton(
                             icon: SurgeIcons.close,
                             onPressed: _handleClear,
-                            tooltip: clearTooltip,
+                            tooltip: appLocalizations.cancel,
                           ),
                         ], endSpace: 16),
                       );

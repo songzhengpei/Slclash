@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _app(Widget child, {SurgeTheme? surge}) {
+Widget _app(Widget home, {SurgeTheme? surge, Map<String, WidgetBuilder>? routes}) {
   final textTheme = buildSlclashTextTheme();
   final typography = SurgeTypography.fromTextTheme(textTheme);
   return MaterialApp(
@@ -23,7 +23,8 @@ Widget _app(Widget child, {SurgeTheme? surge}) {
       textTheme: textTheme,
       extensions: [surge ?? SurgeTheme.light(), typography],
     ),
-    home: child,
+    home: home,
+    routes: routes ?? {},
   );
 }
 
@@ -122,9 +123,7 @@ void main() {
   });
 
   group('CommonScaffold leading button', () {
-    testWidgets('no leading button on root route without edit/search', (
-      tester,
-    ) async {
+    testWidgets('no leading button on root route', (tester) async {
       await tester.pumpWidget(
         _app(
           CommonScaffold(
@@ -136,27 +135,60 @@ void main() {
       expect(find.byType(SlAppBarIconButton), findsNothing);
     });
 
-    testWidgets('leading button maintains 48dp inside AppBar', (
+    testWidgets('back button appears on nested route and pops', (
       tester,
     ) async {
       await tester.pumpWidget(
         _app(
-          CommonScaffold(
-            title: 'Test',
-            body: const SizedBox(),
-            appBarActions: [
-              SlAppBarIconAction(
-                icon: SurgeIcons.refresh,
-                tooltip: '刷新',
-                onPressed: () {},
-              ),
-            ],
-          ),
+          const SizedBox(),
+          routes: {
+            '/detail': (_) => const CommonScaffold(
+                  title: 'Detail',
+                  body: SizedBox(),
+                ),
+          },
         ),
       );
-      final size = tester.getSize(find.byType(SlAppBarIconButton));
+      tester.state<NavigatorState>(find.byType(Navigator)).pushNamed('/detail');
+      await tester.pumpAndSettle();
+
+      final backButton = find.byWidgetPredicate(
+        (w) => w is SlAppBarIconButton && w.icon == SurgeIcons.back,
+      );
+      expect(backButton, findsOneWidget);
+
+      final size = tester.getSize(backButton);
       expect(size.width, greaterThanOrEqualTo(48));
       expect(size.height, greaterThanOrEqualTo(48));
+
+      await tester.tap(backButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Detail'), findsNothing);
+    });
+
+    testWidgets('leading tooltip is localized', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          const SizedBox(),
+          routes: {
+            '/detail': (_) => const CommonScaffold(
+                  title: 'Detail',
+                  body: SizedBox(),
+                ),
+          },
+        ),
+      );
+      tester.state<NavigatorState>(find.byType(Navigator)).pushNamed('/detail');
+      await tester.pumpAndSettle();
+
+      final backButton = find.byWidgetPredicate(
+        (w) => w is SlAppBarIconButton && w.icon == SurgeIcons.back,
+      );
+      expect(backButton, findsOneWidget);
+      final button = tester.widget<SlAppBarIconButton>(backButton);
+      expect(button.tooltip, isNotEmpty);
+      expect(button.tooltip, isNot(contains('back')));
+      expect(button.tooltip, isNot(contains('Back')));
     });
   });
 
@@ -223,7 +255,7 @@ void main() {
     });
   });
 
-  group('CommonScaffold assert', () {
+  group('CommonScaffold validation', () {
     test('throws when both appBarActions and actions provided', () {
       expect(
         () => CommonScaffold(
