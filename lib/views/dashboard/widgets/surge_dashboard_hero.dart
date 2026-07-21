@@ -1369,7 +1369,7 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                   const SizedBox(width: 48),
                   Expanded(
                     child: Center(
-                      child: Text('节点', style: context.typography.appBarTitle),
+                      child: Text('节点', style: context.typography.sheetTitle),
                     ),
                   ),
                   SoftOsActionButton(

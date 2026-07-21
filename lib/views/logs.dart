@@ -221,7 +221,7 @@ class LogItem extends StatelessWidget {
                 children: [
                   SelectableText(
                     log.payload,
-                    style: context.typography.technical.copyWith(
+                    style: context.typography.techLabel.copyWith(
                       color: surge.textPrimary.withValues(alpha: 0.9),
                     ),
                   ),
@@ -261,7 +261,7 @@ class LogItem extends StatelessWidget {
                       const Spacer(),
                       Text(
                         log.dateTime,
-                        style: context.typography.technical.copyWith(
+                        style: context.typography.techLabel.copyWith(
                           color: surge.textSecondary.withValues(alpha: 0.62),
                         ),
                       ),

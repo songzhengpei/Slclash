@@ -102,7 +102,7 @@ class TrackerInfoItem extends ConsumerWidget {
                                 _getSourceText(context, trackerInfo),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: context.typography.technical.copyWith(
+                                style: context.typography.techLabel.copyWith(
                                   color: surge.textSecondary,
                                 ),
                               ),
@@ -248,7 +248,7 @@ class _TrackerChainPill extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.typography.technical.copyWith(
+              style: context.typography.techLabel.copyWith(
                 color: surge.textPrimary.withValues(alpha: 0.72),
               ),
             ),

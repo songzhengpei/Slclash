@@ -32,6 +32,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.modeTabLabel,
     required this.selectedModeTabLabel,
     required this.dashboardMetric,
+    required this.techLabel,
     required this.metricLarge,
     required this.metric,
     required this.compactMetric,
@@ -79,6 +80,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       modeTabLabel: SlclashTypeScale.modeTabLabel,
       selectedModeTabLabel: SlclashTypeScale.selectedModeTabLabel,
       dashboardMetric: SlclashTypeScale.dashboardMetric,
+      techLabel: SlclashTypeScale.techLabel,
     );
   }
 
@@ -117,6 +119,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle modeTabLabel;
   final TextStyle selectedModeTabLabel;
   final TextStyle dashboardMetric;
+  final TextStyle techLabel;
 
   @override
   SurgeTypography copyWith({
@@ -155,6 +158,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? modeTabLabel,
     TextStyle? selectedModeTabLabel,
     TextStyle? dashboardMetric,
+    TextStyle? techLabel,
   }) {
     return SurgeTypography(
       screenTitle: screenTitle ?? this.screenTitle,
@@ -193,6 +197,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       modeTabLabel: modeTabLabel ?? this.modeTabLabel,
       selectedModeTabLabel: selectedModeTabLabel ?? this.selectedModeTabLabel,
       dashboardMetric: dashboardMetric ?? this.dashboardMetric,
+      techLabel: techLabel ?? this.techLabel,
     );
   }
 
@@ -307,6 +312,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
         other.dashboardMetric,
         t,
       )!,
+      techLabel: TextStyle.lerp(techLabel, other.techLabel, t)!,
     );
   }
 }

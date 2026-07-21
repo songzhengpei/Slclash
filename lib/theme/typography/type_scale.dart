@@ -183,13 +183,13 @@ abstract final class SlclashTypeScale {
   static const sheetRowTitle = TextStyle(
     fontSize: 14,
     height: 1.4667,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
   );
   static const sheetLabel = TextStyle(
     fontSize: 12,
     height: 1.0,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
   static const sheetTitle = TextStyle(
@@ -208,6 +208,12 @@ abstract final class SlclashTypeScale {
     fontFamily: SlclashFontFamilies.jetBrainsMono,
     fontSize: 10,
     height: 1.4,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const techLabel = TextStyle(
+    fontSize: 13,
+    height: 1.3846,
     fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
