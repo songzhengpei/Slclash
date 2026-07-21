@@ -255,15 +255,24 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
     );
   }
 
-  List<Widget> _buildActions() {
+  List<SlAppBarAction> _buildActions() {
     return [
-      IconButton(
-        onPressed: () => _handleUpdateAll(),
-        icon: const Icon(SurgeIcons.sync),
-      ),
-      IconButton(
-        onPressed: _showAutoUpdateSheet,
-        icon: const Icon(SurgeIcons.schedule),
+      SlAppBarOverflowAction(
+        tooltip: context.appLocalizations.more,
+        popup: CommonPopupMenu(
+          items: [
+            PopupMenuItemData(
+              icon: SurgeIcons.sync,
+              label: context.appLocalizations.sync,
+              onPressed: () => _handleUpdateAll(),
+            ),
+            PopupMenuItemData(
+              icon: SurgeIcons.schedule,
+              label: context.appLocalizations.autoUpdate,
+              onPressed: _showAutoUpdateSheet,
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -274,7 +283,7 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
     return CommonScaffold(
       title: context.appLocalizations.resources,
       backgroundColor: surge.background,
-      actions: _buildActions(),
+      appBarActions: _buildActions(),
       body: ValueListenableBuilder(
         valueListenable: _updatingItems,
         builder: (_, updatingItems, _) {

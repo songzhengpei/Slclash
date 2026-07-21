@@ -75,31 +75,39 @@ class _ProfilesViewState extends State<ProfilesView> {
     _isUpdating = false;
   }
 
-  List<Widget> _buildActions(List<Profile> profiles) {
+  List<SlAppBarAction> _buildActions(List<Profile> profiles) {
     return [
-      if (profiles.isNotEmpty)
-        IconButton(
-          tooltip: context.appLocalizations.sync,
-          icon: const Icon(SurgeIcons.sync),
-          onPressed: () {
-            _updateProfiles(profiles);
-          },
+      SlAppBarOverflowAction(
+        tooltip: context.appLocalizations.more,
+        popup: CommonPopupMenu(
+          items: [
+            if (profiles.isNotEmpty)
+              PopupMenuItemData(
+                icon: SurgeIcons.sync,
+                label: context.appLocalizations.sync,
+                onPressed: () {
+                  _updateProfiles(profiles);
+                },
+              ),
+            PopupMenuItemData(
+              icon: SurgeIcons.tune,
+              label: context.appLocalizations.settings,
+              onPressed: () {
+                showSheet(
+                  context: context,
+                  props: const SheetProps(isScrollControlled: true),
+                  builder: (_) {
+                    return AdaptiveSheetScaffold(
+                      body: _ProfilesManageSheet(profiles: profiles),
+                      title: '订阅管理',
+                      appBarActions: const [],
+                    );
+                  },
+                );
+              },
+            ),
+          ],
         ),
-      IconButton(
-        tooltip: context.appLocalizations.settings,
-        icon: const Icon(SurgeIcons.tune),
-        onPressed: () {
-          showSheet(
-            context: context,
-            props: const SheetProps(isScrollControlled: true),
-            builder: (_) {
-              return AdaptiveSheetScaffold(
-                body: _ProfilesManageSheet(profiles: profiles),
-                title: '订阅管理',
-              );
-            },
-          );
-        },
       ),
     ];
   }
@@ -119,7 +127,7 @@ class _ProfilesViewState extends State<ProfilesView> {
           backgroundColor: surge.background,
           isLoading: isLoading,
           title: '配置',
-          actions: _buildActions(state.profiles),
+          appBarActions: _buildActions(state.profiles),
           body: state.profiles.isEmpty
               ? NullStatus(
                   label: appLocalizations.nullProfileDesc,

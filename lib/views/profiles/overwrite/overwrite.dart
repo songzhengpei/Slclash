@@ -44,12 +44,12 @@ class _OverwriteViewState extends ConsumerState<OverwriteView> {
       profileId: widget.profileId,
       child: CommonScaffold(
         title: appLocalizations.override,
-        actions: [
-          SoftOsActionTextButton(
-            onPressed: _handlePreview,
+        appBarActions: [
+          SlAppBarTextAction(
             label: appLocalizations.preview,
+            tooltip: appLocalizations.preview,
+            onPressed: _handlePreview,
           ),
-          const SizedBox(width: 8),
         ],
         body: const CustomScrollView(slivers: [_Title(), _Content()]),
       ),

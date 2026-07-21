@@ -275,6 +275,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
     return CommonScaffold(
       isLoading: isLoading,
       title: appLocalizations.backupAndRestore,
+      appBarActions: const [],
       body: ListView(
         padding: EdgeInsets.only(
           top: 12,

@@ -115,9 +115,12 @@ class _CustomProxyGroupsViewState extends ConsumerState<CustomProxyGroupsView> {
         .a;
     return CommonScaffold(
       title: appLocalizations.proxyGroup,
-      actions: [
-        SurgeAddButton(onPressed: _handleAdd, label: appLocalizations.add),
-        const SizedBox(width: 8),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.add,
+          tooltip: appLocalizations.add,
+          onPressed: _handleAdd,
+        ),
       ],
       body: proxyGroups.isEmpty
           ? NullStatus(label: appLocalizations.proxyGroupEmpty)

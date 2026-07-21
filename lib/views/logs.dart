@@ -45,13 +45,19 @@ class _LogsViewState extends ConsumerState<LogsView> {
     });
   }
 
-  List<Widget> _buildActions() {
+  List<SlAppBarAction> _buildActions() {
     return [
-      IconButton(
-        onPressed: () {
-          _handleExport();
-        },
-        icon: const Icon(SurgeIcons.save),
+      SlAppBarOverflowAction(
+        tooltip: context.appLocalizations.more,
+        popup: CommonPopupMenu(
+          items: [
+            PopupMenuItemData(
+              icon: SurgeIcons.save,
+              label: context.appLocalizations.exportLogs,
+              onPressed: _handleExport,
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -111,7 +117,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     return CommonScaffold(
-      actions: _buildActions(),
+      appBarActions: _buildActions(),
       onKeywordsUpdate: _onKeywordsUpdate,
       searchState: AppBarSearchState(onSearch: _onSearch),
       title: appLocalizations.logs,

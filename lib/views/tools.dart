@@ -101,6 +101,7 @@ class _ToolViewState extends ConsumerState<ToolsView> {
     return CommonScaffold(
       backgroundColor: surge.background,
       title: context.appLocalizations.tools,
+      appBarActions: const [],
       body: ListView.builder(
         key: toolsStoreKey,
         itemCount: items.length,

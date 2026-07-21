@@ -165,25 +165,29 @@ class _CustomRulesViewState extends ConsumerState<CustomRulesView>
     final subRules = vm2.b;
     return CommonScaffold(
       title: appLocalizations.rule,
-      actions: [
-        if (selectedRules.isNotEmpty) ...[
-          OverwriteIconButton(
+      appBarActions: [
+        if (selectedRules.isNotEmpty)
+          SlAppBarIconAction(
             icon: SurgeIcons.delete,
-            destructive: true,
+            tooltip: appLocalizations.delete,
             onPressed: _handleDelete,
+            tone: SlAppBarActionTone.destructive,
           ),
-          const SizedBox(width: 8),
-        ],
-        selectedRules.isNotEmpty
-            ? SurgeAddButton(
-                onPressed: _handleSelectAll,
-                label: appLocalizations.selectAll,
-              )
-            : SurgeAddButton(
-                onPressed: _handleAddOrUpdate,
-                label: appLocalizations.add,
-              ),
-        const SizedBox(width: 8),
+        SlAppBarTextAction(
+          label: selectedRules.isNotEmpty
+              ? appLocalizations.selectAll
+              : appLocalizations.add,
+          tooltip: selectedRules.isNotEmpty
+              ? appLocalizations.selectAll
+              : appLocalizations.add,
+          onPressed: () {
+            if (selectedRules.isNotEmpty) {
+              _handleSelectAll();
+            } else {
+              _handleAddOrUpdate();
+            }
+          },
+        ),
       ],
       body: rules.isEmpty
           ? NullStatus(label: appLocalizations.ruleEmpty)

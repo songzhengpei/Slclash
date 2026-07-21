@@ -3,6 +3,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/widgets/app_bar/sl_app_bar_action.dart';
 import 'package:fl_clash/widgets/dialog.dart';
 import 'package:fl_clash/widgets/inherited.dart';
 import 'package:fl_clash/widgets/null_status.dart';
@@ -750,38 +751,35 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
       },
       child: CommonScaffold(
         title: widget.title,
-        actions: [
-          if (selectedItems.isNotEmpty) ...[
-            CommonMinIconButtonTheme(
-              child: IconButton.filledTonal(
-                onPressed: _handleDelete,
-                icon: const Icon(SurgeIcons.delete),
-              ),
+        appBarActions: [
+          if (selectedItems.isNotEmpty)
+            SlAppBarIconAction(
+              icon: SurgeIcons.delete,
+              tooltip: appLocalizations.delete,
+              onPressed: _handleDelete,
+              tone: SlAppBarActionTone.destructive,
+            )
+          else if (!stringListEquality.equals(_items, _originItems))
+            SlAppBarIconAction(
+              icon: SurgeIcons.replay,
+              tooltip: appLocalizations.reset,
+              onPressed: _handleReset,
             ),
-            const SizedBox(width: 2),
-          ] else if (!stringListEquality.equals(_items, _originItems)) ...[
-            CommonMinIconButtonTheme(
-              child: IconButton.filledTonal(
-                onPressed: _handleReset,
-                icon: const Icon(SurgeIcons.replay),
-              ),
-            ),
-            const SizedBox(width: 2),
-          ],
-          CommonMinFilledButtonTheme(
-            child: selectedItems.isNotEmpty
-                ? FilledButton(
-                    onPressed: _handleSelectAll,
-                    child: Text(appLocalizations.selectAll),
-                  )
-                : SurgeAddButton(
-                    onPressed: () {
-                      _handleAddOrEdit();
-                    },
-                    label: appLocalizations.add,
-                  ),
+          SlAppBarTextAction(
+            label: selectedItems.isNotEmpty
+                ? appLocalizations.selectAll
+                : appLocalizations.add,
+            tooltip: selectedItems.isNotEmpty
+                ? appLocalizations.selectAll
+                : appLocalizations.add,
+            onPressed: () {
+              if (selectedItems.isNotEmpty) {
+                _handleSelectAll();
+              } else {
+                _handleAddOrEdit();
+              }
+            },
           ),
-          const SizedBox(width: 8),
         ],
         body: _items.isEmpty
             ? NullStatus(label: appLocalizations.noData)
@@ -1015,41 +1013,38 @@ class _MapInputPageState extends ConsumerState<MapInputPage> {
       },
       child: CommonScaffold(
         title: widget.title,
-        actions: [
-          if (selectedItems.isNotEmpty) ...[
-            CommonMinIconButtonTheme(
-              child: IconButton.filledTonal(
-                onPressed: _handleDelete,
-                icon: const Icon(SurgeIcons.delete),
-              ),
-            ),
-            const SizedBox(width: 2),
-          ] else if (!stringAndStringMapEntryListEquality.equals(
+        appBarActions: [
+          if (selectedItems.isNotEmpty)
+            SlAppBarIconAction(
+              icon: SurgeIcons.delete,
+              tooltip: appLocalizations.delete,
+              onPressed: _handleDelete,
+              tone: SlAppBarActionTone.destructive,
+            )
+          else if (!stringAndStringMapEntryListEquality.equals(
             _items,
             _originItems,
-          )) ...[
-            CommonMinIconButtonTheme(
-              child: IconButton.filledTonal(
-                onPressed: _handleReset,
-                icon: const Icon(SurgeIcons.replay),
-              ),
+          ))
+            SlAppBarIconAction(
+              icon: SurgeIcons.replay,
+              tooltip: appLocalizations.reset,
+              onPressed: _handleReset,
             ),
-            const SizedBox(width: 2),
-          ],
-          CommonMinFilledButtonTheme(
-            child: selectedItems.isNotEmpty
-                ? FilledButton(
-                    onPressed: _handleSelectAll,
-                    child: Text(appLocalizations.selectAll),
-                  )
-                : SurgeAddButton(
-                    onPressed: () {
-                      _handleAddOrEdit();
-                    },
-                    label: appLocalizations.add,
-                  ),
+          SlAppBarTextAction(
+            label: selectedItems.isNotEmpty
+                ? appLocalizations.selectAll
+                : appLocalizations.add,
+            tooltip: selectedItems.isNotEmpty
+                ? appLocalizations.selectAll
+                : appLocalizations.add,
+            onPressed: () {
+              if (selectedItems.isNotEmpty) {
+                _handleSelectAll();
+              } else {
+                _handleAddOrEdit();
+              }
+            },
           ),
-          const SizedBox(width: 8),
         ],
         body: _items.isEmpty
             ? NullStatus(label: appLocalizations.noData)

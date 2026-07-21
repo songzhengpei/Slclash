@@ -466,6 +466,7 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
     return CommonScaffold(
       title: '流媒体检测',
       backgroundColor: surge.background,
+      appBarActions: const [],
       body: Align(
         alignment: Alignment.topCenter,
         child: SingleChildScrollView(

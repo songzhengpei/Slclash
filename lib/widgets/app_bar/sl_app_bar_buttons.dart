@@ -168,7 +168,7 @@ class _SlAppBarOverflowButtonState extends State<SlAppBarOverflowButton> {
         popup: widget.popup,
         targetBuilder: (open) {
           return SlAppBarIconButton(
-            icon: Icons.more_vert_rounded,
+            icon: SurgeIcons.moreVertical,
             tooltip: widget.tooltip,
             enabled: widget.enabled,
             onPressed: widget.enabled ? () => open() : null,

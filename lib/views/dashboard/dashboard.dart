@@ -21,6 +21,7 @@ class DashboardView extends StatelessWidget {
       child: CommonScaffold(
         title: context.appLocalizations.dashboard,
         backgroundColor: pageBackground,
+        appBarActions: const [],
         body: ColoredBox(
           color: pageBackground,
           child: LayoutBuilder(
