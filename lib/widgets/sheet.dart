@@ -9,6 +9,9 @@ import 'package:fl_clash/widgets/inherited.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'app_bar/sl_app_bar.dart';
+import 'app_bar/sl_app_bar_action.dart';
+import 'app_bar/sl_app_bar_buttons.dart';
 import 'scaffold.dart';
 import 'side_sheet.dart';
 
@@ -127,6 +130,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
   final String title;
   final bool sheetTransparentToolBar;
   final List<IconButtonData> actions;
+  final List<SlAppBarAction>? appBarActions;
   final VoidCallback? backAction;
 
   const AdaptiveSheetScaffold({
@@ -135,8 +139,16 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     required this.title,
     this.sheetTransparentToolBar = false,
     this.actions = const [],
+    this.appBarActions,
     this.backAction,
-  });
+  }) : assert(
+         !(appBarActions != null && actions.length > 0),
+         'AdaptiveSheetScaffold cannot use both actions and appBarActions.',
+       ),
+       assert(
+         appBarActions == null || appBarActions.length <= 1,
+         'AdaptiveSheetScaffold supports at most one semantic app bar action.',
+       );
 
   @override
   State<AdaptiveSheetScaffold> createState() => _AdaptiveSheetScaffoldState();
@@ -145,10 +157,21 @@ class AdaptiveSheetScaffold extends StatefulWidget {
 class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
   final _isScrolledController = ValueNotifier<bool>(false);
 
-  IconData get backIconData {
-    if (kIsWeb) {
-      return SurgeIcons.back;
+  void _validateRuntime() {
+    if (widget.appBarActions != null && widget.actions.isNotEmpty) {
+      throw FlutterError(
+        'AdaptiveSheetScaffold cannot use both actions and appBarActions.',
+      );
     }
+    if (widget.appBarActions != null && widget.appBarActions!.length > 1) {
+      throw FlutterError(
+        'AdaptiveSheetScaffold supports at most one semantic app bar action.',
+      );
+    }
+  }
+
+  IconData get backIconData {
+    if (kIsWeb) return SurgeIcons.back;
     switch (Theme.of(context).platform) {
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
@@ -177,6 +200,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    _validateRuntime();
     final sheetProvider = SheetProvider.of(context);
     final nestedNavigatorPop = sheetProvider?.nestedNavigatorPop;
     final ModalRoute<dynamic>? route = ModalRoute.of(context);
@@ -189,6 +213,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         (nestedNavigatorPop != null && route?.impliesAppBarDismissal == false ||
             nestedNavigatorPop == null);
     final compact = type == SheetType.bottomSheet;
+    final isSemantic = widget.appBarActions != null;
 
     Widget buildIconButton(IconButtonData data) {
       return SoftOsActionButton(
@@ -199,17 +224,11 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     }
 
     Widget? buildActionGroup(List<IconButtonData> data) {
-      if (data.isEmpty) {
-        return null;
-      }
-      if (data.length == 1) {
-        return buildIconButton(data.first);
-      }
+      if (data.isEmpty) return null;
+      if (data.length == 1) return buildIconButton(data.first);
       final children = <Widget>[];
       for (var index = 0; index < data.length; index++) {
-        if (index > 0) {
-          children.add(const SoftOsActionDivider());
-        }
+        if (index > 0) children.add(const SoftOsActionDivider());
         children.add(
           SoftOsActionDockButton(
             icon: data[index].icon,
@@ -221,61 +240,22 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       return SoftOsActionDock(compact: compact, children: children);
     }
 
-    final actions = [?buildActionGroup(widget.actions)];
-
-    final popButton = type != SheetType.page
-        ? (useCloseIcon
-              ? buildIconButton(
-                  IconButtonData(
-                    icon: SurgeIcons.close,
-                    onPressed: context.safeNestedPop,
-                  ),
-                )
-              : buildIconButton(
-                  IconButtonData(
-                    icon: backIconData,
-                    onPressed:
-                        widget.backAction ??
-                        () {
-                          Navigator.of(context).pop();
-                        },
-                  ),
-                ))
-        : null;
-    final suffixPop = type != SheetType.page && actions.isEmpty && useCloseIcon;
-    final pagePopButton =
-        type == SheetType.page && route?.impliesAppBarDismissal == true
-        ? buildIconButton(
-            IconButtonData(
-              icon: backIconData,
-              onPressed:
-                  widget.backAction ??
-                  () {
-                    Navigator.of(context).maybePop();
-                  },
-            ),
+    final AppBar appBar = isSemantic
+        ? _buildSemanticAppBar(
+            type: type,
+            backgroundColor: backgroundColor,
+            useCloseIcon: useCloseIcon,
+            route: route,
           )
-        : null;
-    final leading = suffixPop ? null : popButton ?? pagePopButton;
+        : _buildLegacyAppBar(
+            type: type,
+            backgroundColor: backgroundColor,
+            useCloseIcon: useCloseIcon,
+            compact: compact,
+            route: route,
+            buildActionGroup: buildActionGroup,
+          );
 
-    final appBar = AppBar(
-      backgroundColor: backgroundColor,
-      forceMaterialTransparency: type == SheetType.bottomSheet ? true : false,
-      leading: leading,
-      leadingWidth: leading != null ? 56 : null,
-      automaticallyImplyLeading: false,
-      centerTitle: true,
-      toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
-      title: Text(widget.title),
-      titleTextStyle: type == SheetType.bottomSheet
-          ? context.typography.sheetTitle.copyWith(
-              color: SurgeTheme.of(context).textPrimary,
-            )
-          : null,
-      actions: !suffixPop
-          ? genActions(actions, endSpace: 16)
-          : genActions([?popButton], endSpace: 16),
-    );
     if (type == SheetType.bottomSheet) {
       const handleSize = Size(28, 4);
       final sheetAppBar = Column(
@@ -363,5 +343,146 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       );
     }
     return CommonScaffold(appBar: appBar, body: widget.body);
+  }
+
+  AppBar _buildSemanticAppBar({
+    required SheetType type,
+    required Color backgroundColor,
+    required bool useCloseIcon,
+    required ModalRoute<dynamic>? route,
+  }) {
+    final appLocalizations = context.appLocalizations;
+
+    VoidCallback? leadingOnPressed;
+    IconData leadingIcon;
+    if (type != SheetType.page) {
+      if (useCloseIcon) {
+        leadingIcon = SurgeIcons.close;
+        leadingOnPressed = context.safeNestedPop;
+      } else {
+        leadingIcon = backIconData;
+        leadingOnPressed =
+            widget.backAction ??
+            () {
+              Navigator.of(context).pop();
+            };
+      }
+    } else if (route?.impliesAppBarDismissal == true) {
+      leadingIcon = backIconData;
+      leadingOnPressed =
+          widget.backAction ??
+          () {
+            Navigator.of(context).maybePop();
+          };
+    } else {
+      leadingIcon = backIconData;
+      leadingOnPressed = null;
+    }
+
+    final trailing =
+        widget.appBarActions != null && widget.appBarActions!.isNotEmpty
+        ? SlAppBarActionsRenderer(actions: widget.appBarActions!)
+        : null;
+
+    return AppBar(
+      backgroundColor: backgroundColor,
+      forceMaterialTransparency: type == SheetType.bottomSheet,
+      automaticallyImplyLeading: false,
+      centerTitle: true,
+      toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
+      titleTextStyle: type == SheetType.bottomSheet
+          ? context.typography.sheetTitle.copyWith(
+              color: SurgeTheme.of(context).textPrimary,
+            )
+          : null,
+      title: Text(
+        widget.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      leading: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: SlAppBarIconButton(
+          icon: leadingIcon,
+          tooltip: useCloseIcon
+              ? appLocalizations.cancel
+              : appLocalizations.exit,
+          onPressed: leadingOnPressed,
+        ),
+      ),
+      leadingWidth: 56,
+      actions: [
+        if (trailing != null)
+          SizedBox(
+            width: 72,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: trailing,
+            ),
+          ),
+      ],
+    );
+  }
+
+  AppBar _buildLegacyAppBar({
+    required SheetType type,
+    required Color backgroundColor,
+    required bool useCloseIcon,
+    required bool compact,
+    required ModalRoute<dynamic>? route,
+    required Widget? Function(List<IconButtonData>) buildActionGroup,
+  }) {
+    final actions = [?buildActionGroup(widget.actions)];
+
+    final popButton = type != SheetType.page
+        ? (useCloseIcon
+              ? SoftOsActionButton(
+                  icon: SurgeIcons.close,
+                  onPressed: context.safeNestedPop,
+                  compact: compact,
+                )
+              : SoftOsActionButton(
+                  icon: backIconData,
+                  onPressed:
+                      widget.backAction ??
+                      () {
+                        Navigator.of(context).pop();
+                      },
+                  compact: compact,
+                ))
+        : null;
+    final suffixPop = type != SheetType.page && actions.isEmpty && useCloseIcon;
+    final pagePopButton =
+        type == SheetType.page && route?.impliesAppBarDismissal == true
+        ? SoftOsActionButton(
+            icon: backIconData,
+            onPressed:
+                widget.backAction ??
+                () {
+                  Navigator.of(context).maybePop();
+                },
+            compact: compact,
+          )
+        : null;
+    final leading = suffixPop ? null : popButton ?? pagePopButton;
+
+    return AppBar(
+      backgroundColor: backgroundColor,
+      forceMaterialTransparency: type == SheetType.bottomSheet,
+      leading: leading,
+      leadingWidth: leading != null ? 56 : null,
+      automaticallyImplyLeading: false,
+      centerTitle: true,
+      toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
+      title: Text(widget.title),
+      titleTextStyle: type == SheetType.bottomSheet
+          ? context.typography.sheetTitle.copyWith(
+              color: SurgeTheme.of(context).textPrimary,
+            )
+          : null,
+      actions: !suffixPop
+          ? genActions(actions, endSpace: 16)
+          : genActions([?popButton], endSpace: 16),
+    );
   }
 }
