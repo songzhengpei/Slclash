@@ -134,6 +134,59 @@ void main() {
     });
   });
 
+  test('keeps native Provider profile separate from materialized nodes', () {
+    final profile = UnifiedExportProfile(
+      androidId: 7,
+      name: 'Provider profile',
+      sourceUrl: 'https://source.example/subscription',
+      yaml: Uint8List.fromList(
+        utf8.encode('''
+proxy-providers:
+  airport:
+    type: http
+    url: https://source.example/provider
+proxy-groups:
+  - name: Select
+    type: select
+    use: [airport]
+'''),
+      ),
+      providerSourceYaml: Uint8List.fromList(
+        utf8.encode('''
+proxies:
+  - name: node-1
+    type: ss
+    server: example.com
+    port: 443
+'''),
+      ),
+      updated: 0,
+      autoUpdate: true,
+      updateIntervalMinutes: 60,
+    );
+    final parsed = const WorkerV1Parser().parse(
+      const UnifiedV1Exporter().build(
+        UnifiedExportInput(
+          profiles: [profile],
+          currentAndroidId: 7,
+          generatorVersion: '1.0.0',
+        ),
+      ),
+    );
+    final airport = parsed.manifest.airports.single;
+    final slug = airport['slug'];
+    final uid = airport['profileUid'];
+
+    expect(
+      utf8.decode(parsed.files['profiles/$uid.yaml']!),
+      contains('proxy-providers:'),
+    );
+    expect(
+      utf8.decode(parsed.files['providers/$slug/provider.yaml']!),
+      contains('node-1'),
+    );
+  });
+
   test('rejects an invalid non-empty trusted baseline', () {
     expect(
       () => const UnifiedV1Exporter().build(

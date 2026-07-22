@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
 import 'package:fl_clash/common/string.dart';
 import 'package:fl_clash/common/yaml.dart';
 import 'package:path/path.dart' as p;
@@ -11,13 +10,13 @@ import 'package:yaml/yaml.dart';
 class UnifiedMaterializedProfile {
   const UnifiedMaterializedProfile({
     required this.yaml,
+    required this.providerSourceYaml,
     required this.externalProvidersFlattened,
-    this.slclashRestore,
   });
 
   final Uint8List yaml;
+  final Uint8List providerSourceYaml;
   final bool externalProvidersFlattened;
-  final Map<String, Object?>? slclashRestore;
 }
 
 typedef ProviderContentNormalizer =
@@ -38,15 +37,10 @@ Future<UnifiedMaterializedProfile> materializeProfileForUnifiedExport({
   if (definitions is! Map || definitions.isEmpty) {
     return UnifiedMaterializedProfile(
       yaml: profileBytes,
+      providerSourceYaml: profileBytes,
       externalProvidersFlattened: false,
     );
   }
-
-  final slclashRestore = <String, Object?>{
-    'schemaVersion': 1,
-    'profileYamlBase64': base64Encode(profileBytes),
-    'profileSha256': sha256.convert(profileBytes).toString(),
-  };
 
   final nodes = <Object?>[
     if (config['proxies'] case final List existing) ...existing,
@@ -87,9 +81,9 @@ Future<UnifiedMaterializedProfile> materializeProfileForUnifiedExport({
   config.remove('proxy-providers');
   final text = '${yaml.encode(config).trimRight()}\n';
   return UnifiedMaterializedProfile(
-    yaml: Uint8List.fromList(utf8.encode(text)),
+    yaml: profileBytes,
+    providerSourceYaml: Uint8List.fromList(utf8.encode(text)),
     externalProvidersFlattened: true,
-    slclashRestore: slclashRestore,
   );
 }
 

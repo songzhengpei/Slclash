@@ -6,12 +6,12 @@ class UnifiedExportProfile {
     required this.name,
     required this.sourceUrl,
     required this.yaml,
+    this.providerSourceYaml,
     required this.updated,
     required this.autoUpdate,
     required this.updateIntervalMinutes,
     this.subscriptionInfo,
     this.externalProvidersFlattened = false,
-    this.slclashRestore,
     this.localFile = false,
   });
 
@@ -19,12 +19,12 @@ class UnifiedExportProfile {
   final String name;
   final String sourceUrl;
   final Uint8List yaml;
+  final Uint8List? providerSourceYaml;
   final int updated;
   final bool autoUpdate;
   final int updateIntervalMinutes;
   final Map<String, int>? subscriptionInfo;
   final bool externalProvidersFlattened;
-  final Map<String, Object?>? slclashRestore;
   final bool localFile;
 }
 

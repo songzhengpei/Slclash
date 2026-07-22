@@ -1159,6 +1159,7 @@ class BackupAction extends _$BackupAction {
           name: profile.realLabel,
           sourceUrl: profile.url,
           yaml: materializedYaml.yaml,
+          providerSourceYaml: materializedYaml.providerSourceYaml,
           updated:
               (profile.lastUpdateDate ?? DateTime.fromMillisecondsSinceEpoch(0))
                   .millisecondsSinceEpoch ~/
@@ -1175,7 +1176,6 @@ class BackupAction extends _$BackupAction {
                 },
           externalProvidersFlattened:
               materializedYaml.externalProvidersFlattened,
-          slclashRestore: materializedYaml.slclashRestore,
           localFile: profile.type == ProfileType.file,
         ),
       );

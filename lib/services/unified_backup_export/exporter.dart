@@ -122,7 +122,9 @@ class UnifiedV1Exporter {
               !seenSlugs.add(identity.slug)) {
             throw StateError('Unified profile identity collision');
           }
-          final projected = projectProfile(profile.yaml);
+          final projected = projectProfile(
+            profile.providerSourceYaml ?? profile.yaml,
+          );
           final providerHash = sha256
               .convert(projected.providerYaml)
               .toString();
@@ -197,8 +199,6 @@ class UnifiedV1Exporter {
           'nodeStats': dependencyState.nodeStats,
           'internalDependencies': dependencyState.dependencies,
         },
-        if (profile.slclashRestore != null)
-          'slclashRestore': profile.slclashRestore,
       };
       files['profiles/${identity.profileUid}.yaml'] = profile.yaml;
       files['providers/${identity.slug}/provider.yaml'] =

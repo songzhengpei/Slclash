@@ -19,6 +19,7 @@ void main() {
       profilesDirectory: 'unused',
     );
     expect(result.yaml, bytes);
+    expect(result.providerSourceYaml, bytes);
     expect(result.externalProvidersFlattened, isFalse);
   });
 
@@ -70,18 +71,15 @@ rules: []
       profileBytes: source,
       profilesDirectory: directory.path,
     );
-    final yaml = loadYaml(utf8.decode(result.yaml)) as YamlMap;
+    expect(result.yaml, source);
+    final yaml = loadYaml(utf8.decode(result.providerSourceYaml)) as YamlMap;
     expect(result.externalProvidersFlattened, isTrue);
-    expect(
-      base64Decode(result.slclashRestore!['profileYamlBase64']! as String),
-      source,
-    );
     expect(yaml.containsKey('proxy-providers'), isFalse);
     expect(yaml['proxies'], hasLength(3));
     expect(yaml['proxies'][1]['server'], '1.2.3.4');
     expect(yaml['proxy-groups'][0].containsKey('use'), isFalse);
     expect(yaml['proxy-groups'][0]['proxies'], ['first', 'second']);
-    expect(utf8.decode(result.yaml), isNot(contains(url)));
+    expect(utf8.decode(result.providerSourceYaml), isNot(contains(url)));
   });
 
   test('fails explicitly when declared Provider cache is unavailable', () {
@@ -147,7 +145,7 @@ proxy-providers:
         },
       );
 
-      final yaml = loadYaml(utf8.decode(result.yaml)) as YamlMap;
+      final yaml = loadYaml(utf8.decode(result.providerSourceYaml)) as YamlMap;
       expect(yaml['proxies'], hasLength(1));
       expect(yaml['proxies'][0]['name'], 'normalized');
     },
