@@ -221,10 +221,8 @@ class _ScriptsViewState extends ConsumerState<ScriptsView> {
               },
               tone: SlAppBarActionTone.destructive,
             ),
-          SlAppBarTextAction(
-            label: selectedScriptId != null
-                ? appLocalizations.edit
-                : appLocalizations.add,
+          SlAppBarIconAction(
+            icon: selectedScriptId != null ? SurgeIcons.edit : SurgeIcons.add,
             tooltip: selectedScriptId != null
                 ? appLocalizations.edit
                 : appLocalizations.add,

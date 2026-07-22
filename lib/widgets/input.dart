@@ -765,10 +765,8 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
               tooltip: appLocalizations.reset,
               onPressed: _handleReset,
             ),
-          SlAppBarTextAction(
-            label: selectedItems.isNotEmpty
-                ? appLocalizations.selectAll
-                : appLocalizations.add,
+          SlAppBarIconAction(
+            icon: selectedItems.isNotEmpty ? SurgeIcons.selectAll : SurgeIcons.add,
             tooltip: selectedItems.isNotEmpty
                 ? appLocalizations.selectAll
                 : appLocalizations.add,
@@ -1030,10 +1028,8 @@ class _MapInputPageState extends ConsumerState<MapInputPage> {
               tooltip: appLocalizations.reset,
               onPressed: _handleReset,
             ),
-          SlAppBarTextAction(
-            label: selectedItems.isNotEmpty
-                ? appLocalizations.selectAll
-                : appLocalizations.add,
+          SlAppBarIconAction(
+            icon: selectedItems.isNotEmpty ? SurgeIcons.selectAll : SurgeIcons.add,
             tooltip: selectedItems.isNotEmpty
                 ? appLocalizations.selectAll
                 : appLocalizations.add,

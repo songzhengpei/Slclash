@@ -37,7 +37,7 @@ class SlAppBarIconButton extends StatelessWidget {
   final SlAppBarActionTone tone;
 
   static const double _tapSize = 48;
-  static const double _iconSize = 22;
+  static const double _iconSize = 24;
 
   @override
   Widget build(BuildContext context) {

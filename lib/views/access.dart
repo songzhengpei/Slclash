@@ -220,10 +220,10 @@ class _AccessViewState extends ConsumerState<AccessView> {
   }) {
     final appLocalizations = context.appLocalizations;
     if (hasChanges) {
-      return SlAppBarTextAction(
-        label: appLocalizations.save,
-        onPressed: _handleSave,
+      return SlAppBarIconAction(
+        icon: SurgeIcons.confirm,
         tooltip: appLocalizations.save,
+        onPressed: _handleSave,
       );
     }
     return SlAppBarOverflowAction(

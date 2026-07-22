@@ -173,10 +173,8 @@ class _CustomRulesViewState extends ConsumerState<CustomRulesView>
             onPressed: _handleDelete,
             tone: SlAppBarActionTone.destructive,
           ),
-        SlAppBarTextAction(
-          label: selectedRules.isNotEmpty
-              ? appLocalizations.selectAll
-              : appLocalizations.add,
+        SlAppBarIconAction(
+          icon: selectedRules.isNotEmpty ? SurgeIcons.selectAll : SurgeIcons.add,
           tooltip: selectedRules.isNotEmpty
               ? appLocalizations.selectAll
               : appLocalizations.add,

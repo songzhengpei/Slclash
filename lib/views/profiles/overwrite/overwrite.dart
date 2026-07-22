@@ -45,8 +45,8 @@ class _OverwriteViewState extends ConsumerState<OverwriteView> {
       child: CommonScaffold(
         title: appLocalizations.override,
         appBarActions: [
-          SlAppBarTextAction(
-            label: appLocalizations.preview,
+          SlAppBarIconAction(
+            icon: SurgeIcons.visibility,
             tooltip: appLocalizations.preview,
             onPressed: _handlePreview,
           ),
