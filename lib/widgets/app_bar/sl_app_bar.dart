@@ -41,14 +41,6 @@ class SlAppBarActionsRenderer extends StatelessWidget {
           enabled: enabled,
           tone: tone,
         ),
-      SlAppBarTextAction(:final label, :final tooltip, :final onPressed, :final enabled, :final tone) =>
-        SlAppBarTextButton(
-          label: label,
-          tooltip: tooltip,
-          onPressed: onPressed,
-          enabled: enabled,
-          tone: tone,
-        ),
       SlAppBarOverflowAction(:final popup, :final tooltip, :final enabled) =>
         SlAppBarOverflowButton(
           popup: popup,

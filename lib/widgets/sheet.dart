@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:fl_clash/common/common.dart';
-import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/state.dart';
@@ -129,8 +128,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
   final Widget body;
   final String title;
   final bool sheetTransparentToolBar;
-  final List<IconButtonData> actions;
-  final List<SlAppBarAction>? appBarActions;
+  final List<SlAppBarAction> appBarActions;
   final VoidCallback? backAction;
 
   const AdaptiveSheetScaffold({
@@ -138,8 +136,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     required this.body,
     required this.title,
     this.sheetTransparentToolBar = false,
-    this.actions = const [],
-    this.appBarActions,
+    this.appBarActions = const [],
     this.backAction,
   });
 
@@ -151,12 +148,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
   final _isScrolledController = ValueNotifier<bool>(false);
 
   void _validateRuntime() {
-    if (widget.appBarActions != null && widget.actions.isNotEmpty) {
-      throw FlutterError(
-        'AdaptiveSheetScaffold cannot use both actions and appBarActions.',
-      );
-    }
-    if (widget.appBarActions != null && widget.appBarActions!.length > 1) {
+    if (widget.appBarActions.length > 1) {
       throw FlutterError(
         'AdaptiveSheetScaffold supports at most one semantic app bar action.',
       );
@@ -205,49 +197,13 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         type != SheetType.page &&
         (nestedNavigatorPop != null && route?.impliesAppBarDismissal == false ||
             nestedNavigatorPop == null);
-    final compact = type == SheetType.bottomSheet;
-    final isSemantic = widget.appBarActions != null;
 
-    Widget buildIconButton(IconButtonData data) {
-      return SoftOsActionButton(
-        icon: data.icon,
-        onPressed: data.onPressed,
-        compact: compact,
-      );
-    }
-
-    Widget? buildActionGroup(List<IconButtonData> data) {
-      if (data.isEmpty) return null;
-      if (data.length == 1) return buildIconButton(data.first);
-      final children = <Widget>[];
-      for (var index = 0; index < data.length; index++) {
-        if (index > 0) children.add(const SoftOsActionDivider());
-        children.add(
-          SoftOsActionDockButton(
-            icon: data[index].icon,
-            onPressed: data[index].onPressed,
-            compact: compact,
-          ),
-        );
-      }
-      return SoftOsActionDock(compact: compact, children: children);
-    }
-
-    final AppBar appBar = isSemantic
-        ? _buildSemanticAppBar(
-            type: type,
-            backgroundColor: backgroundColor,
-            useCloseIcon: useCloseIcon,
-            route: route,
-          )
-        : _buildLegacyAppBar(
-            type: type,
-            backgroundColor: backgroundColor,
-            useCloseIcon: useCloseIcon,
-            compact: compact,
-            route: route,
-            buildActionGroup: buildActionGroup,
-          );
+    final AppBar appBar = _buildSemanticAppBar(
+      type: type,
+      backgroundColor: backgroundColor,
+      useCloseIcon: useCloseIcon,
+      route: route,
+    );
 
     if (type == SheetType.bottomSheet) {
       const handleSize = Size(28, 4);
@@ -390,9 +346,8 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       );
     }
 
-    final trailing =
-        widget.appBarActions != null && widget.appBarActions!.isNotEmpty
-        ? SlAppBarActionsRenderer(actions: widget.appBarActions!)
+    final trailing = widget.appBarActions.isNotEmpty
+        ? SlAppBarActionsRenderer(actions: widget.appBarActions)
         : null;
 
     final reserveSlots = leading != null || trailing != null;
@@ -435,65 +390,4 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     );
   }
 
-  AppBar _buildLegacyAppBar({
-    required SheetType type,
-    required Color backgroundColor,
-    required bool useCloseIcon,
-    required bool compact,
-    required ModalRoute<dynamic>? route,
-    required Widget? Function(List<IconButtonData>) buildActionGroup,
-  }) {
-    final actions = [?buildActionGroup(widget.actions)];
-
-    final popButton = type != SheetType.page
-        ? (useCloseIcon
-              ? SoftOsActionButton(
-                  icon: SurgeIcons.close,
-                  onPressed: context.safeNestedPop,
-                  compact: compact,
-                )
-              : SoftOsActionButton(
-                  icon: backIconData,
-                  onPressed:
-                      widget.backAction ??
-                      () {
-                        Navigator.of(context).pop();
-                      },
-                  compact: compact,
-                ))
-        : null;
-    final suffixPop = type != SheetType.page && actions.isEmpty && useCloseIcon;
-    final pagePopButton =
-        type == SheetType.page && route?.impliesAppBarDismissal == true
-        ? SoftOsActionButton(
-            icon: backIconData,
-            onPressed:
-                widget.backAction ??
-                () {
-                  Navigator.of(context).maybePop();
-                },
-            compact: compact,
-          )
-        : null;
-    final leading = suffixPop ? null : popButton ?? pagePopButton;
-
-    return AppBar(
-      backgroundColor: backgroundColor,
-      forceMaterialTransparency: type == SheetType.bottomSheet,
-      leading: leading,
-      leadingWidth: leading != null ? 56 : null,
-      automaticallyImplyLeading: false,
-      centerTitle: true,
-      toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
-      title: Text(widget.title),
-      titleTextStyle: type == SheetType.bottomSheet
-          ? context.typography.sheetTitle.copyWith(
-              color: SurgeTheme.of(context).textPrimary,
-            )
-          : null,
-      actions: !suffixPop
-          ? genActions(actions, endSpace: 16)
-          : genActions([?popButton], endSpace: 16),
-    );
-  }
 }

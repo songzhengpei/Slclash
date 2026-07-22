@@ -34,7 +34,7 @@ class AdvancedConfigView extends StatelessWidget {
         delegate: const OpenDelegate(widget: ScriptsView(), blur: false),
       ),
     ];
-    return BaseScaffold(
+    return CommonScaffold(
       title: appLocalizations.advancedConfig,
       body: generateListView(items),
     );

@@ -140,7 +140,7 @@ class HotKeyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
-    return BaseScaffold(
+    return CommonScaffold(
       title: appLocalizations.hotkeyManagement,
       body: ListView.builder(
         itemCount: HotAction.values.length,

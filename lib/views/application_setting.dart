@@ -263,7 +263,7 @@ class ApplicationSettingView extends StatelessWidget {
       const UsageItem(),
       const AutoCheckUpdateItem(),
     ];
-    return BaseScaffold(
+    return CommonScaffold(
       title: context.appLocalizations.application,
       body: generateListView(items),
     );

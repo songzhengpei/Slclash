@@ -22,22 +22,6 @@ class SlAppBarIconAction extends SlAppBarAction {
   final SlAppBarActionTone tone;
 }
 
-class SlAppBarTextAction extends SlAppBarAction {
-  const SlAppBarTextAction({
-    required this.label,
-    required this.tooltip,
-    this.onPressed,
-    this.enabled = true,
-    this.tone = SlAppBarActionTone.normal,
-  });
-
-  final String label;
-  final String tooltip;
-  final VoidCallback? onPressed;
-  final bool enabled;
-  final SlAppBarActionTone tone;
-}
-
 class SlAppBarOverflowAction extends SlAppBarAction {
   const SlAppBarOverflowAction({
     required this.popup,

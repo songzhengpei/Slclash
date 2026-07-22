@@ -298,7 +298,7 @@ class _NetworkItem extends StatelessWidget {
       leading: const Icon(SurgeIcons.vpnKey),
       title: appLocalizations.network,
       subtitle: appLocalizations.networkDesc,
-      child: BaseScaffold(
+      child: CommonScaffold(
         title: appLocalizations.network,
         body: const NetworkListView(),
       ),
@@ -316,25 +316,22 @@ class _DnsItem extends StatelessWidget {
       leading: const Icon(SurgeIcons.dns),
       title: 'DNS',
       subtitle: appLocalizations.dnsDesc,
-      child: BaseScaffold(
+      child: CommonScaffold(
         title: 'DNS',
-        actions: [
-          Consumer(
-            builder: (_, ref, _) {
-              return IconButton(
-                onPressed: () async {
-                  final res = await globalState.showMessage(
-                    title: appLocalizations.reset,
-                    message: TextSpan(text: appLocalizations.resetTip),
-                  );
-                  if (res != true) return;
-                  ref
-                      .read(patchClashConfigProvider.notifier)
-                      .update((state) => state.copyWith(dns: defaultDns));
-                },
-                tooltip: appLocalizations.reset,
-                icon: const Icon(SurgeIcons.replay),
+        appBarActions: [
+          SlAppBarIconAction(
+            icon: SurgeIcons.replay,
+            tooltip: appLocalizations.reset,
+            onPressed: () async {
+              final res = await globalState.showMessage(
+                title: appLocalizations.reset,
+                message: TextSpan(text: appLocalizations.resetTip),
               );
+              if (res != true) return;
+              final container = ProviderScope.containerOf(context);
+              container
+                  .read(patchClashConfigProvider.notifier)
+                  .update((state) => state.copyWith(dns: defaultDns));
             },
           ),
         ],

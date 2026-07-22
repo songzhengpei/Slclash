@@ -52,7 +52,7 @@ class ThemeView extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final surge = SurgeTheme.of(context);
-    return BaseScaffold(
+    return CommonScaffold(
       title: appLocalizations.theme,
       body: ColoredBox(
         color: surge.background,

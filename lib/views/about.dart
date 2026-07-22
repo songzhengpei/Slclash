@@ -98,7 +98,7 @@ class AboutView extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final surge = SurgeTheme.of(context);
-    return BaseScaffold(
+    return CommonScaffold(
       title: appLocalizations.about,
       body: ColoredBox(
         color: surge.background,

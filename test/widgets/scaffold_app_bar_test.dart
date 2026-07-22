@@ -85,28 +85,6 @@ void main() {
       expect(find.byType(SoftOsActionDock), findsNothing);
     });
 
-    testWidgets('renders text action', (tester) async {
-      var taps = 0;
-      await tester.pumpWidget(
-        _app(
-          CommonScaffold(
-            title: 'Test',
-            body: const SizedBox(),
-            appBarActions: [
-              SlAppBarTextAction(
-                label: '保存',
-                tooltip: '保存',
-                onPressed: () => taps++,
-              ),
-            ],
-          ),
-        ),
-      );
-      expect(find.text('保存'), findsOneWidget);
-      await tester.tap(find.text('保存'));
-      expect(taps, 1);
-    });
-
     testWidgets('renders overflow action with popup', (tester) async {
       await tester.pumpWidget(
         _app(
@@ -198,87 +176,7 @@ void main() {
     });
   });
 
-  group('CommonScaffold legacy actions', () {
-    testWidgets('legacy actions still render', (tester) async {
-      var taps = 0;
-      await tester.pumpWidget(
-        _app(
-          CommonScaffold(
-            title: 'Test',
-            body: const SizedBox(),
-            actions: [
-              IconButton(
-                icon: const Icon(SurgeIcons.settings),
-                onPressed: () => taps++,
-              ),
-            ],
-          ),
-        ),
-      );
-      expect(find.byIcon(SurgeIcons.settings), findsOneWidget);
-      await tester.tap(find.byIcon(SurgeIcons.settings));
-      expect(taps, 1);
-    });
-
-    testWidgets('legacy auto-add search button works', (tester) async {
-      await tester.pumpWidget(
-        _app(
-          CommonScaffold(
-            title: 'Test',
-            body: const SizedBox(),
-            searchState: AppBarSearchState(
-              onSearch: (_) {},
-              autoAddSearch: true,
-            ),
-          ),
-        ),
-      );
-      expect(find.byIcon(SurgeIcons.search), findsOneWidget);
-    });
-
-    testWidgets('legacy double actions preserve SoftOsActionDock', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _app(
-          CommonScaffold(
-            title: 'Test',
-            body: const SizedBox(),
-            actions: [
-              IconButton(
-                icon: const Icon(SurgeIcons.refresh),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(SurgeIcons.settings),
-                onPressed: () {},
-              ),
-            ],
-          ),
-        ),
-      );
-      expect(find.byType(SoftOsActionDock), findsOneWidget);
-    });
-  });
-
   group('CommonScaffold validation', () {
-    test('throws when both appBarActions and actions provided', () {
-      expect(
-        () => CommonScaffold(
-          title: 'Test',
-          body: const SizedBox(),
-          appBarActions: [
-            const SlAppBarIconAction(
-              icon: SurgeIcons.search,
-              tooltip: '搜索',
-            ),
-          ],
-          actions: [const SizedBox()],
-        ),
-        throwsAssertionError,
-      );
-    });
-
     testWidgets(
       'throws FlutterError when auto-search plus two page actions',
       (tester) async {

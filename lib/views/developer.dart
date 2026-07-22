@@ -97,7 +97,7 @@ class DeveloperView extends ConsumerWidget {
     final enable = ref.watch(
       appSettingProvider.select((state) => state.developerMode),
     );
-    return BaseScaffold(
+    return CommonScaffold(
       title: appLocalizations.developerMode,
       body: SingleChildScrollView(
         padding: baseInfoEdgeInsets,
