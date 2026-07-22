@@ -201,7 +201,6 @@ class NetworkOverviewCardLayoutCalculator {
     final extraHeight = resolvedOuterHeight - naturalOuterHeight;
     final distributedExtraHeight =
         extraHeight * contentExpansionFraction.clamp(0.0, 1.0);
-    final detectionExtraHeight = extraHeight - distributedExtraHeight * 0.85;
     return NetworkOverviewCardLayout(
       headerHeight: headerHeightFor(responsiveLayout),
       chartHeight:
@@ -1120,9 +1119,7 @@ class _NetworkDetectionBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
-                style: context.typography.dashboardMetric.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                style: context.typography.dashboardIpValue.copyWith(
                   color: textColor,
                 ),
               ),
@@ -1404,10 +1401,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
   }
 
   TextStyle _valueStyle(BuildContext context) {
-    return context.typography.dashboardMetric.copyWith(
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-    );
+    return context.typography.dashboardLatencyValue;
   }
 
   @override

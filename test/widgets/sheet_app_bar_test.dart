@@ -30,9 +30,9 @@ Widget _sheetApp(
       extensions: [surge ?? SurgeTheme.light(), typography],
     ),
     builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        textScaler: TextScaler.linear(textScaleFactor),
-      ),
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScaleFactor)),
       child: child!,
     ),
     home: SheetProvider(
@@ -77,15 +77,15 @@ void main() {
           home: const SizedBox(),
           routes: {
             '/detail': (_) => SheetProvider(
-                  type: SheetType.page,
-                  child: Scaffold(
-                    body: AdaptiveSheetScaffold(
-                      title: 'Detail',
-                      body: const SizedBox(height: 200),
-                      appBarActions: const [],
-                    ),
-                  ),
+              type: SheetType.page,
+              child: Scaffold(
+                body: AdaptiveSheetScaffold(
+                  title: 'Detail',
+                  body: const SizedBox(height: 200),
+                  appBarActions: const [],
                 ),
+              ),
+            ),
           },
         ),
       );
@@ -158,7 +158,7 @@ void main() {
         ),
       );
       final leadingFinder = find.byWidgetPredicate(
-        (w) => w is SlAppBarIconButton && w.icon == SurgeIcons.close,
+        (w) => w is SoftOsActionButton && w.icon == SurgeIcons.close,
       );
       expect(leadingFinder, findsOneWidget);
       final size = tester.getSize(leadingFinder);
@@ -166,9 +166,7 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(48));
     });
 
-    testWidgets('bottom sheet title centered with no trailing', (
-      tester,
-    ) async {
+    testWidgets('bottom sheet title centered with no trailing', (tester) async {
       await tester.pumpWidget(
         _sheetApp(
           AdaptiveSheetScaffold(
@@ -184,9 +182,7 @@ void main() {
       expect((titleCenter.dx - appBarCenter.dx).abs(), lessThan(4));
     });
 
-    testWidgets('bottom sheet title centered with icon action', (
-      tester,
-    ) async {
+    testWidgets('bottom sheet title centered with icon action', (tester) async {
       await tester.pumpWidget(
         _sheetApp(
           AdaptiveSheetScaffold(
@@ -246,10 +242,10 @@ void main() {
         ),
       );
       final leadingFinder = find.byWidgetPredicate(
-        (w) => w is SlAppBarIconButton && w.icon == SurgeIcons.close,
+        (w) => w is SoftOsActionButton && w.icon == SurgeIcons.close,
       );
       expect(leadingFinder, findsOneWidget);
-      final button = tester.widget<SlAppBarIconButton>(leadingFinder);
+      final button = tester.widget<SoftOsActionButton>(leadingFinder);
       final materialLocalizations = MaterialLocalizations.of(
         tester.element(leadingFinder),
       );
@@ -392,18 +388,14 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
-      final textWidget = tester.widget<Text>(
-        find.text('这是一个很长的标题用于测试省略号'),
-      );
+      final textWidget = tester.widget<Text>(find.text('这是一个很长的标题用于测试省略号'));
       expect(textWidget.maxLines, 1);
       expect(textWidget.overflow, TextOverflow.ellipsis);
     });
   });
 
   group('AdaptiveSheetScaffold bottom sheet', () {
-    testWidgets('bottom sheet toolbar height is 48dp', (
-      tester,
-    ) async {
+    testWidgets('bottom sheet toolbar height is 48dp', (tester) async {
       await tester.pumpWidget(
         _sheetApp(
           AdaptiveSheetScaffold(
@@ -421,36 +413,32 @@ void main() {
   });
 
   group('AdaptiveSheetScaffold runtime validation', () {
-    testWidgets(
-      'throws FlutterError when appBarActions has more than one',
-      (tester) async {
-        await tester.pumpWidget(
-          _sheetApp(
-            AdaptiveSheetScaffold(
-              title: 'Test',
-              body: const SizedBox(height: 200),
-              appBarActions: [
-                const SlAppBarIconAction(
-                  icon: SurgeIcons.delete,
-                  tooltip: '删除',
-                ),
-                const SlAppBarIconAction(
-                  icon: SurgeIcons.settings,
-                  tooltip: '设置',
-                ),
-              ],
-            ),
+    testWidgets('throws FlutterError when appBarActions has more than one', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _sheetApp(
+          AdaptiveSheetScaffold(
+            title: 'Test',
+            body: const SizedBox(height: 200),
+            appBarActions: [
+              const SlAppBarIconAction(icon: SurgeIcons.delete, tooltip: '删除'),
+              const SlAppBarIconAction(
+                icon: SurgeIcons.settings,
+                tooltip: '设置',
+              ),
+            ],
           ),
-        );
-        expect(
-          tester.takeException(),
-          isA<FlutterError>().having(
-            (e) => e.message,
-            'message',
-            contains('at most one'),
-          ),
-        );
-      },
-    );
+        ),
+      );
+      expect(
+        tester.takeException(),
+        isA<FlutterError>().having(
+          (e) => e.message,
+          'message',
+          contains('at most one'),
+        ),
+      );
+    });
   });
 }

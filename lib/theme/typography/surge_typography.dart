@@ -10,6 +10,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.appBarTitle,
     required this.dialogTitle,
     required this.sectionTitle,
+    required this.mediaCheckTitle,
+    required this.mediaControlMetricLabel,
+    required this.mediaFilterTitle,
+    required this.mediaFilterSubtitle,
+    required this.mediaObservationInterval,
+    required this.mediaResultTitle,
+    required this.mediaRunButtonLabel,
     required this.cardTitle,
     required this.rowTitle,
     required this.body,
@@ -19,6 +26,9 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.selectedNavigationLabel,
     required this.detailLabel,
     required this.compactRowTitle,
+    required this.proxyGroupTitle,
+    required this.proxySelectorLabel,
+    required this.proxyCardSubtitle,
     required this.featuredTitle,
     required this.pillLabel,
     required this.itemLabel,
@@ -33,6 +43,9 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     required this.modeTabLabel,
     required this.selectedModeTabLabel,
     required this.dashboardMetric,
+    required this.dashboardIpValue,
+    required this.dashboardLatencyValue,
+    required this.dashboardDetectionValue,
     required this.techLabel,
     required this.metricLarge,
     required this.metric,
@@ -51,6 +64,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       appBarTitle: textTheme.titleLarge!,
       dialogTitle: SlclashTypeScale.dialogTitle,
       sectionTitle: SlclashTypeScale.sectionTitle,
+      mediaCheckTitle: SlclashTypeScale.mediaCheckTitle,
+      mediaControlMetricLabel: SlclashTypeScale.mediaControlMetricLabel,
+      mediaFilterTitle: SlclashTypeScale.mediaFilterTitle,
+      mediaFilterSubtitle: SlclashTypeScale.mediaFilterSubtitle,
+      mediaObservationInterval: SlclashTypeScale.mediaObservationInterval,
+      mediaResultTitle: SlclashTypeScale.mediaResultTitle,
+      mediaRunButtonLabel: SlclashTypeScale.mediaRunButtonLabel,
       cardTitle: textTheme.titleMedium!,
       rowTitle: textTheme.titleSmall!,
       body: textTheme.bodyLarge!,
@@ -60,6 +80,9 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       selectedNavigationLabel: SlclashTypeScale.selectedNavigationLabel,
       detailLabel: SlclashTypeScale.detailLabel,
       compactRowTitle: SlclashTypeScale.compactRowTitle,
+      proxyGroupTitle: SlclashTypeScale.proxyGroupTitle,
+      proxySelectorLabel: SlclashTypeScale.proxySelectorLabel,
+      proxyCardSubtitle: SlclashTypeScale.proxyCardSubtitle,
       featuredTitle: SlclashTypeScale.featuredTitle,
       pillLabel: SlclashTypeScale.pillLabel,
       itemLabel: SlclashTypeScale.itemLabel,
@@ -82,6 +105,9 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       modeTabLabel: SlclashTypeScale.modeTabLabel,
       selectedModeTabLabel: SlclashTypeScale.selectedModeTabLabel,
       dashboardMetric: SlclashTypeScale.dashboardMetric,
+      dashboardIpValue: SlclashTypeScale.dashboardIpValue,
+      dashboardLatencyValue: SlclashTypeScale.dashboardLatencyValue,
+      dashboardDetectionValue: SlclashTypeScale.dashboardDetectionValue,
       techLabel: SlclashTypeScale.techLabel,
     );
   }
@@ -91,6 +117,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle appBarTitle;
   final TextStyle dialogTitle;
   final TextStyle sectionTitle;
+  final TextStyle mediaCheckTitle;
+  final TextStyle mediaControlMetricLabel;
+  final TextStyle mediaFilterTitle;
+  final TextStyle mediaFilterSubtitle;
+  final TextStyle mediaObservationInterval;
+  final TextStyle mediaResultTitle;
+  final TextStyle mediaRunButtonLabel;
   final TextStyle cardTitle;
   final TextStyle rowTitle;
   final TextStyle body;
@@ -100,6 +133,9 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle selectedNavigationLabel;
   final TextStyle detailLabel;
   final TextStyle compactRowTitle;
+  final TextStyle proxyGroupTitle;
+  final TextStyle proxySelectorLabel;
+  final TextStyle proxyCardSubtitle;
   final TextStyle featuredTitle;
   final TextStyle pillLabel;
   final TextStyle itemLabel;
@@ -122,6 +158,9 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   final TextStyle modeTabLabel;
   final TextStyle selectedModeTabLabel;
   final TextStyle dashboardMetric;
+  final TextStyle dashboardIpValue;
+  final TextStyle dashboardLatencyValue;
+  final TextStyle dashboardDetectionValue;
   final TextStyle techLabel;
 
   @override
@@ -131,6 +170,13 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? appBarTitle,
     TextStyle? dialogTitle,
     TextStyle? sectionTitle,
+    TextStyle? mediaCheckTitle,
+    TextStyle? mediaControlMetricLabel,
+    TextStyle? mediaFilterTitle,
+    TextStyle? mediaFilterSubtitle,
+    TextStyle? mediaObservationInterval,
+    TextStyle? mediaResultTitle,
+    TextStyle? mediaRunButtonLabel,
     TextStyle? cardTitle,
     TextStyle? rowTitle,
     TextStyle? body,
@@ -140,6 +186,9 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? selectedNavigationLabel,
     TextStyle? detailLabel,
     TextStyle? compactRowTitle,
+    TextStyle? proxyGroupTitle,
+    TextStyle? proxySelectorLabel,
+    TextStyle? proxyCardSubtitle,
     TextStyle? featuredTitle,
     TextStyle? pillLabel,
     TextStyle? itemLabel,
@@ -162,6 +211,9 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     TextStyle? modeTabLabel,
     TextStyle? selectedModeTabLabel,
     TextStyle? dashboardMetric,
+    TextStyle? dashboardIpValue,
+    TextStyle? dashboardLatencyValue,
+    TextStyle? dashboardDetectionValue,
     TextStyle? techLabel,
   }) {
     return SurgeTypography(
@@ -170,16 +222,28 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       appBarTitle: appBarTitle ?? this.appBarTitle,
       dialogTitle: dialogTitle ?? this.dialogTitle,
       sectionTitle: sectionTitle ?? this.sectionTitle,
+      mediaCheckTitle: mediaCheckTitle ?? this.mediaCheckTitle,
+      mediaControlMetricLabel:
+          mediaControlMetricLabel ?? this.mediaControlMetricLabel,
+      mediaFilterTitle: mediaFilterTitle ?? this.mediaFilterTitle,
+      mediaFilterSubtitle: mediaFilterSubtitle ?? this.mediaFilterSubtitle,
+      mediaObservationInterval:
+          mediaObservationInterval ?? this.mediaObservationInterval,
+      mediaResultTitle: mediaResultTitle ?? this.mediaResultTitle,
+      mediaRunButtonLabel: mediaRunButtonLabel ?? this.mediaRunButtonLabel,
       cardTitle: cardTitle ?? this.cardTitle,
       rowTitle: rowTitle ?? this.rowTitle,
       body: body ?? this.body,
       supporting: supporting ?? this.supporting,
       controlLabel: controlLabel ?? this.controlLabel,
       navigationLabel: navigationLabel ?? this.navigationLabel,
-      selectedNavigationLabel: selectedNavigationLabel ??
-          this.selectedNavigationLabel,
+      selectedNavigationLabel:
+          selectedNavigationLabel ?? this.selectedNavigationLabel,
       detailLabel: detailLabel ?? this.detailLabel,
       compactRowTitle: compactRowTitle ?? this.compactRowTitle,
+      proxyGroupTitle: proxyGroupTitle ?? this.proxyGroupTitle,
+      proxySelectorLabel: proxySelectorLabel ?? this.proxySelectorLabel,
+      proxyCardSubtitle: proxyCardSubtitle ?? this.proxyCardSubtitle,
       featuredTitle: featuredTitle ?? this.featuredTitle,
       pillLabel: pillLabel ?? this.pillLabel,
       itemLabel: itemLabel ?? this.itemLabel,
@@ -202,6 +266,11 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       modeTabLabel: modeTabLabel ?? this.modeTabLabel,
       selectedModeTabLabel: selectedModeTabLabel ?? this.selectedModeTabLabel,
       dashboardMetric: dashboardMetric ?? this.dashboardMetric,
+      dashboardIpValue: dashboardIpValue ?? this.dashboardIpValue,
+      dashboardLatencyValue:
+          dashboardLatencyValue ?? this.dashboardLatencyValue,
+      dashboardDetectionValue:
+          dashboardDetectionValue ?? this.dashboardDetectionValue,
       techLabel: techLabel ?? this.techLabel,
     );
   }
@@ -210,11 +279,50 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   SurgeTypography lerp(ThemeExtension<SurgeTypography>? other, double t) {
     if (other is! SurgeTypography) return this;
     return SurgeTypography(
-      rootAppBarTitle: TextStyle.lerp(rootAppBarTitle, other.rootAppBarTitle, t)!,
+      rootAppBarTitle: TextStyle.lerp(
+        rootAppBarTitle,
+        other.rootAppBarTitle,
+        t,
+      )!,
       screenTitle: TextStyle.lerp(screenTitle, other.screenTitle, t)!,
       appBarTitle: TextStyle.lerp(appBarTitle, other.appBarTitle, t)!,
       dialogTitle: TextStyle.lerp(dialogTitle, other.dialogTitle, t)!,
       sectionTitle: TextStyle.lerp(sectionTitle, other.sectionTitle, t)!,
+      mediaCheckTitle: TextStyle.lerp(
+        mediaCheckTitle,
+        other.mediaCheckTitle,
+        t,
+      )!,
+      mediaControlMetricLabel: TextStyle.lerp(
+        mediaControlMetricLabel,
+        other.mediaControlMetricLabel,
+        t,
+      )!,
+      mediaFilterTitle: TextStyle.lerp(
+        mediaFilterTitle,
+        other.mediaFilterTitle,
+        t,
+      )!,
+      mediaFilterSubtitle: TextStyle.lerp(
+        mediaFilterSubtitle,
+        other.mediaFilterSubtitle,
+        t,
+      )!,
+      mediaObservationInterval: TextStyle.lerp(
+        mediaObservationInterval,
+        other.mediaObservationInterval,
+        t,
+      )!,
+      mediaResultTitle: TextStyle.lerp(
+        mediaResultTitle,
+        other.mediaResultTitle,
+        t,
+      )!,
+      mediaRunButtonLabel: TextStyle.lerp(
+        mediaRunButtonLabel,
+        other.mediaRunButtonLabel,
+        t,
+      )!,
       cardTitle: TextStyle.lerp(cardTitle, other.cardTitle, t)!,
       rowTitle: TextStyle.lerp(rowTitle, other.rowTitle, t)!,
       body: TextStyle.lerp(body, other.body, t)!,
@@ -230,56 +338,35 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
         other.selectedNavigationLabel,
         t,
       )!,
-      detailLabel: TextStyle.lerp(
-        detailLabel,
-        other.detailLabel,
-        t,
-      )!,
+      detailLabel: TextStyle.lerp(detailLabel, other.detailLabel, t)!,
       compactRowTitle: TextStyle.lerp(
         compactRowTitle,
         other.compactRowTitle,
         t,
       )!,
-      featuredTitle: TextStyle.lerp(
-        featuredTitle,
-        other.featuredTitle,
+      proxyGroupTitle: TextStyle.lerp(
+        proxyGroupTitle,
+        other.proxyGroupTitle,
         t,
       )!,
-      pillLabel: TextStyle.lerp(
-        pillLabel,
-        other.pillLabel,
+      proxySelectorLabel: TextStyle.lerp(
+        proxySelectorLabel,
+        other.proxySelectorLabel,
         t,
       )!,
-      itemLabel: TextStyle.lerp(
-        itemLabel,
-        other.itemLabel,
+      proxyCardSubtitle: TextStyle.lerp(
+        proxyCardSubtitle,
+        other.proxyCardSubtitle,
         t,
       )!,
-      previewLabel: TextStyle.lerp(
-        previewLabel,
-        other.previewLabel,
-        t,
-      )!,
-      sheetRowTitle: TextStyle.lerp(
-        sheetRowTitle,
-        other.sheetRowTitle,
-        t,
-      )!,
-      sheetLabel: TextStyle.lerp(
-        sheetLabel,
-        other.sheetLabel,
-        t,
-      )!,
-      sheetTitle: TextStyle.lerp(
-        sheetTitle,
-        other.sheetTitle,
-        t,
-      )!,
-      countLabel: TextStyle.lerp(
-        countLabel,
-        other.countLabel,
-        t,
-      )!,
+      featuredTitle: TextStyle.lerp(featuredTitle, other.featuredTitle, t)!,
+      pillLabel: TextStyle.lerp(pillLabel, other.pillLabel, t)!,
+      itemLabel: TextStyle.lerp(itemLabel, other.itemLabel, t)!,
+      previewLabel: TextStyle.lerp(previewLabel, other.previewLabel, t)!,
+      sheetRowTitle: TextStyle.lerp(sheetRowTitle, other.sheetRowTitle, t)!,
+      sheetLabel: TextStyle.lerp(sheetLabel, other.sheetLabel, t)!,
+      sheetTitle: TextStyle.lerp(sheetTitle, other.sheetTitle, t)!,
+      countLabel: TextStyle.lerp(countLabel, other.countLabel, t)!,
       badgeLabel: TextStyle.lerp(badgeLabel, other.badgeLabel, t)!,
       selectedRowTitle: TextStyle.lerp(
         selectedRowTitle,
@@ -297,11 +384,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
         other.toolTileSubtitle,
         t,
       )!,
-      toolTileTitle: TextStyle.lerp(
-        toolTileTitle,
-        other.toolTileTitle,
-        t,
-      )!,
+      toolTileTitle: TextStyle.lerp(toolTileTitle, other.toolTileTitle, t)!,
       compactDescription: TextStyle.lerp(
         compactDescription,
         other.compactDescription,
@@ -316,6 +399,21 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
       dashboardMetric: TextStyle.lerp(
         dashboardMetric,
         other.dashboardMetric,
+        t,
+      )!,
+      dashboardIpValue: TextStyle.lerp(
+        dashboardIpValue,
+        other.dashboardIpValue,
+        t,
+      )!,
+      dashboardLatencyValue: TextStyle.lerp(
+        dashboardLatencyValue,
+        other.dashboardLatencyValue,
+        t,
+      )!,
+      dashboardDetectionValue: TextStyle.lerp(
+        dashboardDetectionValue,
+        other.dashboardDetectionValue,
         t,
       )!,
       techLabel: TextStyle.lerp(techLabel, other.techLabel, t)!,

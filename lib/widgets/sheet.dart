@@ -309,11 +309,18 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         leadingOnPressed = context.safeNestedPop;
         leading = Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: SlAppBarIconButton(
-            icon: SurgeIcons.close,
-            tooltip: materialLocalizations.closeButtonTooltip,
-            onPressed: leadingOnPressed,
-          ),
+          child: type == SheetType.bottomSheet
+              ? SoftOsActionButton(
+                  icon: SurgeIcons.close,
+                  tooltip: materialLocalizations.closeButtonTooltip,
+                  onPressed: leadingOnPressed,
+                  compact: true,
+                )
+              : SlAppBarIconButton(
+                  icon: SurgeIcons.close,
+                  tooltip: materialLocalizations.closeButtonTooltip,
+                  onPressed: leadingOnPressed,
+                ),
         );
       } else {
         leadingOnPressed =
@@ -347,7 +354,10 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     }
 
     final trailing = widget.appBarActions.isNotEmpty
-        ? SlAppBarActionsRenderer(actions: widget.appBarActions)
+        ? SlAppBarActionsRenderer(
+            actions: widget.appBarActions,
+            softOs: type == SheetType.bottomSheet,
+          )
         : null;
 
     final reserveSlots = leading != null || trailing != null;
@@ -363,15 +373,16 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       titleTextStyle: context.typography.sheetTitle.copyWith(
         color: SurgeTheme.of(context).textPrimary,
       ),
-      title: Text(
-        widget.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       leading: reserveSlots
           ? Align(
               alignment: Alignment.centerLeft,
-              child: leading ?? const SizedBox.shrink(),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: type == SheetType.bottomSheet ? 6 : 0,
+                ),
+                child: leading ?? const SizedBox.shrink(),
+              ),
             )
           : null,
       leadingWidth: effectiveSlotWidth,
@@ -381,11 +392,15 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
             width: effectiveSlotWidth,
             child: Align(
               alignment: Alignment.centerRight,
-              child: trailing ?? const SizedBox.shrink(),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: type == SheetType.bottomSheet ? 6 : 0,
+                ),
+                child: trailing ?? const SizedBox.shrink(),
+              ),
             ),
           ),
       ],
     );
   }
-
 }

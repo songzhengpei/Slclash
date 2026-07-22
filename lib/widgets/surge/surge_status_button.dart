@@ -18,6 +18,9 @@ class SurgeStatusButton extends StatelessWidget {
     this.activeColor,
     this.inactiveColor,
     this.height,
+    this.horizontalPadding,
+    this.minWidth,
+    this.textStyle,
   });
 
   final bool isActive;
@@ -32,6 +35,9 @@ class SurgeStatusButton extends StatelessWidget {
   final Color? activeColor;
   final Color? inactiveColor;
   final double? height;
+  final double? horizontalPadding;
+  final double? minWidth;
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -51,16 +57,20 @@ class SurgeStatusButton extends StatelessWidget {
         disabledBackgroundColor: background.withValues(alpha: 0.55),
         foregroundColor: surge.onPrimary,
         disabledForegroundColor: surge.onPrimary.withValues(alpha: 0.8),
-        minimumSize: Size(compact ? 0 : metrics.value(96), effectiveHeight),
+        minimumSize: Size(
+          metrics.value(minWidth ?? (compact ? 0 : 96)),
+          effectiveHeight,
+        ),
         maximumSize: Size(double.infinity, effectiveHeight),
         padding: EdgeInsets.symmetric(
-          horizontal: metrics.value(compact ? 12 : 16),
+          horizontal: metrics.value(horizontalPadding ?? (compact ? 12 : 16)),
           vertical: 0,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(surge.radii.button),
         ),
-        textStyle: context.typography.controlLabel,
+        alignment: Alignment.center,
+        textStyle: textStyle ?? context.typography.controlLabel,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -78,7 +88,12 @@ class SurgeStatusButton extends StatelessWidget {
             Icon(icon, size: metrics.value(compact ? 14 : 16)),
             SizedBox(width: metrics.value(6)),
           ],
-          Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );

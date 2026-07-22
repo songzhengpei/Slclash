@@ -342,18 +342,18 @@ class _ProxiesListViewState extends State<ProxiesListView> {
               ? ProxiesEmptyStateKind.failed
               : ProxiesEmptyStateKind.empty;
           final emptyLabel = switch (emptyKind) {
-            ProxiesEmptyStateKind.loading => '正在加载 Provider',
+            ProxiesEmptyStateKind.loading => '正在同步代理组',
             ProxiesEmptyStateKind.timeout => 'Provider 尚未加载完成',
             ProxiesEmptyStateKind.coreUnavailable => '代理内核暂不可用',
             ProxiesEmptyStateKind.failed => 'Provider 加载失败',
-            ProxiesEmptyStateKind.empty => '当前配置没有可显示代理组',
+            ProxiesEmptyStateKind.empty => '暂无代理组',
           };
           final emptyDescription = switch (emptyKind) {
-            ProxiesEmptyStateKind.loading => '正在获取代理组。',
+            ProxiesEmptyStateKind.loading => '正在从 Provider 获取节点，请稍候。',
             ProxiesEmptyStateKind.timeout => '请检查网络后重试。',
             ProxiesEmptyStateKind.coreUnavailable => '请重新连接。',
             ProxiesEmptyStateKind.failed => '请稍后重试。',
-            ProxiesEmptyStateKind.empty => null,
+            ProxiesEmptyStateKind.empty => '当前配置没有可用节点。',
           };
           return ProxiesEmptyState(
             label: emptyLabel,
@@ -675,9 +675,8 @@ class _ListHeaderState extends State<ListHeader> {
                                   groupName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: context.typography.rowTitle.copyWith(
-                                    color: surge.textPrimary,
-                                  ),
+                                  style: context.typography.proxyGroupTitle
+                                      .copyWith(color: surge.textPrimary),
                                 ),
                                 const SizedBox(height: 4),
                                 Flexible(
@@ -692,7 +691,9 @@ class _ListHeaderState extends State<ListHeader> {
                                         groupType,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: context.typography.detailLabel
+                                        style: context
+                                            .typography
+                                            .proxySelectorLabel
                                             .copyWith(
                                               color: surge.textSecondary,
                                             ),
@@ -774,7 +775,7 @@ class _ListHeaderState extends State<ListHeader> {
                                                         TextOverflow.ellipsis,
                                                     style: context
                                                         .typography
-                                                        .detailLabel
+                                                        .proxySelectorLabel
                                                         .copyWith(
                                                           color: surge
                                                               .textPrimary

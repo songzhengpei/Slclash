@@ -16,7 +16,6 @@ import 'package:flutter/services.dart';
 
 import 'effect.dart';
 import 'list.dart';
-import 'theme.dart';
 
 InputDecoration surgeInputDecoration(
   BuildContext context, {
@@ -766,7 +765,9 @@ class _ListInputPageState extends ConsumerState<ListInputPage> {
               onPressed: _handleReset,
             ),
           SlAppBarIconAction(
-            icon: selectedItems.isNotEmpty ? SurgeIcons.selectAll : SurgeIcons.add,
+            icon: selectedItems.isNotEmpty
+                ? SurgeIcons.selectAll
+                : SurgeIcons.add,
             tooltip: selectedItems.isNotEmpty
                 ? appLocalizations.selectAll
                 : appLocalizations.add,
@@ -1029,7 +1030,9 @@ class _MapInputPageState extends ConsumerState<MapInputPage> {
               onPressed: _handleReset,
             ),
           SlAppBarIconAction(
-            icon: selectedItems.isNotEmpty ? SurgeIcons.selectAll : SurgeIcons.add,
+            icon: selectedItems.isNotEmpty
+                ? SurgeIcons.selectAll
+                : SurgeIcons.add,
             tooltip: selectedItems.isNotEmpty
                 ? appLocalizations.selectAll
                 : appLocalizations.add,

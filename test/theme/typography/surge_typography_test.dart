@@ -23,6 +23,25 @@ void main() {
   test('controlled roles come from the same type scale', () {
     expect(typography.dialogTitle, SlclashTypeScale.dialogTitle);
     expect(typography.sectionTitle, SlclashTypeScale.sectionTitle);
+    expect(typography.mediaCheckTitle, SlclashTypeScale.mediaCheckTitle);
+    expect(
+      typography.mediaControlMetricLabel,
+      SlclashTypeScale.mediaControlMetricLabel,
+    );
+    expect(typography.mediaFilterTitle, SlclashTypeScale.mediaFilterTitle);
+    expect(
+      typography.mediaFilterSubtitle,
+      SlclashTypeScale.mediaFilterSubtitle,
+    );
+    expect(
+      typography.mediaObservationInterval,
+      SlclashTypeScale.mediaObservationInterval,
+    );
+    expect(typography.mediaResultTitle, SlclashTypeScale.mediaResultTitle);
+    expect(
+      typography.mediaRunButtonLabel,
+      SlclashTypeScale.mediaRunButtonLabel,
+    );
     expect(typography.badgeLabel, SlclashTypeScale.badgeLabel);
     expect(typography.selectedRowTitle, SlclashTypeScale.selectedRowTitle);
     expect(typography.selectorLabel, SlclashTypeScale.selectorLabel);
@@ -30,6 +49,14 @@ void main() {
     expect(typography.compactMetric, SlclashTypeScale.compactMetric);
     expect(typography.technical, SlclashTypeScale.technical);
     expect(typography.chartLabel, SlclashTypeScale.chartLabel);
+    expect(typography.proxyGroupTitle, SlclashTypeScale.proxyGroupTitle);
+    expect(typography.proxySelectorLabel, SlclashTypeScale.proxySelectorLabel);
+    expect(typography.proxyCardSubtitle, SlclashTypeScale.proxyCardSubtitle);
+    expect(typography.dashboardIpValue, SlclashTypeScale.dashboardIpValue);
+    expect(
+      typography.dashboardLatencyValue,
+      SlclashTypeScale.dashboardLatencyValue,
+    );
   });
 
   test('copyWith replaces only the requested role', () {

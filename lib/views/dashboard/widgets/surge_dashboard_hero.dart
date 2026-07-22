@@ -1365,20 +1365,23 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
           SizedBox(
             height: 48,
             child: Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  const SizedBox(width: 48),
+                  SoftOsActionButton(
+                    icon: SurgeIcons.close,
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
+                    compact: true,
+                  ),
                   Expanded(
                     child: Center(
                       child: Text('节点', style: context.typography.sheetTitle),
                     ),
                   ),
-                  SoftOsActionButton(
-                    icon: SurgeIcons.close,
-                    onPressed: () => Navigator.of(context).pop(),
-                    compact: true,
-                  ),
+                  const SizedBox(width: 48),
                 ],
               ),
             ),

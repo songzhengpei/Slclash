@@ -126,14 +126,16 @@ class _ProxyTextBlock extends ConsumerWidget {
           proxy.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.typography.compactRowTitle.copyWith(color: surge.textPrimary),
+          style: context.typography.compactRowTitle.copyWith(
+            color: surge.textPrimary,
+          ),
         ),
         const SizedBox(height: 3),
         Text(
           subtitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.typography.detailLabel.copyWith(
+          style: context.typography.proxyCardSubtitle.copyWith(
             color: surge.textSecondary,
           ),
         ),

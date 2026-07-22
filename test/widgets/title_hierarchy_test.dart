@@ -1,7 +1,6 @@
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/state.dart';
-import 'package:fl_clash/widgets/app_bar/sl_app_bar_action.dart';
 import 'package:fl_clash/widgets/inherited.dart';
 import 'package:fl_clash/widgets/scaffold.dart';
 import 'package:fl_clash/widgets/sheet.dart';
@@ -59,12 +58,7 @@ void main() {
   group('Standard App Bar title', () {
     testWidgets('uses appBarTitle (19sp / w500)', (tester) async {
       await tester.pumpWidget(
-        _app(
-          CommonScaffold(
-            title: 'Standard',
-            body: const SizedBox(),
-          ),
-        ),
+        _app(CommonScaffold(title: 'Standard', body: const SizedBox())),
       );
       await tester.pumpAndSettle();
 
@@ -137,10 +131,7 @@ void main() {
             title: 'Root',
             titleVariant: SlAppBarTitleVariant.root,
             body: const SizedBox(),
-            editState: AppBarEditState(
-              editCount: 1,
-              onExit: () {},
-            ),
+            editState: AppBarEditState(editCount: 1, onExit: () {}),
           ),
         ),
       );

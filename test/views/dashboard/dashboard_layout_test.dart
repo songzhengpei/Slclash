@@ -185,7 +185,7 @@ void main() {
       expect(hero.topRowToModeGap - layout.legacy(16), closeTo(32, 0.001));
       expect(hero.modeCardHeight - layout.legacy(80), closeTo(38, 0.001));
       expect(hero.modeToSwitchGap - layout.legacy(12), closeTo(16, 0.001));
-      expect(hero.switchToSelectorGap - layout.legacy(10), closeTo(14, 0.001));
+      expect(hero.switchToSelectorGap - layout.legacy(12), closeTo(14, 0.001));
     });
 
     test('preserves enlarged dashboard text without changing primary rows', () {
@@ -249,8 +249,8 @@ void main() {
         layout.chartHeight,
         NetworkOverviewCardLayoutCalculator.chartHeightFor(responsiveLayout),
       );
-      expect(layout.detectionTopGap, 7);
-      expect(layout.detectionBottomGap, 7);
+      expect(layout.detectionTopGap, 16);
+      expect(layout.detectionBottomGap, 16);
     });
 
     test('keeps the detection bar vertically balanced on compact phones', () {
@@ -273,11 +273,11 @@ void main() {
       expect(expanded.chartHeight, base.chartHeight);
       expect(expanded.headerToChartGap, base.headerToChartGap);
       expect(expanded.latencyRowGap, base.latencyRowGap);
-      expect(expanded.detectionTopGap, 7);
-      expect(expanded.detectionBottomGap, 7);
+      expect(expanded.detectionTopGap, 16);
+      expect(expanded.detectionBottomGap, 16);
       expect(
         expanded.afterTrafficGap - base.afterTrafficGap,
-        closeTo(100, 0.001),
+        closeTo(0, 0.001),
       );
     });
 
@@ -301,11 +301,11 @@ void main() {
       );
 
       expect(expanded.chartHeight - base.chartHeight, closeTo(20, 0.001));
-      expect(expanded.detectionTopGap, 7);
-      expect(expanded.detectionBottomGap, 7);
+      expect(expanded.detectionTopGap, 16);
+      expect(expanded.detectionBottomGap, 16);
       expect(
         expanded.afterTrafficGap - base.afterTrafficGap,
-        closeTo(58.5, 0.001),
+        closeTo(1, 0.001),
       );
     });
 
@@ -333,10 +333,10 @@ void main() {
         expect(expanded.chartHeight - base.chartHeight, closeTo(40, 0.001));
         expect(
           expanded.afterTrafficGap - base.afterTrafficGap,
-          closeTo(17, 0.001),
+          closeTo(2, 0.001),
         );
-        expect(expanded.detectionTopGap, 7);
-        expect(expanded.detectionBottomGap, 7);
+        expect(expanded.detectionTopGap, 16);
+        expect(expanded.detectionBottomGap, 16);
       },
     );
 
@@ -356,8 +356,8 @@ void main() {
         layout.chartHeight,
         NetworkOverviewCardLayoutCalculator.chartHeightFor(responsiveLayout),
       );
-      expect(layout.detectionTopGap, 7);
-      expect(layout.detectionBottomGap, 7);
+      expect(layout.detectionTopGap, 16);
+      expect(layout.detectionBottomGap, 16);
     });
   });
 }

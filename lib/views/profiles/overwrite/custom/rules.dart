@@ -2,7 +2,6 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/overwrite/rule.dart';
 import 'package:fl_clash/models/clash_config.dart';
-import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/models/state.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
@@ -174,7 +173,9 @@ class _CustomRulesViewState extends ConsumerState<CustomRulesView>
             tone: SlAppBarActionTone.destructive,
           ),
         SlAppBarIconAction(
-          icon: selectedRules.isNotEmpty ? SurgeIcons.selectAll : SurgeIcons.add,
+          icon: selectedRules.isNotEmpty
+              ? SurgeIcons.selectAll
+              : SurgeIcons.add,
           tooltip: selectedRules.isNotEmpty
               ? appLocalizations.selectAll
               : appLocalizations.add,

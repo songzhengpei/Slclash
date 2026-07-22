@@ -36,6 +36,49 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
+  static const mediaCheckTitle = TextStyle(
+    fontSize: 16,
+    height: 1.25,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const mediaControlMetricLabel = TextStyle(
+    fontSize: 12,
+    height: 1,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const mediaFilterTitle = TextStyle(
+    fontSize: 14,
+    height: 1.4286,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const mediaFilterSubtitle = TextStyle(
+    fontFamily: SlclashFontFamilies.jetBrainsMono,
+    fontSize: 12,
+    height: 1.3333,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const mediaObservationInterval = TextStyle(
+    fontSize: 13,
+    height: 1.2308,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const mediaResultTitle = TextStyle(
+    fontSize: 12,
+    height: 1.3333,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const mediaRunButtonLabel = TextStyle(
+    fontSize: 12,
+    height: 1.3333,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
   static const cardTitle = TextStyle(
     fontSize: 16,
     height: 1.125,
@@ -162,6 +205,24 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );
+  static const proxyGroupTitle = TextStyle(
+    fontSize: 16,
+    height: 1.2941,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const proxySelectorLabel = TextStyle(
+    fontSize: 12,
+    height: 1.3846,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
+  static const proxyCardSubtitle = TextStyle(
+    fontSize: 12,
+    height: 1.3846,
+    fontWeight: FontWeight.w400,
+    letterSpacing: _letterSpacing,
+  );
   static const featuredTitle = TextStyle(
     fontSize: 17,
     height: 1.4667,
@@ -225,6 +286,24 @@ abstract final class SlclashTypeScale {
   );
   static const dashboardMetric = TextStyle(
     fontSize: 14,
+    height: 1.2857,
+    fontWeight: FontWeight.w700,
+    letterSpacing: _letterSpacing,
+  );
+  static const dashboardIpValue = TextStyle(
+    fontSize: 13,
+    height: 1.2857,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const dashboardLatencyValue = TextStyle(
+    fontSize: 12,
+    height: 1.3333,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
+  static const dashboardDetectionValue = TextStyle(
+    fontSize: 16,
     height: 1.2857,
     fontWeight: FontWeight.w700,
     letterSpacing: _letterSpacing,

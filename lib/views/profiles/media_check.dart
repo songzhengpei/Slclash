@@ -632,7 +632,7 @@ class _MediaCheckControlCard extends StatelessWidget {
                   '节点体检',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.typography.sectionTitle.copyWith(
+                  style: context.typography.mediaCheckTitle.copyWith(
                     color: surge.textPrimary,
                   ),
                 ),
@@ -809,7 +809,7 @@ class _ObservationControl extends StatelessWidget {
             ),
             child: Text(
               intervalLabel,
-              style: context.typography.badgeLabel.copyWith(
+              style: context.typography.mediaObservationInterval.copyWith(
                 color: observing ? surge.green : surge.textSecondary,
               ),
             ),
@@ -940,7 +940,7 @@ class _ControlMetricText extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.typography.badgeLabel.copyWith(
+          style: context.typography.mediaControlMetricLabel.copyWith(
             color: surge.textSecondary,
           ),
         ),
@@ -1040,7 +1040,7 @@ class _InlineFilterMetric extends StatelessWidget {
                       filter.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.typography.controlLabel.copyWith(
+                      style: context.typography.mediaFilterTitle.copyWith(
                         color: textColor,
                       ),
                     ),
@@ -1056,7 +1056,7 @@ class _InlineFilterMetric extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.typography.chartLabel.copyWith(
+                      style: context.typography.mediaFilterSubtitle.copyWith(
                         color: selected
                             ? color.withValues(alpha: 0.82)
                             : surge.textSecondary,
@@ -1106,7 +1106,7 @@ class _MediaCheckResultList extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+            padding: const EdgeInsets.fromLTRB(14, 1, 10, 1),
             child: Row(
               children: [
                 Expanded(
@@ -1293,14 +1293,14 @@ class _SingleResultLine extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 16),
+          Icon(icon, color: color, size: 15),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.typography.controlLabel.copyWith(color: color),
+              style: context.typography.mediaResultTitle.copyWith(color: color),
             ),
           ),
           if (meta.isNotEmpty)
@@ -1348,7 +1348,7 @@ class _HealthResultLine extends StatelessWidget {
                     result.https.compactLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.typography.controlLabel.copyWith(
+                    style: context.typography.mediaResultTitle.copyWith(
                       color: color,
                     ),
                   ),
@@ -1477,6 +1477,9 @@ class _MediaCheckRunButton extends StatelessWidget {
       inactiveColor: surge.primary,
       compact: true,
       height: 30,
+      horizontalPadding: 10,
+      minWidth: 56,
+      textStyle: context.typography.mediaRunButtonLabel,
       onPressed: onTap,
     );
   }

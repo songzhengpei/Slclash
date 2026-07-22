@@ -80,11 +80,13 @@ class SlAppBarOverflowButton extends StatefulWidget {
     required this.popup,
     required this.tooltip,
     this.enabled = true,
+    this.softOs = false,
   });
 
   final Widget popup;
   final String tooltip;
   final bool enabled;
+  final bool softOs;
 
   @override
   State<SlAppBarOverflowButton> createState() => _SlAppBarOverflowButtonState();
@@ -100,12 +102,19 @@ class _SlAppBarOverflowButtonState extends State<SlAppBarOverflowButton> {
       child: CommonPopupBox(
         popup: widget.popup,
         targetBuilder: (open) {
-          return SlAppBarIconButton(
-            icon: SurgeIcons.moreVertical,
-            tooltip: widget.tooltip,
-            enabled: widget.enabled,
-            onPressed: widget.enabled ? () => open() : null,
-          );
+          return widget.softOs
+              ? SoftOsActionButton(
+                  icon: SurgeIcons.moreVertical,
+                  tooltip: widget.tooltip,
+                  onPressed: widget.enabled ? () => open() : null,
+                  compact: true,
+                )
+              : SlAppBarIconButton(
+                  icon: SurgeIcons.moreVertical,
+                  tooltip: widget.tooltip,
+                  enabled: widget.enabled,
+                  onPressed: widget.enabled ? () => open() : null,
+                );
         },
       ),
     );

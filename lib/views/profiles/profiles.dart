@@ -162,7 +162,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                           ),
                         const SizedBox(height: 14),
                         SurgeSection(
-                          title: '已添加订阅',
+                          title: '订阅',
                           margin: const EdgeInsets.only(bottom: 14),
                           children: [
                             _ProfileListContainer(
@@ -2005,9 +2005,7 @@ class _ProfileTextBlock extends StatelessWidget {
       children: [
         Text(
           profile.realLabel,
-          style: context.typography.rowTitle.copyWith(
-            color: surge.textPrimary,
-          ),
+          style: context.typography.rowTitle.copyWith(color: surge.textPrimary),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
