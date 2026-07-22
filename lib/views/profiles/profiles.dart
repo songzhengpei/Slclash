@@ -128,6 +128,7 @@ class _ProfilesViewState extends State<ProfilesView> {
           isLoading: isLoading,
           title: '配置',
           appBarActions: _buildActions(state.profiles),
+          titleVariant: SlAppBarTitleVariant.root,
           body: state.profiles.isEmpty
               ? NullStatus(
                   label: appLocalizations.nullProfileDesc,

@@ -782,7 +782,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
               profileLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.typography.screenTitle.copyWith(
+              style: context.typography.rootAppBarTitle.copyWith(
                 color: surge.textPrimary,
               ),
             ),

@@ -6,16 +6,16 @@ import 'font_families.dart';
 abstract final class SlclashTypeScale {
   static const _letterSpacing = 0.0;
 
-  static const screenTitle = TextStyle(
-    fontSize: 19,
-    height: 1.4737,
-    fontWeight: FontWeight.w500,
-    letterSpacing: _letterSpacing,
-  );
-  static const appBarTitle = TextStyle(
+  static const rootAppBarTitle = TextStyle(
     fontSize: 20,
     height: 1.3,
     fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
+  static const appBarTitle = TextStyle(
+    fontSize: 19,
+    height: 1.3,
+    fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
   static const dialogTitle = TextStyle(
@@ -195,7 +195,7 @@ abstract final class SlclashTypeScale {
   static const sheetTitle = TextStyle(
     fontSize: 18,
     height: 1.3,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w500,
     letterSpacing: _letterSpacing,
   );
   static const countLabel = TextStyle(

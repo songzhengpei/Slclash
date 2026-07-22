@@ -102,6 +102,7 @@ class _ToolViewState extends ConsumerState<ToolsView> {
       backgroundColor: surge.background,
       title: context.appLocalizations.tools,
       appBarActions: const [],
+      titleVariant: SlAppBarTitleVariant.root,
       body: ListView.builder(
         key: toolsStoreKey,
         itemCount: items.length,

@@ -17,6 +17,8 @@ typedef OnKeywordsUpdateCallback = void Function(List<String> keywords);
 typedef AppBarSearchStateBuilder =
     AppBarSearchState? Function(AppBarSearchState? state);
 
+enum SlAppBarTitleVariant { standard, root }
+
 class CommonScaffold extends StatefulWidget {
   final AppBar? appBar;
   final Widget body;
@@ -24,6 +26,7 @@ class CommonScaffold extends StatefulWidget {
   final String? title;
   final bool isLoading;
   final List<SlAppBarAction> appBarActions;
+  final SlAppBarTitleVariant titleVariant;
   final bool? centerTitle;
   final Widget? floatingActionButton;
   final AppBarEditState? editState;
@@ -38,6 +41,7 @@ class CommonScaffold extends StatefulWidget {
     this.backgroundColor,
     this.title,
     this.appBarActions = const [],
+    this.titleVariant = SlAppBarTitleVariant.standard,
     this.centerTitle,
     this.editState,
     this.isLoading = false,
@@ -241,6 +245,12 @@ class CommonScaffoldState extends State<CommonScaffold> {
 
   Widget _buildTitle(AppBarSearchState? startState) {
     final appLocalizations = context.appLocalizations;
+    final titleStyle = switch (widget.titleVariant) {
+      SlAppBarTitleVariant.standard => context.typography.appBarTitle,
+      SlAppBarTitleVariant.root => _isSearch || _isEdit
+          ? context.typography.appBarTitle
+          : context.typography.rootAppBarTitle,
+    };
     return _isSearch
         ? TextField(
             autofocus: false,
@@ -261,7 +271,7 @@ class CommonScaffoldState extends State<CommonScaffold> {
                 : appLocalizations.selectedCountTitle(
                     '${_appBarState.value.editState?.editCount ?? 0}',
                   ),
-            style: context.typography.appBarTitle,
+            style: titleStyle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             softWrap: false,
