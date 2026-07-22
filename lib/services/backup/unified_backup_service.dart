@@ -2,13 +2,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:drift/native.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/common/yaml.dart';
 import 'package:fl_clash/services/unified_backup_export/identity.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
 
 import 'backup_format_detector.dart';
 import 'clash_verge_backup_parser.dart';
@@ -147,6 +150,14 @@ class UnifiedBackupService {
       final sourceType = slug is String
           ? _profileSourceType(package.files['providers/$slug/meta.json'])
           : null;
+      final restoredYaml = slug is String
+          ? _slclashRestoreProfile(
+              package.files['providers/$slug/meta.json'],
+              yaml,
+              package.files['providers/$slug/provider.yaml'],
+              slug,
+            )
+          : yaml;
       final localFile = localProfile || sourceType == 'local';
       profiles.add(
         Profile(
@@ -177,7 +188,7 @@ class UnifiedBackupService {
       files.add(
         StagedRestoreFile(
           relativePath: 'profiles/$id.yaml',
-          bytes: Uint8List.fromList(yaml),
+          bytes: Uint8List.fromList(restoredYaml),
         ),
       );
     }
@@ -528,6 +539,122 @@ String? _profileSourceType(List<int>? bytes) {
   } catch (_) {
     return null;
   }
+}
+
+List<int> _slclashRestoreProfile(
+  List<int>? metaBytes,
+  List<int> fallback,
+  List<int>? providerBytes,
+  String slug,
+) {
+  if (metaBytes == null) {
+    return _rebuildInlineProvider(fallback, providerBytes, slug);
+  }
+  try {
+    final meta = jsonDecode(utf8.decode(metaBytes, allowMalformed: false));
+    if (meta is! Map || meta['slclashRestore'] == null) {
+      return _rebuildInlineProvider(fallback, providerBytes, slug);
+    }
+    final restore = meta['slclashRestore'];
+    if (restore is! Map ||
+        restore['schemaVersion'] != 1 ||
+        restore['profileYamlBase64'] is! String ||
+        restore['profileSha256'] is! String) {
+      throw const FormatException('Invalid SlClash restore metadata');
+    }
+    final bytes = base64Decode(restore['profileYamlBase64'] as String);
+    final expected = restore['profileSha256'] as String;
+    if (bytes.isEmpty || sha256.convert(bytes).toString() != expected) {
+      throw const FormatException('SlClash restore profile hash mismatch');
+    }
+    return bytes;
+  } catch (error) {
+    throw BackupFormatException(
+      BackupErrorCode.invalidProfiles,
+      'SlClash restore metadata is invalid: $error',
+    );
+  }
+}
+
+List<int> _rebuildInlineProvider(
+  List<int> profileBytes,
+  List<int>? providerBytes,
+  String slug,
+) {
+  if (providerBytes == null) return profileBytes;
+  try {
+    final profileValue = loadYaml(
+      utf8.decode(profileBytes, allowMalformed: false),
+    );
+    final providerValue = loadYaml(
+      utf8.decode(providerBytes, allowMalformed: false),
+    );
+    if (profileValue is! YamlMap || providerValue is! YamlMap) {
+      return profileBytes;
+    }
+    final config = Map<Object?, Object?>.from(_plainYaml(profileValue) as Map);
+    final existingProviders = config['proxy-providers'];
+    if (existingProviders is Map && existingProviders.isNotEmpty) {
+      return profileBytes;
+    }
+    final providerNodes = providerValue['proxies'];
+    if (providerNodes is! YamlList || providerNodes.isEmpty) {
+      return profileBytes;
+    }
+    final nodes = providerNodes.map(_plainYaml).toList(growable: false);
+    final names = <String>{
+      for (final node in nodes)
+        if (node is Map && node['name'] is String) node['name'] as String,
+    };
+    if (names.length != nodes.length) return profileBytes;
+
+    config['proxy-providers'] = {
+      slug: {'type': 'inline', 'payload': nodes},
+    };
+    if (config['proxies'] case final List proxies) {
+      final remaining = proxies
+          .where((node) {
+            return node is! Map ||
+                node['name'] is! String ||
+                !names.contains(node['name']);
+          })
+          .toList(growable: false);
+      if (remaining.isEmpty) {
+        config.remove('proxies');
+      } else {
+        config['proxies'] = remaining;
+      }
+    }
+    if (config['proxy-groups'] case final List groups) {
+      for (final value in groups) {
+        if (value is! Map || value['proxies'] is! List) continue;
+        final proxies = value['proxies'] as List;
+        final remaining = proxies
+            .where((name) => !names.contains(name))
+            .toList(growable: false);
+        if (remaining.length == proxies.length) continue;
+        value['proxies'] = remaining;
+        final use = value['use'] is List
+            ? List<Object?>.from(value['use'] as List)
+            : <Object?>[];
+        if (!use.contains(slug)) use.add(slug);
+        value['use'] = use;
+      }
+    }
+    return utf8.encode('${yaml.encode(config).trimRight()}\n');
+  } catch (_) {
+    return profileBytes;
+  }
+}
+
+Object? _plainYaml(Object? value) {
+  if (value is YamlMap) {
+    return {
+      for (final entry in value.entries) entry.key: _plainYaml(entry.value),
+    };
+  }
+  if (value is YamlList) return value.map(_plainYaml).toList();
+  return value;
 }
 
 Map<String, dynamic> _normalizeLegacyProfile(Map<String, dynamic> raw) {

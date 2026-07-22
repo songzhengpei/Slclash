@@ -1175,6 +1175,7 @@ class BackupAction extends _$BackupAction {
                 },
           externalProvidersFlattened:
               materializedYaml.externalProvidersFlattened,
+          slclashRestore: materializedYaml.slclashRestore,
           localFile: profile.type == ProfileType.file,
         ),
       );

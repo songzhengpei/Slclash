@@ -197,6 +197,8 @@ class UnifiedV1Exporter {
           'nodeStats': dependencyState.nodeStats,
           'internalDependencies': dependencyState.dependencies,
         },
+        if (profile.slclashRestore != null)
+          'slclashRestore': profile.slclashRestore,
       };
       files['profiles/${identity.profileUid}.yaml'] = profile.yaml;
       files['providers/${identity.slug}/provider.yaml'] =

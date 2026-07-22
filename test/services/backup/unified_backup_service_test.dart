@@ -169,6 +169,86 @@ void main() {
     expect(profile.autoUpdate, isFalse);
   });
 
+  test(
+    'V1 restores the original Provider profile when metadata is present',
+    () async {
+      final temp = await Directory.systemTemp.createTemp('provider-restore-');
+      final db = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await db.close();
+        await temp.delete(recursive: true);
+      });
+      const original = '''
+proxy-providers:
+  airport:
+    type: http
+    url: https://source.example/subscription
+proxy-groups:
+  - name: Select
+    type: select
+    use: [airport]
+''';
+
+      await UnifiedBackupService(
+        database: db,
+        paths: RestorePaths(
+          profilesDirectory: p.join(temp.path, 'profiles'),
+          scriptsDirectory: p.join(temp.path, 'scripts'),
+          workerUnifiedArchivePath: p.join(temp.path, 'worker-v1.zip'),
+        ),
+      ).restoreBytes(_workerArchive(restoreProfile: original), override: true);
+
+      final profile = (await db.profilesDao.query().get()).single;
+      expect(
+        await File(
+          p.join(temp.path, 'profiles', '${profile.id}.yaml'),
+        ).readAsString(),
+        original,
+      );
+    },
+  );
+
+  test('old V1 rebuilds a visible inline Provider from its artifact', () async {
+    final temp = await Directory.systemTemp.createTemp('provider-fallback-');
+    final db = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await db.close();
+      await temp.delete(recursive: true);
+    });
+    const node = '{name: node-1, type: ss, server: example.com, port: 443}';
+    await UnifiedBackupService(
+      database: db,
+      paths: RestorePaths(
+        profilesDirectory: p.join(temp.path, 'profiles'),
+        scriptsDirectory: p.join(temp.path, 'scripts'),
+        workerUnifiedArchivePath: p.join(temp.path, 'worker-v1.zip'),
+      ),
+    ).restoreBytes(
+      _workerArchive(
+        profileYaml:
+            '''
+proxies:
+  - $node
+proxy-groups:
+  - name: Select
+    type: select
+    proxies: [node-1, DIRECT]
+''',
+        providerYaml: 'proxies:\n  - $node\n',
+      ),
+      override: true,
+    );
+
+    final profile = (await db.profilesDao.query().get()).single;
+    final restored = await File(
+      p.join(temp.path, 'profiles', '${profile.id}.yaml'),
+    ).readAsString();
+    expect(restored, contains('proxy-providers:'));
+    expect(restored, contains('type: "inline"'));
+    expect(restored, contains('use:'));
+    expect(restored, contains('example'));
+  });
+
   test('restores the real Worker client policy roundtrip fixture', () async {
     final bytes = await File(
       p.join(
@@ -409,9 +489,12 @@ Uint8List _workerArchive({
   String configYaml =
       'mixed-port: 7890\nallow-lan: false\nmode: rule\nlog-level: info\n',
   String? sourceType,
+  String? restoreProfile,
+  String profileYaml = 'proxies: []\n',
+  String providerYaml = 'proxies: []\n',
 }) {
-  final profile = utf8.encode('proxies: []\n');
-  final provider = utf8.encode('proxies: []\n');
+  final profile = utf8.encode(profileYaml);
+  final provider = utf8.encode(providerYaml);
   final files = <String, List<int>>{
     'config.yaml': utf8.encode(configYaml),
     'verge.yaml': utf8.encode('{}\n'),
@@ -433,6 +516,14 @@ items:
     'providers/example/meta.json': utf8.encode(
       jsonEncode({
         if (sourceType != null) 'distribution': {'sourceType': sourceType},
+        if (restoreProfile != null)
+          'slclashRestore': {
+            'schemaVersion': 1,
+            'profileYamlBase64': base64Encode(utf8.encode(restoreProfile)),
+            'profileSha256': sha256
+                .convert(utf8.encode(restoreProfile))
+                .toString(),
+          },
       }),
     ),
   };

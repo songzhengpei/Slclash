@@ -11,6 +11,7 @@ class UnifiedExportProfile {
     required this.updateIntervalMinutes,
     this.subscriptionInfo,
     this.externalProvidersFlattened = false,
+    this.slclashRestore,
     this.localFile = false,
   });
 
@@ -23,6 +24,7 @@ class UnifiedExportProfile {
   final int updateIntervalMinutes;
   final Map<String, int>? subscriptionInfo;
   final bool externalProvidersFlattened;
+  final Map<String, Object?>? slclashRestore;
   final bool localFile;
 }
 
