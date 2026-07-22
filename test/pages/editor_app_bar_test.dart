@@ -64,12 +64,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Find the save IconButton by looking for the Icon widget's parent
-      final saveIconFinder = find.byIcon(SurgeIcons.save);
-      expect(saveIconFinder, findsOneWidget);
-      // The save button should be in the AppBar actions area
-      // Check that the overflow button exists (indicating the app bar rendered)
-      expect(find.byIcon(SurgeIcons.moreVertical), findsOneWidget);
+      // Verify save button exists and is disabled (onPressed is null)
+      final saveButton = find.widgetWithIcon(SlAppBarIconButton, SurgeIcons.save);
+      expect(saveButton, findsOneWidget);
+      final saveAction = tester.widget<SlAppBarIconButton>(saveButton);
+      expect(saveAction.onPressed, isNull);
     });
 
     testWidgets('save button hidden in read-only mode', (tester) async {
@@ -117,7 +116,7 @@ void main() {
       expect(titleFinder, findsOneWidget);
     });
 
-    testWidgets('title can be edited', (tester) async {
+    testWidgets('title can be edited and save becomes enabled', (tester) async {
       await tester.pumpWidget(
         _editorApp(
           title: 'Original',
@@ -128,6 +127,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Initially save should be disabled
+      final saveButton = find.widgetWithIcon(SlAppBarIconButton, SurgeIcons.save);
+      expect(saveButton, findsOneWidget);
+      final initialSaveAction = tester.widget<SlAppBarIconButton>(saveButton);
+      expect(initialSaveAction.onPressed, isNull);
+
+      // Edit title
       final titleFinder = find.byType(TextField);
       await tester.tap(titleFinder);
       await tester.pumpAndSettle();
@@ -135,6 +141,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Modified'), findsOneWidget);
+
+      // Save button should now be enabled
+      final updatedSaveAction = tester.widget<SlAppBarIconButton>(saveButton);
+      expect(updatedSaveAction.onPressed, isNotNull);
     });
 
     testWidgets('title not editable when titleEditable is false', (
@@ -153,6 +163,46 @@ void main() {
       final titleFinder = find.byType(TextField);
       final textField = tester.widget<TextField>(titleFinder);
       expect(textField.enabled, isFalse);
+    });
+
+    testWidgets('save callback receives modified title and content', (
+      tester,
+    ) async {
+      String? savedTitle;
+      String? savedContent;
+
+      await tester.pumpWidget(
+        _editorApp(
+          title: 'Original',
+          content: 'hello',
+          titleEditable: true,
+          onSave: (_, title, content) {
+            savedTitle = title;
+            savedContent = content;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Edit title to trigger save button enable
+      final titleFinder = find.byType(TextField);
+      await tester.tap(titleFinder);
+      await tester.pumpAndSettle();
+      await tester.enterText(titleFinder, 'Modified');
+      await tester.pumpAndSettle();
+
+      // Verify save button is now enabled
+      final saveButton = find.widgetWithIcon(SlAppBarIconButton, SurgeIcons.save);
+      final updatedSaveAction = tester.widget<SlAppBarIconButton>(saveButton);
+      expect(updatedSaveAction.onPressed, isNotNull);
+
+      // Tap save button
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      // Verify callback received correct values
+      expect(savedTitle, 'Modified');
+      expect(savedContent, 'hello');
     });
   });
 }
