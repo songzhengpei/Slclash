@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -26,6 +27,7 @@ class UnifiedBackupService {
     this.validateProfileYaml,
     this.readConfig,
     this.writeConfig,
+    this.onProgress,
   });
 
   final Database database;
@@ -33,12 +35,14 @@ class UnifiedBackupService {
   final ProfileYamlValidator? validateProfileYaml;
   final RestoreConfigReader? readConfig;
   final RestoreConfigWriter? writeConfig;
+  final RestoreProgressCallback? onProgress;
 
   Future<RestoreCommitResult> restoreBytes(
     Uint8List bytes, {
     required bool override,
   }) async {
     final format = const BackupFormatDetector().detectBytes(bytes);
+    onProgress?.call('format-detected:${format.name}', null);
     final bundle = switch (format) {
       BackupFormat.workerUnifiedV1 => _workerBundle(
         const WorkerV1Parser().parse(bytes),
@@ -50,12 +54,14 @@ class UnifiedBackupService {
       ),
       _ => await _legacyBundle(const LegacyBackupParser().parseBytes(bytes)),
     };
+    onProgress?.call('archive-parsed', bundle.profiles.length);
     return RestoreService(
       database: database,
       paths: paths,
       validateProfileYaml: validateProfileYaml,
       readConfig: readConfig,
       writeConfig: writeConfig,
+      onProgress: onProgress,
     ).restore(bundle, override: override);
   }
 
@@ -71,6 +77,10 @@ class UnifiedBackupService {
     final profiles = <Profile>[];
     final files = <StagedRestoreFile>[];
     final uidToId = <String, int>{};
+    final airportsByUid = {
+      for (final airport in package.manifest.airports)
+        airport['profileUid']: airport,
+    };
     for (final raw in items) {
       if (raw is! Map) {
         throw const BackupFormatException(
@@ -83,12 +93,16 @@ class UnifiedBackupService {
       final name = item['name'];
       final fileName = item['file'];
       final url = item['url'];
+      final type = item['type'];
+      final remoteProfile = type == 'remote';
+      final localProfile = type == 'local';
       if (uid is! String ||
           !RegExp(r'^R[0-9a-f]{8}$').hasMatch(uid) ||
           name is! String ||
           fileName != '$uid.yaml' ||
-          url is! String ||
-          !url.startsWith('$publicBaseUrl/config/')) {
+          (!remoteProfile && !localProfile) ||
+          (remoteProfile && url is! String) ||
+          (localProfile && url != null && url != '')) {
         throw const BackupFormatException(
           BackupErrorCode.invalidProfiles,
           'profiles.yaml contains invalid profile fields',
@@ -128,18 +142,28 @@ class UnifiedBackupService {
           ? Map<Object?, Object?>.from(item['extra'] as Map)
           : const <Object?, Object?>{};
       final updated = item['updated'];
+      final airport = airportsByUid[uid];
+      final slug = airport?['slug'];
+      final sourceType = slug is String
+          ? _profileSourceType(package.files['providers/$slug/meta.json'])
+          : null;
+      final localFile = localProfile || sourceType == 'local';
       profiles.add(
         Profile(
           id: id,
           label: name,
-          url: url,
+          url: localFile ? '' : url as String,
           lastUpdateDate: updated is int
               ? DateTime.fromMillisecondsSinceEpoch(updated * 1000, isUtc: true)
               : null,
           autoUpdateDuration: Duration(
             minutes: updateIntervalMinutes is int ? updateIntervalMinutes : 60,
           ),
-          autoUpdate: allowAutoUpdate is bool ? allowAutoUpdate : true,
+          autoUpdate: localFile
+              ? false
+              : allowAutoUpdate is bool
+              ? allowAutoUpdate
+              : true,
           subscriptionInfo: extra.isEmpty
               ? null
               : SubscriptionInfo(
@@ -491,6 +515,20 @@ ProfileRuleLink _linkFromJson(Map<String, dynamic> map) => ProfileRuleLink(
 );
 
 int _integer(Object? value) => value is int ? value : 0;
+
+String? _profileSourceType(List<int>? bytes) {
+  if (bytes == null) return null;
+  try {
+    final value = jsonDecode(utf8.decode(bytes, allowMalformed: false));
+    if (value is! Map || value['distribution'] is! Map) return null;
+    final sourceType = (value['distribution'] as Map)['sourceType'];
+    return sourceType == 'local' || sourceType == 'remote'
+        ? sourceType as String
+        : null;
+  } catch (_) {
+    return null;
+  }
+}
 
 Map<String, dynamic> _normalizeLegacyProfile(Map<String, dynamic> raw) {
   final map = Map<String, dynamic>.from(raw);

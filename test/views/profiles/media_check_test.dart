@@ -3,7 +3,10 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/theme/typography/surge_typography.dart';
+import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:fl_clash/views/profiles/media_check.dart';
+import 'package:fl_clash/widgets/surge/surge_theme_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -440,6 +443,16 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            theme: () {
+              final textTheme = buildSlclashTextTheme();
+              return ThemeData(
+                textTheme: textTheme,
+                extensions: [
+                  SurgeTheme.light(),
+                  SurgeTypography.fromTextTheme(textTheme),
+                ],
+              );
+            }(),
             localizationsDelegates: const [
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
@@ -447,6 +460,7 @@ void main() {
               GlobalWidgetsLocalizations.delegate,
             ],
             supportedLocales: AppLocalizations.delegate.supportedLocales,
+            locale: const Locale('zh', 'CN'),
             home: ProfileMediaCheckView(
               profiles: profiles,
               initialProfile: profiles.first,

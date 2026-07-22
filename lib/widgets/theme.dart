@@ -1,4 +1,3 @@
-import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
@@ -37,7 +36,7 @@ class CommonMinIconButtonTheme extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           visualDensity: VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          iconSize: 20.ap,
+          iconSize: 20,
         ),
       ),
       child: child,

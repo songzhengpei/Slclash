@@ -31,11 +31,8 @@ class CommonDialog extends ConsumerWidget {
       title: Text(
         title,
         textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+        style: context.typography.dialogTitle.copyWith(
           color: surge.textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
         ),
       ),
       actions: actions,

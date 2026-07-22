@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:math';
 
 import 'package:collection/collection.dart';
+import 'package:fl_clash/theme/typography/typography_context.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -32,12 +33,6 @@ const double _kSegmentMinPadding = 10;
 const double _kTouchYDistanceThreshold = 50.0 * 50.0;
 
 const double _kContentPressedMinOpacity = 0.2;
-
-const double _kFontSize = 13.0;
-
-const FontWeight _kFontWeight = FontWeight.w500;
-
-const FontWeight _kHighlightedFontWeight = FontWeight.w600;
 
 const Color _kDisabledContentColor = Color.fromARGB(115, 122, 122, 122);
 
@@ -493,14 +488,8 @@ class _SegmentState<T> extends State<_Segment<T>>
             duration: _kOpacityAnimationDuration,
             curve: Curves.ease,
             child: AnimatedDefaultTextStyle(
-              style: DefaultTextStyle.of(context).style.merge(
-                TextStyle(
-                  fontWeight: widget.highlighted
-                      ? _kHighlightedFontWeight
-                      : _kFontWeight,
-                  fontSize: _kFontSize,
-                  color: widget.enabled ? null : _kDisabledContentColor,
-                ),
+              style: context.typography.controlLabel.copyWith(
+                color: widget.enabled ? null : _kDisabledContentColor,
               ),
               duration: _kHighlightAnimationDuration,
               curve: Curves.ease,
@@ -512,10 +501,7 @@ class _SegmentState<T> extends State<_Segment<T>>
             ),
           ),
           DefaultTextStyle.merge(
-            style: const TextStyle(
-              fontWeight: _kHighlightedFontWeight,
-              fontSize: _kFontSize,
-            ),
+            style: context.typography.controlLabel,
             child: widget.child,
           ),
         ],

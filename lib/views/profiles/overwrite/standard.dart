@@ -145,9 +145,8 @@ class _StandardContentState extends ConsumerState<StandardContent> {
                       Expanded(
                         child: Text(
                           appLocalizations.nullTip(appLocalizations.rule),
-                          style: context.textTheme.bodyMedium?.copyWith(
+                          style: context.typography.supporting.copyWith(
                             color: SurgeTheme.of(context).textSecondary,
-                            letterSpacing: 0,
                           ),
                         ),
                       ),
@@ -225,17 +224,13 @@ class _StandardContentState extends ConsumerState<StandardContent> {
                             appLocalizations.controlGlobalAddedRules,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: context.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0,
-                            ),
+                            style: context.typography.rowTitle,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             appLocalizations.addedRules,
-                            style: context.textTheme.labelSmall?.copyWith(
+                            style: context.typography.supporting.copyWith(
                               color: SurgeTheme.of(context).textSecondary,
-                              letterSpacing: 0,
                             ),
                           ),
                         ],
@@ -276,7 +271,7 @@ class _EditGlobalAddedRules extends ConsumerWidget {
     final disabledRuleIds =
         ref.watch(profileDisabledRuleIdsProvider(profileId)).value ?? [];
     final rules = ref.watch(globalRulesProvider).value ?? [];
-    return BaseScaffold(
+    return CommonScaffold(
       title: appLocalizations.editGlobalRules,
       body: rules.isEmpty
           ? NullStatus(

@@ -44,12 +44,12 @@ class _OverwriteViewState extends ConsumerState<OverwriteView> {
       profileId: widget.profileId,
       child: CommonScaffold(
         title: appLocalizations.override,
-        actions: [
-          SoftOsActionTextButton(
+        appBarActions: [
+          SlAppBarIconAction(
+            icon: SurgeIcons.visibility,
+            tooltip: appLocalizations.preview,
             onPressed: _handlePreview,
-            label: appLocalizations.preview,
           ),
-          const SizedBox(width: 8),
         ],
         body: const CustomScrollView(slivers: [_Title(), _Content()]),
       ),
@@ -112,10 +112,8 @@ class _Title extends ConsumerWidget {
             children: [
               Text(
                 appLocalizations.overrideMode,
-                style: context.textTheme.labelMedium?.copyWith(
+                style: context.typography.sectionTitle.copyWith(
                   color: SurgeTheme.of(context).textSecondary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
                 ),
               ),
               const SizedBox(height: 10),
@@ -152,9 +150,8 @@ class _Title extends ConsumerWidget {
                 child: Text(
                   _getDesc(context, overwriteType),
                   key: ValueKey(overwriteType),
-                  style: context.textTheme.bodySmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: SurgeTheme.of(context).textSecondary,
-                    letterSpacing: 0,
                   ),
                 ),
               ),

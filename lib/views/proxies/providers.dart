@@ -55,8 +55,12 @@ class _ProvidersViewState extends ConsumerState<ProvidersView> {
         .toList();
 
     return AdaptiveSheetScaffold(
-      actions: [
-        IconButtonData(icon: SurgeIcons.sync, onPressed: _updateProviders),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.sync,
+          tooltip: appLocalizations.sync,
+          onPressed: _updateProviders,
+        ),
       ],
       body: ColoredBox(
         color: surge.background,
@@ -100,12 +104,8 @@ class _ProviderSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
           child: Text(
             title,
-            style: context.textTheme.titleSmall?.copyWith(
+            style: context.typography.rowTitle.copyWith(
               color: surge.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              letterSpacing: 0,
             ),
           ),
         ),
@@ -262,12 +262,8 @@ class ProviderItem extends StatelessWidget {
                               provider.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: context.textTheme.titleSmall?.copyWith(
+                              style: context.typography.rowTitle.copyWith(
                                 color: surge.textPrimary,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                height: 1,
-                                letterSpacing: 0,
                               ),
                             ),
                             const SizedBox(height: 5),
@@ -277,12 +273,8 @@ class ProviderItem extends StatelessWidget {
                                   : provider.type,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: context.textTheme.labelMedium?.copyWith(
+                              style: context.typography.supporting.copyWith(
                                 color: surge.textSecondary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                height: 1,
-                                letterSpacing: 0,
                               ),
                             ),
                           ],

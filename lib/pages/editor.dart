@@ -108,26 +108,9 @@ class _EditorPageState extends ConsumerState<EditorPage> {
     _toolbarController.hide(context);
     _findController.dispose();
     _controller.dispose();
+    _titleController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  Widget _wrapController(EditingValueChangeBuilder builder) {
-    return ValueListenableBuilder(
-      valueListenable: _controller,
-      builder: (_, value, _) {
-        return builder(value);
-      },
-    );
-  }
-
-  Widget _wrapTitleController(TextEditingValueChangeBuilder builder) {
-    return ValueListenableBuilder(
-      valueListenable: _titleController,
-      builder: (_, value, _) {
-        return builder(value);
-      },
-    );
   }
 
   void _handleSearch() {
@@ -201,74 +184,79 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             style: context.textTheme.titleLarge,
             autofocus: false,
           ),
-          actions: genActions([
-            if (!readOnly)
-              _wrapController(
-                (value) => _wrapTitleController(
-                  (value) => IconButton(
-                    onPressed:
-                        _controller.text != widget.content ||
-                            _titleController.text != widget.title
-                        ? () {
-                            widget.onSave!(
-                              context,
-                              _titleController.text,
-                              _controller.text,
-                            );
-                          }
-                        : null,
-                    icon: const Icon(SurgeIcons.save),
-                  ),
-                ),
-              ),
-            _wrapController(
-              (value) => CommonPopupBox(
-                targetBuilder: (open) {
-                  return IconButton(
-                    onPressed: () {
-                      final isMobile = ref.read(isMobileViewProvider);
-                      open(offset: Offset(0, isMobile ? 0 : 20));
-                    },
-                    icon: const Icon(SurgeIcons.more),
-                  );
-                },
-                popup: CommonPopupMenu(
-                  items: [
-                    PopupMenuItemData(
-                      icon: SurgeIcons.search,
-                      label: appLocalizations.search,
-                      onPressed: _handleSearch,
-                    ),
-                    PopupMenuItemData(
-                      icon: SurgeIcons.undo,
-                      label: appLocalizations.undo,
-                      onPressed: _controller.canUndo ? _controller.undo : null,
-                    ),
-                    PopupMenuItemData(
-                      icon: SurgeIcons.redo,
-                      label: appLocalizations.redo,
-                      onPressed: _controller.canRedo ? _controller.redo : null,
-                    ),
-                    if (widget.supportRemoteDownload && !readOnly)
-                      PopupMenuItemData(
-                        icon: SurgeIcons.arrowDown,
-                        label: appLocalizations.externalFetch,
-                        subItems: [
-                          PopupMenuItemData(
-                            label: appLocalizations.importUrl,
-                            onPressed: _handleImportFormUrl,
+          actions: [
+            ValueListenableBuilder(
+              valueListenable: _controller,
+              builder: (_, __, ___) {
+                return ValueListenableBuilder(
+                  valueListenable: _titleController,
+                  builder: (_, __, ___) {
+                    return SlAppBarActionsRenderer(
+                      actions: [
+                        if (!readOnly)
+                          SlAppBarIconAction(
+                            icon: SurgeIcons.save,
+                            tooltip: appLocalizations.save,
+                            onPressed:
+                                _controller.text != widget.content ||
+                                    _titleController.text != widget.title
+                                ? () {
+                                    widget.onSave!(
+                                      context,
+                                      _titleController.text,
+                                      _controller.text,
+                                    );
+                                  }
+                                : null,
                           ),
-                          PopupMenuItemData(
-                            label: appLocalizations.importFile,
-                            onPressed: _handleImportFormFile,
+                        SlAppBarOverflowAction(
+                          tooltip: appLocalizations.more,
+                          popup: CommonPopupMenu(
+                            items: [
+                              PopupMenuItemData(
+                                icon: SurgeIcons.search,
+                                label: appLocalizations.search,
+                                onPressed: _handleSearch,
+                              ),
+                              PopupMenuItemData(
+                                icon: SurgeIcons.undo,
+                                label: appLocalizations.undo,
+                                onPressed: _controller.canUndo
+                                    ? _controller.undo
+                                    : null,
+                              ),
+                              PopupMenuItemData(
+                                icon: SurgeIcons.redo,
+                                label: appLocalizations.redo,
+                                onPressed: _controller.canRedo
+                                    ? _controller.redo
+                                    : null,
+                              ),
+                              if (widget.supportRemoteDownload && !readOnly)
+                                PopupMenuItemData(
+                                  icon: SurgeIcons.arrowDown,
+                                  label: appLocalizations.externalFetch,
+                                  subItems: [
+                                    PopupMenuItemData(
+                                      label: appLocalizations.importUrl,
+                                      onPressed: _handleImportFormUrl,
+                                    ),
+                                    PopupMenuItemData(
+                                      label: appLocalizations.importFile,
+                                      onPressed: _handleImportFormFile,
+                                    ),
+                                  ],
+                                ),
+                            ],
                           ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
-          ]),
+          ],
         ),
         body: Stack(
           children: [
@@ -312,8 +300,8 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                   const DefaultCodeShortcutsActivatorsBuilder(),
               controller: _controller,
               style: CodeEditorStyle(
-                fontSize: context.textTheme.bodyLarge?.fontSize?.ap,
-                fontFamily: FontFamily.jetBrainsMono.value,
+                fontSize: context.typography.technical.fontSize,
+                fontFamily: context.typography.technical.fontFamily,
                 codeTheme: CodeHighlightTheme(
                   languages: {
                     if (widget.languages.contains(Language.yaml))

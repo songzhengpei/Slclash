@@ -62,6 +62,7 @@ class TrackerInfoItem extends ConsumerWidget {
               return AdaptiveSheetScaffold(
                 body: TrackerInfoDetailView(trackerInfo: trackerInfo),
                 title: detailTitle,
+                appBarActions: const [],
               );
             },
           );
@@ -93,11 +94,8 @@ class TrackerInfoItem extends ConsumerWidget {
                                 trackerInfo.desc,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: context.textTheme.bodyMedium?.copyWith(
+                                style: context.typography.rowTitle.copyWith(
                                   color: surge.textPrimary,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0,
                                 ),
                               ),
                               const SizedBox(height: 5),
@@ -105,12 +103,8 @@ class TrackerInfoItem extends ConsumerWidget {
                                 _getSourceText(context, trackerInfo),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: context.textTheme.labelSmall?.copyWith(
+                                style: context.typography.techLabel.copyWith(
                                   color: surge.textSecondary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1,
-                                  letterSpacing: 0,
                                 ),
                               ),
                             ],
@@ -255,12 +249,8 @@ class _TrackerChainPill extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.textTheme.labelSmall?.copyWith(
+              style: context.typography.techLabel.copyWith(
                 color: surge.textPrimary.withValues(alpha: 0.72),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                height: 1,
-                letterSpacing: 0,
               ),
             ),
           ),

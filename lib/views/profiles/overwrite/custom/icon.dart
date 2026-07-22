@@ -185,6 +185,7 @@ class _IconEditViewState extends ConsumerState<IconEditView>
         Navigator.of(context).pop(_srcController.text);
       },
       title: appLocalizations.icon,
+      appBarActions: const [],
       body: SizedBox(
         height: height,
         child: ValueListenableBuilder(

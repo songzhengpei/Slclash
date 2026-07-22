@@ -12,7 +12,6 @@ import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/services/backup/worker_v1_parser.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
-import 'package:fl_clash/services/unified_backup_export/identity.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -101,6 +100,7 @@ void main() {
       overrideDns: true,
     );
     var configWrites = 0;
+    final stages = <String>[];
     final result = await UnifiedBackupService(
       database: db,
       paths: RestorePaths(
@@ -113,6 +113,9 @@ void main() {
         configWrites++;
         currentConfig = value;
         return true;
+      },
+      onProgress: (stage, profileCount) {
+        stages.add('$stage:${profileCount ?? '-'}');
       },
     ).restoreBytes(archiveBytes, override: true);
 
@@ -130,6 +133,9 @@ void main() {
     expect(await File(snapshotPath).readAsBytes(), archiveBytes);
     expect(configWrites, 0);
     expect(currentConfig.overrideDns, true);
+    expect(stages, contains('format-detected:workerUnifiedV1:-'));
+    expect(stages, contains('archive-parsed:1'));
+    expect(stages, contains('committed:1'));
     expect(
       const WorkerV1Parser()
           .parse(await File(snapshotPath).readAsBytes())
@@ -138,6 +144,29 @@ void main() {
           .length,
       1,
     );
+  });
+
+  test('V1 preserves a Slclash local-file profile as local', () async {
+    final temp = await Directory.systemTemp.createTemp('unified-local-test-');
+    final db = Database(NativeDatabase.memory());
+    addTearDown(() async {
+      await db.close();
+      await temp.delete(recursive: true);
+    });
+
+    await UnifiedBackupService(
+      database: db,
+      paths: RestorePaths(
+        profilesDirectory: p.join(temp.path, 'profiles'),
+        scriptsDirectory: p.join(temp.path, 'scripts'),
+        workerUnifiedArchivePath: p.join(temp.path, 'worker-v1.zip'),
+      ),
+    ).restoreBytes(_workerArchive(sourceType: 'local'), override: true);
+
+    final profile = (await db.profilesDao.query().get()).single;
+    expect(profile.type, ProfileType.file);
+    expect(profile.url, isEmpty);
+    expect(profile.autoUpdate, isFalse);
   });
 
   test('restores the real Worker client policy roundtrip fixture', () async {
@@ -343,6 +372,7 @@ void main() {
             UnifiedExportProfile(
               androidId: 7,
               name: 'Standalone',
+              sourceUrl: 'https://source.example/standalone',
               yaml: Uint8List.fromList(
                 utf8.encode('proxies:\n  - name: direct\n    type: direct\n'),
               ),
@@ -368,8 +398,8 @@ void main() {
 
       final restored = (await db.profilesDao.query().get()).single;
       expect(result.currentProfileId, restored.id);
-      expect(restored.autoUpdate, isFalse);
-      expect(restored.url, startsWith(standaloneUnifiedBackupBaseUrl));
+      expect(restored.autoUpdate, isTrue);
+      expect(restored.url, 'https://source.example/standalone');
       expect(File(snapshot).existsSync(), isFalse);
     },
   );
@@ -378,6 +408,7 @@ void main() {
 Uint8List _workerArchive({
   String configYaml =
       'mixed-port: 7890\nallow-lan: false\nmode: rule\nlog-level: info\n',
+  String? sourceType,
 }) {
   final profile = utf8.encode('proxies: []\n');
   final provider = utf8.encode('proxies: []\n');
@@ -399,7 +430,11 @@ items:
     'profiles/R1234abcd.yaml': profile,
     'providers/example/provider.yaml': provider,
     'providers/example/profile.yaml': profile,
-    'providers/example/meta.json': utf8.encode('{}\n'),
+    'providers/example/meta.json': utf8.encode(
+      jsonEncode({
+        if (sourceType != null) 'distribution': {'sourceType': sourceType},
+      }),
+    ),
   };
   final manifestFiles = <String, Object?>{
     for (final entry in files.entries)

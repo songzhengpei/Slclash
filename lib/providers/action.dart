@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:yaml/yaml.dart';
 
 part 'generated/action.g.dart';
 
@@ -101,6 +102,28 @@ bool shouldReconnectCoreOnResume({
 
 bool hasExternalProviderDefinitions(ClashConfig config) {
   return config.proxyProviders.isNotEmpty || config.ruleProviders.isNotEmpty;
+}
+
+({bool external, bool proxy}) parseProfileProviderDefinitions(String source) {
+  final document = loadYaml(source);
+  if (document is! YamlMap) return (external: false, proxy: false);
+
+  bool hasEntries(String key) {
+    final value = document[key];
+    return value is Map && value.isNotEmpty;
+  }
+
+  final proxy = hasEntries('proxy-providers');
+  final rule = hasEntries('rule-providers');
+  return (external: proxy || rule, proxy: proxy);
+}
+
+Future<({bool external, bool proxy})> readProfileProviderDefinitions(
+  int profileId,
+) async {
+  final profilePath = await appPath.getProfilePath(profileId.toString());
+  final source = await File(profilePath).readAsString();
+  return parseProfileProviderDefinitions(source);
 }
 
 @Riverpod(keepAlive: true)
@@ -273,7 +296,7 @@ class CommonAction extends _$CommonAction {
         closeProgressDialog();
         final installed = await app?.installApk(apkPath) ?? false;
         if (!installed) {
-          throw '请允许 SlClash 安装未知应用后，再次点击安装更新。';
+          throw currentAppLocalizations.allowUnknownAppInstall;
         }
       },
       title: currentAppLocalizations.download,
@@ -292,9 +315,8 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final textTheme = context.textTheme;
     return CommonDialog(
-      title: '下载更新',
+      title: currentAppLocalizations.downloadUpdate,
       overrideScroll: true,
       child: ValueListenableBuilder<double?>(
         valueListenable: progress,
@@ -336,18 +358,14 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        percent == null ? '正在下载 APK' : '正在下载 APK · $percent%',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        strutStyle: const StrutStyle(
-                          forceStrutHeight: true,
-                          height: 1.2,
-                        ),
-                        style: textTheme.bodyMedium?.copyWith(
+                        percent == null
+                            ? currentAppLocalizations.downloadingApk
+                            : currentAppLocalizations.downloadingApkProgress(
+                                percent,
+                              ),
+                        maxLines: 2,
+                        style: context.typography.rowTitle.copyWith(
                           color: surge.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                          letterSpacing: 0,
                         ),
                       ),
                     ),
@@ -366,11 +384,9 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '下载完成后将自动打开系统安装界面。',
-                style: textTheme.bodySmall?.copyWith(
+                currentAppLocalizations.apkInstallAfterDownload,
+                style: context.typography.supporting.copyWith(
                   color: surge.textSecondary,
-                  height: 1.35,
-                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -395,7 +411,6 @@ class _UpdateAvailableDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final textTheme = context.textTheme;
     return CommonDialog(
       title: currentAppLocalizations.discoverNewVersion,
       overrideScroll: true,
@@ -417,19 +432,12 @@ class _UpdateAvailableDialog extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    tagName.takeFirstValid(['新版本']),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    strutStyle: const StrutStyle(
-                      forceStrutHeight: true,
-                      height: 1.2,
-                    ),
-                    style: textTheme.titleMedium?.copyWith(
+                    tagName.takeFirstValid([
+                      currentAppLocalizations.newVersion,
+                    ]),
+                    maxLines: 2,
+                    style: context.typography.cardTitle.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -456,7 +464,7 @@ class _UpdateAvailableDialog extends StatelessWidget {
           const SizedBox(height: 18),
           SurgeDialogActionRow(
             cancelLabel: cancelText,
-            submitLabel: '下载',
+            submitLabel: currentAppLocalizations.download,
             onCancel: () => Navigator.of(context).pop(false),
             onSubmit: () => Navigator.of(context).pop(true),
           ),
@@ -501,10 +509,8 @@ class _UpdateStatusDialog extends StatelessWidget {
                 Expanded(
                   child: Text(
                     message,
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    style: context.typography.body.copyWith(
                       color: surge.textPrimary,
-                      height: 1.35,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -553,10 +559,8 @@ class _UpdateChangeItem extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: context.textTheme.bodySmall?.copyWith(
+            style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
-              height: 1.35,
-              letterSpacing: 0,
             ),
           ),
         ),
@@ -617,12 +621,13 @@ class SetupAction extends _$SetupAction {
     return SetupParams(selectedMap: selectedMap, testUrl: testUrl);
   }
 
-  void fullSetup() {
-    if (!ref.read(initProvider)) return;
+  Future<bool> fullSetup() async {
+    if (!ref.read(initProvider)) return false;
     ref.read(delayDataSourceProvider.notifier).value = {};
-    applyProfile(force: true);
+    final applied = await applyProfile(force: true);
     ref.read(logsProvider.notifier).value = FixedList(500);
     ref.read(requestsProvider.notifier).value = FixedList(500);
+    return applied;
   }
 
   Future<bool> _handleStart() async {
@@ -1140,12 +1145,29 @@ class BackupAction extends _$BackupAction {
         profileId: profile.id,
         profileBytes: await file.readAsBytes(),
         profilesDirectory: profilesPath,
+        normalizeProviderContent: (bytes) async {
+          final ready = await ensureRestoreValidationCoreReady(
+            isConnected: coreController.isCompleted,
+            connectCore: ref.read(coreActionProvider.notifier).connectCore,
+            isCoreInitialized: () async => coreController.isInit,
+            initializeCore: () =>
+                coreController.init(ref.read(versionProvider)),
+          );
+          if (!ready) {
+            throw StateError(
+              currentAppLocalizations.proxyCoreCannotReadProvider,
+            );
+          }
+          return coreController.normalizeProviderContent(bytes);
+        },
       );
       exportProfiles.add(
         UnifiedExportProfile(
           androidId: profile.id,
           name: profile.realLabel,
-          yaml: materializedYaml,
+          sourceUrl: profile.url,
+          yaml: materializedYaml.yaml,
+          providerSourceYaml: materializedYaml.providerSourceYaml,
           updated:
               (profile.lastUpdateDate ?? DateTime.fromMillisecondsSinceEpoch(0))
                   .millisecondsSinceEpoch ~/
@@ -1160,6 +1182,9 @@ class BackupAction extends _$BackupAction {
                   'total': info.total,
                   'expire': info.expire,
                 },
+          externalProvidersFlattened:
+              materializedYaml.externalProvidersFlattened,
+          localFile: profile.type == ProfileType.file,
         ),
       );
     }
@@ -1181,11 +1206,19 @@ class BackupAction extends _$BackupAction {
   }
 
   Future<BackupRestoreOutcome> restore() async {
+    final restoreWatch = Stopwatch()..start();
     final restoreStrategy = ref.read(
       appSettingProvider.select((state) => state.restoreStrategy),
     );
     final backup = File(await appPath.backupFilePath);
+    final archiveLength = await backup.length();
+    commonPrint.log(
+      'backup-restore:start strategy=${restoreStrategy.name} archiveBytes=$archiveLength',
+    );
     await validateBackupArchiveFile(backup);
+    commonPrint.log(
+      'backup-restore:archive-validated elapsedMs=${restoreWatch.elapsedMilliseconds}',
+    );
     final coreWatch = Stopwatch()..start();
     final coreReady = await ensureRestoreValidationCoreReady(
       isConnected: coreController.isCompleted,
@@ -1197,7 +1230,7 @@ class BackupAction extends _$BackupAction {
       'backup-restore:core-ready elapsedMs=${coreWatch.elapsedMilliseconds} ready=$coreReady',
     );
     if (!coreReady) {
-      throw StateError('代理内核暂不可用，无法校验备份中的订阅配置');
+      throw StateError(currentAppLocalizations.proxyCoreCannotValidateBackup);
     }
     final result =
         await UnifiedBackupService(
@@ -1221,11 +1254,21 @@ class BackupAction extends _$BackupAction {
           },
           readConfig: preferences.getConfig,
           writeConfig: preferences.saveConfig,
+          onProgress: (stage, profileCount) {
+            commonPrint.log(
+              'backup-restore:$stage elapsedMs=${restoreWatch.elapsedMilliseconds} '
+              'profileCount=${profileCount ?? '-'}',
+            );
+          },
         ).restoreBytes(
           await backup.readAsBytes(),
           override: restoreStrategy == RestoreStrategy.override,
         );
     final restoredProfiles = await database.profilesDao.query().get();
+    commonPrint.log(
+      'backup-restore:state-reloaded elapsedMs=${restoreWatch.elapsedMilliseconds} '
+      'profileCount=${restoredProfiles.length} currentProfileId=${result.currentProfileId}',
+    );
     ref.read(profilesProvider.notifier).resetFromRestore(restoredProfiles);
     ref.read(providersProvider.notifier).clear();
     ref.read(groupsProvider.notifier).value = const [];
@@ -1257,6 +1300,12 @@ class BackupAction extends _$BackupAction {
     final succeeded =
         readiness.status == ProviderReadinessStatus.ready ||
         readiness.status == ProviderReadinessStatus.noProviders;
+    commonPrint.log(
+      'backup-restore:completed elapsedMs=${restoreWatch.elapsedMilliseconds} '
+      'committed=true activation=${readiness.status.name} '
+      'providerCount=${readiness.providerCount} groupCount=${readiness.groupCount}',
+      logLevel: succeeded ? LogLevel.info : LogLevel.warning,
+    );
     return BackupRestoreOutcome(
       committed: true,
       activationSucceeded: succeeded,
@@ -1271,22 +1320,101 @@ class BackupAction extends _$BackupAction {
 
 @Riverpod(keepAlive: true)
 class CoreAction extends _$CoreAction {
+  Future<bool>? _connectCoreFuture;
+  Future<bool>? _ensureCoreReadyFuture;
+
   @override
   void build() {}
 
   Future<void> initCore() async {
-    final isInit = await coreController.isInit;
-
-    final version = ref.read(versionProvider);
-    if (!isInit) {
-      final res = await coreController.init(version);
-      commonPrint.log('init result: $res');
+    final wasInitialized = await coreController.isInit;
+    final ready = await ensureCoreReady();
+    if (!ready) return;
+    if (!wasInitialized) {
+      final profileId = ref.read(currentProfileIdProvider);
+      if (profileId != null) {
+        ref.invalidate(clashConfigProvider(profileId));
+        unawaited(
+          ref
+              .read(proxiesActionProvider.notifier)
+              .ensureCurrentProfileReady(forceApply: true),
+        );
+      }
     } else {
-      await ref.read(proxiesActionProvider.notifier).updateGroups();
+      final profileId = ref.read(currentProfileIdProvider);
+      final ownerId = ref.read(groupsOwnerProfileIdProvider);
+      if (profileId != null &&
+          (ownerId != profileId || ref.read(groupsProvider).isEmpty)) {
+        ref.invalidate(clashConfigProvider(profileId));
+        unawaited(
+          ref
+              .read(proxiesActionProvider.notifier)
+              .ensureCurrentProfileReady(forceApply: true),
+        );
+      } else {
+        await ref.read(proxiesActionProvider.notifier).updateGroups();
+      }
     }
   }
 
   Future<bool> connectCore() async {
+    final running = _connectCoreFuture;
+    if (running != null) {
+      commonPrint.log('core-connect:reuse');
+      return running;
+    }
+    final future = _connectCore();
+    _connectCoreFuture = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_connectCoreFuture, future)) {
+        _connectCoreFuture = null;
+      }
+    }
+  }
+
+  Future<bool> ensureCoreReady() async {
+    final running = _ensureCoreReadyFuture;
+    if (running != null) {
+      commonPrint.log('core-ready:reuse');
+      return running;
+    }
+    final future = _ensureCoreReady();
+    _ensureCoreReadyFuture = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_ensureCoreReadyFuture, future)) {
+        _ensureCoreReadyFuture = null;
+      }
+    }
+  }
+
+  Future<bool> _ensureCoreReady() async {
+    final watch = Stopwatch()..start();
+    if (!coreController.isCompleted && !await connectCore()) return false;
+    if (await coreController.isInit) {
+      commonPrint.log(
+        'core-ready:already-initialized elapsedMs=${watch.elapsedMilliseconds}',
+      );
+      return true;
+    }
+    final initialized = await coreController.init(ref.read(versionProvider));
+    commonPrint.log(
+      'core-ready:initialized elapsedMs=${watch.elapsedMilliseconds} '
+      'success=$initialized',
+      logLevel: initialized ? LogLevel.info : LogLevel.warning,
+    );
+    if (!initialized) {
+      ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+    }
+    return initialized;
+  }
+
+  Future<bool> _connectCore() async {
+    final watch = Stopwatch()..start();
+    commonPrint.log('core-connect:start');
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connecting;
     final result = await Future.wait([
       coreController.preload(),
@@ -1296,9 +1424,16 @@ class CoreAction extends _$CoreAction {
     if (message.isNotEmpty) {
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       globalState.showNotifier(message);
+      commonPrint.log(
+        'core-connect:failed elapsedMs=${watch.elapsedMilliseconds}',
+        logLevel: LogLevel.error,
+      );
       return false;
     }
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+    commonPrint.log(
+      'core-connect:ready elapsedMs=${watch.elapsedMilliseconds}',
+    );
     return true;
   }
 
@@ -1506,6 +1641,8 @@ class ThemeAction extends _$ThemeAction {
 
 @Riverpod(keepAlive: true)
 class ProxiesAction extends _$ProxiesAction {
+  final Map<int, Future<void>> _runningUpdateGroups = {};
+
   late final ProviderReadinessService<ExternalProvider, Group>
   _providerReadiness = ProviderReadinessService(
     log: (stage, result, elapsed) {
@@ -1532,16 +1669,36 @@ class ProxiesAction extends _$ProxiesAction {
   }) async {
     final profileId = ref.read(currentProfileIdProvider);
     ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
+    if (profileId != null && !coreController.isCompleted) {
+      final connected = await ref
+          .read(coreActionProvider.notifier)
+          .connectCore();
+      if (ref.read(currentProfileIdProvider) != profileId) {
+        return ProviderReadinessResult(
+          status: ProviderReadinessStatus.profileChanged,
+          profileId: profileId,
+        );
+      }
+      if (!connected) {
+        const error = ProviderReadinessCoreUnavailable();
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed(error);
+        commonPrint.log(
+          'provider-readiness:core-unavailable-before-config profileId=$profileId',
+          logLevel: LogLevel.warning,
+        );
+        return ProviderReadinessResult(
+          status: ProviderReadinessStatus.coreUnavailable,
+          profileId: profileId,
+          error: error,
+        );
+      }
+    }
     final result = await _providerReadiness.ensureCurrentProfileReady(
       targetProfileId: profileId,
       currentProfileId: () => ref.read(currentProfileIdProvider),
       readProviderDefinitions: () async {
         if (profileId == null) return (external: false, proxy: false);
-        final config = await ref.read(clashConfigProvider(profileId).future);
-        return (
-          external: hasExternalProviderDefinitions(config),
-          proxy: config.proxyProviders.isNotEmpty,
-        );
+        return readProfileProviderDefinitions(profileId);
       },
       ensureCoreReady: _ensureCoreReadyForDisplay,
       applyProfileForDisplay: () =>
@@ -1585,23 +1742,7 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   Future<bool> _ensureCoreReadyForDisplay() async {
-    if (!coreController.isCompleted) {
-      final connected = await ref
-          .read(coreActionProvider.notifier)
-          .connectCore();
-      if (!connected) return false;
-    }
-
-    final isInit = await coreController.isInit;
-    if (isInit) return true;
-
-    final version = ref.read(versionProvider);
-    final initialized = await coreController.init(version);
-    commonPrint.log('init result: $initialized');
-    if (!initialized) {
-      ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-    }
-    return initialized;
+    return ref.read(coreActionProvider.notifier).ensureCoreReady();
   }
 
   Future<List<Group>> _readRuntimeGroups() {
@@ -1826,64 +1967,75 @@ class ProxiesAction extends _$ProxiesAction {
     );
   }
 
-  Future<void> updateGroups() async {
+  Future<void> updateGroups() {
     final profileId = ref.read(currentProfileProvider)?.id;
+    if (profileId == null) {
+      commonPrint.log('update-groups:skipped reason=no-profile');
+      return Future.value();
+    }
+    final running = _runningUpdateGroups[profileId];
+    if (running != null) {
+      commonPrint.log('update-groups:reuse profileId=$profileId');
+      return running;
+    }
+    final future = _updateGroups(profileId);
+    _runningUpdateGroups[profileId] = future;
+    future.whenComplete(() {
+      if (identical(_runningUpdateGroups[profileId], future)) {
+        _runningUpdateGroups.remove(profileId);
+      }
+    });
+    return future;
+  }
+
+  Future<void> _updateGroups(int profileId) async {
+    final watch = Stopwatch()..start();
 
     try {
       ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
 
-      commonPrint.log('updateGroups');
-      if (!coreController.isCompleted) {
-        final connected = await ref
-            .read(coreActionProvider.notifier)
-            .connectCore();
-        if (!connected) {
-          final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
-          final oldGroups = ref.read(groupsProvider);
-          final hasSameProfileOldGroups =
-              ownerProfileId == profileId && oldGroups.isNotEmpty;
+      commonPrint.log('update-groups:start profileId=$profileId');
+      final coreReady = await _ensureCoreReadyForDisplay();
+      if (!coreReady) {
+        final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+        final oldGroups = ref.read(groupsProvider);
+        final hasSameProfileOldGroups =
+            ownerProfileId == profileId && oldGroups.isNotEmpty;
 
-          if (hasSameProfileOldGroups) {
-            ref
-                .read(proxyGroupsSnapshotProvider.notifier)
-                .failed('connectCore failed');
-            return;
-          }
-
-          final hydrated = await hydrateProxyGroupsSnapshot(
-            profileId: profileId,
-            allowStaleOnFingerprintMismatch: true,
-          );
-
-          if (hydrated) {
-            commonPrint.log(
-              'updateGroups connectCore failed, fallback to stale snapshot: profileId=$profileId',
-              logLevel: LogLevel.warning,
-            );
-            ref
-                .read(proxyGroupsSnapshotProvider.notifier)
-                .failed('connectCore failed');
-            return;
-          }
-
-          commonPrint.log(
-            'updateGroups preserve empty fallback: profileId=$profileId, '
-            'reason=connectCore failed, ownerProfileId=$ownerProfileId, '
-            'oldGroups=${oldGroups.length}',
-            logLevel: LogLevel.warning,
-          );
-
+        if (hasSameProfileOldGroups) {
           ref
               .read(proxyGroupsSnapshotProvider.notifier)
               .failed('connectCore failed');
           return;
         }
-        final isInit = await coreController.isInit;
-        if (!isInit) {
-          final version = ref.read(versionProvider);
-          final res = await coreController.init(version);
-          commonPrint.log('init result: $res');
+
+        final hydrated = await hydrateProxyGroupsSnapshot(
+          profileId: profileId,
+          allowStaleOnFingerprintMismatch: true,
+        );
+
+        if (hydrated) {
+          commonPrint.log(
+            'updateGroups connectCore failed, fallback to stale snapshot: profileId=$profileId',
+            logLevel: LogLevel.warning,
+          );
+          ref
+              .read(proxyGroupsSnapshotProvider.notifier)
+              .failed('connectCore failed');
+          return;
         }
+
+        commonPrint.log(
+          'updateGroups preserve empty fallback: profileId=$profileId, '
+          'reason=connectCore failed, ownerProfileId=$ownerProfileId, '
+          'oldGroups=${oldGroups.length}',
+          logLevel: LogLevel.warning,
+        );
+
+        ref
+            .read(proxyGroupsSnapshotProvider.notifier)
+            .failed('connectCore failed');
+        return;
       }
       Future<List<Group>> loadGroups() {
         return retry(
@@ -1983,7 +2135,11 @@ class ProxiesAction extends _$ProxiesAction {
 
       _syncComputedSelectedMap(groups);
     } catch (e) {
-      commonPrint.log('updateGroups error: $e', logLevel: LogLevel.error);
+      commonPrint.log(
+        'update-groups:error profileId=$profileId '
+        'elapsedMs=${watch.elapsedMilliseconds} error=$e',
+        logLevel: LogLevel.error,
+      );
 
       final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
       final oldGroups = ref.read(groupsProvider);
@@ -2016,6 +2172,16 @@ class ProxiesAction extends _$ProxiesAction {
       );
 
       ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+    } finally {
+      final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+      final groupCount = ownerProfileId == profileId
+          ? ref.read(groupsProvider).length
+          : 0;
+      commonPrint.log(
+        'update-groups:completed profileId=$profileId '
+        'elapsedMs=${watch.elapsedMilliseconds} groupCount=$groupCount '
+        'currentProfileId=${ref.read(currentProfileIdProvider)}',
+      );
     }
   }
 

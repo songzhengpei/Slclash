@@ -233,8 +233,12 @@ class _EditProfileViewState extends State<EditProfileView> {
           }
           _handleBack();
         },
-        actions: [
-          IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleConfirm),
+        appBarActions: [
+          SlAppBarIconAction(
+            icon: SurgeIcons.confirm,
+            tooltip: appLocalizations.confirm,
+            onPressed: _handleConfirm,
+          ),
         ],
         body: Form(
           key: _formKey,
@@ -297,33 +301,33 @@ class _EditProfileViewState extends State<EditProfileView> {
                 SurgeAnimatedReveal(
                   visible: _autoUpdate,
                   child: Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: SurgeField(
-                            label: appLocalizations.autoUpdateInterval,
-                            child: TextFormField(
-                              textInputAction: TextInputAction.next,
-                              keyboardType: TextInputType.number,
-                              controller: _autoUpdateDurationController,
-                              decoration: surgeInputDecoration(
-                                context,
-                                hintText: appLocalizations.autoUpdateInterval,
-                              ),
-                              validator: (String? value) {
-                                if (value == null || value.isEmpty) {
-                                  return appLocalizations
-                                      .profileAutoUpdateIntervalNullValidationDesc;
-                                }
-                                try {
-                                  int.parse(value);
-                                } catch (_) {
-                                  return appLocalizations
-                                      .profileAutoUpdateIntervalInvalidValidationDesc;
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
+                    padding: const EdgeInsets.only(top: 14),
+                    child: SurgeField(
+                      label: appLocalizations.autoUpdateInterval,
+                      child: TextFormField(
+                        textInputAction: TextInputAction.next,
+                        keyboardType: TextInputType.number,
+                        controller: _autoUpdateDurationController,
+                        decoration: surgeInputDecoration(
+                          context,
+                          hintText: appLocalizations.autoUpdateInterval,
                         ),
+                        validator: (String? value) {
+                          if (value == null || value.isEmpty) {
+                            return appLocalizations
+                                .profileAutoUpdateIntervalNullValidationDesc;
+                          }
+                          try {
+                            int.parse(value);
+                          } catch (_) {
+                            return appLocalizations
+                                .profileAutoUpdateIntervalInvalidValidationDesc;
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ),
                 ),
               ],
               const SizedBox(height: 18),
@@ -374,11 +378,8 @@ class _ProfileEditFileActions extends StatelessWidget {
             description,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: context.textTheme.labelSmall?.copyWith(
+            style: context.typography.badgeLabel.copyWith(
               color: surge.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0,
             ),
           ),
         ),
@@ -430,11 +431,7 @@ class _ProfileEditActionButton extends StatelessWidget {
           elevation: 0,
           backgroundColor: surge.fill,
           foregroundColor: surge.textPrimary,
-          textStyle: context.textTheme.labelLarge?.copyWith(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0,
-          ),
+          textStyle: context.typography.controlLabel,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(surge.radii.smallCard),
           ),

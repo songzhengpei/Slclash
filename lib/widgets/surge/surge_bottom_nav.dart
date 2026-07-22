@@ -227,14 +227,13 @@ class _SurgeBottomNavTile extends StatelessWidget {
               const SizedBox(height: 5),
               Text(
                 item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: (selected
+                        ? context.typography.selectedNavigationLabel
+                        : context.typography.navigationLabel)
+                    .copyWith(
                   color: color,
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                  height: 1.0,
-                  letterSpacing: 0,
                 ),
               ),
             ],

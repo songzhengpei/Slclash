@@ -27,45 +27,34 @@ class TrafficUsage extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.textTheme.labelSmall?.copyWith(
+          style: context.typography.chartLabel.copyWith(
             color: surge.textSecondary,
-            fontSize: 11,
-            letterSpacing: 0,
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    trafficValue.traffic.value,
-                    maxLines: 1,
-                    style: context.textTheme.labelMedium?.copyWith(
-                      color: surge.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0,
-                    ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Text(
+                  trafficValue.traffic.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.typography.metric.copyWith(
+                    color: surge.textPrimary,
                   ),
-                  const SizedBox(width: 3),
-                  Text(
-                    trafficValue.traffic.unit,
-                    maxLines: 1,
-                    style: context.textTheme.labelSmall?.copyWith(
-                      color: surge.textSecondary,
-                      fontSize: 10,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(width: 3),
+              Text(
+                trafficValue.traffic.unit,
+                maxLines: 1,
+                style: context.typography.chartLabel.copyWith(
+                  color: surge.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -91,7 +80,7 @@ class TrafficUsage extends StatelessWidget {
 
             return SurgeDashboardCard(
               title: appLocalizations.trafficUsage,
-              subtitle: 'Traffic',
+              subtitle: appLocalizations.trafficUsage,
               icon: SurgeIcons.traffic,
               height: height,
               child: LayoutBuilder(

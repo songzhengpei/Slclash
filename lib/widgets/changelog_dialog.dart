@@ -17,7 +17,7 @@ class AppChangelogDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dialog = CommonDialog(
-      title: '更新日志',
+      title: context.appLocalizations.changelog,
       overrideScroll: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -36,7 +36,7 @@ class AppChangelogDialog extends StatelessWidget {
           Row(
             children: [
               SurgeDialogActionButton(
-                label: '确定',
+                label: context.appLocalizations.confirm,
                 primary: true,
                 onPressed: () => Navigator.of(context).pop(true),
               ),
@@ -72,30 +72,42 @@ class _ChangelogCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   entry.version,
-                  style: context.textTheme.titleMedium?.copyWith(
+                  style: context.typography.cardTitle.copyWith(
                     color: surge.textPrimary,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
               Text(
                 entry.date,
-                style: context.textTheme.labelSmall?.copyWith(
+                style: context.typography.supporting.copyWith(
                   color: surge.textSecondary,
-                  letterSpacing: 0,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           for (var index = 0; index < entry.changes.length; index++) ...[
-            _ChangelogLine(text: entry.changes[index]),
+            _ChangelogLine(
+              text: _localizedChange(context, entry.changes[index]),
+            ),
             if (index != entry.changes.length - 1) const SizedBox(height: 8),
           ],
         ],
       ),
     );
+  }
+
+  String _localizedChange(BuildContext context, String key) {
+    final l10n = context.appLocalizations;
+    return switch (key) {
+      'changelog205Item1' => l10n.changelog205Item1,
+      'changelog205Item2' => l10n.changelog205Item2,
+      'changelog205Item3' => l10n.changelog205Item3,
+      'changelog204Item1' => l10n.changelog204Item1,
+      'changelog204Item2' => l10n.changelog204Item2,
+      'changelog204Item3' => l10n.changelog204Item3,
+      _ => key,
+    };
   }
 }
 
@@ -125,10 +137,8 @@ class _ChangelogLine extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: context.textTheme.bodySmall?.copyWith(
+            style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
-              height: 1.4,
-              letterSpacing: 0,
             ),
           ),
         ),

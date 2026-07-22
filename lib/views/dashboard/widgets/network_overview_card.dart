@@ -116,30 +116,35 @@ class NetworkOverviewCardLayoutCalculator {
   const NetworkOverviewCardLayoutCalculator._();
 
   static const double dividerHeight = 1;
+  static const double detectionVerticalGap = 16;
+  static const double pixelRoundingAllowance = 1;
 
   static double headerHeightFor(DashboardResponsiveLayout layout) =>
-      layout.legacy(28);
+      math.max(layout.legacy(28), layout.textIcon(18));
   static double chartHeightFor(DashboardResponsiveLayout layout) =>
       layout.legacy(82);
   static double headerToChartGapFor(DashboardResponsiveLayout layout) =>
       layout.legacy(10);
   static double chartToDividerGapFor(DashboardResponsiveLayout layout) =>
-      layout.legacy(14);
+      layout.legacy(16);
   static double dividerToTrafficGapFor(DashboardResponsiveLayout layout) =>
-      layout.legacy(14);
+      layout.legacy(16);
   static double trafficTitleToChartGapFor(DashboardResponsiveLayout layout) =>
-      layout.legacy(28);
+      layout.legacy(24);
   static double latencyHeaderToRowsGapFor(DashboardResponsiveLayout layout) =>
-      layout.legacy(26);
+      layout.legacy(14);
   static double latencyRowGapFor(DashboardResponsiveLayout layout) =>
       layout.legacy(12);
   static double trafficToDividerGapFor(DashboardResponsiveLayout layout) =>
-      layout.legacy(14);
-  static double detectionBarHeightFor(DashboardResponsiveLayout layout) =>
-      layout.legacy(34);
-  static double detectionVerticalGapFor(DashboardResponsiveLayout layout) => 16;
+      layout.legacy(16);
+  static double detectionBarHeightFor(DashboardResponsiveLayout layout) {
+    const metricLineHeight = 16.0;
+    final scaledLineHeight = metricLineHeight * layout.textScale;
+    return layout.legacy(34) + math.max(0, scaledLineHeight - metricLineHeight);
+  }
+
   static double detectionSectionHeightFor(DashboardResponsiveLayout layout) =>
-      detectionVerticalGapFor(layout) * 2 + detectionBarHeightFor(layout);
+      detectionVerticalGap * 2 + detectionBarHeightFor(layout);
 
   static double _trafficSectionMinHeightFor(DashboardResponsiveLayout layout) {
     final donutColumn =
@@ -147,7 +152,7 @@ class NetworkOverviewCardLayoutCalculator {
         trafficTitleToChartGapFor(layout) +
         layout.legacy(78);
     final latencyColumn =
-        layout.geometry(15) +
+        headerHeightFor(layout) +
         latencyHeaderToRowsGapFor(layout) +
         layout.legacy(25) * 3 +
         latencyRowGapFor(layout) * 2;
@@ -158,7 +163,9 @@ class NetworkOverviewCardLayoutCalculator {
   }
 
   static double naturalOuterHeightFor(DashboardResponsiveLayout layout) {
-    return layout.legacy(20) + naturalInnerHeightFor(layout);
+    return layout.legacy(16) +
+        naturalInnerHeightFor(layout) +
+        pixelRoundingAllowance;
   }
 
   static double naturalInnerHeightFor(DashboardResponsiveLayout layout) {
@@ -194,7 +201,6 @@ class NetworkOverviewCardLayoutCalculator {
     final extraHeight = resolvedOuterHeight - naturalOuterHeight;
     final distributedExtraHeight =
         extraHeight * contentExpansionFraction.clamp(0.0, 1.0);
-    final detectionExtraHeight = extraHeight - distributedExtraHeight * 0.85;
     return NetworkOverviewCardLayout(
       headerHeight: headerHeightFor(responsiveLayout),
       chartHeight:
@@ -217,10 +223,9 @@ class NetworkOverviewCardLayoutCalculator {
           latencyRowGapFor(responsiveLayout) + distributedExtraHeight * 0.02,
       afterTrafficGap:
           trafficToDividerGapFor(responsiveLayout) +
-          distributedExtraHeight * 0.02 +
-          detectionExtraHeight,
-      detectionTopGap: detectionVerticalGapFor(responsiveLayout),
-      detectionBottomGap: detectionVerticalGapFor(responsiveLayout),
+          distributedExtraHeight * 0.02,
+      detectionTopGap: detectionVerticalGap,
+      detectionBottomGap: detectionVerticalGap,
     );
   }
 }
@@ -268,12 +273,8 @@ class _SurgeNetworkOverviewCardState
   Timer? _latencyRefreshTimer;
   bool _isTestingLatencies = false;
 
-  bool _isChinese(BuildContext context) {
-    return Localizations.localeOf(context).languageCode.toLowerCase() == 'zh';
-  }
-
   String _overviewTitle(BuildContext context) {
-    return _isChinese(context) ? '网络概览' : 'Network Overview';
+    return context.appLocalizations.networkOverview;
   }
 
   List<Point> _buildSeries(
@@ -709,7 +710,7 @@ class _SurgeNetworkOverviewCardState
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
         responsiveLayout.cardHorizontalPadding,
-        responsiveLayout.legacy(20),
+        responsiveLayout.legacy(16),
         responsiveLayout.cardHorizontalPadding,
         0,
       ),
@@ -725,7 +726,7 @@ class _SurgeNetworkOverviewCardState
         builder: (context, constraints) {
           final layout = NetworkOverviewCardLayoutCalculator.layoutFor(
             availableOuterHeight: constraints.maxHeight.isFinite
-                ? constraints.maxHeight + responsiveLayout.legacy(20)
+                ? constraints.maxHeight + responsiveLayout.legacy(16)
                 : NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
                     responsiveLayout,
                   ),
@@ -733,17 +734,17 @@ class _SurgeNetworkOverviewCardState
             contentExpansionFraction: widget.contentExpansionFraction,
           );
           final overviewLabels = Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
-                width: responsiveLayout.geometry(16),
+                width: responsiveLayout.textIcon(18),
                 height: layout.headerHeight,
                 child: Align(
-                  alignment: Alignment.topLeft,
+                  alignment: Alignment.centerLeft,
                   child: Icon(
                     SurgeIcons.network,
                     color: isStart ? surge.primary : surge.inactive,
-                    size: responsiveLayout.geometry(16),
+                    size: responsiveLayout.textIcon(18),
                   ),
                 ),
               ),
@@ -754,12 +755,8 @@ class _SurgeNetworkOverviewCardState
                   children: [
                     Text(
                       _overviewTitle(context),
-                      style: context.textTheme.titleMedium?.copyWith(
+                      style: context.typography.cardTitle.copyWith(
                         color: surge.textPrimary,
-                        fontSize: responsiveLayout.type(14),
-                        fontWeight: FontWeight.w700,
-                        height: 1.08,
-                        letterSpacing: 0,
                       ),
                     ),
                   ],
@@ -788,7 +785,7 @@ class _SurgeNetworkOverviewCardState
                   ],
                 )
               : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(child: overviewLabels),
                     SizedBox(width: responsiveLayout.geometry(12)),
@@ -799,16 +796,16 @@ class _SurgeNetworkOverviewCardState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   SizedBox(
-                    width: responsiveLayout.geometry(16),
+                    width: responsiveLayout.textIcon(18),
                     height: layout.headerHeight,
                     child: Align(
-                      alignment: Alignment.topLeft,
+                      alignment: Alignment.centerLeft,
                       child: Icon(
                         SurgeIcons.traffic,
-                        size: responsiveLayout.geometry(16),
+                        size: responsiveLayout.textIcon(18),
                         color: surge.textSecondary,
                       ),
                     ),
@@ -822,12 +819,8 @@ class _SurgeNetworkOverviewCardState
                           appLocalizations.trafficUsage,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: context.textTheme.titleSmall?.copyWith(
+                          style: context.typography.cardTitle.copyWith(
                             color: surge.textPrimary,
-                            fontSize: responsiveLayout.type(14),
-                            fontWeight: FontWeight.w700,
-                            height: 1.08,
-                            letterSpacing: 0,
                           ),
                         ),
                       ],
@@ -859,17 +852,20 @@ class _SurgeNetworkOverviewCardState
           );
           final latencyPanel = Column(
             children: [
-              Row(
-                children: [
-                  const Spacer(),
-                  _TotalTrafficBadge(
-                    up: totalTraffic.up,
-                    down: totalTraffic.down,
-                    upColor: uploadColor,
-                    downColor: downloadColor,
-                    layout: responsiveLayout,
-                  ),
-                ],
+              SizedBox(
+                height: layout.headerHeight,
+                child: Row(
+                  children: [
+                    const Spacer(),
+                    _TotalTrafficBadge(
+                      up: totalTraffic.up,
+                      down: totalTraffic.down,
+                      upColor: uploadColor,
+                      downColor: downloadColor,
+                      layout: responsiveLayout,
+                    ),
+                  ],
+                ),
               ),
               SizedBox(height: layout.latencyHeaderToRowsGap),
               _PlatformLatencyPanel(
@@ -1041,19 +1037,12 @@ class _LiveSpeedLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: layout.geometry(15), color: color),
+        Icon(icon, size: layout.textIcon(14), color: color),
         SizedBox(width: layout.geometry(4)),
-        Text(
-          value,
-          style: surge.typography.dashboardValue.copyWith(
-            color: color,
-            fontSize: layout.type(13),
-          ),
-        ),
+        Text(value, style: context.typography.metric.copyWith(color: color)),
       ],
     );
   }
@@ -1087,8 +1076,6 @@ class _NetworkDetectionBar extends StatelessWidget {
   final Color dangerColor;
   final String label;
 
-  static const _flagVerticalOffset = 0.8;
-
   String _countryCodeToEmoji(String countryCode) {
     final code = countryCode.toUpperCase();
     if (code.length != 2) return countryCode;
@@ -1099,7 +1086,6 @@ class _NetworkDetectionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surge = SurgeTheme.of(context);
     final height = NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
       layout,
     );
@@ -1111,25 +1097,14 @@ class _NetworkDetectionBar extends StatelessWidget {
     if (localIpInfo != null) {
       valueWidget = Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
-          SizedBox.square(
-            dimension: layout.geometry(16),
-            child: Center(
-              child: Transform.translate(
-                offset: const Offset(0, _flagVerticalOffset),
-                child: Text(
-                  _countryCodeToEmoji(localIpInfo.countryCode),
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: FontFamily.twEmoji.value,
-                    fontSize: layout.type(14),
-                    height: 1.0,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
+          Text(
+            _countryCodeToEmoji(localIpInfo.countryCode),
+            maxLines: 1,
+            style: context.typography.controlLabel.copyWith(
+              fontFamily: FontFamily.twEmoji.value,
             ),
           ),
           SizedBox(width: layout.geometry(6)),
@@ -1140,10 +1115,8 @@ class _NetworkDetectionBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
-                style: surge.typography.dashboardValue.copyWith(
+                style: context.typography.dashboardIpValue.copyWith(
                   color: textColor,
-                  fontSize: layout.type(12),
-                  leadingDistribution: TextLeadingDistribution.even,
                 ),
               ),
             ),
@@ -1168,9 +1141,8 @@ class _NetworkDetectionBar extends StatelessWidget {
           Text(
             context.appLocalizations.loading,
             maxLines: 1,
-            style: surge.typography.dashboardLoading.copyWith(
+            style: context.typography.compactMetric.copyWith(
               color: secondaryTextColor,
-              fontSize: layout.type(10),
             ),
           ),
         ],
@@ -1179,10 +1151,7 @@ class _NetworkDetectionBar extends StatelessWidget {
       valueWidget = Text(
         'Timeout',
         maxLines: 1,
-        style: surge.typography.dashboardValue.copyWith(
-          color: dangerColor,
-          fontSize: layout.type(12),
-        ),
+        style: context.typography.compactMetric.copyWith(color: dangerColor),
       );
     } else {
       valueWidget = const SizedBox.shrink();
@@ -1208,9 +1177,8 @@ class _NetworkDetectionBar extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: surge.typography.dashboardLabel.copyWith(
+            style: context.typography.supporting.copyWith(
               color: secondaryTextColor,
-              fontSize: layout.type(12),
             ),
           ),
           SizedBox(width: layout.geometry(12)),
@@ -1320,17 +1288,11 @@ class _TrafficAmount extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: layout.geometry(15), color: color),
+        Icon(icon, size: layout.textIcon(14), color: color),
         SizedBox(width: layout.geometry(4)),
         Text(
           formatted,
-          style: context.textTheme.labelMedium?.copyWith(
-            color: color,
-            fontSize: layout.type(13),
-            fontWeight: FontWeight.w700,
-            height: 1.0,
-            letterSpacing: 0,
-          ),
+          style: context.typography.metric.copyWith(color: color),
         ),
       ],
     );
@@ -1412,9 +1374,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
         maxLines: 1,
         softWrap: false,
         overflow: TextOverflow.clip,
-        style: _valueStyle(
-          context,
-        ).copyWith(color: dangerColor, fontSize: layout.type(10)),
+        style: _valueStyle(context).copyWith(color: dangerColor),
       );
     }
     final latency = result?.latency;
@@ -1437,9 +1397,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
   }
 
   TextStyle _valueStyle(BuildContext context) {
-    return SurgeTheme.of(
-      context,
-    ).typography.dashboardLabel.copyWith(fontSize: layout.type(12));
+    return context.typography.dashboardLatencyValue;
   }
 
   @override
@@ -1528,11 +1486,7 @@ class _PlatformLatencyRow extends StatelessWidget {
         SizedBox(width: layout.geometry(8)),
         SizedBox(
           width: layout.geometry(50),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: trailing,
-          ),
+          child: Align(alignment: Alignment.centerRight, child: trailing),
         ),
       ],
     );
@@ -1643,10 +1597,8 @@ class _RouteFlagBadge extends StatelessWidget {
               child: Text(
                 flag,
                 maxLines: 1,
-                style: TextStyle(
+                style: context.typography.controlLabel.copyWith(
                   fontFamily: 'Twemoji',
-                  fontSize: layout.type(15),
-                  height: 1.0,
                 ),
               ),
             ),

@@ -170,6 +170,12 @@ class CoreController {
     );
   }
 
+  Future<List<Map<String, dynamic>>> normalizeProviderContent(
+    List<int> bytes,
+  ) {
+    return _interface.normalizeProviderContent(bytes);
+  }
+
   Future<ProxiesData> getProxiesData() {
     return _interface.getProxies();
   }

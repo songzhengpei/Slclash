@@ -270,6 +270,14 @@ ThemeProps normalizeThemeProps(ThemeProps themeProps) {
     normalized = normalized.copyWith(primaryColor: legacyGraySeedColor);
   }
 
+  final clampedTextScale = normalized.textScale.scale.clamp(
+    minTextScale,
+    maxTextScale,
+  );
+  if (clampedTextScale != normalized.textScale.scale) {
+    normalized = normalized.copyWith.textScale(scale: clampedTextScale);
+  }
+
   if (normalized.dynamicColor) {
     final schemeVariant = normalizeDynamicSchemeVariant(
       normalized.schemeVariant,

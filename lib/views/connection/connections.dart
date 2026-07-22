@@ -47,14 +47,22 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   Timer? _timer;
   bool _isUpdating = false;
 
-  List<Widget> _buildActions() {
+  List<SlAppBarAction> _buildActions() {
     return [
-      IconButton(
-        onPressed: () async {
-          coreController.closeConnections();
-          await _updateConnections(force: true);
-        },
-        icon: const Icon(SurgeIcons.deleteAll),
+      SlAppBarOverflowAction(
+        tooltip: context.appLocalizations.more,
+        popup: CommonPopupMenu(
+          items: [
+            PopupMenuItemData(
+              icon: SurgeIcons.deleteAll,
+              label: context.appLocalizations.delete,
+              onPressed: () async {
+                coreController.closeConnections();
+                await _updateConnections(force: true);
+              },
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -192,7 +200,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
       title: appLocalizations.connections,
       onKeywordsUpdate: _onKeywordsUpdate,
       searchState: AppBarSearchState(onSearch: _onSearch),
-      actions: _buildActions(),
+      appBarActions: _buildActions(),
       body: ValueListenableBuilder<TrackerInfosState>(
         valueListenable: _connectionsStateNotifier,
         builder: (context, state, _) {

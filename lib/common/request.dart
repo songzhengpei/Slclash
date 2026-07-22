@@ -38,8 +38,12 @@ class Request {
         options: Options(responseType: ResponseType.bytes),
       );
     } catch (e) {
-      commonPrint.log('getFileResponseForUrl error ${e.toString()}');
       if (e is DioException) {
+        commonPrint.log(
+          'network-download:error type=${e.type.name} '
+          'status=${e.response?.statusCode ?? '-'}',
+          logLevel: LogLevel.warning,
+        );
         if (e.type == DioExceptionType.unknown) {
           throw currentAppLocalizations.unknownNetworkError;
         } else if (e.type == DioExceptionType.badResponse) {
@@ -47,6 +51,10 @@ class Request {
         }
         rethrow;
       }
+      commonPrint.log(
+        'network-download:error type=${e.runtimeType}',
+        logLevel: LogLevel.warning,
+      );
       throw currentAppLocalizations.unknownNetworkError;
     }
   }

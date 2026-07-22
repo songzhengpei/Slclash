@@ -76,8 +76,12 @@ class _LineChartState extends State<LineChart>
     final newLen = widget.points.length;
     if (oldLen != newLen) return newLen <= 1 || oldLen <= 1;
     if (widget.points.isEmpty || oldWidget.points.isEmpty) return true;
-    final oldMax = oldWidget.points.map((p) => p.y).reduce((a, b) => a > b ? a : b);
-    final newMax = widget.points.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+    final oldMax = oldWidget.points
+        .map((p) => p.y)
+        .reduce((a, b) => a > b ? a : b);
+    final newMax = widget.points
+        .map((p) => p.y)
+        .reduce((a, b) => a > b ? a : b);
     if (oldMax <= 0 && newMax <= 0) return false;
     final ratio = oldMax > 0 ? newMax / oldMax : newMax;
     return ratio > 1.5 || ratio < 0.5;

@@ -140,7 +140,7 @@ class HotKeyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
-    return BaseScaffold(
+    return CommonScaffold(
       title: appLocalizations.hotkeyManagement,
       body: ListView.builder(
         itemCount: HotAction.values.length,
@@ -345,7 +345,7 @@ class KeyboardKeyBox extends StatelessWidget {
       type: CommonCardType.filled,
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Text(keyboardKey.label, style: const TextStyle(fontSize: 16)),
+        child: Text(keyboardKey.label, style: context.typography.controlLabel),
       ),
       onPressed: () {},
     );

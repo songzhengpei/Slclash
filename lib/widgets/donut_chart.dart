@@ -65,7 +65,8 @@ class _DonutChartState extends State<DonutChart>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       _oldData = oldWidget.data;
-      if (!_hasAnimatedOnce || _isSignificantChange(oldWidget.data, widget.data)) {
+      if (!_hasAnimatedOnce ||
+          _isSignificantChange(oldWidget.data, widget.data)) {
         _animationController.forward(from: 0);
         _hasAnimatedOnce = true;
       } else {
@@ -74,7 +75,10 @@ class _DonutChartState extends State<DonutChart>
     }
   }
 
-  bool _isSignificantChange(List<DonutChartData> oldData, List<DonutChartData> newData) {
+  bool _isSignificantChange(
+    List<DonutChartData> oldData,
+    List<DonutChartData> newData,
+  ) {
     if (oldData.length != newData.length) return true;
     for (var i = 0; i < oldData.length; i++) {
       final total = oldData[i].value + newData[i].value;
@@ -191,7 +195,7 @@ class DonutChartPainter extends CustomPainter {
     if (total <= 0) return;
 
     final center = Offset(size.width / 2, size.height / 2);
-    final strokeWidth = 12.0.ap;
+    const strokeWidth = 12.0;
     final radius = min(size.width / 2, size.height / 2) - strokeWidth / 2;
 
     final gapAngle = 2 * asin(strokeWidth * 1 / (2 * radius)) * 1.2;

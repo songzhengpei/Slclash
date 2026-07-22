@@ -34,6 +34,7 @@ class TUNButton extends StatelessWidget {
                       ),
                     ),
                     title: appLocalizations.tun,
+                    appBarActions: const [],
                   );
                 },
               );
@@ -82,6 +83,7 @@ class SystemProxyButton extends StatelessWidget {
                   ),
                 ),
                 title: appLocalizations.systemProxy,
+                appBarActions: const [],
               );
             },
           );
@@ -131,6 +133,7 @@ class VpnButton extends StatelessWidget {
                   ),
                 ),
                 title: 'VPN',
+                appBarActions: const [],
               );
             },
           );
@@ -189,11 +192,8 @@ class _QuickOptionCard extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  style: context.typography.cardTitle.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -206,10 +206,8 @@ class _QuickOptionCard extends StatelessWidget {
                 context.appLocalizations.options,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                style: context.typography.supporting.copyWith(
                   color: surge.textSecondary,
-                  fontSize: 13,
-                  letterSpacing: 0,
                 ),
               ),
               const SizedBox(width: 12),

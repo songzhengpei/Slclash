@@ -75,31 +75,39 @@ class _ProfilesViewState extends State<ProfilesView> {
     _isUpdating = false;
   }
 
-  List<Widget> _buildActions(List<Profile> profiles) {
+  List<SlAppBarAction> _buildActions(List<Profile> profiles) {
     return [
-      if (profiles.isNotEmpty)
-        IconButton(
-          tooltip: context.appLocalizations.sync,
-          icon: const Icon(SurgeIcons.sync),
-          onPressed: () {
-            _updateProfiles(profiles);
-          },
+      SlAppBarOverflowAction(
+        tooltip: context.appLocalizations.more,
+        popup: CommonPopupMenu(
+          items: [
+            if (profiles.isNotEmpty)
+              PopupMenuItemData(
+                icon: SurgeIcons.sync,
+                label: context.appLocalizations.sync,
+                onPressed: () {
+                  _updateProfiles(profiles);
+                },
+              ),
+            PopupMenuItemData(
+              icon: SurgeIcons.tune,
+              label: context.appLocalizations.settings,
+              onPressed: () {
+                showSheet(
+                  context: context,
+                  props: const SheetProps(isScrollControlled: true),
+                  builder: (_) {
+                    return AdaptiveSheetScaffold(
+                      body: _ProfilesManageSheet(profiles: profiles),
+                      title: context.appLocalizations.profileManagement,
+                      appBarActions: const [],
+                    );
+                  },
+                );
+              },
+            ),
+          ],
         ),
-      IconButton(
-        tooltip: context.appLocalizations.settings,
-        icon: const Icon(SurgeIcons.tune),
-        onPressed: () {
-          showSheet(
-            context: context,
-            props: const SheetProps(isScrollControlled: true),
-            builder: (_) {
-              return AdaptiveSheetScaffold(
-                body: _ProfilesManageSheet(profiles: profiles),
-                title: '订阅管理',
-              );
-            },
-          );
-        },
       ),
     ];
   }
@@ -118,8 +126,9 @@ class _ProfilesViewState extends State<ProfilesView> {
         return CommonScaffold(
           backgroundColor: surge.background,
           isLoading: isLoading,
-          title: '配置',
-          actions: _buildActions(state.profiles),
+          title: context.appLocalizations.profiles,
+          appBarActions: _buildActions(state.profiles),
+          titleVariant: SlAppBarTitleVariant.root,
           body: state.profiles.isEmpty
               ? NullStatus(
                   label: appLocalizations.nullProfileDesc,
@@ -153,7 +162,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                           ),
                         const SizedBox(height: 14),
                         SurgeSection(
-                          title: '已添加订阅',
+                          title: context.appLocalizations.profiles,
                           margin: const EdgeInsets.only(bottom: 14),
                           children: [
                             _ProfileListContainer(
@@ -237,28 +246,22 @@ class _MediaCheckCompactRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '流媒体检测',
+                    context.appLocalizations.mediaCheck,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.titleSmall?.copyWith(
+                    style: context.typography.itemLabel.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1.05,
-                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    profileCount > 1 ? '按订阅手动检测 · 结果缓存' : '手动检测 · 结果缓存',
+                    profileCount > 1
+                        ? context.appLocalizations.mediaCheckByProfileDesc
+                        : context.appLocalizations.mediaCheckDesc,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelSmall?.copyWith(
+                    style: context.typography.compactDescription.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      height: 1.05,
-                      letterSpacing: 0,
                     ),
                   ),
                 ],
@@ -417,7 +420,7 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ProfileSettingSection(
-            title: '添加订阅',
+            title: context.appLocalizations.addProfileTitle,
             children: [
               _ProfileSettingOption(
                 label: appLocalizations.qrcode,
@@ -438,13 +441,13 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
           ),
           const SizedBox(height: 14),
           _ProfileSettingSection(
-            title: '订阅排序',
+            title: context.appLocalizations.profileSort,
             subtitle: '${_profiles.length}',
             children: [
               if (_profiles.isEmpty)
                 _ProfileSettingOption(
                   icon: SurgeIcons.sort,
-                  label: '暂无订阅',
+                  label: context.appLocalizations.noProfiles,
                   enabled: false,
                   onTap: () {},
                 )
@@ -539,8 +542,12 @@ class _AddUrlProfileSheetState extends State<_AddUrlProfileSheet> {
     final appLocalizations = context.appLocalizations;
     return AdaptiveSheetScaffold(
       title: appLocalizations.importFromURL,
-      actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSubmit),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSubmit,
+        ),
       ],
       body: Form(
         key: _formKey,
@@ -662,24 +669,16 @@ class _ProfileSettingSection extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: context.textTheme.titleSmall?.copyWith(
+                style: context.typography.cardTitle.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                  letterSpacing: 0,
                 ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(width: 8),
                 Text(
                   subtitle!,
-                  style: context.textTheme.labelSmall?.copyWith(
+                  style: context.typography.chartLabel.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    height: 1,
-                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -747,14 +746,10 @@ class _ProfileSettingOption extends StatelessWidget {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.bodyMedium?.copyWith(
+                      style: context.typography.rowTitle.copyWith(
                         color: enabled
                             ? surge.textPrimary
                             : surge.textSecondary.withValues(alpha: 0.4),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                        letterSpacing: 0,
                       ),
                     ),
                     if (subtitle != null) ...[
@@ -763,11 +758,8 @@ class _ProfileSettingOption extends StatelessWidget {
                         subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.labelSmall?.copyWith(
+                        style: context.typography.supporting.copyWith(
                           color: surge.textSecondary,
-                          fontSize: 11,
-                          height: 1,
-                          letterSpacing: 0,
                         ),
                       ),
                     ],
@@ -813,12 +805,8 @@ class _ProfileSortOption extends StatelessWidget {
                 profile.realLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.rowTitle.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  height: 1,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -933,11 +921,8 @@ class _CurrentProfileSummaryState extends State<_CurrentProfileSummary> {
                       widget.profile.realLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.titleMedium?.copyWith(
+                      style: context.typography.featuredTitle.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -990,11 +975,8 @@ class _CurrentProfileDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final infoStyle = context.textTheme.labelSmall?.copyWith(
+    final infoStyle = context.typography.detailLabel.copyWith(
       color: surge.textSecondary,
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0,
     );
 
     return Row(
@@ -1037,20 +1019,20 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
             groupsOwnerProfileId == profileId &&
             (snapshot.freshness == ProxyGroupsFreshnessState.fresh ||
                 snapshot.freshness == ProxyGroupsFreshnessState.stale))) {
-      label = '当前使用';
+      label = context.appLocalizations.currentlyUsed;
       color = surge.green;
       loading = false;
     } else if (snapshot.freshness == ProxyGroupsFreshnessState.refreshing ||
         (groupsOwnerProfileId != null && groupsOwnerProfileId != profileId)) {
-      label = '正在切换';
+      label = context.appLocalizations.switching;
       color = surge.primary;
       loading = true;
     } else if (snapshot.freshness == ProxyGroupsFreshnessState.failed) {
-      label = '不可用';
+      label = context.appLocalizations.unavailable;
       color = surge.red;
       loading = false;
     } else {
-      label = '未就绪';
+      label = context.appLocalizations.notReady;
       color = surge.textSecondary;
       loading = false;
     }
@@ -1083,12 +1065,8 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: context.textTheme.labelSmall?.copyWith(
+            style: context.typography.pillLabel.copyWith(
               color: color.withValues(alpha: 0.96),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              letterSpacing: 0,
             ),
           ),
         ],
@@ -1135,12 +1113,11 @@ class _CurrentProfileExpandButton extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  enabled ? '展开显示当前订阅节点' : '正在读取当前订阅节点',
-                  style: context.textTheme.labelMedium?.copyWith(
+                  enabled
+                      ? context.appLocalizations.expandCurrentProfileNodes
+                      : context.appLocalizations.readingCurrentProfileNodes,
+                  style: context.typography.itemLabel.copyWith(
                     color: enabled ? surge.textPrimary : surge.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -1176,11 +1153,9 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     if (proxies.isEmpty) {
       return Text(
-        '当前订阅没有可展示的节点',
-        style: context.textTheme.labelSmall?.copyWith(
+        context.appLocalizations.currentProfileHasNoNodes,
+        style: context.typography.supporting.copyWith(
           color: surge.textSecondary,
-          fontSize: 11,
-          letterSpacing: 0,
         ),
       );
     }
@@ -1195,23 +1170,18 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '节点列表',
+                    context.appLocalizations.nodeList,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.previewLabel.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
                 Text(
                   '${proxies.length}',
-                  style: context.textTheme.labelSmall?.copyWith(
+                  style: context.typography.countLabel.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 11,
-                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1277,7 +1247,7 @@ class _ProfileProxyTestAllButtonState
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return Tooltip(
-      message: '测试全部延迟',
+      message: context.appLocalizations.testAllLatencies,
       child: SurgePressable(
         compact: true,
         borderRadius: BorderRadius.circular(
@@ -1341,11 +1311,8 @@ class _ProfileProxyPreviewCard extends StatelessWidget {
                   proxy.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodyMedium?.copyWith(
+                  style: context.typography.previewLabel.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1353,10 +1320,8 @@ class _ProfileProxyPreviewCard extends StatelessWidget {
                   proxy.type,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodySmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 11,
-                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -1686,10 +1651,8 @@ class ProfileItem extends StatelessWidget {
         SubscriptionInfoView(subscriptionInfo: subscriptionInfo),
       LastUpdateTimeText(
         lastUpdateDate: profile.lastUpdateDate,
-        style: context.textTheme.labelSmall?.copyWith(
+        style: context.typography.detailLabel.copyWith(
           color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
         ),
       ),
     ];
@@ -1701,10 +1664,8 @@ class ProfileItem extends StatelessWidget {
       const SizedBox(height: 6),
       LastUpdateTimeText(
         lastUpdateDate: profile.lastUpdateDate,
-        style: context.textTheme.labelSmall?.copyWith(
+        style: context.typography.detailLabel.copyWith(
           color: surge.textSecondary,
-          fontSize: 12,
-          letterSpacing: 0,
         ),
       ),
     ];
@@ -2021,11 +1982,8 @@ class _ProfileActionMenuItem extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.controlLabel.copyWith(
                   color: danger ? color : surge.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -2051,12 +2009,7 @@ class _ProfileTextBlock extends StatelessWidget {
       children: [
         Text(
           profile.realLabel,
-          style: context.textTheme.titleMedium?.copyWith(
-            color: surge.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
-          ),
+          style: context.typography.rowTitle.copyWith(color: surge.textPrimary),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -2091,13 +2044,10 @@ class _ProfileListSummary extends StatelessWidget {
         ? DateTime.fromMillisecondsSinceEpoch(
             subscriptionInfo.expire * 1000,
           ).show.toString()
-        : '永久有效';
+        : context.appLocalizations.neverExpires;
     final trafficText = '${used.traffic.show} / ${total.traffic.show}';
-    final detailStyle = context.textTheme.labelSmall?.copyWith(
+    final detailStyle = context.typography.detailLabel.copyWith(
       color: surge.textSecondary,
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0,
     );
 
     if (!hasTraffic) {
@@ -2194,11 +2144,15 @@ class _ProfileUpdateSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     if (profile.lastUpdateDate == null) {
       return _SummaryText(
-        text: profile.type == ProfileType.file ? '本地文件' : '',
+        text: profile.type == ProfileType.file
+            ? context.appLocalizations.localFile
+            : '',
         style: style,
       );
     }
-    final prefix = profile.type == ProfileType.file ? '本地文件 · ' : '';
+    final prefix = profile.type == ProfileType.file
+        ? '${context.appLocalizations.localFile} · '
+        : '';
     return TickBuilder(
       duration: const Duration(minutes: 1),
       builder: (context, _) {
@@ -2242,14 +2196,14 @@ class _ProfilePill extends StatelessWidget {
     const backgroundAlpha = 0.055;
     const borderAlpha = 0.38;
     final textColor = surge.textPrimary.withValues(alpha: 0.68);
-    final height = metrics.value(26);
+    final height = metrics.value(surge.controls.statusPillHeight);
     return Container(
-      constraints: BoxConstraints(
-        minWidth: metrics.value(46),
-        maxWidth: metrics.value(68),
-      ),
       height: height,
-      padding: EdgeInsets.symmetric(horizontal: metrics.value(9)),
+      constraints: BoxConstraints(
+        minWidth: metrics.value(48),
+        maxWidth: metrics.value(64),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: metrics.value(10)),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: backgroundAlpha),
@@ -2265,13 +2219,7 @@ class _ProfilePill extends StatelessWidget {
           label,
           maxLines: 1,
           textScaler: TextScaler.noScaling,
-          style: context.textTheme.labelSmall?.copyWith(
-            color: textColor,
-            fontSize: metrics.value(11),
-            fontWeight: FontWeight.w600,
-            height: 1.1,
-            letterSpacing: 0,
-          ),
+          style: context.typography.badgeLabel.copyWith(color: textColor),
         ),
       ),
     );
@@ -2350,8 +2298,12 @@ class _ReorderableProfilesSheetState extends State<ReorderableProfilesSheet> {
     final appLocalizations = context.appLocalizations;
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
-      actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSave,
+        ),
       ],
       body: Padding(
         padding: const EdgeInsets.only(bottom: 32),

@@ -64,9 +64,8 @@ class ScriptContent extends ConsumerWidget {
                           Expanded(
                             child: Text(
                               appLocalizations.nullTip(appLocalizations.script),
-                              style: context.textTheme.bodyMedium?.copyWith(
+                              style: context.typography.supporting.copyWith(
                                 color: surge.textSecondary,
-                                letterSpacing: 0,
                               ),
                             ),
                           ),
@@ -130,10 +129,8 @@ class _ScriptOptionRow extends StatelessWidget {
                 label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.rowTitle.copyWith(
                   color: selected ? surge.primary : surge.textPrimary,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -179,10 +176,8 @@ class _ConfigureScriptButton extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.rowTitle.copyWith(
                   color: surge.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
                 ),
               ),
             ),

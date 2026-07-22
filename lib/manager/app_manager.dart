@@ -126,10 +126,11 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
         final ownerId = container.read(groupsOwnerProfileIdProvider);
         if (profileId != null &&
             (ownerId != profileId || container.read(groupsProvider).isEmpty)) {
+          container.invalidate(clashConfigProvider(profileId));
           unawaited(
             container
                 .read(proxiesActionProvider.notifier)
-                .ensureCurrentProfileReady(),
+                .ensureCurrentProfileReady(forceApply: true),
           );
         }
       });

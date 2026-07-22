@@ -120,6 +120,7 @@ class _AccessViewState extends ConsumerState<AccessView> {
         return AdaptiveSheetScaffold(
           body: const AccessControlPanel(),
           title: appLocalizations.accessControlSettings,
+          appBarActions: const [],
         );
       },
     );
@@ -213,20 +214,20 @@ class _AccessViewState extends ConsumerState<AccessView> {
     });
   }
 
-  Widget _buildAction(
-    BuildContext context, {
+  SlAppBarAction _buildAction({
     required bool enable,
     required bool hasChanges,
   }) {
     final appLocalizations = context.appLocalizations;
     if (hasChanges) {
-      return SoftOsActionTextButton(
-        label: appLocalizations.save,
-        onPressed: _handleSave,
+      return SlAppBarIconAction(
+        icon: SurgeIcons.confirm,
         tooltip: appLocalizations.save,
+        onPressed: _handleSave,
       );
     }
-    return SoftOsPopupActionButton(
+    return SlAppBarOverflowAction(
+      tooltip: appLocalizations.more,
       popup: CommonPopupMenu(
         items: [
           PopupMenuItemData(
@@ -355,11 +356,8 @@ class _AccessViewState extends ConsumerState<AccessView> {
                 describe,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.controlLabel.copyWith(
                   color: surge.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -430,9 +428,8 @@ class _AccessViewState extends ConsumerState<AccessView> {
           autoAddSearch: false,
         ),
         title: context.appLocalizations.accessControl,
-        actions: [
+        appBarActions: [
           _buildAction(
-            context,
             enable: accessControl.enable,
             hasChanges: hasChanges,
           ),
@@ -486,12 +483,7 @@ class _SelectedPill extends StatelessWidget {
       child: Text(
         label,
         maxLines: 1,
-        style: context.textTheme.labelSmall?.copyWith(
-          color: surge.primary,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
-        ),
+        style: context.typography.badgeLabel.copyWith(color: surge.primary),
       ),
     );
   }
@@ -533,12 +525,10 @@ class PackageListItem extends StatelessWidget {
       ),
       title: Text(
         package.label,
-        style: const TextStyle(overflow: TextOverflow.ellipsis),
         maxLines: 1,
       ),
       subtitle: Text(
         package.packageName,
-        style: const TextStyle(overflow: TextOverflow.ellipsis),
         maxLines: 1,
       ),
       delegate: CheckboxDelegate(value: value, onChanged: onChanged),

@@ -1,15 +1,23 @@
 import 'package:fl_clash/views/proxies/empty.dart';
+import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _app(Widget child) => MaterialApp(
-  theme: ThemeData(extensions: <ThemeExtension<dynamic>>[SurgeTheme.light()]),
-  home: Scaffold(body: child),
-);
+Widget _app(Widget child) {
+  final textTheme = buildSlclashTextTheme();
+  final typography = SurgeTypography.fromTextTheme(textTheme);
+  return MaterialApp(
+    theme: ThemeData(
+      textTheme: textTheme,
+      extensions: <ThemeExtension<dynamic>>[SurgeTheme.light(), typography],
+    ),
+    home: Scaffold(body: child),
+  );
+}
 
 void main() {
-  testWidgets('renders loading state with progress and disabled action', (
+  testWidgets('renders compact loading state without redundant action', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -25,10 +33,9 @@ void main() {
       ),
     );
 
-    expect(find.text('连接中'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNWidgets(2));
-    final button = tester.widget<FilledButton>(find.byType(FilledButton));
-    expect(button.onPressed, isNull);
+    expect(find.text('连接中'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(FilledButton), findsNothing);
   });
 
   testWidgets('renders each failure with its own semantic icon', (

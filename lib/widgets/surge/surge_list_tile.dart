@@ -16,6 +16,8 @@ class SurgeListTile extends StatelessWidget {
     this.showDivider = true,
     this.destructive = false,
     this.enabled = true,
+    this.titleTextStyle,
+    this.subtitleTextStyle,
   });
 
   final Widget? leading;
@@ -28,6 +30,8 @@ class SurgeListTile extends StatelessWidget {
   final bool showDivider;
   final bool destructive;
   final bool enabled;
+  final TextStyle? titleTextStyle;
+  final TextStyle? subtitleTextStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +93,7 @@ class SurgeListTile extends StatelessWidget {
                                     title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: surge.typography.rowTitle.copyWith(
+                                    style: (titleTextStyle ?? context.typography.rowTitle).copyWith(
                                       color: titleColor,
                                     ),
                                   ),
@@ -99,7 +103,7 @@ class SurgeListTile extends StatelessWidget {
                                       subtitle!,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style: surge.typography.rowSubtitle,
+                                      style: (subtitleTextStyle ?? context.typography.supporting),
                                     ),
                                   ],
                                 ],

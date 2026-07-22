@@ -35,101 +35,112 @@ class ProxiesEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final textTheme = Theme.of(context).textTheme;
     final metrics = SoftOsMetrics.of(context);
     final (icon, accent) = _visuals(surge);
 
-    return Center(
+    return Align(
+      alignment: const Alignment(0, -0.18),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 340),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Semantics(
-                label: label,
-                child: Container(
-                  width: metrics.value(68),
-                  height: metrics.value(68),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(surge.radii.card),
-                    border: Border.all(
-                      color: accent.withValues(alpha: 0.16),
-                      width: surge.spacing.hairline,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: actionLoading
-                      ? SizedBox.square(
-                          dimension: metrics.value(26),
-                          child: CircularProgressIndicator(
-                            color: accent,
-                            strokeWidth: 2.4,
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: SurgeCard(
+            shadow: false,
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Semantics(
+                      label: label,
+                      child: Container(
+                        width: metrics.value(44),
+                        height: metrics.value(44),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.09),
+                          borderRadius: BorderRadius.circular(
+                            surge.radii.menuRow,
                           ),
-                        )
-                      : Icon(icon, color: accent, size: metrics.value(30)),
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.14),
+                            width: surge.spacing.hairline,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: kind == ProxiesEmptyStateKind.loading
+                            ? SizedBox.square(
+                                dimension: metrics.value(20),
+                                child: CircularProgressIndicator(
+                                  color: accent,
+                                  strokeWidth: 2.2,
+                                ),
+                              )
+                            : Icon(
+                                icon,
+                                color: accent,
+                                size: metrics.value(22),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.typography.cardTitle.copyWith(
+                              color: surge.textPrimary,
+                            ),
+                          ),
+                          if (description != null &&
+                              description!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              description!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.typography.supporting.copyWith(
+                                color: surge.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.09),
-                  borderRadius: BorderRadius.circular(surge.radii.button),
-                ),
-                child: Text(
-                  kind == ProxiesEmptyStateKind.loading ? '连接中' : '代理状态',
-                  style: surge.typography.badge.copyWith(color: accent),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: surge.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                ),
-              ),
-              if (description != null && description!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 280),
-                  child: Text(
-                    description!,
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: surge.textSecondary,
-                      fontSize: 13,
-                      height: 1.5,
-                      letterSpacing: 0,
+                if (kind != ProxiesEmptyStateKind.loading &&
+                    actionLabel != null &&
+                    onAction != null) ...[
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SurgeStatusButton(
+                      isActive: false,
+                      label: actionLabel,
+                      activeLabel: actionLabel!,
+                      inactiveLabel: actionLabel!,
+                      inactiveIcon:
+                          kind == ProxiesEmptyStateKind.coreUnavailable
+                          ? SurgeIcons.cloudSync
+                          : SurgeIcons.refresh,
+                      inactiveColor: accent,
+                      compact: true,
+                      height: 32,
+                      loading: actionLoading,
+                      onPressed: onAction,
                     ),
                   ),
-                ),
+                ],
               ],
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: 20),
-                SurgeStatusButton(
-                  isActive: false,
-                  label: actionLabel,
-                  activeLabel: actionLabel!,
-                  inactiveLabel: actionLabel!,
-                  inactiveIcon: kind == ProxiesEmptyStateKind.coreUnavailable
-                      ? SurgeIcons.cloudSync
-                      : SurgeIcons.refresh,
-                  inactiveColor: accent,
-                  loading: actionLoading,
-                  onPressed: onAction,
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),

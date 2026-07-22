@@ -115,9 +115,12 @@ class _CustomProxyGroupsViewState extends ConsumerState<CustomProxyGroupsView> {
         .a;
     return CommonScaffold(
       title: appLocalizations.proxyGroup,
-      actions: [
-        SurgeAddButton(onPressed: _handleAdd, label: appLocalizations.add),
-        const SizedBox(width: 8),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.add,
+          tooltip: appLocalizations.add,
+          onPressed: _handleAdd,
+        ),
       ],
       body: proxyGroups.isEmpty
           ? NullStatus(label: appLocalizations.proxyGroupEmpty)
@@ -792,8 +795,12 @@ class _EditProxyGroupViewState extends ConsumerState<_EditProxyGroupView> {
         : double.maxFinite;
     return AdaptiveSheetScaffold(
       sheetTransparentToolBar: true,
-      actions: [
-        IconButtonData(icon: SurgeIcons.confirm, onPressed: _handleSave),
+      appBarActions: [
+        SlAppBarIconAction(
+          icon: SurgeIcons.confirm,
+          tooltip: appLocalizations.confirm,
+          onPressed: _handleSave,
+        ),
       ],
       body: SizedBox(
         height: height,
@@ -874,7 +881,7 @@ class _CheckIcon extends StatelessWidget {
       padding: const EdgeInsets.all(6),
       child: Icon(
         SurgeIcons.successOutline,
-        size: 20.ap,
+        size: 20,
         color: Colors.greenAccent.harmonizeWith(context.colorScheme.primary),
       ),
     );

@@ -342,28 +342,38 @@ class _ProxiesListViewState extends State<ProxiesListView> {
               ? ProxiesEmptyStateKind.failed
               : ProxiesEmptyStateKind.empty;
           final emptyLabel = switch (emptyKind) {
-            ProxiesEmptyStateKind.loading => '正在加载 Provider',
-            ProxiesEmptyStateKind.timeout => 'Provider 尚未加载完成',
-            ProxiesEmptyStateKind.coreUnavailable => '代理内核暂不可用',
-            ProxiesEmptyStateKind.failed => 'Provider 加载失败',
-            ProxiesEmptyStateKind.empty => '当前配置没有可显示代理组',
+            ProxiesEmptyStateKind.loading =>
+              context.appLocalizations.syncingProxyGroups,
+            ProxiesEmptyStateKind.timeout =>
+              context.appLocalizations.providerNotReady,
+            ProxiesEmptyStateKind.coreUnavailable =>
+              context.appLocalizations.proxyCoreUnavailable,
+            ProxiesEmptyStateKind.failed =>
+              context.appLocalizations.providerLoadFailed,
+            ProxiesEmptyStateKind.empty =>
+              context.appLocalizations.noProxyGroups,
           };
           final emptyDescription = switch (emptyKind) {
-            ProxiesEmptyStateKind.loading => '正在获取代理组。',
-            ProxiesEmptyStateKind.timeout => '请检查网络后重试。',
-            ProxiesEmptyStateKind.coreUnavailable => '请重新连接。',
-            ProxiesEmptyStateKind.failed => '请稍后重试。',
-            ProxiesEmptyStateKind.empty => null,
+            ProxiesEmptyStateKind.loading =>
+              context.appLocalizations.fetchingProviderNodes,
+            ProxiesEmptyStateKind.timeout =>
+              context.appLocalizations.checkNetworkAndRetry,
+            ProxiesEmptyStateKind.coreUnavailable =>
+              context.appLocalizations.reconnectPrompt,
+            ProxiesEmptyStateKind.failed =>
+              context.appLocalizations.tryAgainLater,
+            ProxiesEmptyStateKind.empty =>
+              context.appLocalizations.noAvailableNodesInProfile,
           };
           return ProxiesEmptyState(
             label: emptyLabel,
             description: emptyDescription,
             actionLabel: canRefresh
                 ? emptyKind == ProxiesEmptyStateKind.coreUnavailable
-                      ? '重新连接'
+                      ? context.appLocalizations.reconnect
                       : emptyKind == ProxiesEmptyStateKind.empty
-                      ? '刷新代理组'
-                      : '重新加载'
+                      ? context.appLocalizations.refreshProxyGroups
+                      : context.appLocalizations.reload
                 : null,
             onAction: canRefresh
                 ? () {
@@ -389,9 +399,9 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           cardType: state.proxyCardType,
         );
         if (items.isEmpty) {
-          return const ProxiesEmptyState(
-            label: '没有匹配的代理组',
-            description: '请调整筛选条件。',
+          return ProxiesEmptyState(
+            label: context.appLocalizations.noMatchingProxyGroups,
+            description: context.appLocalizations.adjustFilters,
             kind: ProxiesEmptyStateKind.empty,
           );
         }
@@ -553,14 +563,14 @@ class _ListHeaderState extends State<ListHeader> {
                     height: constraints.maxHeight,
                     width: constraints.maxWidth,
                     alignment: Alignment.center,
-                    padding: EdgeInsets.all(5.ap),
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(surge.radii.input),
                       color: surge.textSecondary.withValues(alpha: 0.08),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: IconTheme.merge(
-                      data: IconThemeData(size: constraints.maxHeight - 12.ap),
+                      data: IconThemeData(size: constraints.maxHeight - 12),
                       child: CommonTargetIcon(src: icon),
                     ),
                   ),
@@ -573,7 +583,7 @@ class _ListHeaderState extends State<ListHeader> {
             child: LayoutBuilder(
               builder: (_, constraints) {
                 return IconTheme.merge(
-                  data: IconThemeData(size: constraints.maxHeight - 8.ap),
+                  data: IconThemeData(size: constraints.maxHeight - 8),
                   child: CommonTargetIcon(src: icon),
                 );
               },
@@ -675,14 +685,8 @@ class _ListHeaderState extends State<ListHeader> {
                                   groupName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: context.textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: surge.textPrimary,
-                                        fontSize: 15.5,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.05,
-                                        letterSpacing: 0,
-                                      ),
+                                  style: context.typography.proxyGroupTitle
+                                      .copyWith(color: surge.textPrimary),
                                 ),
                                 const SizedBox(height: 4),
                                 Flexible(
@@ -697,12 +701,11 @@ class _ListHeaderState extends State<ListHeader> {
                                         groupType,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: context.textTheme.labelMedium
-                                            ?.copyWith(
+                                        style: context
+                                            .typography
+                                            .proxySelectorLabel
+                                            .copyWith(
                                               color: surge.textSecondary,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              letterSpacing: 0,
                                             ),
                                       ),
                                       Flexible(
@@ -781,18 +784,14 @@ class _ListHeaderState extends State<ListHeader> {
                                                     overflow:
                                                         TextOverflow.ellipsis,
                                                     style: context
-                                                        .textTheme
-                                                        .labelMedium
-                                                        ?.copyWith(
+                                                        .typography
+                                                        .proxySelectorLabel
+                                                        .copyWith(
                                                           color: surge
                                                               .textPrimary
                                                               .withValues(
                                                                 alpha: 0.78,
                                                               ),
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          letterSpacing: 0,
                                                         ),
                                                   ),
                                                 ),
@@ -840,7 +839,7 @@ class _ListHeaderState extends State<ListHeader> {
       children: [
         if (isExpand) ...[
           SoftOsDockButton(
-            tooltip: '定位当前节点',
+            tooltip: context.appLocalizations.locateCurrentNode,
             icon: SurgeIcons.selector,
             iconSize: 15.5,
             onTap: () {
@@ -849,7 +848,7 @@ class _ListHeaderState extends State<ListHeader> {
           ),
           const SoftOsDockDivider(height: 18),
           SoftOsDockButton(
-            tooltip: '测试延迟',
+            tooltip: context.appLocalizations.testLatency,
             icon: SurgeIcons.networkPing,
             iconSize: 15.5,
             onTap: _delayTest,
@@ -857,7 +856,9 @@ class _ListHeaderState extends State<ListHeader> {
           const SoftOsDockDivider(height: 18),
         ],
         SoftOsDockButton(
-          tooltip: isExpand ? '收起' : '展开',
+          tooltip: isExpand
+              ? context.appLocalizations.collapse
+              : context.appLocalizations.expand,
           icon: isExpand ? SurgeIcons.collapse : SurgeIcons.expand,
           iconSize: 15.5,
           onTap: () {

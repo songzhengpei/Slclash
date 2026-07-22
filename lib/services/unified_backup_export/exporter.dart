@@ -122,7 +122,9 @@ class UnifiedV1Exporter {
               !seenSlugs.add(identity.slug)) {
             throw StateError('Unified profile identity collision');
           }
-          final projected = projectProfile(profile.yaml);
+          final projected = projectProfile(
+            profile.providerSourceYaml ?? profile.yaml,
+          );
           final providerHash = sha256
               .convert(projected.providerYaml)
               .toString();
@@ -149,12 +151,13 @@ class UnifiedV1Exporter {
       final profileHash = item.profileHash;
       final providerHash = item.providerHash;
       final versionId = item.versionId;
-      final allowAutoUpdate = standalone ? false : profile.autoUpdate;
+      final allowAutoUpdate = profile.autoUpdate;
       final versionRoot = 'providers/${identity.slug}/versions/$versionId';
       final dependencyState = _rewriteDependencyState(item, preparedBySlug);
       final distribution = <String, Object?>{
         'providerName': profile.name,
         'sourceHost': '',
+        'sourceType': profile.localFile ? 'local' : 'remote',
         if (profile.subscriptionInfo != null)
           'subscriptionUserinfo': _subscriptionUserinfo(
             profile.subscriptionInfo!,
@@ -211,12 +214,18 @@ class UnifiedV1Exporter {
         'interval': profile.updateIntervalMinutes * 60,
       };
       final extra = profile.subscriptionInfo;
+      final sourceUrl = profile.sourceUrl.trim();
+      if (!profile.localFile && !_isHttpUrl(sourceUrl)) {
+        throw FormatException(
+          'Remote profile "${profile.name}" has no valid subscription URL',
+        );
+      }
       profileItems.add({
         'uid': identity.profileUid,
-        'type': 'remote',
+        'type': profile.localFile ? 'local' : 'remote',
         'name': profile.name,
         'file': '${identity.profileUid}.yaml',
-        'url': '$outputBaseUrl/config/${identity.slug}/$fixedToken',
+        if (!profile.localFile) 'url': sourceUrl,
         'updated': profile.updated,
         'option': {
           'allow_auto_update': allowAutoUpdate,
@@ -356,6 +365,7 @@ _DependencyState? _rewriteDependencyState(
   _PreparedProfile parent,
   Map<String, _PreparedProfile> preparedBySlug,
 ) {
+  if (parent.profile.externalProvidersFlattened) return null;
   final trusted = parent.trustedMeta;
   if (trusted == null || trusted['schemaVersion'] != 2) return null;
   final rawStats = trusted['nodeStats'];
@@ -417,4 +427,11 @@ Object? _plain(Object? value) {
   }
   if (value is YamlList) return value.map(_plain).toList();
   return value;
+}
+
+bool _isHttpUrl(String value) {
+  final uri = Uri.tryParse(value);
+  return uri != null &&
+      (uri.scheme == 'http' || uri.scheme == 'https') &&
+      uri.host.isNotEmpty;
 }

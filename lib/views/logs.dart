@@ -45,13 +45,19 @@ class _LogsViewState extends ConsumerState<LogsView> {
     });
   }
 
-  List<Widget> _buildActions() {
+  List<SlAppBarAction> _buildActions() {
     return [
-      IconButton(
-        onPressed: () {
-          _handleExport();
-        },
-        icon: const Icon(SurgeIcons.save),
+      SlAppBarOverflowAction(
+        tooltip: context.appLocalizations.more,
+        popup: CommonPopupMenu(
+          items: [
+            PopupMenuItemData(
+              icon: SurgeIcons.save,
+              label: context.appLocalizations.exportLogs,
+              onPressed: _handleExport,
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -111,7 +117,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     return CommonScaffold(
-      actions: _buildActions(),
+      appBarActions: _buildActions(),
       onKeywordsUpdate: _onKeywordsUpdate,
       searchState: AppBarSearchState(onSearch: _onSearch),
       title: appLocalizations.logs,
@@ -221,11 +227,8 @@ class LogItem extends StatelessWidget {
                 children: [
                   SelectableText(
                     log.payload,
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    style: context.typography.techLabel.copyWith(
                       color: surge.textPrimary.withValues(alpha: 0.9),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -255,12 +258,8 @@ class LogItem extends StatelessWidget {
                           ),
                           child: Text(
                             log.logLevel.name,
-                            style: context.textTheme.labelSmall?.copyWith(
+                            style: context.typography.badgeLabel.copyWith(
                               color: levelColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              height: 1,
-                              letterSpacing: 0,
                             ),
                           ),
                         ),
@@ -268,12 +267,8 @@ class LogItem extends StatelessWidget {
                       const Spacer(),
                       Text(
                         log.dateTime,
-                        style: context.textTheme.labelSmall?.copyWith(
+                        style: context.typography.techLabel.copyWith(
                           color: surge.textSecondary.withValues(alpha: 0.62),
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w400,
-                          height: 1,
-                          letterSpacing: 0,
                         ),
                       ),
                     ],

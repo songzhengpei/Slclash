@@ -5,6 +5,9 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+String formatNetworkRouteLog(Uri url, {required bool proxy}) =>
+    'network-route host=${url.host} scheme=${url.scheme} proxy=$proxy';
+
 class FlClashHttpOverrides extends HttpOverrides {
   static String handleFindProxy(Uri url) {
     if ([localhost].contains(url.host)) {
@@ -13,7 +16,7 @@ class FlClashHttpOverrides extends HttpOverrides {
     final ref = globalState.container;
     final isStart = ref.read(isStartProvider);
     final suspend = ref.read(suspendProvider);
-    commonPrint.log('find $url proxy: $isStart');
+    commonPrint.log(formatNetworkRouteLog(url, proxy: isStart));
     if (!isStart || suspend) return 'DIRECT';
     final mixedPort = ref.read(
       patchClashConfigProvider.select((state) => state.mixedPort),

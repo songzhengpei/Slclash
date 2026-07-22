@@ -52,7 +52,7 @@ class ThemeView extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final surge = SurgeTheme.of(context);
-    return BaseScaffold(
+    return CommonScaffold(
       title: appLocalizations.theme,
       body: ColoredBox(
         color: surge.background,
@@ -104,11 +104,8 @@ class ItemCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     info.label,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.supporting.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -312,18 +309,9 @@ class _SurgeSegmentedButton<T> extends StatelessWidget {
               AnimatedDefaultTextStyle(
                 duration: SurgeMotion.state,
                 curve: SurgeMotion.stateCurve,
-                style:
-                    context.textTheme.labelMedium?.copyWith(
-                      color: selected ? surge.textPrimary : surge.textSecondary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
-                    ) ??
-                    TextStyle(
-                      color: selected ? surge.textPrimary : surge.textSecondary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                    ),
+                style: context.typography.controlLabel.copyWith(
+                  color: selected ? surge.textPrimary : surge.textSecondary,
+                ),
                 child: Text(item.label),
               ),
             ],
@@ -355,17 +343,20 @@ class _DynamicColorItem extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         ListItem.switchItem(
-          title: Text('动态取色', style: _themePageTitleStyle(context, surge)),
+          title: Text(
+            context.appLocalizations.dynamicColor,
+            style: _themePageTitleStyle(context, surge),
+          ),
           subtitle: Text(
             dynamicColor
-                ? '跟随系统 Material You 色彩 · ${_schemeVariantLabel(schemeVariant)}'
+                ? context.appLocalizations.followMaterialYou(
+                    _schemeVariantLabel(context, schemeVariant),
+                  )
                 : isLegacyGray
-                ? '灰黑单色风格'
-                : '蓝白单色风格',
-            style: context.textTheme.bodySmall?.copyWith(
+                ? context.appLocalizations.darkMonochromeStyle
+                : context.appLocalizations.blueWhiteMonochromeStyle,
+            style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
-              fontSize: 12,
-              letterSpacing: 0,
             ),
           ),
           delegate: SwitchDelegate(
@@ -393,21 +384,21 @@ class _DynamicColorItem extends ConsumerWidget {
           child: dynamicColor
               ? _SurgeSegmentedControl<DynamicSchemeVariant>(
                   value: schemeVariant,
-                  items: const [
+                  items: [
                     _SegmentedItem(
                       value: DynamicSchemeVariant.monochrome,
                       iconData: SurgeIcons.contrast,
-                      label: '单色',
+                      label: context.appLocalizations.monochrome,
                     ),
                     _SegmentedItem(
                       value: DynamicSchemeVariant.tonalSpot,
                       iconData: SurgeIcons.blur,
-                      label: '调性',
+                      label: context.appLocalizations.tonal,
                     ),
                     _SegmentedItem(
                       value: DynamicSchemeVariant.content,
                       iconData: SurgeIcons.appearance,
-                      label: '内容',
+                      label: context.appLocalizations.contentColor,
                     ),
                   ],
                   onChanged: (value) {
@@ -423,16 +414,16 @@ class _DynamicColorItem extends ConsumerWidget {
                 )
               : _SurgeSegmentedControl<_StaticThemePreset>(
                   value: staticPreset,
-                  items: const [
+                  items: [
                     _SegmentedItem(
                       value: _StaticThemePreset.blueWhite,
                       iconData: SurgeIcons.water,
-                      label: '蓝白单色',
+                      label: context.appLocalizations.blueWhiteMonochrome,
                     ),
                     _SegmentedItem(
                       value: _StaticThemePreset.grayBlack,
                       iconData: SurgeIcons.contrast,
-                      label: '灰黑单色',
+                      label: context.appLocalizations.darkMonochrome,
                     ),
                   ],
                   onChanged: (value) {
@@ -458,12 +449,15 @@ class _DynamicColorItem extends ConsumerWidget {
   }
 }
 
-String _schemeVariantLabel(DynamicSchemeVariant schemeVariant) {
+String _schemeVariantLabel(
+  BuildContext context,
+  DynamicSchemeVariant schemeVariant,
+) {
   return switch (schemeVariant) {
-    DynamicSchemeVariant.monochrome => '单色',
-    DynamicSchemeVariant.tonalSpot => '调性',
-    DynamicSchemeVariant.content => '内容',
-    _ => '单色',
+    DynamicSchemeVariant.monochrome => context.appLocalizations.monochrome,
+    DynamicSchemeVariant.tonalSpot => context.appLocalizations.tonal,
+    DynamicSchemeVariant.content => context.appLocalizations.contentColor,
+    _ => context.appLocalizations.monochrome,
   };
 }
 
@@ -805,10 +799,8 @@ class _TextScaleFactorItem extends ConsumerWidget {
                   ),
                   child: Text(
                     process,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.controlLabel.copyWith(
                       color: surge.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -822,12 +814,7 @@ class _TextScaleFactorItem extends ConsumerWidget {
 }
 
 TextStyle? _themePageTitleStyle(BuildContext context, SurgeTheme surge) {
-  return context.textTheme.bodyMedium?.copyWith(
-    color: surge.textPrimary,
-    fontSize: 15,
-    fontWeight: FontWeight.w400,
-    letterSpacing: 0,
-  );
+  return context.typography.body.copyWith(color: surge.textPrimary);
 }
 
 class _PaletteDialog extends StatefulWidget {

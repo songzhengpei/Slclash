@@ -45,7 +45,8 @@ class DAVClient {
 
   String _timestampFileName() {
     final now = DateTime.now();
-    final ts = '${now.year}'
+    final ts =
+        '${now.year}'
         '${now.month.toString().padLeft(2, '0')}'
         '${now.day.toString().padLeft(2, '0')}_'
         '${now.hour.toString().padLeft(2, '0')}'
@@ -69,11 +70,13 @@ class DAVClient {
       if (item.isDir == true) continue;
       final name = item.name ?? '';
       if (name.endsWith('.zip')) {
-        result.add(DAVFileEntry(
-          name: name,
-          size: item.size ?? 0,
-          lastModified: item.mTime ?? DateTime.now(),
-        ));
+        result.add(
+          DAVFileEntry(
+            name: name,
+            size: item.size ?? 0,
+            lastModified: item.mTime ?? DateTime.now(),
+          ),
+        );
       }
     }
     result.sort((a, b) => b.lastModified.compareTo(a.lastModified));

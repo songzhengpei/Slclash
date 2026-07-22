@@ -174,6 +174,7 @@ class _EditProxyProvidersViewState extends ConsumerState<EditProxyProvidersView>
       child: AdaptiveSheetScaffold(
         title: appLocalizations.editProxy,
         sheetTransparentToolBar: true,
+        appBarActions: const [],
         body: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
@@ -326,20 +327,16 @@ class _AddProxyProvidersViewState extends ConsumerState<_AddProxyProvidersView>
   }
 
   void _handleRealAdd() {
-    debouncer.call(
-      'AddProxyProvidersViewState_handleRealAdd',
-      () {
-        if (!ref.context.mounted) {
-          return;
-        }
-        final dismissItems = ref.read(itemsProvider(key));
-        ref.read(proxyGroupProvider.notifier).update((state) {
-          return state.copyWith(use: [...state.use ?? [], ...dismissItems]);
-        });
-        ref.read(itemsProvider(key).notifier).update((state) => <dynamic>{});
-      },
-      duration: SurgeMotion.reveal,
-    );
+    debouncer.call('AddProxyProvidersViewState_handleRealAdd', () {
+      if (!ref.context.mounted) {
+        return;
+      }
+      final dismissItems = ref.read(itemsProvider(key));
+      ref.read(proxyGroupProvider.notifier).update((state) {
+        return state.copyWith(use: [...state.use ?? [], ...dismissItems]);
+      });
+      ref.read(itemsProvider(key).notifier).update((state) => <dynamic>{});
+    }, duration: SurgeMotion.reveal);
   }
 
   Widget _buildItem({
@@ -400,6 +397,7 @@ class _AddProxyProvidersViewState extends ConsumerState<_AddProxyProvidersView>
       child: AdaptiveSheetScaffold(
         sheetTransparentToolBar: true,
         title: appLocalizations.addProxyProviders,
+        appBarActions: const [],
         body: providerNames.isEmpty
             ? NullStatus(label: appLocalizations.noData)
             : CustomScrollView(

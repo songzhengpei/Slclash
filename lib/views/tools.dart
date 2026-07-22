@@ -101,6 +101,8 @@ class _ToolViewState extends ConsumerState<ToolsView> {
     return CommonScaffold(
       backgroundColor: surge.background,
       title: context.appLocalizations.tools,
+      appBarActions: const [],
+      titleVariant: SlAppBarTitleVariant.root,
       body: ListView.builder(
         key: toolsStoreKey,
         itemCount: items.length,
@@ -168,6 +170,8 @@ class _SurgeOpenTile extends StatelessWidget {
       subtitle: subtitle,
       showChevron: true,
       showDivider: _SurgeTileDividerProvider.of(context),
+      titleTextStyle: context.typography.toolTileTitle,
+      subtitleTextStyle: context.typography.toolTileSubtitle,
       onTap: () {
         showExtend(
           context,
@@ -200,6 +204,8 @@ class _SurgeActionTile extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       showDivider: _SurgeTileDividerProvider.of(context),
+      titleTextStyle: context.typography.toolTileTitle,
+      subtitleTextStyle: context.typography.toolTileSubtitle,
       onTap: onTap,
     );
   }
@@ -210,7 +216,10 @@ class _LocaleItem extends ConsumerWidget {
 
   String _getLocaleString(BuildContext context, Locale? locale) {
     if (locale == null) return context.appLocalizations.defaultText;
-    return Intl.message(locale.toString());
+    return switch (locale.toString()) {
+      'zh_CN' => context.appLocalizations.zh_CN,
+      _ => context.appLocalizations.en,
+    };
   }
 
   @override
@@ -293,7 +302,7 @@ class _NetworkItem extends StatelessWidget {
       leading: const Icon(SurgeIcons.vpnKey),
       title: appLocalizations.network,
       subtitle: appLocalizations.networkDesc,
-      child: BaseScaffold(
+      child: CommonScaffold(
         title: appLocalizations.network,
         body: const NetworkListView(),
       ),
@@ -311,25 +320,22 @@ class _DnsItem extends StatelessWidget {
       leading: const Icon(SurgeIcons.dns),
       title: 'DNS',
       subtitle: appLocalizations.dnsDesc,
-      child: BaseScaffold(
+      child: CommonScaffold(
         title: 'DNS',
-        actions: [
-          Consumer(
-            builder: (_, ref, _) {
-              return IconButton(
-                onPressed: () async {
-                  final res = await globalState.showMessage(
-                    title: appLocalizations.reset,
-                    message: TextSpan(text: appLocalizations.resetTip),
-                  );
-                  if (res != true) return;
-                  ref
-                      .read(patchClashConfigProvider.notifier)
-                      .update((state) => state.copyWith(dns: defaultDns));
-                },
-                tooltip: appLocalizations.reset,
-                icon: const Icon(SurgeIcons.replay),
+        appBarActions: [
+          SlAppBarIconAction(
+            icon: SurgeIcons.replay,
+            tooltip: appLocalizations.reset,
+            onPressed: () async {
+              final res = await globalState.showMessage(
+                title: appLocalizations.reset,
+                message: TextSpan(text: appLocalizations.resetTip),
               );
+              if (res != true) return;
+              final container = ProviderScope.containerOf(context);
+              container
+                  .read(patchClashConfigProvider.notifier)
+                  .update((state) => state.copyWith(dns: defaultDns));
             },
           ),
         ],
@@ -389,7 +395,7 @@ class _InfoItem extends StatelessWidget {
     return _SurgeOpenTile(
       leading: const Icon(SurgeIcons.info),
       title: context.appLocalizations.about,
-      subtitle: '版本信息与项目链接',
+      subtitle: context.appLocalizations.versionAndProjectLinks,
       child: const AboutView(),
     );
   }

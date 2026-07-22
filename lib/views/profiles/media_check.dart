@@ -464,8 +464,9 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
     final schedulerState = ref.watch(healthObservationSchedulerProvider);
 
     return CommonScaffold(
-      title: '流媒体检测',
+      title: context.appLocalizations.mediaCheck,
       backgroundColor: surge.background,
+      appBarActions: const [],
       body: Align(
         alignment: Alignment.topCenter,
         child: SingleChildScrollView(
@@ -537,15 +538,19 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
                 )
               else if (rows.isEmpty && _allRows.isEmpty)
                 _MediaCheckEmptyResultCard(
-                  title: _filter.subtitle,
-                  message: _targets.isEmpty ? '没有可检测节点' : '检测结果会展示在这里',
+                  title: _filter.subtitle(context),
+                  message: _targets.isEmpty
+                      ? context.appLocalizations.noNodesToCheck
+                      : context.appLocalizations.checkResultsAppearHere,
                 )
               else if (rows.isEmpty)
                 _MediaCheckEmptyResultCard(
-                  title: _filter.subtitle,
+                  title: _filter.subtitle(context),
                   message: _filter == _MediaCheckFilter.green
-                      ? '历史样本不足'
-                      : '暂无${_filter.label}结果',
+                      ? context.appLocalizations.notEnoughHistory
+                      : context.appLocalizations.noFilteredResults(
+                          _filter.label(context),
+                        ),
                 )
               else if (rows.isNotEmpty)
                 _MediaCheckResultList(
@@ -628,14 +633,11 @@ class _MediaCheckControlCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '节点体检',
+                  context.appLocalizations.nodeCheckup,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.titleMedium?.copyWith(
+                  style: context.typography.mediaCheckTitle.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -711,13 +713,10 @@ class _MediaCheckControlCard extends StatelessWidget {
                         checking
                             ? '${(progress * 100).clamp(0, 100).round()}%'
                             : cachedCount > 0
-                            ? '已缓存'
-                            : '未检测',
-                        style: context.textTheme.labelSmall?.copyWith(
+                            ? context.appLocalizations.cached
+                            : context.appLocalizations.notChecked,
+                        style: context.typography.badgeLabel.copyWith(
                           color: surge.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
                         ),
                       ),
                     ],
@@ -796,14 +795,11 @@ class _ObservationControl extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '健康观测',
+              context.appLocalizations.healthMonitoring,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.textTheme.labelMedium?.copyWith(
+              style: context.typography.controlLabel.copyWith(
                 color: observing ? surge.green : surge.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -817,11 +813,8 @@ class _ObservationControl extends StatelessWidget {
             ),
             child: Text(
               intervalLabel,
-              style: context.textTheme.labelSmall?.copyWith(
+              style: context.typography.mediaObservationInterval.copyWith(
                 color: observing ? surge.green : surge.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -850,7 +843,7 @@ class _ProfileSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return SoftOsSelectPill<Profile>(
       value: profile,
-      semanticLabel: '选择订阅',
+      semanticLabel: context.appLocalizations.selectProfile,
       items: [
         for (final item in profiles)
           SoftOsSelectItem(value: item, label: item.realLabel),
@@ -875,14 +868,14 @@ class _ModeDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return SoftOsSelectPill<_MediaCheckFilter>(
       value: value,
-      semanticLabel: '选择测试项',
+      semanticLabel: context.appLocalizations.selectTestItem,
       items: [
         for (final item in _MediaCheckFilter.values)
           SoftOsSelectItem(
             value: item,
-            label: item.label,
+            label: item.label(context),
             icon: item.icon,
-            subtitle: item.subtitle,
+            subtitle: item.subtitle(context),
           ),
       ],
       onChanged: enabled ? onChanged : null,
@@ -907,10 +900,10 @@ class _ControlMetricsLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final items = [
-      ('节点', '$targetCount'),
-      ('缓存', '$cachedCount'),
-      ('并发', '$concurrency'),
-      if (runningCount > 0) ('运行', '$runningCount'),
+      (context.appLocalizations.nodes, '$targetCount'),
+      (context.appLocalizations.cache, '$cachedCount'),
+      (context.appLocalizations.concurrency, '$concurrency'),
+      if (runningCount > 0) (context.appLocalizations.running, '$runningCount'),
     ];
     return Row(
       children: [
@@ -951,11 +944,8 @@ class _ControlMetricText extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.textTheme.labelSmall?.copyWith(
+          style: context.typography.mediaControlMetricLabel.copyWith(
             color: surge.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0,
           ),
         ),
         const SizedBox(width: 6),
@@ -963,11 +953,8 @@ class _ControlMetricText extends StatelessWidget {
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.textTheme.titleSmall?.copyWith(
+          style: context.typography.cardTitle.copyWith(
             color: surge.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0,
           ),
         ),
       ],
@@ -997,7 +984,10 @@ class _MediaCheckInlineStats extends StatelessWidget {
               filter: _MediaCheckFilter.values[i],
               selected: filter == _MediaCheckFilter.values[i],
               value: summary.valueFor(_MediaCheckFilter.values[i]),
-              subtitle: summary.subtitleFor(_MediaCheckFilter.values[i]),
+              subtitle: summary.subtitleFor(
+                context,
+                _MediaCheckFilter.values[i],
+              ),
               onTap: onChanged == null
                   ? null
                   : () => onChanged!(_MediaCheckFilter.values[i]),
@@ -1054,14 +1044,11 @@ class _InlineFilterMetric extends StatelessWidget {
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      filter.label,
+                      filter.label(context),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelMedium?.copyWith(
+                      style: context.typography.mediaFilterTitle.copyWith(
                         color: textColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -1076,27 +1063,16 @@ class _InlineFilterMetric extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      style: context.typography.mediaFilterSubtitle.copyWith(
                         color: selected
                             ? color.withValues(alpha: 0.82)
                             : surge.textSecondary,
-                        fontSize: 10,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        letterSpacing: 0,
                       ),
                     ),
                   ),
                   Text(
                     value,
-                    style: context.textTheme.titleSmall?.copyWith(
-                      color: color,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                      height: 1,
-                    ),
+                    style: context.typography.metric.copyWith(color: color),
                   ),
                 ],
               ),
@@ -1127,8 +1103,10 @@ class _MediaCheckResultList extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final cacheText = lastCachedAt == null
-        ? '无缓存'
-        : '上次 ${_formatCacheTime(lastCachedAt!)}';
+        ? context.appLocalizations.noCache
+        : context.appLocalizations.lastCheckedAt(
+            _formatCacheTime(lastCachedAt!),
+          );
     return SurgeCard(
       shadow: false,
       padding: EdgeInsets.zero,
@@ -1137,19 +1115,16 @@ class _MediaCheckResultList extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
+            padding: const EdgeInsets.fromLTRB(14, 1, 10, 1),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
-                    filter.subtitle,
+                    filter.subtitle(context),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.cardTitle.copyWith(
                       color: surge.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -1163,11 +1138,8 @@ class _MediaCheckResultList extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   cacheText,
-                  style: context.textTheme.labelSmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: surge.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
                   ),
                 ),
               ],
@@ -1236,11 +1208,8 @@ class _MediaCheckResultCard extends StatelessWidget {
                   row.target.proxy.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodyMedium?.copyWith(
+                  style: context.typography.rowTitle.copyWith(
                     color: surge.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -1253,10 +1222,8 @@ class _MediaCheckResultCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
-                    style: context.textTheme.labelSmall?.copyWith(
+                    style: context.typography.chartLabel.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 10,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -1273,12 +1240,9 @@ class _MediaCheckResultCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '已过期',
-                    style: context.textTheme.labelSmall?.copyWith(
+                    context.appLocalizations.expired,
+                    style: context.typography.badgeLabel.copyWith(
                       color: surge.orange,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -1292,13 +1256,17 @@ class _MediaCheckResultCard extends StatelessWidget {
             switch (filter) {
               _MediaCheckFilter.chatGPT => _SingleResultLine(
                 color: result.chatGPT.statusColor(surge),
-                label: result.chatGPT.chatGPTCompactLabel,
+                label: result.chatGPT.localizedChatGPTCompactLabel(
+                  context.appLocalizations,
+                ),
                 meta: result.regionText,
                 icon: SurgeIcons.gpt,
               ),
               _MediaCheckFilter.youTubeCN => _SingleResultLine(
                 color: result.youTube.youtubeColor(surge),
-                label: result.youTube.youtubeCompactLabel,
+                label: result.youTube.localizedYoutubeCompactLabel(
+                  context.appLocalizations,
+                ),
                 meta: result.youTube.evidence,
                 icon: SurgeIcons.youtube,
               ),
@@ -1338,19 +1306,14 @@ class _SingleResultLine extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 16),
+          Icon(icon, color: color, size: 15),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.textTheme.labelMedium?.copyWith(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
+              style: context.typography.mediaResultTitle.copyWith(color: color),
             ),
           ),
           if (meta.isNotEmpty)
@@ -1359,10 +1322,8 @@ class _SingleResultLine extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
-              style: context.textTheme.labelSmall?.copyWith(
+              style: context.typography.chartLabel.copyWith(
                 color: surge.textSecondary,
-                fontSize: 10,
-                letterSpacing: 0,
               ),
             ),
         ],
@@ -1400,26 +1361,18 @@ class _HealthResultLine extends StatelessWidget {
                     result.https.compactLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelMedium?.copyWith(
+                    style: context.typography.mediaResultTitle.copyWith(
                       color: color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  health.label,
+                  health.localizedLabel(context.appLocalizations),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: context.textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
+                  style: context.typography.badgeLabel.copyWith(color: color),
                 ),
               ],
             ),
@@ -1455,28 +1408,20 @@ class _PendingResultLine extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '检测中',
+              context.appLocalizations.checking,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.textTheme.labelMedium?.copyWith(
+              style: context.typography.controlLabel.copyWith(
                 color: surge.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ),
           Text(
-            filter.label,
+            filter.label(context),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.right,
-            style: context.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
+            style: context.typography.badgeLabel.copyWith(color: color),
           ),
         ],
       ),
@@ -1506,11 +1451,8 @@ class _MediaCheckEmptyResultCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 11),
             child: Text(
               title,
-              style: context.textTheme.labelMedium?.copyWith(
+              style: context.typography.cardTitle.copyWith(
                 color: surge.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -1520,9 +1462,8 @@ class _MediaCheckEmptyResultCard extends StatelessWidget {
             child: Text(
               message,
               textAlign: TextAlign.center,
-              style: context.textTheme.bodySmall?.copyWith(
+              style: context.typography.supporting.copyWith(
                 color: surge.textSecondary,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -1543,33 +1484,48 @@ class _MediaCheckRunButton extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     return SurgeStatusButton(
       isActive: checking,
-      activeLabel: '停止',
-      inactiveLabel: '开始',
+      activeLabel: context.appLocalizations.stop,
+      inactiveLabel: context.appLocalizations.start,
       activeColor: surge.red,
       inactiveColor: surge.primary,
       compact: true,
       height: 30,
+      horizontalPadding: 10,
+      minWidth: 56,
+      textStyle: context.typography.mediaRunButtonLabel,
       onPressed: onTap,
     );
   }
 }
 
 enum _MediaCheckFilter {
-  chatGPT('GPT', 'GPT 解锁', '解锁地区', SurgeIcons.gpt),
-  youTubeCN('YouTube', 'YouTube 送中', '送中候选', SurgeIcons.youtube),
-  green('健康', '全绿低延迟', '历史稳定', SurgeIcons.health);
+  chatGPT(SurgeIcons.gpt),
+  youTubeCN(SurgeIcons.youtube),
+  green(SurgeIcons.health);
 
-  final String label;
-  final String resultTitle;
-  final String subtitle;
   final IconData icon;
 
-  const _MediaCheckFilter(
-    this.label,
-    this.resultTitle,
-    this.subtitle,
-    this.icon,
-  );
+  const _MediaCheckFilter(this.icon);
+
+  String label(BuildContext context) => switch (this) {
+    _MediaCheckFilter.chatGPT => 'GPT',
+    _MediaCheckFilter.youTubeCN => 'YouTube',
+    _MediaCheckFilter.green => context.appLocalizations.health,
+  };
+
+  String resultTitle(BuildContext context) => switch (this) {
+    _MediaCheckFilter.chatGPT => context.appLocalizations.gptUnlock,
+    _MediaCheckFilter.youTubeCN =>
+      context.appLocalizations.youtubeRoutedToChina,
+    _MediaCheckFilter.green => context.appLocalizations.allGreenLowLatency,
+  };
+
+  String subtitle(BuildContext context) => switch (this) {
+    _MediaCheckFilter.chatGPT => context.appLocalizations.unlockedRegions,
+    _MediaCheckFilter.youTubeCN =>
+      context.appLocalizations.chinaRouteCandidates,
+    _MediaCheckFilter.green => context.appLocalizations.historicallyStable,
+  };
 
   String? get badgeLabel {
     return switch (this) {
@@ -1716,5 +1672,6 @@ class _MediaCheckSummary {
     };
   }
 
-  String subtitleFor(_MediaCheckFilter filter) => filter.subtitle;
+  String subtitleFor(BuildContext context, _MediaCheckFilter filter) =>
+      filter.subtitle(context);
 }

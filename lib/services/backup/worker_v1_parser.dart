@@ -218,21 +218,32 @@ class WorkerV1Parser {
       final airport = uid is String ? airportsByUid[uid] : null;
       final url = item['url'];
       final uri = url is String ? Uri.tryParse(url) : null;
+      final workerArchive = manifest['generator'] == 'worker';
+      final validSlclashProfile =
+          !workerArchive &&
+          ((item['type'] == 'local' && (url == null || url == '')) ||
+              (item['type'] == 'remote' &&
+                  uri != null &&
+                  (uri.scheme == 'http' || uri.scheme == 'https') &&
+                  uri.host.isNotEmpty));
+      final validWorkerProfile =
+          workerArchive &&
+          item['type'] == 'remote' &&
+          uri != null &&
+          uri.scheme == base.scheme &&
+          uri.host == base.host &&
+          uri.port == base.port &&
+          uri.query.isEmpty &&
+          uri.fragment.isEmpty &&
+          uri.pathSegments.length == 3 &&
+          uri.pathSegments[0] == 'config' &&
+          uri.pathSegments[1] == airport?['slug'] &&
+          uri.pathSegments[2].isNotEmpty;
       if (airport == null ||
           !seen.add(uid as String) ||
-          item['type'] != 'remote' ||
           item['name'] != airport['name'] ||
           item['file'] != '$uid.yaml' ||
-          uri == null ||
-          uri.scheme != base.scheme ||
-          uri.host != base.host ||
-          uri.port != base.port ||
-          uri.query.isNotEmpty ||
-          uri.fragment.isNotEmpty ||
-          uri.pathSegments.length != 3 ||
-          uri.pathSegments[0] != 'config' ||
-          uri.pathSegments[1] != airport['slug'] ||
-          uri.pathSegments[2].isEmpty) {
+          (!validWorkerProfile && !validSlclashProfile)) {
         throw const BackupFormatException(
           BackupErrorCode.invalidProfiles,
           'profiles.yaml item does not match its airport',

@@ -29,30 +29,40 @@ enum _ResourceAutoUpdateMode {
     };
   }
 
-  String get title {
+  String title(BuildContext context) {
     return switch (this) {
-      _ResourceAutoUpdateMode.off => '关闭',
-      _ResourceAutoUpdateMode.daily => '每日',
-      _ResourceAutoUpdateMode.everyThreeDays => '三日',
-      _ResourceAutoUpdateMode.everySevenDays => '七日',
+      _ResourceAutoUpdateMode.off => context.appLocalizations.resourceUpdateOff,
+      _ResourceAutoUpdateMode.daily =>
+        context.appLocalizations.resourceUpdateDaily,
+      _ResourceAutoUpdateMode.everyThreeDays =>
+        context.appLocalizations.resourceUpdateEveryThreeDays,
+      _ResourceAutoUpdateMode.everySevenDays =>
+        context.appLocalizations.resourceUpdateEverySevenDays,
     };
   }
 
-  String get subtitle {
+  String subtitle(BuildContext context) {
     return switch (this) {
-      _ResourceAutoUpdateMode.off => '仅手动更新资源文件',
-      _ResourceAutoUpdateMode.daily => '每天首次打开资源页自动更新',
-      _ResourceAutoUpdateMode.everyThreeDays => '满三天后首次打开自动更新',
-      _ResourceAutoUpdateMode.everySevenDays => '满七天后首次打开自动更新',
+      _ResourceAutoUpdateMode.off =>
+        context.appLocalizations.resourceManualOnly,
+      _ResourceAutoUpdateMode.daily =>
+        context.appLocalizations.resourceDailyDesc,
+      _ResourceAutoUpdateMode.everyThreeDays =>
+        context.appLocalizations.resourceThreeDaysDesc,
+      _ResourceAutoUpdateMode.everySevenDays =>
+        context.appLocalizations.resourceSevenDaysDesc,
     };
   }
 
-  String get statusText {
+  String statusText(BuildContext context) {
     return switch (this) {
-      _ResourceAutoUpdateMode.off => '手动',
-      _ResourceAutoUpdateMode.daily => '自动更新：每日',
-      _ResourceAutoUpdateMode.everyThreeDays => '自动更新：3日',
-      _ResourceAutoUpdateMode.everySevenDays => '自动更新：7日',
+      _ResourceAutoUpdateMode.off => context.appLocalizations.manual,
+      _ResourceAutoUpdateMode.daily =>
+        context.appLocalizations.resourceAutoDailyStatus,
+      _ResourceAutoUpdateMode.everyThreeDays =>
+        context.appLocalizations.resourceAutoThreeDaysStatus,
+      _ResourceAutoUpdateMode.everySevenDays =>
+        context.appLocalizations.resourceAutoSevenDaysStatus,
     };
   }
 
@@ -243,7 +253,8 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
       props: const SheetProps(isScrollControlled: true),
       builder: (_) {
         return AdaptiveSheetScaffold(
-          title: '资源自动更新',
+          title: context.appLocalizations.resourceAutoUpdate,
+          appBarActions: const [],
           body: _ResourceAutoUpdateSheet(
             value: _autoUpdateMode,
             onChanged: (mode) async {
@@ -255,15 +266,24 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
     );
   }
 
-  List<Widget> _buildActions() {
+  List<SlAppBarAction> _buildActions() {
     return [
-      IconButton(
-        onPressed: () => _handleUpdateAll(),
-        icon: const Icon(SurgeIcons.sync),
-      ),
-      IconButton(
-        onPressed: _showAutoUpdateSheet,
-        icon: const Icon(SurgeIcons.schedule),
+      SlAppBarOverflowAction(
+        tooltip: context.appLocalizations.more,
+        popup: CommonPopupMenu(
+          items: [
+            PopupMenuItemData(
+              icon: SurgeIcons.sync,
+              label: context.appLocalizations.sync,
+              onPressed: () => _handleUpdateAll(),
+            ),
+            PopupMenuItemData(
+              icon: SurgeIcons.schedule,
+              label: context.appLocalizations.autoUpdate,
+              onPressed: _showAutoUpdateSheet,
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -274,7 +294,7 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
     return CommonScaffold(
       title: context.appLocalizations.resources,
       backgroundColor: surge.background,
-      actions: _buildActions(),
+      appBarActions: _buildActions(),
       body: ValueListenableBuilder(
         valueListenable: _updatingItems,
         builder: (_, updatingItems, _) {
@@ -284,7 +304,10 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
               bottom: SurgeBottomNavLayout.mainPageBottomPadding(context),
             ),
             children: [
-              _ResourceStatusCard(mode: _autoUpdateMode),
+              _ResourceStatusCard(
+                mode: _autoUpdateMode,
+                onTap: _showAutoUpdateSheet,
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -315,9 +338,10 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
 }
 
 class _ResourceStatusCard extends StatelessWidget {
-  const _ResourceStatusCard({required this.mode});
+  const _ResourceStatusCard({required this.mode, required this.onTap});
 
   final _ResourceAutoUpdateMode mode;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -326,60 +350,67 @@ class _ResourceStatusCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: SurgeCard(
         shadow: false,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: surge.textSecondary.withValues(alpha: 0.055),
-                borderRadius: BorderRadius.circular(surge.radii.button),
-              ),
-              child: Icon(
-                mode == _ResourceAutoUpdateMode.off
-                    ? SurgeIcons.pause
-                    : SurgeIcons.update,
-                size: 15,
-                color: surge.textPrimary.withValues(alpha: 0.72),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    mode.statusText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodyMedium?.copyWith(
-                      color: surge.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1,
-                      letterSpacing: 0,
-                    ),
+        padding: EdgeInsets.zero,
+        child: SurgePressable(
+          onTap: onTap,
+          semanticLabel:
+              context.appLocalizations.openResourceAutoUpdateSettings,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: surge.textSecondary.withValues(alpha: 0.055),
+                    borderRadius: BorderRadius.circular(surge.radii.button),
                   ),
-                  if (mode != _ResourceAutoUpdateMode.off) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      mode.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelSmall?.copyWith(
-                        color: surge.textSecondary,
-                        fontSize: 11,
-                        height: 1,
-                        letterSpacing: 0,
+                  child: Icon(
+                    mode == _ResourceAutoUpdateMode.off
+                        ? SurgeIcons.pause
+                        : SurgeIcons.update,
+                    size: 15,
+                    color: surge.textPrimary.withValues(alpha: 0.72),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        mode.statusText(context),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.typography.rowTitle.copyWith(
+                          color: surge.textPrimary,
+                        ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                      if (mode != _ResourceAutoUpdateMode.off) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          mode.subtitle(context),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.typography.supporting.copyWith(
+                            color: surge.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  SurgeIcons.chevronRight,
+                  size: 22,
+                  color: surge.textSecondary.withValues(alpha: 0.7),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -489,70 +520,72 @@ class _ResourceItemCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        item.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.bodyMedium?.copyWith(
-                          color: surge.textPrimary,
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      FutureBuilder<FileInfo>(
-                        future: _getGeoFileLastModified(item.fileName),
-                        builder: (_, snapshot) {
-                          final text = snapshot.data?.getDesc(context) ?? '读取中';
-                          return Text(
-                            text,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.textTheme.labelSmall?.copyWith(
-                              color: surge.textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              height: 1,
-                              letterSpacing: 0,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: context.typography.rowTitle.copyWith(
+                                    color: surge.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                FutureBuilder<FileInfo>(
+                                  future: _getGeoFileLastModified(
+                                    item.fileName,
+                                  ),
+                                  builder: (_, snapshot) {
+                                    final text =
+                                        snapshot.data?.getDesc(context) ??
+                                        context.appLocalizations.reading;
+                                    return Text(
+                                      text,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: context.typography.supporting
+                                          .copyWith(color: surge.textSecondary),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                          );
-                        },
+                          ),
+                          const SizedBox(width: 8),
+                          SoftOsControlDock(
+                            height: 34,
+                            tapHeight: 44,
+                            children: [
+                              SoftOsDockButton(
+                                tooltip: context.appLocalizations.edit,
+                                icon: SurgeIcons.edit,
+                                onTap: () => _updateUrl(context, ref, url),
+                              ),
+                              const SoftOsDockDivider(height: 15),
+                              SoftOsDockButton(
+                                tooltip: context.appLocalizations.sync,
+                                icon: SurgeIcons.sync,
+                                loading: updating,
+                                onTap: onUpdate,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
                         url,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.textTheme.bodySmall?.copyWith(
+                        style: context.typography.supporting.copyWith(
                           color: surge.textSecondary.withValues(alpha: 0.82),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
-                          height: 1,
-                          letterSpacing: 0,
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 6),
-                SoftOsControlDock(
-                  height: 34,
-                  tapHeight: 44,
-                  children: [
-                    SoftOsDockButton(
-                      tooltip: context.appLocalizations.edit,
-                      icon: SurgeIcons.edit,
-                      onTap: () => _updateUrl(context, ref, url),
-                    ),
-                    const SoftOsDockDivider(height: 15),
-                    SoftOsDockButton(
-                      tooltip: context.appLocalizations.sync,
-                      icon: SurgeIcons.sync,
-                      loading: updating,
-                      onTap: onUpdate,
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -607,24 +640,16 @@ class _ResourceAutoUpdateSheetState extends State<_ResourceAutoUpdateSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Text(
-              '更新频率',
-              style: context.textTheme.titleSmall?.copyWith(
+              context.appLocalizations.updateFrequency,
+              style: context.typography.rowTitle.copyWith(
                 color: surge.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                height: 1,
-                letterSpacing: 0,
               ),
             ),
           ),
           Text(
-            '首次打开资源页时触发',
-            style: context.textTheme.labelSmall?.copyWith(
+            context.appLocalizations.resourceUpdateTriggerHint,
+            style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              height: 1,
-              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 8),
@@ -639,8 +664,8 @@ class _ResourceAutoUpdateSheetState extends State<_ResourceAutoUpdateSheet> {
                     icon: mode == _ResourceAutoUpdateMode.off
                         ? SurgeIcons.pause
                         : SurgeIcons.update,
-                    title: mode.title,
-                    subtitle: mode.subtitle,
+                    title: mode.title(context),
+                    subtitle: mode.subtitle(context),
                     selected: mode == _value,
                     onTap: () {
                       setState(() {
@@ -709,14 +734,8 @@ class _ResourceSheetOption extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.bodyMedium?.copyWith(
+                      style: context.typography.rowTitle.copyWith(
                         color: surge.textPrimary,
-                        fontSize: 15,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        height: 1,
-                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -724,11 +743,8 @@ class _ResourceSheetOption extends StatelessWidget {
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      style: context.typography.supporting.copyWith(
                         color: surge.textSecondary,
-                        fontSize: 11,
-                        height: 1.1,
-                        letterSpacing: 0,
                       ),
                     ),
                   ],

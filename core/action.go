@@ -86,6 +86,15 @@ func handleAction(action *Action, result ActionResult) {
 		}
 		result.success(proxiesData)
 		return
+	case normalizeProviderContentMethod:
+		data := action.Data.(string)
+		proxies, err := handleNormalizeProviderContent(data)
+		if err != nil {
+			result.error(err.Error())
+			return
+		}
+		result.success(proxies)
+		return
 	case changeProxyMethod:
 		data := action.Data.(string)
 		handleChangeProxy(data, func(value string) {

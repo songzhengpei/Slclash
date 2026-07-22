@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:fl_clash/common/common.dart';
-import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/state.dart';
@@ -9,6 +8,9 @@ import 'package:fl_clash/widgets/inherited.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'app_bar/sl_app_bar.dart';
+import 'app_bar/sl_app_bar_action.dart';
+import 'app_bar/sl_app_bar_buttons.dart';
 import 'scaffold.dart';
 import 'side_sheet.dart';
 
@@ -126,7 +128,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
   final Widget body;
   final String title;
   final bool sheetTransparentToolBar;
-  final List<IconButtonData> actions;
+  final List<SlAppBarAction> appBarActions;
   final VoidCallback? backAction;
 
   const AdaptiveSheetScaffold({
@@ -134,7 +136,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     required this.body,
     required this.title,
     this.sheetTransparentToolBar = false,
-    this.actions = const [],
+    this.appBarActions = const [],
     this.backAction,
   });
 
@@ -145,10 +147,16 @@ class AdaptiveSheetScaffold extends StatefulWidget {
 class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
   final _isScrolledController = ValueNotifier<bool>(false);
 
-  IconData get backIconData {
-    if (kIsWeb) {
-      return SurgeIcons.back;
+  void _validateRuntime() {
+    if (widget.appBarActions.length > 1) {
+      throw FlutterError(
+        'AdaptiveSheetScaffold supports at most one semantic app bar action.',
+      );
     }
+  }
+
+  IconData get backIconData {
+    if (kIsWeb) return SurgeIcons.back;
     switch (Theme.of(context).platform) {
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
@@ -177,6 +185,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    _validateRuntime();
     final sheetProvider = SheetProvider.of(context);
     final nestedNavigatorPop = sheetProvider?.nestedNavigatorPop;
     final ModalRoute<dynamic>? route = ModalRoute.of(context);
@@ -188,92 +197,14 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         type != SheetType.page &&
         (nestedNavigatorPop != null && route?.impliesAppBarDismissal == false ||
             nestedNavigatorPop == null);
-    final compact = type == SheetType.bottomSheet;
 
-    Widget buildIconButton(IconButtonData data) {
-      return SoftOsActionButton(
-        icon: data.icon,
-        onPressed: data.onPressed,
-        compact: compact,
-      );
-    }
-
-    Widget? buildActionGroup(List<IconButtonData> data) {
-      if (data.isEmpty) {
-        return null;
-      }
-      if (data.length == 1) {
-        return buildIconButton(data.first);
-      }
-      final children = <Widget>[];
-      for (var index = 0; index < data.length; index++) {
-        if (index > 0) {
-          children.add(const SoftOsActionDivider());
-        }
-        children.add(
-          SoftOsActionDockButton(
-            icon: data[index].icon,
-            onPressed: data[index].onPressed,
-            compact: compact,
-          ),
-        );
-      }
-      return SoftOsActionDock(compact: compact, children: children);
-    }
-
-    final actions = [?buildActionGroup(widget.actions)];
-
-    final popButton = type != SheetType.page
-        ? (useCloseIcon
-              ? buildIconButton(
-                  IconButtonData(
-                    icon: SurgeIcons.close,
-                    onPressed: context.safeNestedPop,
-                  ),
-                )
-              : buildIconButton(
-                  IconButtonData(
-                    icon: backIconData,
-                    onPressed:
-                        widget.backAction ??
-                        () {
-                          Navigator.of(context).pop();
-                        },
-                  ),
-                ))
-        : null;
-    final suffixPop = type != SheetType.page && actions.isEmpty && useCloseIcon;
-    final pagePopButton =
-        type == SheetType.page && route?.impliesAppBarDismissal == true
-        ? buildIconButton(
-            IconButtonData(
-              icon: backIconData,
-              onPressed:
-                  widget.backAction ??
-                  () {
-                    Navigator.of(context).maybePop();
-                  },
-            ),
-          )
-        : null;
-    final leading = suffixPop ? null : popButton ?? pagePopButton;
-
-    final appBar = AppBar(
+    final AppBar appBar = _buildSemanticAppBar(
+      type: type,
       backgroundColor: backgroundColor,
-      forceMaterialTransparency: type == SheetType.bottomSheet ? true : false,
-      leading: leading,
-      leadingWidth: leading != null ? 56 : null,
-      automaticallyImplyLeading: false,
-      centerTitle: true,
-      toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
-      title: Text(widget.title),
-      titleTextStyle: type == SheetType.bottomSheet
-          ? context.textTheme.titleLarge?.adjustSize(-4)
-          : null,
-      actions: !suffixPop
-          ? genActions(actions, endSpace: 16)
-          : genActions([?popButton], endSpace: 16),
+      useCloseIcon: useCloseIcon,
+      route: route,
     );
+
     if (type == SheetType.bottomSheet) {
       const handleSize = Size(28, 4);
       final sheetAppBar = Column(
@@ -361,5 +292,115 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       );
     }
     return CommonScaffold(appBar: appBar, body: widget.body);
+  }
+
+  AppBar _buildSemanticAppBar({
+    required SheetType type,
+    required Color backgroundColor,
+    required bool useCloseIcon,
+    required ModalRoute<dynamic>? route,
+  }) {
+    final materialLocalizations = MaterialLocalizations.of(context);
+
+    Widget? leading;
+    VoidCallback? leadingOnPressed;
+    if (type != SheetType.page) {
+      if (useCloseIcon) {
+        leadingOnPressed = context.safeNestedPop;
+        leading = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: type == SheetType.bottomSheet
+              ? SoftOsActionButton(
+                  icon: SurgeIcons.close,
+                  tooltip: materialLocalizations.closeButtonTooltip,
+                  onPressed: leadingOnPressed,
+                  compact: true,
+                )
+              : SlAppBarIconButton(
+                  icon: SurgeIcons.close,
+                  tooltip: materialLocalizations.closeButtonTooltip,
+                  onPressed: leadingOnPressed,
+                ),
+        );
+      } else {
+        leadingOnPressed =
+            widget.backAction ??
+            () {
+              Navigator.of(context).pop();
+            };
+        leading = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: SlAppBarIconButton(
+            icon: backIconData,
+            tooltip: materialLocalizations.backButtonTooltip,
+            onPressed: leadingOnPressed,
+          ),
+        );
+      }
+    } else if (route?.impliesAppBarDismissal == true) {
+      leadingOnPressed =
+          widget.backAction ??
+          () {
+            Navigator.of(context).maybePop();
+          };
+      leading = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: SlAppBarIconButton(
+          icon: backIconData,
+          tooltip: materialLocalizations.backButtonTooltip,
+          onPressed: leadingOnPressed,
+        ),
+      );
+    }
+
+    final trailing = widget.appBarActions.isNotEmpty
+        ? SlAppBarActionsRenderer(
+            actions: widget.appBarActions,
+            softOs: type == SheetType.bottomSheet,
+          )
+        : null;
+
+    final reserveSlots = leading != null || trailing != null;
+    const slotWidth = 72.0;
+    final effectiveSlotWidth = reserveSlots ? slotWidth : 0.0;
+
+    return AppBar(
+      backgroundColor: backgroundColor,
+      forceMaterialTransparency: type == SheetType.bottomSheet,
+      automaticallyImplyLeading: false,
+      centerTitle: true,
+      toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
+      titleTextStyle: context.typography.sheetTitle.copyWith(
+        color: SurgeTheme.of(context).textPrimary,
+      ),
+      title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      leading: reserveSlots
+          ? Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: type == SheetType.bottomSheet ? 6 : 0,
+                ),
+                child: leading ?? const SizedBox.shrink(),
+              ),
+            )
+          : null,
+      leadingWidth: effectiveSlotWidth,
+      actions: [
+        if (reserveSlots)
+          SizedBox(
+            width: effectiveSlotWidth,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: type == SheetType.bottomSheet ? 6 : 0,
+                ),
+                child: trailing ?? const SizedBox.shrink(),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

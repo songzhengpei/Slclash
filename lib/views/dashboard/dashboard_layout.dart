@@ -49,16 +49,15 @@ class DashboardHeroLayoutCalculator {
       topRowToModeGap: responsiveLayout.legacy(16) + extraHeight * 0.32,
       modeCardHeight: responsiveLayout.legacy(80) + extraHeight * 0.38,
       modeToSwitchGap: responsiveLayout.legacy(12) + extraHeight * 0.16,
-      switchToSelectorGap: responsiveLayout.legacy(10) + extraHeight * 0.14,
+      switchToSelectorGap: responsiveLayout.legacy(12) + extraHeight * 0.14,
     );
   }
 }
 
 /// Immutable, page-level responsive contract for the dashboard.
 ///
-/// The reference viewport is the user's 384dp-wide phone.  Geometry and type
-/// are deliberately scaled independently: compact phones keep readable type
-/// while their visual chrome does not become disproportionately large.
+/// The reference viewport is the user's 384dp-wide phone. Geometry remains
+/// responsive here; typography is owned by the app's semantic text system.
 @immutable
 class DashboardResponsiveLayout {
   const DashboardResponsiveLayout._({
@@ -66,7 +65,6 @@ class DashboardResponsiveLayout {
     required this.viewportWidth,
     required this.viewportHeight,
     required this.geometryScale,
-    required this.typographyScale,
     required this.textScale,
     required this.pageHorizontalPadding,
     required this.pageTopPadding,
@@ -82,7 +80,6 @@ class DashboardResponsiveLayout {
   static const double wideBreakpoint = 600;
   static const double wideContentMaxWidth = 520;
   static const double reflowCardInnerWidth = 230;
-  static const double maxTextScale = 1.15;
   static const double scrollEndBottomGap = 30;
   static const double viewportExpansionRampHeight = 48;
   static const double maxHeroExpansion = 24;
@@ -93,7 +90,6 @@ class DashboardResponsiveLayout {
   final double viewportWidth;
   final double viewportHeight;
   final double geometryScale;
-  final double typographyScale;
   final double textScale;
   final double pageHorizontalPadding;
   final double pageTopPadding;
@@ -104,12 +100,6 @@ class DashboardResponsiveLayout {
 
   bool get isCompact => density == DashboardDensity.compact;
   bool get isWide => density == DashboardDensity.wide;
-
-  /// This dense control surface preserves its single-line information
-  /// hierarchy when the app-wide text scaling preference is enlarged.
-  static TextScaler textScalerForDashboard(TextScaler textScaler) {
-    return textScaler.clamp(maxScaleFactor: maxTextScale);
-  }
 
   double get maxDashboardExpansion =>
       geometry(maxHeroExpansion + maxNetworkExpansion);
@@ -170,15 +160,13 @@ class DashboardResponsiveLayout {
   /// reference viewport.
   double geometry(double referenceValue) => referenceValue * geometryScale;
 
-  /// Scales a typography token before Flutter applies the system TextScaler.
-  double type(double referenceValue) => referenceValue * typographyScale;
+  /// Keeps icon geometry in step with the semantic text beside it.
+  double textIcon(double referenceValue) =>
+      referenceValue * geometryScale * textScale;
 
   /// Preserves dimensions which previously used `value * layoutScale` at the
   /// reference viewport, while making that scaling shared by both cards.
   double legacy(double value) => value * geometryScale;
-
-  /// Equivalent to [legacy], but uses the more conservative type scale.
-  double legacyType(double value) => value * typographyScale;
 
   double get cardRadius => geometry(26);
   double get cardHorizontalPadding => geometry(18);
@@ -216,7 +204,6 @@ class DashboardResponsiveLayout {
         : DashboardDensity.regular;
     final widthRatio = viewportWidth / referenceViewportWidth;
     final geometryScale = widthRatio.clamp(0.86, 1.07).toDouble();
-    final typographyScale = widthRatio.clamp(0.90, 1.05).toDouble();
     final pageHorizontalPadding = isWide ? 32.0 : 18 * geometryScale;
     final contentWidth = math
         .min(
@@ -234,15 +221,14 @@ class DashboardResponsiveLayout {
       viewportWidth: viewportWidth,
       viewportHeight: viewportHeight,
       geometryScale: geometryScale,
-      typographyScale: typographyScale,
       textScale: textScale,
       pageHorizontalPadding: pageHorizontalPadding,
       pageTopPadding: 16 * geometryScale,
       cardGap: 16 * geometryScale,
       contentMaxWidth: isWide ? wideContentMaxWidth : double.infinity,
       cardInnerWidth: cardInnerWidth,
-      // Enlarged text is capped by [textScalerForDashboard]. Only a genuinely
-      // narrow card may switch to the structural reflow fallback.
+      // Only a genuinely narrow card switches to the structural reflow
+      // fallback. Text scaling is never capped here.
       requiresReflow: cardInnerWidth < reflowCardInnerWidth,
     );
   }

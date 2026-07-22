@@ -125,12 +125,9 @@ class _SoftOsSelectTarget<T> extends StatelessWidget {
             Expanded(
               child: Text(
                 item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                maxLines: 2,
+                style: context.typography.controlLabel.copyWith(
                   color: enabled ? surge.textPrimary : surge.textSecondary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -185,92 +182,85 @@ class _SoftOsSelectPopup<T> extends StatelessWidget {
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(surge.radii.card),
-          child: ListView.separated(
-            shrinkWrap: true,
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            itemCount: items.length,
-            separatorBuilder: (_, _) => Divider(
-              height: 1,
-              indent: 14,
-              endIndent: 14,
-              color: surge.separator.withValues(alpha: 0.58),
-            ),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              final selected = item.value == value;
-              return SurgePressable(
-                scaleFeedback: false,
-                onTap: onChanged == null
-                    ? null
-                    : () {
-                        Navigator.of(context).pop();
-                        onChanged!(item.value);
-                      },
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: metrics.tap(44)),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: metrics.value(14),
-                      vertical: metrics.value(8),
-                    ),
-                    child: Row(
-                      children: [
-                        if (item.icon != null) ...[
-                          Icon(
-                            item.icon,
-                            size: metrics.value(17),
-                            color: selected
-                                ? surge.primary
-                                : surge.textSecondary,
-                          ),
-                          SizedBox(width: metrics.value(10)),
-                        ],
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: selected
-                                          ? surge.primary
-                                          : surge.textPrimary,
-                                      fontWeight: selected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      letterSpacing: 0,
-                                    ),
-                              ),
-                              if (item.subtitle case final subtitle?) ...[
-                                const SizedBox(height: 2),
+        child: Material(
+          type: MaterialType.transparency,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(surge.radii.card),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                indent: 14,
+                endIndent: 14,
+                color: surge.separator.withValues(alpha: 0.58),
+              ),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final selected = item.value == value;
+                return SurgePressable(
+                  scaleFeedback: false,
+                  onTap: onChanged == null
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                          onChanged!(item.value);
+                        },
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: metrics.tap(44)),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: metrics.value(14),
+                        vertical: metrics.value(8),
+                      ),
+                      child: Row(
+                        children: [
+                          if (item.icon != null) ...[
+                            Icon(
+                              item.icon,
+                              size: metrics.value(17),
+                              color: selected
+                                  ? surge.primary
+                                  : surge.textSecondary,
+                            ),
+                            SizedBox(width: metrics.value(10)),
+                          ],
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Text(
-                                  subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: surge.textSecondary,
-                                        letterSpacing: 0,
-                                      ),
+                                  item.label,
+                                  maxLines: 2,
+                                  style: context.typography.rowTitle.copyWith(
+                                    color: selected
+                                        ? surge.primary
+                                        : surge.textPrimary,
+                                  ),
                                 ),
+                                if (item.subtitle case final subtitle?) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    subtitle,
+                                    maxLines: 2,
+                                    style: context.typography.supporting
+                                        .copyWith(color: surge.textSecondary),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                        SizedBox(width: metrics.value(12)),
-                        SurgeSelectIndicator(selected: selected, size: 18),
-                      ],
+                          SizedBox(width: metrics.value(12)),
+                          SurgeSelectIndicator(selected: selected, size: 18),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

@@ -154,6 +154,35 @@ void main() {
     });
   });
 
+  group('parseProfileProviderDefinitions', () {
+    test('detects proxy and rule providers without accessing core', () {
+      final definitions = parseProfileProviderDefinitions('''
+proxy-providers:
+  airport:
+    type: http
+rule-providers:
+  reject:
+    type: http
+''');
+
+      expect(definitions.external, isTrue);
+      expect(definitions.proxy, isTrue);
+    });
+
+    test('does not treat empty provider maps as definitions', () {
+      final definitions = parseProfileProviderDefinitions('''
+proxy-providers: {}
+rule-providers: {}
+proxies:
+  - name: inline
+    type: direct
+''');
+
+      expect(definitions.external, isFalse);
+      expect(definitions.proxy, isFalse);
+    });
+  });
+
   group('ProfilesAction', () {
     test('keeps edited profile data when remote update fails', () async {
       final original = Profile.normal(label: 'old label', url: 'bad-url');

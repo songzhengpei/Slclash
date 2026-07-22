@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/views/proxies/list.dart';
 import 'package:fl_clash/views/proxies/providers.dart';
@@ -11,6 +12,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'setting.dart';
+
+final _profileHasExternalProvidersProvider = FutureProvider.autoDispose
+    .family<bool, int>((ref, profileId) async {
+      final definitions = await readProfileProviderDefinitions(profileId);
+      return definitions.external;
+    });
 
 class ProxiesView extends ConsumerStatefulWidget {
   const ProxiesView({super.key});
@@ -27,12 +34,10 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     final currentProfileId = ref.watch(currentProfileIdProvider);
     final profileHasProviders =
         currentProfileId != null &&
-        ref.watch(
-          clashConfigProvider(currentProfileId).select((state) {
-            final config = state.value;
-            return config != null && hasExternalProviderDefinitions(config);
-          }),
-        );
+        ref
+                .watch(_profileHasExternalProvidersProvider(currentProfileId))
+                .value ==
+            true;
     return runtimeHasProviders || profileHasProviders;
   }
 
@@ -48,33 +53,41 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     );
   }
 
-  List<Widget> _buildActions(BuildContext context) {
+  List<SlAppBarAction> _buildActions(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final hasProviders = _hasProviders();
     return [
-      if (hasProviders)
-        IconButton(
-          tooltip: appLocalizations.providers,
-          icon: const Icon(SurgeIcons.providerDownload),
-          onPressed: () {
-            unawaited(_handleProvidersPressed(context));
-          },
+      SlAppBarOverflowAction(
+        tooltip: appLocalizations.more,
+        popup: CommonPopupMenu(
+          items: [
+            if (hasProviders)
+              PopupMenuItemData(
+                icon: SurgeIcons.providerDownload,
+                label: appLocalizations.providers,
+                onPressed: () {
+                  unawaited(_handleProvidersPressed(context));
+                },
+              ),
+            PopupMenuItemData(
+              icon: SurgeIcons.tune,
+              label: appLocalizations.settings,
+              onPressed: () {
+                showSheet(
+                  context: context,
+                  props: const SheetProps(isScrollControlled: true),
+                  builder: (_) {
+                    return AdaptiveSheetScaffold(
+                      body: const ProxiesSetting(),
+                      title: appLocalizations.settings,
+                      appBarActions: const [],
+                    );
+                  },
+                );
+              },
+            ),
+          ],
         ),
-      IconButton(
-        tooltip: appLocalizations.settings,
-        icon: const Icon(SurgeIcons.tune),
-        onPressed: () {
-          showSheet(
-            context: context,
-            props: const SheetProps(isScrollControlled: true),
-            builder: (_) {
-              return AdaptiveSheetScaffold(
-                body: const ProxiesSetting(),
-                title: appLocalizations.settings,
-              );
-            },
-          );
-        },
       ),
     ];
   }
@@ -118,8 +131,9 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     return CommonScaffold(
       isLoading: isLoading,
       resizeToAvoidBottomInset: false,
-      actions: _buildActions(context),
+      appBarActions: _buildActions(context),
       title: context.appLocalizations.proxies,
+      titleVariant: SlAppBarTitleVariant.root,
       backgroundColor: surge.background,
       body: ColoredBox(color: surge.background, child: const ProxiesListView()),
     );

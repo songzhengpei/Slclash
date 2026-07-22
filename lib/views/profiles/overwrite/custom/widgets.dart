@@ -51,11 +51,8 @@ class OverwriteSectionHeader extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: context.textTheme.labelMedium?.copyWith(
+              style: context.typography.supporting.copyWith(
                 color: surge.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -92,12 +89,7 @@ class OverwriteCountPill extends StatelessWidget {
       child: Text(
         '$value',
         maxLines: 1,
-        style: context.textTheme.labelSmall?.copyWith(
-          color: surge.primary,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
-        ),
+        style: context.typography.badgeLabel.copyWith(color: surge.primary),
       ),
     );
   }
@@ -191,30 +183,24 @@ class OverwriteListItem extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DefaultTextStyle.merge(
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    style: context.typography.controlLabel.copyWith(
                       color: destructive || invalid
                           ? surge.red
                           : selected
                           ? surge.primary
                           : surge.textPrimary,
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      letterSpacing: 0,
                     ),
                     child: title,
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 3),
                     DefaultTextStyle.merge(
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      style: context.typography.supporting.copyWith(
                         color: surge.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0,
                       ),
                       child: subtitle!,
                     ),

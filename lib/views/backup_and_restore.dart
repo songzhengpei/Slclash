@@ -136,10 +136,13 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
     final files = await globalState.loadingRun<List<DAVFileEntry>>(
       () => _client!.listFiles(),
       tag: LoadingTag.backup_restore,
-      title: '正在读取备份...',
+      title: appLocalizations.readingBackups,
     );
     if (files == null || files.isEmpty) {
-      _showBackupInfo(title: appLocalizations.restore, message: '没有可用备份。');
+      _showBackupInfo(
+        title: appLocalizations.restore,
+        message: appLocalizations.noAvailableBackups,
+      );
       return;
     }
 
@@ -150,7 +153,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
 
     final confirmed = await _showBackupConfirmation(
       title: appLocalizations.restore,
-      message: '请注意，只会恢复订阅数据，不会恢复其他设置。',
+      message: appLocalizations.restoreProfilesOnlyWarning,
       confirmLabel: appLocalizations.restore,
     );
     if (confirmed != true || !context.mounted) return;
@@ -202,7 +205,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
     if (path == null) return;
     final confirmed = await _showBackupConfirmation(
       title: appLocalizations.restore,
-      message: '请注意，只会恢复订阅数据，不会恢复其他设置。',
+      message: appLocalizations.restoreProfilesOnlyWarning,
       confirmLabel: appLocalizations.restore,
     );
     if (confirmed != true || !mounted) return;
@@ -223,8 +226,8 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
   void _showRestoreOutcome(BackupRestoreOutcome outcome) {
     final appLocalizations = context.appLocalizations;
     final message = outcome.activationSucceeded
-        ? '订阅数据已恢复。'
-        : '订阅数据已恢复，代理暂未加载。';
+        ? appLocalizations.profilesRestored
+        : appLocalizations.profilesRestoredProxyNotLoaded;
     _showBackupInfo(title: appLocalizations.restore, message: message);
   }
 
@@ -275,6 +278,7 @@ class _BackupAndRestoreState extends ConsumerState<BackupAndRestore>
     return CommonScaffold(
       isLoading: isLoading,
       title: appLocalizations.backupAndRestore,
+      appBarActions: const [],
       body: ListView(
         padding: EdgeInsets.only(
           top: 12,
@@ -482,7 +486,7 @@ class _CenteredWebDAVFileListState extends State<_CenteredWebDAVFileList> {
   @override
   Widget build(BuildContext context) {
     return _SoftOsBackupDialog(
-      title: '选择备份',
+      title: context.appLocalizations.selectBackup,
       maxContentHeight: 350,
       childScrolls: true,
       actions: [
@@ -542,7 +546,7 @@ class _WebDAVFileItem extends StatelessWidget {
 
     return SurgePressable(
       onTap: onTap,
-      semanticLabel: '恢复 ${entry.name}',
+      semanticLabel: context.appLocalizations.restoreNamedBackup(entry.name),
       borderRadius: BorderRadius.circular(surge.radii.list),
       child: Container(
         constraints: const BoxConstraints(minHeight: 64),
@@ -570,12 +574,12 @@ class _WebDAVFileItem extends StatelessWidget {
                       entry.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: surge.typography.rowTitle,
+                      style: context.typography.rowTitle,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '$dateStr  ·  $sizeStr',
-                      style: surge.typography.rowSubtitle,
+                      style: context.typography.supporting,
                     ),
                   ],
                 ),
@@ -596,7 +600,7 @@ class _WebDAVFileItem extends StatelessWidget {
                 ),
                 child: Text(
                   label,
-                  style: surge.typography.badge.copyWith(color: color),
+                  style: context.typography.badgeLabel.copyWith(color: color),
                 ),
               ),
               const SizedBox(width: 4),
@@ -636,12 +640,7 @@ class _BackupPillButton extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: context.textTheme.labelMedium?.copyWith(
-          color: surge.textPrimary,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
-        ),
+        style: context.typography.badgeLabel.copyWith(color: surge.textPrimary),
       ),
     );
   }
@@ -842,9 +841,8 @@ class _SoftOsBackupDialog extends StatelessWidget {
                 child: Text(
                   message!,
                   textAlign: TextAlign.center,
-                  style: surge.typography.rowSubtitle.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: surge.textPrimary,
-                    height: 1.45,
                   ),
                 ),
               ),
@@ -934,10 +932,7 @@ class _SoftOsDialogAction extends StatelessWidget {
                     width: surge.spacing.hairline,
                   ),
           ),
-          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
-          ),
+          textStyle: context.typography.controlLabel,
         ),
         child: Text(label),
       ),
@@ -964,7 +959,7 @@ class _SoftOsRestoreStrategyDialogState
     final surge = SurgeTheme.of(context);
     return _SoftOsBackupDialog(
       title: currentAppLocalizations.restoreStrategy,
-      message: '选择恢复方式。',
+      message: currentAppLocalizations.selectRestoreStrategy,
       actions: [
         _SoftOsDialogAction(
           label: context.appLocalizations.cancel,
@@ -1004,7 +999,7 @@ class _SoftOsRestoreStrategyDialogState
                     Expanded(
                       child: Text(
                         Intl.message('restoreStrategy_${strategy.name}'),
-                        style: surge.typography.rowTitle,
+                        style: context.typography.rowTitle,
                       ),
                     ),
                     if (strategy == selected)

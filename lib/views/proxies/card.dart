@@ -126,12 +126,8 @@ class _ProxyTextBlock extends ConsumerWidget {
           proxy.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.textTheme.bodyMedium?.copyWith(
+          style: context.typography.compactRowTitle.copyWith(
             color: surge.textPrimary,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
-            height: 1.05,
-            letterSpacing: 0,
           ),
         ),
         const SizedBox(height: 3),
@@ -139,11 +135,8 @@ class _ProxyTextBlock extends ConsumerWidget {
           subtitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.textTheme.bodySmall?.copyWith(
+          style: context.typography.proxyCardSubtitle.copyWith(
             color: surge.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0,
           ),
         ),
       ],

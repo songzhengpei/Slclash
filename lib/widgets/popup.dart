@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'animated_cross_slide.dart';
 import 'surge/surge_motion.dart';
+import 'surge/surge_theme_extension.dart';
 
 class CommonPopupRoute<T> extends PopupRoute<T> {
   final WidgetBuilder builder;
@@ -69,10 +70,10 @@ class CommonPopupRoute<T> extends PopupRoute<T> {
             opacity: curveAnimation,
             child: ScaleTransition(
               alignment: align,
-              scale: curveAnimation.drive(Tween(begin: 0.96, end: 1.0)),
+              scale: curveAnimation.drive(Tween(begin: 0.88, end: 1.0)),
               child: SlideTransition(
                 position: curveAnimation.drive(
-                  Tween(begin: const Offset(0, -0.02), end: Offset.zero),
+                  Tween(begin: const Offset(0, -0.035), end: Offset.zero),
                 ),
                 child: child,
               ),
@@ -219,29 +220,47 @@ class CommonPopupMenu extends StatelessWidget {
   final List<PopupMenuItemData> items;
   final double minWidth;
   final double minItemVerticalPadding;
-  final double fontSize;
 
   const CommonPopupMenu({
     super.key,
     required this.items,
-    this.minWidth = 200,
+    this.minWidth = 0,
     this.minItemVerticalPadding = 16,
-    this.fontSize = 15,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 12,
-      color: context.colorScheme.surfaceContainer,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
-      child: IntrinsicWidth(
-        child: _CommonPopupMenuItems(
-          items: items,
-          minWidth: minWidth,
-          minItemVerticalPadding: minItemVerticalPadding,
-          fontSize: fontSize,
+    final surge = SurgeTheme.of(context);
+    final radius = surge.radii.menuRow;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          BoxShadow(
+            color: surge.shadow.withValues(alpha: 0.08),
+            blurRadius: 12,
+            spreadRadius: -3,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        elevation: 0,
+        color: surge.elevatedCard,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(radius),
+          side: BorderSide(
+            color: surge.separator.withValues(alpha: 0.72),
+            width: 0.5,
+          ),
+        ),
+        child: IntrinsicWidth(
+          child: _CommonPopupMenuItems(
+            items: items,
+            minWidth: minWidth,
+            minItemVerticalPadding: minItemVerticalPadding,
+          ),
         ),
       ),
     );
@@ -252,13 +271,11 @@ class _CommonPopupMenuItems extends StatefulWidget {
   final List<PopupMenuItemData> items;
   final double minWidth;
   final double minItemVerticalPadding;
-  final double fontSize;
 
   const _CommonPopupMenuItems({
     required this.items,
     required this.minWidth,
     required this.minItemVerticalPadding,
-    required this.fontSize,
   });
 
   @override
@@ -285,19 +302,19 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
           }
         : item.onPressed;
     final disabled = onPressed == null;
-    final color = item.danger
-        ? context.colorScheme.onError
-        : context.colorScheme.onSurface;
+    final surge = SurgeTheme.of(context);
+    final color = item.danger ? surge.red : surge.textPrimary;
     final foregroundColor = disabled ? color.opacity30 : color;
     final backgroundColor = item.danger
-        ? context.colorScheme.error
-        : context.colorScheme.surfaceContainer;
+        ? surge.red.withValues(alpha: 0.08)
+        : Colors.transparent;
     return TextButton(
       style: TextButton.styleFrom(
         padding: EdgeInsets.zero,
         shape: LinearBorder.none,
         foregroundColor: foregroundColor,
         backgroundColor: backgroundColor,
+        overlayColor: foregroundColor.withValues(alpha: 0.07),
       ),
       onPressed: onPressed != null
           ? () {
@@ -311,7 +328,7 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
         constraints: BoxConstraints(minWidth: widget.minWidth),
         padding: EdgeInsets.only(
           left: 16,
-          right: 64,
+          right: 16,
           top: widget.minItemVerticalPadding,
           bottom: widget.minItemVerticalPadding,
         ),
@@ -319,19 +336,14 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
           mainAxisSize: MainAxisSize.max,
           children: [
             if (item.icon != null) ...[
-              Icon(
-                item.icon,
-                size: widget.fontSize + 4,
-                color: foregroundColor,
-              ),
+              Icon(item.icon, size: 18, color: foregroundColor),
               const SizedBox(width: 16),
             ],
             Flexible(
               child: Text(
                 item.label,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.controlLabel.copyWith(
                   color: foregroundColor,
-                  fontSize: widget.fontSize,
                 ),
               ),
             ),
@@ -348,7 +360,14 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
       children: [
         for (final item in items.asMap().entries) ...[
           _popupMenuItem(context, item: item.value, index: item.key),
-          if (item.value != items.last) const Divider(height: 0),
+          if (item.value != items.last)
+            Divider(
+              height: 0.5,
+              thickness: 0.5,
+              indent: 12,
+              endIndent: 12,
+              color: SurgeTheme.of(context).separator.withValues(alpha: 0.58),
+            ),
         ],
       ],
     );
@@ -384,7 +403,7 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
               if (_subTitle != null)
                 Text(
                   _subTitle!,
-                  style: context.textTheme.bodySmall?.copyWith(
+                  style: context.typography.supporting.copyWith(
                     color: context.colorScheme.onSurfaceVariant.opacity80,
                   ),
                 ),
@@ -395,7 +414,6 @@ class _CommonPopupMenuItemsState extends State<_CommonPopupMenuItems> {
           items: _nextItems,
           minWidth: widget.minWidth,
           minItemVerticalPadding: widget.minItemVerticalPadding,
-          fontSize: widget.fontSize,
         ),
       ],
     );

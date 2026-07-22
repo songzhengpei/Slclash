@@ -1,5 +1,7 @@
 import 'package:fl_clash/common/icons.dart';
 import 'package:fl_clash/common/color.dart';
+import 'package:fl_clash/common/context.dart';
+import 'package:fl_clash/theme/typography/typography_context.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -15,7 +17,7 @@ class InitErrorScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Init Failed'),
+        title: Text(context.appLocalizations.initFailed),
         backgroundColor: colorScheme.error,
         foregroundColor: colorScheme.onError,
         elevation: 0,
@@ -30,19 +32,19 @@ class InitErrorScreen extends StatelessWidget {
                 children: [
                   Icon(SurgeIcons.warning, color: colorScheme.error, size: 32),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'The application encountered a critical error during startup and cannot continue.',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      context.appLocalizations.initFailedDescription,
+                      style: context.typography.cardTitle,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              _buildSectionLabel('Error Details:'),
+              _buildSectionLabel(
+                context,
+                context.appLocalizations.errorDetails,
+              ),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -53,14 +55,13 @@ class InitErrorScreen extends StatelessWidget {
                 ),
                 child: SelectableText(
                   error.toString(),
-                  style: TextStyle(
+                  style: context.typography.technical.copyWith(
                     color: colorScheme.onErrorContainer,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-              _buildSectionLabel('Stack Trace:'),
+              _buildSectionLabel(context, context.appLocalizations.stackTrace),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -73,10 +74,7 @@ class InitErrorScreen extends StatelessWidget {
                 ),
                 child: SelectableText(
                   stack.toString(),
-                  style: const TextStyle(
-                    fontFamily: 'monospace', // Makes code easier to read
-                    fontSize: 12,
-                  ),
+                  style: context.typography.technical,
                 ),
               ),
               const SizedBox(height: 80),
@@ -86,7 +84,7 @@ class InitErrorScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _copyToClipboard(context),
-        label: const Text('Copy Details'),
+        label: Text(context.appLocalizations.copyDetails),
         icon: const Icon(SurgeIcons.copy),
         backgroundColor: colorScheme.error,
         foregroundColor: colorScheme.onError,
@@ -94,13 +92,10 @@ class InitErrorScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionLabel(String text) {
+  Widget _buildSectionLabel(BuildContext context, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-      ),
+      child: Text(text, style: context.typography.sectionTitle),
     );
   }
 
@@ -109,9 +104,9 @@ class InitErrorScreen extends StatelessWidget {
     Clipboard.setData(ClipboardData(text: text));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Error details copied to clipboard'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(context.appLocalizations.errorDetailsCopied),
+        duration: const Duration(seconds: 2),
       ),
     );
   }

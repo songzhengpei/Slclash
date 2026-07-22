@@ -42,7 +42,7 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
             final traffics = ref.watch(trafficsProvider).list;
             return SurgeDashboardCard(
               title: appLocalizations.networkSpeed,
-              subtitle: 'Speed',
+              subtitle: appLocalizations.networkSpeed,
               icon: SurgeIcons.speed,
               height: height,
               trailing: ValueListenableBuilder<Traffic>(
@@ -52,10 +52,8 @@ class _NetworkSpeedState extends State<NetworkSpeed> {
                     speed.speedText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.labelSmall?.copyWith(
+                    style: context.typography.chartLabel.copyWith(
                       color: surge.textSecondary,
-                      fontSize: 11,
-                      letterSpacing: 0,
                     ),
                   );
                 },

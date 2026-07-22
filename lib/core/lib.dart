@@ -29,7 +29,7 @@ class CoreLib extends CoreHandlerInterface {
     if (res?.isEmpty != true) {
       return res ?? '';
     }
-    _connectedCompleter.complete(true);
+    _connectedCompleter.safeCompleter(true);
     final syncRes = await service?.syncState(
       globalState.container.read(sharedStateProvider),
     );

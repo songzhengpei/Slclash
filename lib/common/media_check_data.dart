@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:fl_clash/common/preferences.dart';
+import 'package:fl_clash/l10n/l10n.dart';
 import 'package:flutter/foundation.dart' show immutable, kDebugMode;
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -115,7 +116,6 @@ class MediaCheckCacheStore {
   Future<void> save(MediaCheckCache cache) async {
     await preferences.setString(mediaCheckCacheKey, json.encode(cache));
   }
-
 }
 
 // ── MediaCheckCache ────────────────────────────────────────────────────────
@@ -674,6 +674,14 @@ class MediaHealthStats {
     final streak = greenStreak > 0 ? ' · 连绿$greenStreak' : '';
     return '$sampleCount次 · $rate%$delay$streak';
   }
+
+  String localizedLabel(AppLocalizations l10n) {
+    if (sampleCount == 0) return l10n.noHistory;
+    final rate = (greenRate * 100).round();
+    final delay = medianDelay > 0 ? ' · ${medianDelay}ms' : '';
+    final streak = greenStreak > 0 ? l10n.greenStreak(greenStreak) : '';
+    return l10n.healthHistorySummary(sampleCount, rate, delay, streak);
+  }
 }
 
 // ── MediaCheckResult ───────────────────────────────────────────────────────
@@ -839,6 +847,28 @@ class MediaCheckItem {
       'unknown' || 'failed' || 'timeout' => '超时',
       'skipped' => 'N/A',
       _ => '超时',
+    };
+  }
+
+  String localizedChatGPTCompactLabel(AppLocalizations l10n) {
+    if (status == 'clean') {
+      return region.isEmpty ? l10n.unlocked : l10n.unlockedWithRegion(region);
+    }
+    return switch (status) {
+      'blocked' || 'disallowed_isp' || 'unsupported' => l10n.blocked,
+      'skipped' => 'N/A',
+      _ => l10n.timedOut,
+    };
+  }
+
+  String localizedYoutubeCompactLabel(AppLocalizations l10n) {
+    return switch (status) {
+      'cn_confirmed' || 'unavailable' => l10n.routedToChina,
+      'cn_inferred' => l10n.possiblyRoutedToChina,
+      'available' =>
+        region.isEmpty ? l10n.unlocked : l10n.unlockedWithRegion(region),
+      'skipped' => 'N/A',
+      _ => l10n.timedOut,
     };
   }
 

@@ -138,18 +138,18 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     final transitionStop = _transitionKind == 'stop';
     final transitionPausing = _transitionKind == 'pausing';
     final buttonLabel = transitionPausing
-        ? '暂停中'
+        ? appLocalizations.pausing
         : isSmartResuming
-        ? '恢复中'
+        ? appLocalizations.resuming
         : transitionStop
-        ? '停止中'
+        ? appLocalizations.stopping
         : (transitionStart || connecting)
-        ? '启动中'
+        ? appLocalizations.starting
         : isSmartPaused
-        ? '恢复'
+        ? appLocalizations.resume
         : isStart
-        ? '停止'
-        : '启动';
+        ? appLocalizations.stop
+        : appLocalizations.start;
     final buttonLoading =
         transitionPausing ||
         isSmartResuming ||
@@ -274,7 +274,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         layout.cardHorizontalPadding,
         layout.legacy(18),
         layout.cardHorizontalPadding,
-        layout.legacy(16),
+        layout.legacy(18),
       ),
       decoration: BoxDecoration(
         color: surge.card,
@@ -311,7 +311,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
               return _HeroModeCard(
                 fillProgress: _fillAnimation.value,
                 modeLabel: '${_modeLabel(mode)} Mode',
-                title: '出站流量',
+                title: appLocalizations.outboundTraffic,
                 active: isStart,
                 isSmartPaused: isSmartPaused,
                 dynamicColor: dynamicColor,
@@ -487,12 +487,8 @@ class _HeroModeCardSurface extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.titleLarge?.copyWith(
+                style: context.typography.cardTitle.copyWith(
                   color: foregroundColor,
-                  fontSize: layout.type(16),
-                  fontWeight: FontWeight.w600,
-                  height: 1.05,
-                  letterSpacing: 0,
                 ),
               ),
               SizedBox(height: layout.geometry(4)),
@@ -500,12 +496,8 @@ class _HeroModeCardSurface extends StatelessWidget {
                 modeLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodyMedium?.copyWith(
+                style: context.typography.supporting.copyWith(
                   color: secondaryColor,
-                  fontSize: layout.type(13),
-                  fontWeight: FontWeight.w500,
-                  height: 1.08,
-                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -578,9 +570,12 @@ class _HeroActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final Color baseColor;
-    if (isSmartPaused || isSmartResuming || label == '暂停中') {
+    if (isSmartPaused ||
+        isSmartResuming ||
+        label == context.appLocalizations.pausing) {
       baseColor = surge.orange;
-    } else if ((isStart && !loading) || label == '停止中') {
+    } else if ((isStart && !loading) ||
+        label == context.appLocalizations.stopping) {
       baseColor = surge.red;
     } else {
       baseColor = surge.green;
@@ -630,11 +625,8 @@ class _HeroActionButton extends StatelessWidget {
                     children: [
                       Text(
                         label,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        style: context.typography.controlLabel.copyWith(
                           color: Colors.white,
-                          fontSize: layout.legacyType(14),
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
                         ),
                       ),
                       // Animated dots during loading
@@ -793,12 +785,8 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
               profileLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              style: context.typography.screenTitle.copyWith(
                 color: surge.textPrimary,
-                fontSize: layout.legacyType(19),
-                fontWeight: FontWeight.w500,
-                height: 1.0,
-                letterSpacing: 0,
               ),
             ),
           ),
@@ -828,7 +816,8 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
       builder: (sheetContext) {
         final surge = SurgeTheme.of(sheetContext);
         return AdaptiveSheetScaffold(
-          title: '选择订阅',
+          title: context.appLocalizations.selectProfile,
+          appBarActions: const [],
           body: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             itemCount: profiles.length,
@@ -876,19 +865,17 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
                             profile.realLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: context.textTheme.bodyMedium?.copyWith(
+                            style: context.typography.sheetRowTitle.copyWith(
                               color: surge.textPrimary,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
                             ),
                           ),
                         ),
                         Text(
-                          profile.type == ProfileType.url ? 'URL' : '本地',
-                          style: context.textTheme.labelSmall?.copyWith(
+                          profile.type == ProfileType.url
+                              ? 'URL'
+                              : context.appLocalizations.local,
+                          style: context.typography.sheetLabel.copyWith(
                             color: surge.textSecondary,
-                            fontSize: 11,
                           ),
                         ),
                         if (isSelected) ...[
@@ -967,13 +954,7 @@ class _StatusPill extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: textColor,
-              fontSize: layout.type(11),
-              fontWeight: FontWeight.w600,
-              height: 1.0,
-              letterSpacing: 0,
-            ),
+            style: context.typography.badgeLabel.copyWith(color: textColor),
           ),
         ],
       ),
@@ -1128,11 +1109,8 @@ class _ModeSwitch extends StatelessWidget {
       unselectedColor: surge.textSecondary,
       outerRadius: layout.geometry(26),
       selectedRadius: layout.geometry(24),
-      labelStyle: surge.typography.rowTitle.copyWith(
-        fontSize: layout.type(14),
-        fontWeight: FontWeight.w600,
-        height: 1,
-      ),
+      labelStyle: context.typography.modeTabLabel,
+      selectedLabelStyle: context.typography.selectedModeTabLabel,
       indicatorDuration: SurgeMotion.container,
       textDuration: SurgeMotion.state,
     );
@@ -1146,7 +1124,6 @@ class _HeroProxySelectorBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final surge = SurgeTheme.of(context);
     final groups = ref.watch(currentGroupsStateProvider).value;
     final currentGroupName = ref.watch(
       currentProfileProvider.select((state) => state?.currentGroupName ?? ''),
@@ -1184,11 +1161,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
       dividerMargin: layout.geometry(10),
       iconSize: layout.geometry(16),
       labelGap: layout.geometry(2),
-      labelStyle: surge.typography.badge.copyWith(
-        fontSize: layout.type(12),
-        fontWeight: FontWeight.w700,
-        height: 1,
-      ),
+      labelStyle: context.typography.selectorLabel,
     );
   }
 
@@ -1207,6 +1180,7 @@ class _HeroProxySelectorBar extends ConsumerWidget {
           height: MediaQuery.of(context).size.height * 0.65,
           child: AdaptiveSheetScaffold(
             title: sheetContext.appLocalizations.proxyGroup,
+            appBarActions: const [],
             body: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               itemCount: groups.length,
@@ -1253,19 +1227,15 @@ class _HeroProxySelectorBar extends ConsumerWidget {
                               group.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: context.textTheme.bodyMedium?.copyWith(
+                              style: context.typography.sheetRowTitle.copyWith(
                                 color: surge.textPrimary,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
                               ),
                             ),
                           ),
                           Text(
                             group.type.name,
-                            style: context.textTheme.labelSmall?.copyWith(
+                            style: context.typography.sheetLabel.copyWith(
                               color: surge.textSecondary,
-                              fontSize: 11,
                             ),
                           ),
                           if (isSelected) ...[
@@ -1400,30 +1370,26 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
           SizedBox(
             height: 48,
             child: Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  const SizedBox(width: 48),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        '节点',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize:
-                              (Theme.of(
-                                    context,
-                                  ).textTheme.titleLarge?.fontSize ??
-                                  22) -
-                              4,
-                        ),
-                      ),
-                    ),
-                  ),
                   SoftOsActionButton(
                     icon: SurgeIcons.close,
                     onPressed: () => Navigator.of(context).pop(),
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
                     compact: true,
                   ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        context.appLocalizations.nodes,
+                        style: context.typography.sheetTitle,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
@@ -1435,10 +1401,12 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
             child: TextField(
               controller: _searchController,
               onChanged: (value) => setState(() => _searchQuery = value),
-              style: surge.typography.fieldInput,
+              style: context.typography.body,
               decoration: InputDecoration(
                 hintText: context.appLocalizations.search,
-                hintStyle: surge.typography.fieldHint,
+                hintStyle: context.typography.body.copyWith(
+                  color: surge.textSecondary,
+                ),
                 prefixIcon: Icon(
                   SurgeIcons.search,
                   color: surge.textSecondary,
@@ -1506,7 +1474,7 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                 ? Center(
                     child: Text(
                       context.appLocalizations.noData,
-                      style: surge.typography.emptyState,
+                      style: context.typography.supporting,
                     ),
                   )
                 : ListView.builder(
@@ -1624,11 +1592,8 @@ class _NodeCard extends ConsumerWidget {
                     proxy.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textTheme.bodyMedium?.copyWith(
+                    style: context.typography.sheetRowTitle.copyWith(
                       color: surge.textPrimary,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1637,7 +1602,7 @@ class _NodeCard extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
-                      vertical: 3,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color: delayColor.withValues(alpha: 0.1),
@@ -1645,10 +1610,8 @@ class _NodeCard extends ConsumerWidget {
                     ),
                     child: Text(
                       delayLabel,
-                      style: context.textTheme.labelSmall?.copyWith(
+                      style: context.typography.sheetLabel.copyWith(
                         color: delayColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

@@ -77,32 +77,29 @@ class _AddedRulesViewState extends ConsumerState<AddedRulesView> {
         return false;
       },
 
-      child: BaseScaffold(
+      child: CommonScaffold(
         title: appLocalizations.addedRules,
-        actions: [
-          if (selectedRules.isNotEmpty) ...[
-            CommonMinIconButtonTheme(
-              child: IconButton.filledTonal(
-                onPressed: _handleDelete,
-                icon: const Icon(SurgeIcons.delete),
-              ),
+        appBarActions: [
+          if (selectedRules.isNotEmpty)
+            SlAppBarIconAction(
+              icon: SurgeIcons.delete,
+              tooltip: appLocalizations.delete,
+              onPressed: _handleDelete,
+              tone: SlAppBarActionTone.destructive,
             ),
-            const SizedBox(width: 2),
-          ],
-          CommonMinFilledButtonTheme(
-            child: selectedRules.isNotEmpty
-                ? FilledButton(
-                    onPressed: _handleSelectAll,
-                    child: Text(appLocalizations.selectAll),
-                  )
-                : SurgeAddButton(
-                    onPressed: () {
-                      _handleAddOrUpdate();
-                    },
-                    label: appLocalizations.add,
-                  ),
+          SlAppBarIconAction(
+            icon: selectedRules.isNotEmpty ? SurgeIcons.selectAll : SurgeIcons.add,
+            tooltip: selectedRules.isNotEmpty
+                ? appLocalizations.selectAll
+                : appLocalizations.add,
+            onPressed: () {
+              if (selectedRules.isNotEmpty) {
+                _handleSelectAll();
+              } else {
+                _handleAddOrUpdate();
+              }
+            },
           ),
-          const SizedBox(width: 8),
         ],
         body: ColoredBox(
           color: SurgeTheme.of(context).background,

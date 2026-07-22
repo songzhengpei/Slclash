@@ -71,19 +71,18 @@ class SurgeActionCard extends StatelessWidget {
       scaleFeedback: pressFeedback,
       overlayFeedback: pressFeedback,
       child: SurgeCard(
-          margin: margin,
-          padding: padding ?? EdgeInsets.zero,
-          borderRadius: radius,
-          backgroundColor: _backgroundColor(surge),
-          border: Border.all(
-            color: _borderColor(surge),
-            width:
-                variant == SurgeActionCardVariant.filled && !selected
-                ? 0
-                : surge.spacing.hairline,
-          ),
-          shadow: shadow,
-          child: child,
+        margin: margin,
+        padding: padding ?? EdgeInsets.zero,
+        borderRadius: radius,
+        backgroundColor: _backgroundColor(surge),
+        border: Border.all(
+          color: _borderColor(surge),
+          width: variant == SurgeActionCardVariant.filled && !selected
+              ? 0
+              : surge.spacing.hairline,
+        ),
+        shadow: shadow,
+        child: child,
       ),
     );
   }

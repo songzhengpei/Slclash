@@ -211,34 +211,29 @@ class _ScriptsViewState extends ConsumerState<ScriptsView> {
         return false;
       },
       child: CommonScaffold(
-        actions: [
-          if (selectedScriptId != null) ...[
-            CommonMinIconButtonTheme(
-              child: IconButton.filledTonal(
-                onPressed: () {
-                  _handleDelScript(selectedScriptId);
-                },
-                icon: const Icon(SurgeIcons.delete),
-              ),
+        appBarActions: [
+          if (selectedScriptId != null)
+            SlAppBarIconAction(
+              icon: SurgeIcons.delete,
+              tooltip: appLocalizations.delete,
+              onPressed: () {
+                _handleDelScript(selectedScriptId);
+              },
+              tone: SlAppBarActionTone.destructive,
             ),
-            const SizedBox(width: 2),
-          ],
-          CommonMinFilledButtonTheme(
-            child: selectedScriptId != null
-                ? FilledButton(
-                    onPressed: () {
-                      _handleToEditor(selectedScriptId);
-                    },
-                    child: Text(appLocalizations.edit),
-                  )
-                : SurgeAddButton(
-                    onPressed: () {
-                      _handleToEditor();
-                    },
-                    label: appLocalizations.add,
-                  ),
+          SlAppBarIconAction(
+            icon: selectedScriptId != null ? SurgeIcons.edit : SurgeIcons.add,
+            tooltip: selectedScriptId != null
+                ? appLocalizations.edit
+                : appLocalizations.add,
+            onPressed: () {
+              if (selectedScriptId != null) {
+                _handleToEditor(selectedScriptId);
+              } else {
+                _handleToEditor();
+              }
+            },
           ),
-          const SizedBox(width: 8),
         ],
         body: _buildContent(scripts, selectedScriptId),
         title: appLocalizations.script,

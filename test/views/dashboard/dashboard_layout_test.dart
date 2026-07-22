@@ -38,7 +38,7 @@ void main() {
 
       expect(layout.density, DashboardDensity.regular);
       expect(layout.geometryScale, 1);
-      expect(layout.typographyScale, 1);
+      expect(layout.textScale, 1);
       expect(layout.requiresReflow, isFalse);
       expect(layout.viewportExpansionFraction, 0);
     });
@@ -48,7 +48,7 @@ void main() {
 
       expect(layout.density, DashboardDensity.regular);
       expect(layout.geometryScale, 0.9375);
-      expect(layout.typographyScale, 0.9375);
+      expect(layout.textScale, 1);
       expect(layout.requiresReflow, isFalse);
     });
 
@@ -185,25 +185,54 @@ void main() {
       expect(hero.topRowToModeGap - layout.legacy(16), closeTo(32, 0.001));
       expect(hero.modeCardHeight - layout.legacy(80), closeTo(38, 0.001));
       expect(hero.modeToSwitchGap - layout.legacy(12), closeTo(16, 0.001));
-      expect(hero.switchToSelectorGap - layout.legacy(10), closeTo(14, 0.001));
+      expect(hero.switchToSelectorGap - layout.legacy(12), closeTo(14, 0.001));
     });
 
-    test('caps enlarged dashboard text without changing the primary rows', () {
+    test('preserves enlarged dashboard text without changing primary rows', () {
       final layout = _layout(384, textScale: 1.3);
 
       expect(layout.density, DashboardDensity.regular);
       expect(layout.requiresReflow, isFalse);
-      expect(
-        DashboardResponsiveLayout.textScalerForDashboard(
-          const TextScaler.linear(2),
-        ).scale(12),
-        closeTo(13.8, 0.001),
-      );
+      expect(layout.textScale, 1.3);
       expect(DashboardResponsiveLayout.scrollEndBottomGap, 30);
     });
   });
 
   group('NetworkOverviewCardLayoutCalculator', () {
+    test('scales adjacent icons with semantic text', () {
+      expect(_layout(384).textIcon(18), 18);
+      expect(_layout(384, textScale: 1.3).textIcon(18), closeTo(23.4, 0.001));
+    });
+
+    test('expands the detection bar with compact metric text', () {
+      final regular = _layout(384);
+      final enlarged = _layout(384, textScale: 1.3);
+      final accessibility = _layout(384, textScale: 2);
+
+      expect(
+        NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(regular),
+        34,
+      );
+      expect(
+        NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(enlarged),
+        closeTo(38.8, 0.001),
+      );
+      expect(
+        NetworkOverviewCardLayoutCalculator.detectionBarHeightFor(
+          accessibility,
+        ),
+        50,
+      );
+      expect(
+        NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
+          accessibility,
+        ),
+        greaterThan(
+          NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(regular),
+        ),
+      );
+    });
+
     test('uses natural token sizes at its natural outer height', () {
       final responsiveLayout = _layout(384);
       final naturalOuterHeight =
@@ -248,7 +277,7 @@ void main() {
       expect(expanded.detectionBottomGap, 16);
       expect(
         expanded.afterTrafficGap - base.afterTrafficGap,
-        closeTo(100, 0.001),
+        closeTo(0, 0.001),
       );
     });
 
@@ -276,7 +305,7 @@ void main() {
       expect(expanded.detectionBottomGap, 16);
       expect(
         expanded.afterTrafficGap - base.afterTrafficGap,
-        closeTo(58.5, 0.001),
+        closeTo(1, 0.001),
       );
     });
 
@@ -304,7 +333,7 @@ void main() {
         expect(expanded.chartHeight - base.chartHeight, closeTo(40, 0.001));
         expect(
           expanded.afterTrafficGap - base.afterTrafficGap,
-          closeTo(17, 0.001),
+          closeTo(2, 0.001),
         );
         expect(expanded.detectionTopGap, 16);
         expect(expanded.detectionBottomGap, 16);
