@@ -41,7 +41,7 @@ void main() {
     );
 
     expect(find.text('更新日志'), findsOneWidget);
-    expect(find.text('v2.0.5'), findsOneWidget);
+    expect(find.text('v2.0.7'), findsOneWidget);
     expect(find.text('确定'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

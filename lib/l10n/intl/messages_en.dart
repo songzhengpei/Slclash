@@ -272,6 +272,18 @@ class MessageLookup extends MessageLookupByLibrary {
     "changelog205Item3": MessageLookupByLibrary.simpleMessage(
       "Improved compatibility and overwrite restore to avoid duplicate profiles while preserving local state.",
     ),
+    "changelog207Item1": MessageLookupByLibrary.simpleMessage(
+      "Refined the global type hierarchy, text rendering, and information layout.",
+    ),
+    "changelog207Item2": MessageLookupByLibrary.simpleMessage(
+      "Enabled two-way profile backup import between SlClash and Clash Verge Rev.",
+    ),
+    "changelog207Item3": MessageLookupByLibrary.simpleMessage(
+      "Reduced unnecessary error prompts and interruptions.",
+    ),
+    "changelog207Item4": MessageLookupByLibrary.simpleMessage(
+      "Improved runtime flow and overall stability.",
+    ),
     "checkNetworkAndRetry": MessageLookupByLibrary.simpleMessage(
       "Check your network and try again.",
     ),

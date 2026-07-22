@@ -12,6 +12,16 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.0.7',
+    date: '2026-07-22',
+    changes: [
+      'changelog207Item1',
+      'changelog207Item2',
+      'changelog207Item3',
+      'changelog207Item4',
+    ],
+  ),
+  AppChangelogEntry(
     version: 'v2.0.5',
     date: '2026-07-19',
     changes: ['changelog205Item1', 'changelog205Item2', 'changelog205Item3'],
