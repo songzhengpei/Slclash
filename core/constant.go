@@ -89,6 +89,7 @@ const (
 	updateConfigMethod             Method = "updateConfig"
 	getProxiesMethod               Method = "getProxies"
 	materializeProfileSnapshotMethod Method = "materializeProfileSnapshot"
+	normalizeProviderContentMethod Method = "normalizeProviderContent"
 	changeProxyMethod              Method = "changeProxy"
 	getTrafficMethod               Method = "getTraffic"
 	getTotalTrafficMethod          Method = "getTotalTraffic"

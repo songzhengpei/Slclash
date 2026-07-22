@@ -105,4 +105,42 @@ proxy-providers:
       ),
     );
   });
+
+  test('normalizes a non-YAML Provider cache through the core callback', () async {
+    final directory = await Directory.systemTemp.createTemp('normalizer-');
+    addTearDown(() => directory.delete(recursive: true));
+    const url = 'https://provider.example/v2ray';
+    final cache = File(
+      p.join(directory.path, 'providers', '3', 'proxies', url.toMd5()),
+    );
+    await cache.parent.create(recursive: true);
+    await cache.writeAsString('encoded-v2ray-subscription');
+
+    final result = await materializeProfileForUnifiedExport(
+      profileId: 3,
+      profileBytes: Uint8List.fromList(utf8.encode('''
+proxy-providers:
+  v2ray:
+    type: http
+    url: $url
+''')),
+      profilesDirectory: directory.path,
+      normalizeProviderContent: (bytes) async {
+        expect(utf8.decode(bytes), 'encoded-v2ray-subscription');
+        return [
+          {
+            'name': 'normalized',
+            'type': 'vmess',
+            'server': 'example.com',
+            'port': 443,
+            'uuid': '00000000-0000-0000-0000-000000000000',
+          },
+        ];
+      },
+    );
+
+    final yaml = loadYaml(utf8.decode(result.yaml)) as YamlMap;
+    expect(yaml['proxies'], hasLength(1));
+    expect(yaml['proxies'][0]['name'], 'normalized');
+  });
 }

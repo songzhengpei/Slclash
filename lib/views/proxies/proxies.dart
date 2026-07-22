@@ -96,6 +96,11 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
         return state.copyWith(type: ProxiesType.list);
       });
 
+      final profileId = ref.read(currentProfileIdProvider);
+      if (profileId != null) {
+        ref.invalidate(clashConfigProvider(profileId));
+      }
+
       await ref
           .read(proxiesActionProvider.notifier)
           .hydrateProxyGroupsSnapshot();

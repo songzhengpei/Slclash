@@ -30,6 +30,7 @@ void main() {
             'total': 3,
             'expire': 4,
           },
+          localFile: index == 4,
         );
       });
       final input = UnifiedExportInput(
@@ -84,6 +85,7 @@ void main() {
         'allowAutoUpdate': true,
         'updateIntervalMinutes': 120,
       });
+      expect(localMeta['distribution']['sourceType'], 'local');
       expect(
         localMeta['distribution'],
         isNot(contains('profileUpdateInterval')),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -71,6 +72,10 @@ class UnifiedBackupService {
     final profiles = <Profile>[];
     final files = <StagedRestoreFile>[];
     final uidToId = <String, int>{};
+    final airportsByUid = {
+      for (final airport in package.manifest.airports)
+        airport['profileUid']: airport,
+    };
     for (final raw in items) {
       if (raw is! Map) {
         throw const BackupFormatException(
@@ -128,18 +133,28 @@ class UnifiedBackupService {
           ? Map<Object?, Object?>.from(item['extra'] as Map)
           : const <Object?, Object?>{};
       final updated = item['updated'];
+      final airport = airportsByUid[uid];
+      final slug = airport?['slug'];
+      final sourceType = slug is String
+          ? _profileSourceType(package.files['providers/$slug/meta.json'])
+          : null;
+      final localFile = sourceType == 'local';
       profiles.add(
         Profile(
           id: id,
           label: name,
-          url: url,
+          url: localFile ? '' : url,
           lastUpdateDate: updated is int
               ? DateTime.fromMillisecondsSinceEpoch(updated * 1000, isUtc: true)
               : null,
           autoUpdateDuration: Duration(
             minutes: updateIntervalMinutes is int ? updateIntervalMinutes : 60,
           ),
-          autoUpdate: allowAutoUpdate is bool ? allowAutoUpdate : true,
+          autoUpdate: localFile
+              ? false
+              : allowAutoUpdate is bool
+              ? allowAutoUpdate
+              : true,
           subscriptionInfo: extra.isEmpty
               ? null
               : SubscriptionInfo(
@@ -491,6 +506,20 @@ ProfileRuleLink _linkFromJson(Map<String, dynamic> map) => ProfileRuleLink(
 );
 
 int _integer(Object? value) => value is int ? value : 0;
+
+String? _profileSourceType(List<int>? bytes) {
+  if (bytes == null) return null;
+  try {
+    final value = jsonDecode(utf8.decode(bytes, allowMalformed: false));
+    if (value is! Map || value['distribution'] is! Map) return null;
+    final sourceType = (value['distribution'] as Map)['sourceType'];
+    return sourceType == 'local' || sourceType == 'remote'
+        ? sourceType as String
+        : null;
+  } catch (_) {
+    return null;
+  }
+}
 
 Map<String, dynamic> _normalizeLegacyProfile(Map<String, dynamic> raw) {
   final map = Map<String, dynamic>.from(raw);

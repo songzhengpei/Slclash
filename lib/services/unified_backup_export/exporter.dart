@@ -155,6 +155,7 @@ class UnifiedV1Exporter {
       final distribution = <String, Object?>{
         'providerName': profile.name,
         'sourceHost': '',
+        'sourceType': profile.localFile ? 'local' : 'remote',
         if (profile.subscriptionInfo != null)
           'subscriptionUserinfo': _subscriptionUserinfo(
             profile.subscriptionInfo!,

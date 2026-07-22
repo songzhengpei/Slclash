@@ -17,10 +17,14 @@ class UnifiedMaterializedProfile {
   final bool externalProvidersFlattened;
 }
 
+typedef ProviderContentNormalizer =
+    Future<List<Map<String, dynamic>>> Function(List<int> bytes);
+
 Future<UnifiedMaterializedProfile> materializeProfileForUnifiedExport({
   required int profileId,
   required Uint8List profileBytes,
   required String profilesDirectory,
+  ProviderContentNormalizer? normalizeProviderContent,
 }) async {
   final decoded = loadYaml(utf8.decode(profileBytes, allowMalformed: false));
   if (decoded is! YamlMap) {
@@ -51,6 +55,7 @@ Future<UnifiedMaterializedProfile> materializeProfileForUnifiedExport({
       providerName: providerName,
       definition: definition,
       profilesDirectory: profilesDirectory,
+      normalizeProviderContent: normalizeProviderContent,
     );
     final names = <String>[];
     for (final node in providerNodes) {
@@ -83,6 +88,7 @@ Future<List<Object?>> _readProviderNodes({
   required String providerName,
   required Map<Object?, Object?> definition,
   required String profilesDirectory,
+  ProviderContentNormalizer? normalizeProviderContent,
 }) async {
   final payload = definition['payload'];
   if (payload is List && payload.isNotEmpty) {
@@ -114,24 +120,40 @@ Future<List<Object?>> _readProviderNodes({
   for (final path in candidates.toSet()) {
     final file = File(path);
     if (!await file.exists()) continue;
-    final decoded = loadYaml(
-      utf8.decode(await file.readAsBytes(), allowMalformed: false),
+    final bytes = await file.readAsBytes();
+    final yamlNodes = _yamlProviderNodes(bytes);
+    if (yamlNodes != null) {
+      if (yamlNodes.isEmpty) {
+        throw FormatException('Provider "$providerName" cache has no nodes');
+      }
+      return yamlNodes;
+    }
+    if (normalizeProviderContent != null) {
+      final normalized = await normalizeProviderContent(bytes);
+      if (normalized.isNotEmpty) return normalized;
+    }
+    throw FormatException(
+      'Provider "$providerName" cache is not a supported proxy Provider',
     );
-    if (decoded is! YamlMap || decoded['proxies'] is! YamlList) {
-      throw FormatException(
-        'Provider "$providerName" cache is not a valid proxy Provider',
-      );
-    }
-    final proxies = decoded['proxies'] as YamlList;
-    if (proxies.isEmpty) {
-      throw FormatException('Provider "$providerName" cache has no nodes');
-    }
-    return proxies.map(_plain).toList(growable: false);
   }
 
   throw FormatException(
     'Provider "$providerName" has no local node data; load it before backup',
   );
+}
+
+List<Object?>? _yamlProviderNodes(List<int> bytes) {
+  try {
+    final decoded = loadYaml(utf8.decode(bytes, allowMalformed: false));
+    if (decoded is YamlMap && decoded['proxies'] is YamlList) {
+      return (decoded['proxies'] as YamlList)
+          .map(_plain)
+          .toList(growable: false);
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
 }
 
 void _materializeProxyGroups(

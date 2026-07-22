@@ -1115,6 +1115,18 @@ class BackupAction extends _$BackupAction {
         profileId: profile.id,
         profileBytes: await file.readAsBytes(),
         profilesDirectory: profilesPath,
+        normalizeProviderContent: (bytes) async {
+          final ready = await ensureRestoreValidationCoreReady(
+            isConnected: coreController.isCompleted,
+            connectCore: ref.read(coreActionProvider.notifier).connectCore,
+            isCoreInitialized: () async => coreController.isInit,
+            initializeCore: () => coreController.init(ref.read(versionProvider)),
+          );
+          if (!ready) {
+            throw StateError('代理内核暂不可用，无法读取 Provider 节点');
+          }
+          return coreController.normalizeProviderContent(bytes);
+        },
       );
       exportProfiles.add(
         UnifiedExportProfile(
@@ -1137,6 +1149,7 @@ class BackupAction extends _$BackupAction {
                 },
           externalProvidersFlattened:
               materializedYaml.externalProvidersFlattened,
+          localFile: profile.type == ProfileType.file,
         ),
       );
     }
@@ -1258,8 +1271,31 @@ class CoreAction extends _$CoreAction {
     if (!isInit) {
       final res = await coreController.init(version);
       commonPrint.log('init result: $res');
+      if (res) {
+        final profileId = ref.read(currentProfileIdProvider);
+        if (profileId != null) {
+          ref.invalidate(clashConfigProvider(profileId));
+          unawaited(
+            ref
+                .read(proxiesActionProvider.notifier)
+                .ensureCurrentProfileReady(forceApply: true),
+          );
+        }
+      }
     } else {
-      await ref.read(proxiesActionProvider.notifier).updateGroups();
+      final profileId = ref.read(currentProfileIdProvider);
+      final ownerId = ref.read(groupsOwnerProfileIdProvider);
+      if (profileId != null &&
+          (ownerId != profileId || ref.read(groupsProvider).isEmpty)) {
+        ref.invalidate(clashConfigProvider(profileId));
+        unawaited(
+          ref
+              .read(proxiesActionProvider.notifier)
+              .ensureCurrentProfileReady(forceApply: true),
+        );
+      } else {
+        await ref.read(proxiesActionProvider.notifier).updateGroups();
+      }
     }
   }
 

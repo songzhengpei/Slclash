@@ -42,6 +42,10 @@ mixin CoreInterface {
     required String defaultTestUrl,
   });
 
+  Future<List<Map<String, dynamic>>> normalizeProviderContent(
+    List<int> bytes,
+  );
+
   Future<String> changeProxy(ChangeProxyParams changeProxyParams);
 
   Future<bool> startListener();
@@ -240,6 +244,21 @@ abstract class CoreHandlerInterface with CoreInterface {
     return data != null
         ? ProxiesData.fromJson(data)
         : const ProxiesData(proxies: {}, all: []);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> normalizeProviderContent(
+    List<int> bytes,
+  ) async {
+    final data = await _invoke<List<dynamic>>(
+      method: ActionMethod.normalizeProviderContent,
+      data: base64Encode(bytes),
+    );
+    return data
+            ?.whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList(growable: false) ??
+        const [];
   }
 
   @override

@@ -3,9 +3,13 @@ package main
 import (
 	"cmp"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outboundgroup"
+	"github.com/metacubex/mihomo/common/convert"
 	"github.com/metacubex/mihomo/common/observable"
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/component/mmdb"
@@ -19,6 +23,7 @@ import (
 	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	"golang.org/x/exp/slices"
+	"gopkg.in/yaml.v3"
 	"net"
 	"os"
 	"runtime"
@@ -806,4 +811,30 @@ func handleMaterializeProfileSnapshot(paramsString string) (ProxiesData, string)
 		All:     allNames,
 		Proxies: proxies,
 	}, ""
+}
+
+type providerContentSchema struct {
+	Proxies []map[string]any `yaml:"proxies"`
+}
+
+func handleNormalizeProviderContent(encoded string) ([]map[string]any, error) {
+	buf, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, err
+	}
+	schema := &providerContentSchema{}
+	if err = yaml.Unmarshal(buf, schema); err != nil || schema.Proxies == nil {
+		proxies, convertErr := convert.ConvertsV2Ray(buf)
+		if convertErr != nil {
+			if err != nil {
+				return nil, fmt.Errorf("invalid provider content: %w; %v", err, convertErr)
+			}
+			return nil, fmt.Errorf("invalid provider content: %w", convertErr)
+		}
+		schema.Proxies = proxies
+	}
+	if len(schema.Proxies) == 0 {
+		return nil, errors.New("provider content has no proxy nodes")
+	}
+	return schema.Proxies, nil
 }

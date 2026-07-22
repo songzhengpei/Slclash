@@ -10,6 +10,7 @@ class UnifiedExportProfile {
     required this.updateIntervalMinutes,
     this.subscriptionInfo,
     this.externalProvidersFlattened = false,
+    this.localFile = false,
   });
 
   final int androidId;
@@ -20,6 +21,7 @@ class UnifiedExportProfile {
   final int updateIntervalMinutes;
   final Map<String, int>? subscriptionInfo;
   final bool externalProvidersFlattened;
+  final bool localFile;
 }
 
 const maxClientUpdateIntervalMinutes = 153722867280;
