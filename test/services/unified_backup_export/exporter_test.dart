@@ -20,6 +20,7 @@ void main() {
         return UnifiedExportProfile(
           androidId: id,
           name: index == 4 ? '备用' : 'Worker $index',
+          sourceUrl: 'https://source.example/$index',
           yaml: Uint8List.fromList(utf8.encode(_profileYaml(index))),
           updated: 1700000000 + index,
           autoUpdate: true,
@@ -68,6 +69,9 @@ void main() {
       );
 
       final local = parsed.manifest.airports.last;
+      final localItem = (parsed.profilesYaml['items'] as List).last as Map;
+      expect(localItem['type'], 'local');
+      expect(localItem, isNot(contains('url')));
       final slug = local['slug'] as String;
       final uid = local['profileUid'] as String;
       expect(
@@ -99,6 +103,7 @@ void main() {
     final profile = UnifiedExportProfile(
       androidId: 1,
       name: 'Standalone',
+      sourceUrl: 'https://source.example/standalone',
       yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
       updated: 0,
       autoUpdate: true,
@@ -119,8 +124,8 @@ void main() {
     );
     final item = (parsed.profilesYaml['items'] as List).single as Map;
     expect(item['type'], 'remote');
-    expect(item['url'], startsWith('$standaloneUnifiedBackupBaseUrl/config/'));
-    expect(item['option'], {'allow_auto_update': false, 'update_interval': 60});
+    expect(item['url'], 'https://source.example/standalone');
+    expect(item['option'], {'allow_auto_update': true, 'update_interval': 60});
     expect(parsed.manifest.raw['mainConfig'], {
       'configId': 'slclash-standalone',
       'versionId': startsWith('sha256-'),
@@ -137,6 +142,7 @@ void main() {
             UnifiedExportProfile(
               androidId: 1,
               name: 'x',
+              sourceUrl: 'https://source.example/x',
               yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
               updated: 0,
               autoUpdate: true,
@@ -156,6 +162,7 @@ void main() {
     final profile = UnifiedExportProfile(
       androidId: 999999999,
       name: '备用',
+      sourceUrl: 'https://source.example/spare',
       yaml: Uint8List.fromList(utf8.encode(_profileYaml(4))),
       updated: 1700000000,
       autoUpdate: false,
@@ -184,6 +191,7 @@ void main() {
             UnifiedExportProfile(
               androidId: 1,
               name: 'invalid',
+              sourceUrl: 'https://source.example/invalid',
               yaml: Uint8List(1),
               updated: 0,
               autoUpdate: false,
@@ -204,6 +212,7 @@ void main() {
       UnifiedExportProfile(
         androidId: 0x10000000,
         name: 'Worker Profile',
+        sourceUrl: 'https://source.example/worker',
         yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
         updated: 1700000000,
         autoUpdate: false,
@@ -212,6 +221,7 @@ void main() {
       UnifiedExportProfile(
         androidId: 0x10000001,
         name: 'Slclash Remote',
+        sourceUrl: 'https://source.example/remote',
         yaml: Uint8List.fromList(utf8.encode(_profileYaml(1))),
         updated: 1700000001,
         autoUpdate: true,
@@ -220,6 +230,7 @@ void main() {
       UnifiedExportProfile(
         androidId: 999999999,
         name: '备用',
+        sourceUrl: 'https://source.example/spare',
         yaml: Uint8List.fromList(utf8.encode(_profileYaml(2))),
         updated: 1700000002,
         autoUpdate: false,
@@ -252,6 +263,7 @@ void main() {
     final profile = UnifiedExportProfile(
       androidId: 0x10000000,
       name: 'Worker Profile',
+      sourceUrl: 'https://source.example/worker',
       yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
       updated: 1700000000,
       autoUpdate: false,
@@ -271,7 +283,7 @@ void main() {
     expect(parsed.manifest.raw['publicBaseUrl'], unifiedBackupCustomBaseUrl);
     expect(
       ((parsed.profilesYaml['items'] as List).single as Map)['url'],
-      startsWith('$unifiedBackupCustomBaseUrl/config/'),
+      'https://source.example/worker',
     );
   });
 
@@ -281,6 +293,7 @@ void main() {
       final profile = UnifiedExportProfile(
         androidId: 987654321,
         name: 'Imported Worker 0',
+        sourceUrl: 'https://source.example/imported',
         yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
         updated: 1700000000,
         autoUpdate: true,
@@ -309,6 +322,7 @@ void main() {
         UnifiedExportProfile(
           androidId: id,
           name: 'Duplicate $id',
+          sourceUrl: 'https://source.example/duplicate/$id',
           yaml: Uint8List.fromList(utf8.encode(_profileYaml(0))),
           updated: 1700000000,
           autoUpdate: true,
@@ -336,6 +350,7 @@ void main() {
     final profile = UnifiedExportProfile(
       androidId: deriveClashVergeProfileId('R10000000'),
       name: 'Updated Worker 0',
+      sourceUrl: 'https://source.example/updated',
       yaml: Uint8List.fromList(utf8.encode(_profileYaml(99))),
       updated: 1700000000,
       autoUpdate: true,
@@ -363,6 +378,7 @@ void main() {
       return UnifiedExportProfile(
         androidId: 0x10000000 + index,
         name: 'Worker $index',
+        sourceUrl: 'https://source.example/$index',
         yaml: Uint8List.fromList(utf8.encode(_profileYaml(index))),
         updated: 1700000000 + index,
         autoUpdate: false,
@@ -414,6 +430,7 @@ void main() {
     final flattened = UnifiedExportProfile(
       androidId: 0x10000000,
       name: 'Worker 0',
+      sourceUrl: 'https://source.example/worker-0',
       yaml: Uint8List.fromList(
         utf8.encode('''proxies:
   - {name: inline, type: direct}

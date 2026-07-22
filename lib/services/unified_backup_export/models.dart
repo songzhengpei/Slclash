@@ -4,6 +4,7 @@ class UnifiedExportProfile {
   const UnifiedExportProfile({
     required this.androidId,
     required this.name,
+    required this.sourceUrl,
     required this.yaml,
     required this.updated,
     required this.autoUpdate,
@@ -15,6 +16,7 @@ class UnifiedExportProfile {
 
   final int androidId;
   final String name;
+  final String sourceUrl;
   final Uint8List yaml;
   final int updated;
   final bool autoUpdate;

@@ -18,6 +18,64 @@ void main() {
       expect(package.files, contains('profiles/R1234abcd.yaml'));
     });
 
+    test('accepts a Slclash profile with its original subscription URL', () {
+      final files = _payloadFiles()
+        ..['profiles.yaml'] = utf8.encode('''
+current: R1234abcd
+items:
+  - uid: R1234abcd
+    type: remote
+    name: Example
+    file: R1234abcd.yaml
+    url: https://airport.example/subscription?token=secret
+''');
+      final manifest = _manifest(files)..['generator'] = 'slclash';
+      final package = const WorkerV1Parser().parse(
+        _archive(files, manifest: manifest),
+      );
+      expect(
+        ((package.profilesYaml['items'] as List).single as Map)['url'],
+        'https://airport.example/subscription?token=secret',
+      );
+    });
+
+    test('accepts a local Slclash profile without a URL', () {
+      final files = _payloadFiles()
+        ..['profiles.yaml'] = utf8.encode('''
+current: R1234abcd
+items:
+  - uid: R1234abcd
+    type: local
+    name: Example
+    file: R1234abcd.yaml
+''');
+      final manifest = _manifest(files)..['generator'] = 'slclash';
+      final package = const WorkerV1Parser().parse(
+        _archive(files, manifest: manifest),
+      );
+      expect(
+        ((package.profilesYaml['items'] as List).single as Map)['type'],
+        'local',
+      );
+    });
+
+    test('still rejects an original URL in a Worker-generated archive', () {
+      final files = _payloadFiles()
+        ..['profiles.yaml'] = utf8.encode('''
+current: R1234abcd
+items:
+  - uid: R1234abcd
+    type: remote
+    name: Example
+    file: R1234abcd.yaml
+    url: https://airport.example/subscription?token=secret
+''');
+      _expectCode(
+        _archive(files, manifest: _manifest(files)),
+        BackupErrorCode.invalidProfiles,
+      );
+    });
+
     test('rejects a missing manifest', () {
       final archive = Archive()
         ..addFile(ArchiveFile.string('config.yaml', 'x'));
@@ -34,7 +92,7 @@ void main() {
 
     test('accepts formatVersion 2', () {
       final manifest = _manifest(_payloadFiles())..['formatVersion'] = 2;
-      final result = WorkerV1Parser().parse(
+      final result = const WorkerV1Parser().parse(
         _archive(_payloadFiles(), manifest: manifest),
       );
       expect(result.manifest.raw['formatVersion'], 2);

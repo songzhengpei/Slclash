@@ -1132,6 +1132,7 @@ class BackupAction extends _$BackupAction {
         UnifiedExportProfile(
           androidId: profile.id,
           name: profile.realLabel,
+          sourceUrl: profile.url,
           yaml: materializedYaml.yaml,
           updated:
               (profile.lastUpdateDate ?? DateTime.fromMillisecondsSinceEpoch(0))

@@ -88,12 +88,16 @@ class UnifiedBackupService {
       final name = item['name'];
       final fileName = item['file'];
       final url = item['url'];
+      final type = item['type'];
+      final remoteProfile = type == 'remote';
+      final localProfile = type == 'local';
       if (uid is! String ||
           !RegExp(r'^R[0-9a-f]{8}$').hasMatch(uid) ||
           name is! String ||
           fileName != '$uid.yaml' ||
-          url is! String ||
-          !url.startsWith('$publicBaseUrl/config/')) {
+          (!remoteProfile && !localProfile) ||
+          (remoteProfile && url is! String) ||
+          (localProfile && url != null && url != '')) {
         throw const BackupFormatException(
           BackupErrorCode.invalidProfiles,
           'profiles.yaml contains invalid profile fields',
@@ -138,12 +142,12 @@ class UnifiedBackupService {
       final sourceType = slug is String
           ? _profileSourceType(package.files['providers/$slug/meta.json'])
           : null;
-      final localFile = sourceType == 'local';
+      final localFile = localProfile || sourceType == 'local';
       profiles.add(
         Profile(
           id: id,
           label: name,
-          url: localFile ? '' : url,
+          url: localFile ? '' : url as String,
           lastUpdateDate: updated is int
               ? DateTime.fromMillisecondsSinceEpoch(updated * 1000, isUtc: true)
               : null,

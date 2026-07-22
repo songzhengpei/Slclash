@@ -12,7 +12,6 @@ import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/services/backup/worker_v1_parser.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
-import 'package:fl_clash/services/unified_backup_export/identity.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -366,6 +365,7 @@ void main() {
             UnifiedExportProfile(
               androidId: 7,
               name: 'Standalone',
+              sourceUrl: 'https://source.example/standalone',
               yaml: Uint8List.fromList(
                 utf8.encode('proxies:\n  - name: direct\n    type: direct\n'),
               ),
@@ -391,8 +391,8 @@ void main() {
 
       final restored = (await db.profilesDao.query().get()).single;
       expect(result.currentProfileId, restored.id);
-      expect(restored.autoUpdate, isFalse);
-      expect(restored.url, startsWith(standaloneUnifiedBackupBaseUrl));
+      expect(restored.autoUpdate, isTrue);
+      expect(restored.url, 'https://source.example/standalone');
       expect(File(snapshot).existsSync(), isFalse);
     },
   );
@@ -425,8 +425,7 @@ items:
     'providers/example/profile.yaml': profile,
     'providers/example/meta.json': utf8.encode(
       jsonEncode({
-        if (sourceType != null)
-          'distribution': {'sourceType': sourceType},
+        if (sourceType != null) 'distribution': {'sourceType': sourceType},
       }),
     ),
   };
