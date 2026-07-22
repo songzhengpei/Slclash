@@ -41,18 +41,19 @@ class SlAppBarIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _resolveActionColor(context, tone, enabled);
+    final effectiveEnabled = enabled && onPressed != null;
+    final color = _resolveActionColor(context, tone, effectiveEnabled);
     return Semantics(
       label: tooltip,
       button: true,
-      enabled: enabled,
+      enabled: effectiveEnabled,
       child: Tooltip(
         message: tooltip,
         child: SizedBox.square(
           dimension: _tapSize,
           child: IconButton(
             icon: Icon(icon, size: _iconSize),
-            onPressed: enabled ? onPressed : null,
+            onPressed: effectiveEnabled ? onPressed : null,
             color: color,
             style: const ButtonStyle(
               padding: WidgetStatePropertyAll(EdgeInsets.zero),
@@ -93,17 +94,18 @@ class SlAppBarTextButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _resolveActionColor(context, tone, enabled);
+    final effectiveEnabled = enabled && onPressed != null;
+    final color = _resolveActionColor(context, tone, effectiveEnabled);
     return Semantics(
       label: tooltip,
       button: true,
-      enabled: enabled,
+      enabled: effectiveEnabled,
       child: Tooltip(
         message: tooltip,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: _minHeight),
           child: TextButton(
-            onPressed: enabled ? onPressed : null,
+            onPressed: effectiveEnabled ? onPressed : null,
             style: ButtonStyle(
               padding: const WidgetStatePropertyAll(
                 EdgeInsets.symmetric(horizontal: 8),

@@ -50,6 +50,23 @@ void main() {
       expect(taps, 0);
     });
 
+    testWidgets('does not trigger onPressed when onPressed is null', (
+      tester,
+    ) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        _app(
+          SlAppBarIconButton(
+            icon: SurgeIcons.search,
+            tooltip: '搜索',
+            onPressed: null,
+          ),
+        ),
+      );
+      await tester.tap(find.byType(SlAppBarIconButton));
+      expect(taps, 0);
+    });
+
     testWidgets('displays tooltip', (tester) async {
       await tester.pumpWidget(
         _app(
@@ -80,13 +97,66 @@ void main() {
       expect(size, const Size(48, 48));
     });
 
-    testWidgets('uses onSurfaceVariant for normal tone', (tester) async {
+    testWidgets('icon visual size is 24dp', (tester) async {
       await tester.pumpWidget(
         _app(
           const SlAppBarIconButton(
             icon: SurgeIcons.search,
             tooltip: '搜索',
+          ),
+        ),
+      );
+      final icon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byType(SlAppBarIconButton),
+          matching: find.byType(Icon),
+        ),
+      );
+      expect(icon.size, 24);
+    });
+
+    testWidgets('semantics disabled when onPressed is null', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          SlAppBarIconButton(
+            icon: SurgeIcons.search,
+            tooltip: '搜索',
+            onPressed: null,
+          ),
+        ),
+      );
+      // Button should not be tappable when onPressed is null
+      final finder = find.byType(SlAppBarIconButton);
+      expect(finder, findsOneWidget);
+      // The IconButton inside should have onPressed: null
+      final iconButton = tester.widget<IconButton>(find.byType(IconButton));
+      expect(iconButton.onPressed, isNull);
+    });
+
+    testWidgets('semantics disabled when enabled is false', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          SlAppBarIconButton(
+            icon: SurgeIcons.search,
+            tooltip: '搜索',
+            enabled: false,
+            onPressed: () {},
+          ),
+        ),
+      );
+      // The IconButton inside should have onPressed: null when disabled
+      final iconButton = tester.widget<IconButton>(find.byType(IconButton));
+      expect(iconButton.onPressed, isNull);
+    });
+
+    testWidgets('uses onSurfaceVariant for normal tone', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          SlAppBarIconButton(
+            icon: SurgeIcons.search,
+            tooltip: '搜索',
             tone: SlAppBarActionTone.normal,
+            onPressed: () {},
           ),
         ),
       );
@@ -101,10 +171,11 @@ void main() {
     testWidgets('uses primary color for primary tone', (tester) async {
       await tester.pumpWidget(
         _app(
-          const SlAppBarIconButton(
+          SlAppBarIconButton(
             icon: SurgeIcons.search,
             tooltip: '搜索',
             tone: SlAppBarActionTone.primary,
+            onPressed: () {},
           ),
         ),
       );
@@ -119,10 +190,11 @@ void main() {
     testWidgets('uses error color for destructive tone', (tester) async {
       await tester.pumpWidget(
         _app(
-          const SlAppBarIconButton(
+          SlAppBarIconButton(
             icon: SurgeIcons.delete,
             tooltip: '删除',
             tone: SlAppBarActionTone.destructive,
+            onPressed: () {},
           ),
         ),
       );

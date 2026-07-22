@@ -3,6 +3,8 @@ import 'package:fl_clash/widgets/app_bar/sl_app_bar_action.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../widgets/app_bar/sl_app_bar_buttons_test.dart';
+
 void main() {
   group('Editor app bar action model', () {
     test('SlAppBarIconAction with save icon', () {
@@ -13,6 +15,7 @@ void main() {
       );
       expect(action.tooltip, 'Save');
       expect(action.onPressed, isNotNull);
+      expect(action.enabled, isTrue);
     });
 
     test('SlAppBarIconAction disabled when onPressed is null', () {
@@ -22,6 +25,7 @@ void main() {
         onPressed: null,
       );
       expect(action.onPressed, isNull);
+      expect(action.enabled, isTrue);
     });
 
     test('SlAppBarOverflowAction with popup', () {
