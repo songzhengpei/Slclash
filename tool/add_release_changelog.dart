@@ -44,7 +44,7 @@ $items
     ],
   ),
 ''';
-  final insertAt = marker!.end;
+  final insertAt = marker.end;
   file.writeAsStringSync(
     source.substring(0, insertAt) + entry + source.substring(insertAt),
   );
