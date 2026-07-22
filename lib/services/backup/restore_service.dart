@@ -12,6 +12,8 @@ typedef ProfileYamlValidator =
     Future<void> Function(int profileId, Uint8List bytes);
 typedef RestoreConfigReader = Future<Config?> Function();
 typedef RestoreConfigWriter = Future<bool> Function(Config config);
+typedef RestoreProgressCallback =
+    void Function(String stage, int? profileCount);
 
 class RestorePaths {
   final String profilesDirectory;
@@ -33,6 +35,7 @@ class RestoreService {
   final ProfileYamlValidator? validateProfileYaml;
   final RestoreConfigReader? readConfig;
   final RestoreConfigWriter? writeConfig;
+  final RestoreProgressCallback? onProgress;
 
   const RestoreService({
     required this.database,
@@ -40,6 +43,7 @@ class RestoreService {
     this.validateProfileYaml,
     this.readConfig,
     this.writeConfig,
+    this.onProgress,
   });
 
   Future<RestoreCommitResult> restore(
@@ -47,6 +51,7 @@ class RestoreService {
     bool override = true,
   }) async {
     await _validate(bundle);
+    onProgress?.call('validated', bundle.profiles.length);
 
     final oldProfiles = await database.profilesDao.query().get();
     final profilesOnly = bundle.scope == RestoreScope.profilesOnly;
@@ -111,6 +116,7 @@ class RestoreService {
             isOverride: override,
           );
         }
+        onProgress?.call('database-restored', bundle.profiles.length);
         try {
           await _commitFiles(
             bundle,
@@ -119,7 +125,9 @@ class RestoreService {
             oldScripts: oldScripts,
             replaceScripts: !profilesOnly,
           );
+          onProgress?.call('files-committed', bundle.profiles.length);
           await _commitWorkerArchive(bundle);
+          onProgress?.call('archive-committed', bundle.profiles.length);
           if (restoredConfig case final config?) {
             final writer = writeConfig;
             configWritten = writer != null;
@@ -143,6 +151,8 @@ class RestoreService {
       }
       rethrow;
     }
+
+    onProgress?.call('committed', bundle.profiles.length);
 
     return RestoreCommitResult(
       currentProfileId: selected,

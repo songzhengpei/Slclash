@@ -27,6 +27,7 @@ class UnifiedBackupService {
     this.validateProfileYaml,
     this.readConfig,
     this.writeConfig,
+    this.onProgress,
   });
 
   final Database database;
@@ -34,12 +35,14 @@ class UnifiedBackupService {
   final ProfileYamlValidator? validateProfileYaml;
   final RestoreConfigReader? readConfig;
   final RestoreConfigWriter? writeConfig;
+  final RestoreProgressCallback? onProgress;
 
   Future<RestoreCommitResult> restoreBytes(
     Uint8List bytes, {
     required bool override,
   }) async {
     final format = const BackupFormatDetector().detectBytes(bytes);
+    onProgress?.call('format-detected:${format.name}', null);
     final bundle = switch (format) {
       BackupFormat.workerUnifiedV1 => _workerBundle(
         const WorkerV1Parser().parse(bytes),
@@ -51,12 +54,14 @@ class UnifiedBackupService {
       ),
       _ => await _legacyBundle(const LegacyBackupParser().parseBytes(bytes)),
     };
+    onProgress?.call('archive-parsed', bundle.profiles.length);
     return RestoreService(
       database: database,
       paths: paths,
       validateProfileYaml: validateProfileYaml,
       readConfig: readConfig,
       writeConfig: writeConfig,
+      onProgress: onProgress,
     ).restore(bundle, override: override);
   }
 

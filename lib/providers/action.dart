@@ -1120,7 +1120,8 @@ class BackupAction extends _$BackupAction {
             isConnected: coreController.isCompleted,
             connectCore: ref.read(coreActionProvider.notifier).connectCore,
             isCoreInitialized: () async => coreController.isInit,
-            initializeCore: () => coreController.init(ref.read(versionProvider)),
+            initializeCore: () =>
+                coreController.init(ref.read(versionProvider)),
           );
           if (!ready) {
             throw StateError('代理内核暂不可用，无法读取 Provider 节点');
@@ -1172,11 +1173,19 @@ class BackupAction extends _$BackupAction {
   }
 
   Future<BackupRestoreOutcome> restore() async {
+    final restoreWatch = Stopwatch()..start();
     final restoreStrategy = ref.read(
       appSettingProvider.select((state) => state.restoreStrategy),
     );
     final backup = File(await appPath.backupFilePath);
+    final archiveLength = await backup.length();
+    commonPrint.log(
+      'backup-restore:start strategy=${restoreStrategy.name} archiveBytes=$archiveLength',
+    );
     await validateBackupArchiveFile(backup);
+    commonPrint.log(
+      'backup-restore:archive-validated elapsedMs=${restoreWatch.elapsedMilliseconds}',
+    );
     final coreWatch = Stopwatch()..start();
     final coreReady = await ensureRestoreValidationCoreReady(
       isConnected: coreController.isCompleted,
@@ -1212,11 +1221,21 @@ class BackupAction extends _$BackupAction {
           },
           readConfig: preferences.getConfig,
           writeConfig: preferences.saveConfig,
+          onProgress: (stage, profileCount) {
+            commonPrint.log(
+              'backup-restore:$stage elapsedMs=${restoreWatch.elapsedMilliseconds} '
+              'profileCount=${profileCount ?? '-'}',
+            );
+          },
         ).restoreBytes(
           await backup.readAsBytes(),
           override: restoreStrategy == RestoreStrategy.override,
         );
     final restoredProfiles = await database.profilesDao.query().get();
+    commonPrint.log(
+      'backup-restore:state-reloaded elapsedMs=${restoreWatch.elapsedMilliseconds} '
+      'profileCount=${restoredProfiles.length} currentProfileId=${result.currentProfileId}',
+    );
     ref.read(profilesProvider.notifier).resetFromRestore(restoredProfiles);
     ref.read(providersProvider.notifier).clear();
     ref.read(groupsProvider.notifier).value = const [];
@@ -1248,6 +1267,12 @@ class BackupAction extends _$BackupAction {
     final succeeded =
         readiness.status == ProviderReadinessStatus.ready ||
         readiness.status == ProviderReadinessStatus.noProviders;
+    commonPrint.log(
+      'backup-restore:completed elapsedMs=${restoreWatch.elapsedMilliseconds} '
+      'committed=true activation=${readiness.status.name} '
+      'providerCount=${readiness.providerCount} groupCount=${readiness.groupCount}',
+      logLevel: succeeded ? LogLevel.info : LogLevel.warning,
+    );
     return BackupRestoreOutcome(
       committed: true,
       activationSucceeded: succeeded,
@@ -1262,6 +1287,8 @@ class BackupAction extends _$BackupAction {
 
 @Riverpod(keepAlive: true)
 class CoreAction extends _$CoreAction {
+  Future<bool>? _connectCoreFuture;
+
   @override
   void build() {}
 
@@ -1301,6 +1328,25 @@ class CoreAction extends _$CoreAction {
   }
 
   Future<bool> connectCore() async {
+    final running = _connectCoreFuture;
+    if (running != null) {
+      commonPrint.log('core-connect:reuse');
+      return running;
+    }
+    final future = _connectCore();
+    _connectCoreFuture = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_connectCoreFuture, future)) {
+        _connectCoreFuture = null;
+      }
+    }
+  }
+
+  Future<bool> _connectCore() async {
+    final watch = Stopwatch()..start();
+    commonPrint.log('core-connect:start');
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connecting;
     final result = await Future.wait([
       coreController.preload(),
@@ -1310,9 +1356,16 @@ class CoreAction extends _$CoreAction {
     if (message.isNotEmpty) {
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       globalState.showNotifier(message);
+      commonPrint.log(
+        'core-connect:failed elapsedMs=${watch.elapsedMilliseconds}',
+        logLevel: LogLevel.error,
+      );
       return false;
     }
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+    commonPrint.log(
+      'core-connect:ready elapsedMs=${watch.elapsedMilliseconds}',
+    );
     return true;
   }
 
@@ -1520,6 +1573,8 @@ class ThemeAction extends _$ThemeAction {
 
 @Riverpod(keepAlive: true)
 class ProxiesAction extends _$ProxiesAction {
+  final Map<int, Future<void>> _runningUpdateGroups = {};
+
   late final ProviderReadinessService<ExternalProvider, Group>
   _providerReadiness = ProviderReadinessService(
     log: (stage, result, elapsed) {
@@ -1546,6 +1601,30 @@ class ProxiesAction extends _$ProxiesAction {
   }) async {
     final profileId = ref.read(currentProfileIdProvider);
     ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
+    if (profileId != null && !coreController.isCompleted) {
+      final connected = await ref
+          .read(coreActionProvider.notifier)
+          .connectCore();
+      if (ref.read(currentProfileIdProvider) != profileId) {
+        return ProviderReadinessResult(
+          status: ProviderReadinessStatus.profileChanged,
+          profileId: profileId,
+        );
+      }
+      if (!connected) {
+        const error = ProviderReadinessCoreUnavailable();
+        ref.read(proxyGroupsSnapshotProvider.notifier).failed(error);
+        commonPrint.log(
+          'provider-readiness:core-unavailable-before-config profileId=$profileId',
+          logLevel: LogLevel.warning,
+        );
+        return ProviderReadinessResult(
+          status: ProviderReadinessStatus.coreUnavailable,
+          profileId: profileId,
+          error: error,
+        );
+      }
+    }
     final result = await _providerReadiness.ensureCurrentProfileReady(
       targetProfileId: profileId,
       currentProfileId: () => ref.read(currentProfileIdProvider),
@@ -1840,13 +1919,34 @@ class ProxiesAction extends _$ProxiesAction {
     );
   }
 
-  Future<void> updateGroups() async {
+  Future<void> updateGroups() {
     final profileId = ref.read(currentProfileProvider)?.id;
+    if (profileId == null) {
+      commonPrint.log('update-groups:skipped reason=no-profile');
+      return Future.value();
+    }
+    final running = _runningUpdateGroups[profileId];
+    if (running != null) {
+      commonPrint.log('update-groups:reuse profileId=$profileId');
+      return running;
+    }
+    final future = _updateGroups(profileId);
+    _runningUpdateGroups[profileId] = future;
+    future.whenComplete(() {
+      if (identical(_runningUpdateGroups[profileId], future)) {
+        _runningUpdateGroups.remove(profileId);
+      }
+    });
+    return future;
+  }
+
+  Future<void> _updateGroups(int profileId) async {
+    final watch = Stopwatch()..start();
 
     try {
       ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
 
-      commonPrint.log('updateGroups');
+      commonPrint.log('update-groups:start profileId=$profileId');
       if (!coreController.isCompleted) {
         final connected = await ref
             .read(coreActionProvider.notifier)
@@ -1997,7 +2097,11 @@ class ProxiesAction extends _$ProxiesAction {
 
       _syncComputedSelectedMap(groups);
     } catch (e) {
-      commonPrint.log('updateGroups error: $e', logLevel: LogLevel.error);
+      commonPrint.log(
+        'update-groups:error profileId=$profileId '
+        'elapsedMs=${watch.elapsedMilliseconds} error=$e',
+        logLevel: LogLevel.error,
+      );
 
       final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
       final oldGroups = ref.read(groupsProvider);
@@ -2030,6 +2134,16 @@ class ProxiesAction extends _$ProxiesAction {
       );
 
       ref.read(proxyGroupsSnapshotProvider.notifier).failed(e);
+    } finally {
+      final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+      final groupCount = ownerProfileId == profileId
+          ? ref.read(groupsProvider).length
+          : 0;
+      commonPrint.log(
+        'update-groups:completed profileId=$profileId '
+        'elapsedMs=${watch.elapsedMilliseconds} groupCount=$groupCount '
+        'currentProfileId=${ref.read(currentProfileIdProvider)}',
+      );
     }
   }
 

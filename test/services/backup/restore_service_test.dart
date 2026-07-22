@@ -79,7 +79,14 @@ void main() {
     final provider = File(p.join(paths.providersDirectory, '1', 'cache.yaml'));
     await provider.parent.create(recursive: true);
     await provider.writeAsString('stale');
-    final service = RestoreService(database: db, paths: paths);
+    final stages = <String>[];
+    final service = RestoreService(
+      database: db,
+      paths: paths,
+      onProgress: (stage, profileCount) {
+        stages.add('$stage:$profileCount');
+      },
+    );
 
     final result = await service.restore(
       RestoreBundle(
@@ -103,6 +110,13 @@ void main() {
       'proxies: []',
     );
     expect(await provider.parent.exists(), false);
+    expect(stages, [
+      'validated:1',
+      'database-restored:1',
+      'files-committed:1',
+      'archive-committed:1',
+      'committed:1',
+    ]);
   });
 
   test('override invalidates snapshots and orphan provider caches', () async {

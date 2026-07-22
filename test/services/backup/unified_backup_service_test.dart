@@ -100,6 +100,7 @@ void main() {
       overrideDns: true,
     );
     var configWrites = 0;
+    final stages = <String>[];
     final result = await UnifiedBackupService(
       database: db,
       paths: RestorePaths(
@@ -112,6 +113,9 @@ void main() {
         configWrites++;
         currentConfig = value;
         return true;
+      },
+      onProgress: (stage, profileCount) {
+        stages.add('$stage:${profileCount ?? '-'}');
       },
     ).restoreBytes(archiveBytes, override: true);
 
@@ -129,6 +133,9 @@ void main() {
     expect(await File(snapshotPath).readAsBytes(), archiveBytes);
     expect(configWrites, 0);
     expect(currentConfig.overrideDns, true);
+    expect(stages, contains('format-detected:workerUnifiedV1:-'));
+    expect(stages, contains('archive-parsed:1'));
+    expect(stages, contains('committed:1'));
     expect(
       const WorkerV1Parser()
           .parse(await File(snapshotPath).readAsBytes())
