@@ -3,6 +3,7 @@ import 'package:fl_clash/widgets/app_bar/sl_app_bar_buttons.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _app(Widget child) {
@@ -43,23 +44,6 @@ void main() {
             tooltip: '搜索',
             enabled: false,
             onPressed: () => taps++,
-          ),
-        ),
-      );
-      await tester.tap(find.byType(SlAppBarIconButton));
-      expect(taps, 0);
-    });
-
-    testWidgets('does not trigger onPressed when onPressed is null', (
-      tester,
-    ) async {
-      var taps = 0;
-      await tester.pumpWidget(
-        _app(
-          SlAppBarIconButton(
-            icon: SurgeIcons.search,
-            tooltip: '搜索',
-            onPressed: null,
           ),
         ),
       );
@@ -125,12 +109,9 @@ void main() {
           ),
         ),
       );
-      // Button should not be tappable when onPressed is null
-      final finder = find.byType(SlAppBarIconButton);
-      expect(finder, findsOneWidget);
-      // The IconButton inside should have onPressed: null
-      final iconButton = tester.widget<IconButton>(find.byType(IconButton));
-      expect(iconButton.onPressed, isNull);
+      final node = tester.getSemantics(find.bySemanticsLabel('搜索'));
+      expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+      expect(node.hasFlag(SemanticsFlag.isEnabled), isFalse);
     });
 
     testWidgets('semantics disabled when enabled is false', (tester) async {
@@ -144,9 +125,9 @@ void main() {
           ),
         ),
       );
-      // The IconButton inside should have onPressed: null when disabled
-      final iconButton = tester.widget<IconButton>(find.byType(IconButton));
-      expect(iconButton.onPressed, isNull);
+      final node = tester.getSemantics(find.bySemanticsLabel('搜索'));
+      expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+      expect(node.hasFlag(SemanticsFlag.isEnabled), isFalse);
     });
 
     testWidgets('uses onSurfaceVariant for normal tone', (tester) async {
@@ -267,6 +248,45 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('semantics disabled when onPressed is null', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          SlAppBarTextButton(
+            label: '保存',
+            tooltip: '保存',
+            onPressed: null,
+          ),
+        ),
+      );
+      final node = tester.getSemantics(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.label == '保存',
+        ),
+      );
+      expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+      expect(node.hasFlag(SemanticsFlag.isEnabled), isFalse);
+    });
+
+    testWidgets('semantics disabled when enabled is false', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          SlAppBarTextButton(
+            label: '保存',
+            tooltip: '保存',
+            enabled: false,
+            onPressed: () {},
+          ),
+        ),
+      );
+      final node = tester.getSemantics(
+        find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.label == '保存',
+        ),
+      );
+      expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+      expect(node.hasFlag(SemanticsFlag.isEnabled), isFalse);
     });
   });
 
