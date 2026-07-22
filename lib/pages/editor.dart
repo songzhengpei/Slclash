@@ -184,62 +184,76 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             autofocus: false,
           ),
           actions: [
-            SlAppBarActionsRenderer(
-              actions: [
-                if (!readOnly)
-                  SlAppBarIconAction(
-                    icon: SurgeIcons.save,
-                    tooltip: appLocalizations.save,
-                    onPressed:
-                        _controller.text != widget.content ||
-                            _titleController.text != widget.title
-                        ? () {
-                            widget.onSave!(
-                              context,
-                              _titleController.text,
-                              _controller.text,
-                            );
-                          }
-                        : null,
-                  ),
-                SlAppBarOverflowAction(
-                  tooltip: appLocalizations.more,
-                  popup: CommonPopupMenu(
-                    items: [
-                      PopupMenuItemData(
-                        icon: SurgeIcons.search,
-                        label: appLocalizations.search,
-                        onPressed: _handleSearch,
-                      ),
-                      PopupMenuItemData(
-                        icon: SurgeIcons.undo,
-                        label: appLocalizations.undo,
-                        onPressed: _controller.canUndo ? _controller.undo : null,
-                      ),
-                      PopupMenuItemData(
-                        icon: SurgeIcons.redo,
-                        label: appLocalizations.redo,
-                        onPressed: _controller.canRedo ? _controller.redo : null,
-                      ),
-                      if (widget.supportRemoteDownload && !readOnly)
-                        PopupMenuItemData(
-                          icon: SurgeIcons.arrowDown,
-                          label: appLocalizations.externalFetch,
-                          subItems: [
-                            PopupMenuItemData(
-                              label: appLocalizations.importUrl,
-                              onPressed: _handleImportFormUrl,
-                            ),
-                            PopupMenuItemData(
-                              label: appLocalizations.importFile,
-                              onPressed: _handleImportFormFile,
-                            ),
-                          ],
+            ValueListenableBuilder(
+              valueListenable: _controller,
+              builder: (_, __, ___) {
+                return ValueListenableBuilder(
+                  valueListenable: _titleController,
+                  builder: (_, __, ___) {
+                    return SlAppBarActionsRenderer(
+                      actions: [
+                        if (!readOnly)
+                          SlAppBarIconAction(
+                            icon: SurgeIcons.save,
+                            tooltip: appLocalizations.save,
+                            onPressed:
+                                _controller.text != widget.content ||
+                                    _titleController.text != widget.title
+                                ? () {
+                                    widget.onSave!(
+                                      context,
+                                      _titleController.text,
+                                      _controller.text,
+                                    );
+                                  }
+                                : null,
+                          ),
+                        SlAppBarOverflowAction(
+                          tooltip: appLocalizations.more,
+                          popup: CommonPopupMenu(
+                            items: [
+                              PopupMenuItemData(
+                                icon: SurgeIcons.search,
+                                label: appLocalizations.search,
+                                onPressed: _handleSearch,
+                              ),
+                              PopupMenuItemData(
+                                icon: SurgeIcons.undo,
+                                label: appLocalizations.undo,
+                                onPressed: _controller.canUndo
+                                    ? _controller.undo
+                                    : null,
+                              ),
+                              PopupMenuItemData(
+                                icon: SurgeIcons.redo,
+                                label: appLocalizations.redo,
+                                onPressed: _controller.canRedo
+                                    ? _controller.redo
+                                    : null,
+                              ),
+                              if (widget.supportRemoteDownload && !readOnly)
+                                PopupMenuItemData(
+                                  icon: SurgeIcons.arrowDown,
+                                  label: appLocalizations.externalFetch,
+                                  subItems: [
+                                    PopupMenuItemData(
+                                      label: appLocalizations.importUrl,
+                                      onPressed: _handleImportFormUrl,
+                                    ),
+                                    PopupMenuItemData(
+                                      label: appLocalizations.importFile,
+                                      onPressed: _handleImportFormFile,
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
                         ),
-                    ],
-                  ),
-                ),
-              ],
+                      ],
+                    );
+                  },
+                );
+              },
             ),
           ],
         ),
