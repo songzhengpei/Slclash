@@ -12,6 +12,12 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
   );
+  static const screenTitle = TextStyle(
+    fontSize: 19,
+    height: 1.4737,
+    fontWeight: FontWeight.w500,
+    letterSpacing: _letterSpacing,
+  );
   static const appBarTitle = TextStyle(
     fontSize: 19,
     height: 1.3,

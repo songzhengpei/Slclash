@@ -360,11 +360,9 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       automaticallyImplyLeading: false,
       centerTitle: true,
       toolbarHeight: type == SheetType.bottomSheet ? 48 : null,
-      titleTextStyle: type == SheetType.bottomSheet
-          ? context.typography.sheetTitle.copyWith(
-              color: SurgeTheme.of(context).textPrimary,
-            )
-          : null,
+      titleTextStyle: context.typography.sheetTitle.copyWith(
+        color: SurgeTheme.of(context).textPrimary,
+      ),
       title: Text(
         widget.title,
         maxLines: 1,

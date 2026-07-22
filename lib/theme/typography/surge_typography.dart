@@ -6,6 +6,7 @@ import 'type_scale.dart';
 class SurgeTypography extends ThemeExtension<SurgeTypography> {
   const SurgeTypography({
     required this.rootAppBarTitle,
+    required this.screenTitle,
     required this.appBarTitle,
     required this.dialogTitle,
     required this.sectionTitle,
@@ -45,7 +46,8 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
 
   factory SurgeTypography.fromTextTheme(TextTheme textTheme) {
     return SurgeTypography(
-      rootAppBarTitle: textTheme.headlineSmall!,
+      rootAppBarTitle: SlclashTypeScale.rootAppBarTitle,
+      screenTitle: textTheme.headlineSmall!,
       appBarTitle: textTheme.titleLarge!,
       dialogTitle: SlclashTypeScale.dialogTitle,
       sectionTitle: SlclashTypeScale.sectionTitle,
@@ -85,6 +87,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   }
 
   final TextStyle rootAppBarTitle;
+  final TextStyle screenTitle;
   final TextStyle appBarTitle;
   final TextStyle dialogTitle;
   final TextStyle sectionTitle;
@@ -124,6 +127,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   @override
   SurgeTypography copyWith({
     TextStyle? rootAppBarTitle,
+    TextStyle? screenTitle,
     TextStyle? appBarTitle,
     TextStyle? dialogTitle,
     TextStyle? sectionTitle,
@@ -162,6 +166,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
   }) {
     return SurgeTypography(
       rootAppBarTitle: rootAppBarTitle ?? this.rootAppBarTitle,
+      screenTitle: screenTitle ?? this.screenTitle,
       appBarTitle: appBarTitle ?? this.appBarTitle,
       dialogTitle: dialogTitle ?? this.dialogTitle,
       sectionTitle: sectionTitle ?? this.sectionTitle,
@@ -206,6 +211,7 @@ class SurgeTypography extends ThemeExtension<SurgeTypography> {
     if (other is! SurgeTypography) return this;
     return SurgeTypography(
       rootAppBarTitle: TextStyle.lerp(rootAppBarTitle, other.rootAppBarTitle, t)!,
+      screenTitle: TextStyle.lerp(screenTitle, other.screenTitle, t)!,
       appBarTitle: TextStyle.lerp(appBarTitle, other.appBarTitle, t)!,
       dialogTitle: TextStyle.lerp(dialogTitle, other.dialogTitle, t)!,
       sectionTitle: TextStyle.lerp(sectionTitle, other.sectionTitle, t)!,
