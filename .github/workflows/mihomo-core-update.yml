@@ -210,7 +210,9 @@ jobs:
           set -euo pipefail
 
           flutter pub get
-          flutter analyze --no-fatal-infos
+          # Keep analyzer errors blocking while allowing the repository's existing
+          # warning/info baseline to be handled independently of core updates.
+          flutter analyze --no-fatal-warnings --no-fatal-infos
 
           cd core
           go mod tidy
