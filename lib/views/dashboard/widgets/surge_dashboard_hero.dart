@@ -138,18 +138,18 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     final transitionStop = _transitionKind == 'stop';
     final transitionPausing = _transitionKind == 'pausing';
     final buttonLabel = transitionPausing
-        ? '暂停中'
+        ? appLocalizations.pausing
         : isSmartResuming
-        ? '恢复中'
+        ? appLocalizations.resuming
         : transitionStop
-        ? '停止中'
+        ? appLocalizations.stopping
         : (transitionStart || connecting)
-        ? '启动中'
+        ? appLocalizations.starting
         : isSmartPaused
-        ? '恢复'
+        ? appLocalizations.resume
         : isStart
-        ? '停止'
-        : '启动';
+        ? appLocalizations.stop
+        : appLocalizations.start;
     final buttonLoading =
         transitionPausing ||
         isSmartResuming ||
@@ -311,7 +311,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
               return _HeroModeCard(
                 fillProgress: _fillAnimation.value,
                 modeLabel: '${_modeLabel(mode)} Mode',
-                title: '出站流量',
+                title: appLocalizations.outboundTraffic,
                 active: isStart,
                 isSmartPaused: isSmartPaused,
                 dynamicColor: dynamicColor,
@@ -570,9 +570,12 @@ class _HeroActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final Color baseColor;
-    if (isSmartPaused || isSmartResuming || label == '暂停中') {
+    if (isSmartPaused ||
+        isSmartResuming ||
+        label == context.appLocalizations.pausing) {
       baseColor = surge.orange;
-    } else if ((isStart && !loading) || label == '停止中') {
+    } else if ((isStart && !loading) ||
+        label == context.appLocalizations.stopping) {
       baseColor = surge.red;
     } else {
       baseColor = surge.green;
@@ -813,7 +816,7 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
       builder: (sheetContext) {
         final surge = SurgeTheme.of(sheetContext);
         return AdaptiveSheetScaffold(
-          title: '选择订阅',
+          title: context.appLocalizations.selectProfile,
           appBarActions: const [],
           body: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -868,7 +871,9 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          profile.type == ProfileType.url ? 'URL' : '本地',
+                          profile.type == ProfileType.url
+                              ? 'URL'
+                              : context.appLocalizations.local,
                           style: context.typography.sheetLabel.copyWith(
                             color: surge.textSecondary,
                           ),
@@ -1378,7 +1383,10 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                   ),
                   Expanded(
                     child: Center(
-                      child: Text('节点', style: context.typography.sheetTitle),
+                      child: Text(
+                        context.appLocalizations.nodes,
+                        style: context.typography.sheetTitle,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 48),

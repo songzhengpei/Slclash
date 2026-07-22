@@ -16,8 +16,8 @@ const browserUa =
 const packageName = 'com.slclash.app';
 const methodChannelPrefix = 'com.follow.clash';
 const helperPort = 47890;
-const maxTextScale = 1.4;
-const minTextScale = 0.8;
+const maxTextScale = 1.2;
+const minTextScale = 0.9;
 const baseInfoEdgeInsets = EdgeInsets.symmetric(vertical: 16, horizontal: 16);
 const listHeaderPadding = EdgeInsets.only(
   left: 16,

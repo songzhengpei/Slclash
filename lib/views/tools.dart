@@ -216,7 +216,10 @@ class _LocaleItem extends ConsumerWidget {
 
   String _getLocaleString(BuildContext context, Locale? locale) {
     if (locale == null) return context.appLocalizations.defaultText;
-    return Intl.message(locale.toString());
+    return switch (locale.toString()) {
+      'zh_CN' => context.appLocalizations.zh_CN,
+      _ => context.appLocalizations.en,
+    };
   }
 
   @override
@@ -392,7 +395,7 @@ class _InfoItem extends StatelessWidget {
     return _SurgeOpenTile(
       leading: const Icon(SurgeIcons.info),
       title: context.appLocalizations.about,
-      subtitle: '版本信息与项目链接',
+      subtitle: context.appLocalizations.versionAndProjectLinks,
       child: const AboutView(),
     );
   }

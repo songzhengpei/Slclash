@@ -29,30 +29,40 @@ enum _ResourceAutoUpdateMode {
     };
   }
 
-  String get title {
+  String title(BuildContext context) {
     return switch (this) {
-      _ResourceAutoUpdateMode.off => '关闭',
-      _ResourceAutoUpdateMode.daily => '每日',
-      _ResourceAutoUpdateMode.everyThreeDays => '三日',
-      _ResourceAutoUpdateMode.everySevenDays => '七日',
+      _ResourceAutoUpdateMode.off => context.appLocalizations.resourceUpdateOff,
+      _ResourceAutoUpdateMode.daily =>
+        context.appLocalizations.resourceUpdateDaily,
+      _ResourceAutoUpdateMode.everyThreeDays =>
+        context.appLocalizations.resourceUpdateEveryThreeDays,
+      _ResourceAutoUpdateMode.everySevenDays =>
+        context.appLocalizations.resourceUpdateEverySevenDays,
     };
   }
 
-  String get subtitle {
+  String subtitle(BuildContext context) {
     return switch (this) {
-      _ResourceAutoUpdateMode.off => '仅手动更新资源文件',
-      _ResourceAutoUpdateMode.daily => '每天首次打开资源页自动更新',
-      _ResourceAutoUpdateMode.everyThreeDays => '满三天后首次打开自动更新',
-      _ResourceAutoUpdateMode.everySevenDays => '满七天后首次打开自动更新',
+      _ResourceAutoUpdateMode.off =>
+        context.appLocalizations.resourceManualOnly,
+      _ResourceAutoUpdateMode.daily =>
+        context.appLocalizations.resourceDailyDesc,
+      _ResourceAutoUpdateMode.everyThreeDays =>
+        context.appLocalizations.resourceThreeDaysDesc,
+      _ResourceAutoUpdateMode.everySevenDays =>
+        context.appLocalizations.resourceSevenDaysDesc,
     };
   }
 
-  String get statusText {
+  String statusText(BuildContext context) {
     return switch (this) {
-      _ResourceAutoUpdateMode.off => '手动',
-      _ResourceAutoUpdateMode.daily => '自动更新：每日',
-      _ResourceAutoUpdateMode.everyThreeDays => '自动更新：3日',
-      _ResourceAutoUpdateMode.everySevenDays => '自动更新：7日',
+      _ResourceAutoUpdateMode.off => context.appLocalizations.manual,
+      _ResourceAutoUpdateMode.daily =>
+        context.appLocalizations.resourceAutoDailyStatus,
+      _ResourceAutoUpdateMode.everyThreeDays =>
+        context.appLocalizations.resourceAutoThreeDaysStatus,
+      _ResourceAutoUpdateMode.everySevenDays =>
+        context.appLocalizations.resourceAutoSevenDaysStatus,
     };
   }
 
@@ -243,7 +253,7 @@ class _ResourcesViewState extends ConsumerState<ResourcesView> {
       props: const SheetProps(isScrollControlled: true),
       builder: (_) {
         return AdaptiveSheetScaffold(
-          title: '资源自动更新',
+          title: context.appLocalizations.resourceAutoUpdate,
           appBarActions: const [],
           body: _ResourceAutoUpdateSheet(
             value: _autoUpdateMode,
@@ -343,7 +353,8 @@ class _ResourceStatusCard extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: SurgePressable(
           onTap: onTap,
-          semanticLabel: '打开资源自动更新设置',
+          semanticLabel:
+              context.appLocalizations.openResourceAutoUpdateSettings,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -370,7 +381,7 @@ class _ResourceStatusCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        mode.statusText,
+                        mode.statusText(context),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: context.typography.rowTitle.copyWith(
@@ -380,7 +391,7 @@ class _ResourceStatusCard extends StatelessWidget {
                       if (mode != _ResourceAutoUpdateMode.off) ...[
                         const SizedBox(height: 4),
                         Text(
-                          mode.subtitle,
+                          mode.subtitle(context),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: context.typography.supporting.copyWith(
@@ -532,7 +543,7 @@ class _ResourceItemCard extends ConsumerWidget {
                                   builder: (_, snapshot) {
                                     final text =
                                         snapshot.data?.getDesc(context) ??
-                                        '读取中';
+                                        context.appLocalizations.reading;
                                     return Text(
                                       text,
                                       maxLines: 1,
@@ -629,14 +640,14 @@ class _ResourceAutoUpdateSheetState extends State<_ResourceAutoUpdateSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Text(
-              '更新频率',
+              context.appLocalizations.updateFrequency,
               style: context.typography.rowTitle.copyWith(
                 color: surge.textPrimary,
               ),
             ),
           ),
           Text(
-            '首次打开资源页时触发',
+            context.appLocalizations.resourceUpdateTriggerHint,
             style: context.typography.supporting.copyWith(
               color: surge.textSecondary,
             ),
@@ -653,8 +664,8 @@ class _ResourceAutoUpdateSheetState extends State<_ResourceAutoUpdateSheet> {
                     icon: mode == _ResourceAutoUpdateMode.off
                         ? SurgeIcons.pause
                         : SurgeIcons.update,
-                    title: mode.title,
-                    subtitle: mode.subtitle,
+                    title: mode.title(context),
+                    subtitle: mode.subtitle(context),
                     selected: mode == _value,
                     onTap: () {
                       setState(() {

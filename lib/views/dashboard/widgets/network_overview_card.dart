@@ -273,12 +273,8 @@ class _SurgeNetworkOverviewCardState
   Timer? _latencyRefreshTimer;
   bool _isTestingLatencies = false;
 
-  bool _isChinese(BuildContext context) {
-    return Localizations.localeOf(context).languageCode.toLowerCase() == 'zh';
-  }
-
   String _overviewTitle(BuildContext context) {
-    return _isChinese(context) ? '网络概览' : 'Network Overview';
+    return context.appLocalizations.networkOverview;
   }
 
   List<Point> _buildSeries(

@@ -219,16 +219,6 @@ class AppLocalizations {
     return Intl.message('English', name: 'en', desc: '', args: []);
   }
 
-  /// `Japanese`
-  String get ja {
-    return Intl.message('Japanese', name: 'ja', desc: '', args: []);
-  }
-
-  /// `Russian`
-  String get ru {
-    return Intl.message('Russian', name: 'ru', desc: '', args: []);
-  }
-
   /// `Simplified Chinese`
   String get zh_CN {
     return Intl.message(
@@ -1209,9 +1199,9 @@ class AppLocalizations {
     );
   }
 
-  /// `Standard`
+  /// `Expand`
   String get expand {
-    return Intl.message('Standard', name: 'expand', desc: '', args: []);
+    return Intl.message('Expand', name: 'expand', desc: '', args: []);
   }
 
   /// `Shrink`
@@ -4446,12 +4436,7 @@ class AppLocalizations {
 
   /// `Resume`
   String get resume {
-    return Intl.message(
-      'Resume',
-      name: 'resume',
-      desc: '',
-      args: [],
-    );
+    return Intl.message('Resume', name: 'resume', desc: '', args: []);
   }
 
   /// `Factory Reset`
@@ -4483,6 +4468,1176 @@ class AppLocalizations {
       args: [],
     );
   }
+
+  /// `Changelog`
+  String get changelog {
+    return Intl.message('Changelog', name: 'changelog', desc: '', args: []);
+  }
+
+  /// `Upstream project`
+  String get upstreamProject {
+    return Intl.message(
+      'Upstream project',
+      name: 'upstreamProject',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `SlClash is a privately tailored and redesigned Android proxy client based on FlClash and the Mihomo core.`
+  String get aboutDescription {
+    return Intl.message(
+      'SlClash is a privately tailored and redesigned Android proxy client based on FlClash and the Mihomo core.',
+      name: 'aboutDescription',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Mihomo Core {version} · Released {date}`
+  String coreReleaseInfo(Object version, Object date) {
+    return Intl.message(
+      'Mihomo Core $version · Released $date',
+      name: 'coreReleaseInfo',
+      desc: '',
+      args: [version, date],
+    );
+  }
+
+  /// `Version information and project links`
+  String get versionAndProjectLinks {
+    return Intl.message(
+      'Version information and project links',
+      name: 'versionAndProjectLinks',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Dynamic color`
+  String get dynamicColor {
+    return Intl.message(
+      'Dynamic color',
+      name: 'dynamicColor',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Follow system Material You colors · {variant}`
+  String followMaterialYou(Object variant) {
+    return Intl.message(
+      'Follow system Material You colors · $variant',
+      name: 'followMaterialYou',
+      desc: '',
+      args: [variant],
+    );
+  }
+
+  /// `Dark monochrome style`
+  String get darkMonochromeStyle {
+    return Intl.message(
+      'Dark monochrome style',
+      name: 'darkMonochromeStyle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Blue and white monochrome style`
+  String get blueWhiteMonochromeStyle {
+    return Intl.message(
+      'Blue and white monochrome style',
+      name: 'blueWhiteMonochromeStyle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Monochrome`
+  String get monochrome {
+    return Intl.message('Monochrome', name: 'monochrome', desc: '', args: []);
+  }
+
+  /// `Tonal`
+  String get tonal {
+    return Intl.message('Tonal', name: 'tonal', desc: '', args: []);
+  }
+
+  /// `Content`
+  String get contentColor {
+    return Intl.message('Content', name: 'contentColor', desc: '', args: []);
+  }
+
+  /// `Blue and white`
+  String get blueWhiteMonochrome {
+    return Intl.message(
+      'Blue and white',
+      name: 'blueWhiteMonochrome',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Dark monochrome`
+  String get darkMonochrome {
+    return Intl.message(
+      'Dark monochrome',
+      name: 'darkMonochrome',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Automatic resource updates`
+  String get resourceAutoUpdate {
+    return Intl.message(
+      'Automatic resource updates',
+      name: 'resourceAutoUpdate',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Open automatic resource update settings`
+  String get openResourceAutoUpdateSettings {
+    return Intl.message(
+      'Open automatic resource update settings',
+      name: 'openResourceAutoUpdateSettings',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Reading`
+  String get reading {
+    return Intl.message('Reading', name: 'reading', desc: '', args: []);
+  }
+
+  /// `Update frequency`
+  String get updateFrequency {
+    return Intl.message(
+      'Update frequency',
+      name: 'updateFrequency',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Triggered when the Resources page is first opened`
+  String get resourceUpdateTriggerHint {
+    return Intl.message(
+      'Triggered when the Resources page is first opened',
+      name: 'resourceUpdateTriggerHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Off`
+  String get resourceUpdateOff {
+    return Intl.message('Off', name: 'resourceUpdateOff', desc: '', args: []);
+  }
+
+  /// `Daily`
+  String get resourceUpdateDaily {
+    return Intl.message(
+      'Daily',
+      name: 'resourceUpdateDaily',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Every 3 days`
+  String get resourceUpdateEveryThreeDays {
+    return Intl.message(
+      'Every 3 days',
+      name: 'resourceUpdateEveryThreeDays',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Every 7 days`
+  String get resourceUpdateEverySevenDays {
+    return Intl.message(
+      'Every 7 days',
+      name: 'resourceUpdateEverySevenDays',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Update resource files manually only`
+  String get resourceManualOnly {
+    return Intl.message(
+      'Update resource files manually only',
+      name: 'resourceManualOnly',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Update when the Resources page is first opened each day`
+  String get resourceDailyDesc {
+    return Intl.message(
+      'Update when the Resources page is first opened each day',
+      name: 'resourceDailyDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Update on the first open after three days`
+  String get resourceThreeDaysDesc {
+    return Intl.message(
+      'Update on the first open after three days',
+      name: 'resourceThreeDaysDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Update on the first open after seven days`
+  String get resourceSevenDaysDesc {
+    return Intl.message(
+      'Update on the first open after seven days',
+      name: 'resourceSevenDaysDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Manual`
+  String get manual {
+    return Intl.message('Manual', name: 'manual', desc: '', args: []);
+  }
+
+  /// `Automatic: daily`
+  String get resourceAutoDailyStatus {
+    return Intl.message(
+      'Automatic: daily',
+      name: 'resourceAutoDailyStatus',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Automatic: every 3 days`
+  String get resourceAutoThreeDaysStatus {
+    return Intl.message(
+      'Automatic: every 3 days',
+      name: 'resourceAutoThreeDaysStatus',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Automatic: every 7 days`
+  String get resourceAutoSevenDaysStatus {
+    return Intl.message(
+      'Automatic: every 7 days',
+      name: 'resourceAutoSevenDaysStatus',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Syncing proxy groups`
+  String get syncingProxyGroups {
+    return Intl.message(
+      'Syncing proxy groups',
+      name: 'syncingProxyGroups',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Provider is not ready`
+  String get providerNotReady {
+    return Intl.message(
+      'Provider is not ready',
+      name: 'providerNotReady',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Proxy core is unavailable`
+  String get proxyCoreUnavailable {
+    return Intl.message(
+      'Proxy core is unavailable',
+      name: 'proxyCoreUnavailable',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Provider failed to load`
+  String get providerLoadFailed {
+    return Intl.message(
+      'Provider failed to load',
+      name: 'providerLoadFailed',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No proxy groups`
+  String get noProxyGroups {
+    return Intl.message(
+      'No proxy groups',
+      name: 'noProxyGroups',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Fetching nodes from the Provider. Please wait.`
+  String get fetchingProviderNodes {
+    return Intl.message(
+      'Fetching nodes from the Provider. Please wait.',
+      name: 'fetchingProviderNodes',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Check your network and try again.`
+  String get checkNetworkAndRetry {
+    return Intl.message(
+      'Check your network and try again.',
+      name: 'checkNetworkAndRetry',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Please reconnect.`
+  String get reconnectPrompt {
+    return Intl.message(
+      'Please reconnect.',
+      name: 'reconnectPrompt',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Please try again later.`
+  String get tryAgainLater {
+    return Intl.message(
+      'Please try again later.',
+      name: 'tryAgainLater',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The current profile has no available nodes.`
+  String get noAvailableNodesInProfile {
+    return Intl.message(
+      'The current profile has no available nodes.',
+      name: 'noAvailableNodesInProfile',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Reconnect`
+  String get reconnect {
+    return Intl.message('Reconnect', name: 'reconnect', desc: '', args: []);
+  }
+
+  /// `Refresh proxy groups`
+  String get refreshProxyGroups {
+    return Intl.message(
+      'Refresh proxy groups',
+      name: 'refreshProxyGroups',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Reload`
+  String get reload {
+    return Intl.message('Reload', name: 'reload', desc: '', args: []);
+  }
+
+  /// `No matching proxy groups`
+  String get noMatchingProxyGroups {
+    return Intl.message(
+      'No matching proxy groups',
+      name: 'noMatchingProxyGroups',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Adjust the filters.`
+  String get adjustFilters {
+    return Intl.message(
+      'Adjust the filters.',
+      name: 'adjustFilters',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Locate current node`
+  String get locateCurrentNode {
+    return Intl.message(
+      'Locate current node',
+      name: 'locateCurrentNode',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Test latency`
+  String get testLatency {
+    return Intl.message(
+      'Test latency',
+      name: 'testLatency',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Collapse`
+  String get collapse {
+    return Intl.message('Collapse', name: 'collapse', desc: '', args: []);
+  }
+
+  /// `Profile management`
+  String get profileManagement {
+    return Intl.message(
+      'Profile management',
+      name: 'profileManagement',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Media check`
+  String get mediaCheck {
+    return Intl.message('Media check', name: 'mediaCheck', desc: '', args: []);
+  }
+
+  /// `Manual check by profile · Cached results`
+  String get mediaCheckByProfileDesc {
+    return Intl.message(
+      'Manual check by profile · Cached results',
+      name: 'mediaCheckByProfileDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Manual check · Cached results`
+  String get mediaCheckDesc {
+    return Intl.message(
+      'Manual check · Cached results',
+      name: 'mediaCheckDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Add profile`
+  String get addProfileTitle {
+    return Intl.message(
+      'Add profile',
+      name: 'addProfileTitle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Sort profiles`
+  String get profileSort {
+    return Intl.message(
+      'Sort profiles',
+      name: 'profileSort',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No profiles`
+  String get noProfiles {
+    return Intl.message('No profiles', name: 'noProfiles', desc: '', args: []);
+  }
+
+  /// `In use`
+  String get currentlyUsed {
+    return Intl.message('In use', name: 'currentlyUsed', desc: '', args: []);
+  }
+
+  /// `Switching`
+  String get switching {
+    return Intl.message('Switching', name: 'switching', desc: '', args: []);
+  }
+
+  /// `Unavailable`
+  String get unavailable {
+    return Intl.message('Unavailable', name: 'unavailable', desc: '', args: []);
+  }
+
+  /// `Not ready`
+  String get notReady {
+    return Intl.message('Not ready', name: 'notReady', desc: '', args: []);
+  }
+
+  /// `Expand nodes in the current profile`
+  String get expandCurrentProfileNodes {
+    return Intl.message(
+      'Expand nodes in the current profile',
+      name: 'expandCurrentProfileNodes',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Reading nodes in the current profile`
+  String get readingCurrentProfileNodes {
+    return Intl.message(
+      'Reading nodes in the current profile',
+      name: 'readingCurrentProfileNodes',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The current profile has no nodes to display`
+  String get currentProfileHasNoNodes {
+    return Intl.message(
+      'The current profile has no nodes to display',
+      name: 'currentProfileHasNoNodes',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Node list`
+  String get nodeList {
+    return Intl.message('Node list', name: 'nodeList', desc: '', args: []);
+  }
+
+  /// `Test all latencies`
+  String get testAllLatencies {
+    return Intl.message(
+      'Test all latencies',
+      name: 'testAllLatencies',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Never expires`
+  String get neverExpires {
+    return Intl.message(
+      'Never expires',
+      name: 'neverExpires',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Local file`
+  String get localFile {
+    return Intl.message('Local file', name: 'localFile', desc: '', args: []);
+  }
+
+  /// `Pausing`
+  String get pausing {
+    return Intl.message('Pausing', name: 'pausing', desc: '', args: []);
+  }
+
+  /// `Resuming`
+  String get resuming {
+    return Intl.message('Resuming', name: 'resuming', desc: '', args: []);
+  }
+
+  /// `Stopping`
+  String get stopping {
+    return Intl.message('Stopping', name: 'stopping', desc: '', args: []);
+  }
+
+  /// `Starting`
+  String get starting {
+    return Intl.message('Starting', name: 'starting', desc: '', args: []);
+  }
+
+  /// `Outbound traffic`
+  String get outboundTraffic {
+    return Intl.message(
+      'Outbound traffic',
+      name: 'outboundTraffic',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Select profile`
+  String get selectProfile {
+    return Intl.message(
+      'Select profile',
+      name: 'selectProfile',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Nodes`
+  String get nodes {
+    return Intl.message('Nodes', name: 'nodes', desc: '', args: []);
+  }
+
+  /// `Network Overview`
+  String get networkOverview {
+    return Intl.message(
+      'Network Overview',
+      name: 'networkOverview',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Reading backups...`
+  String get readingBackups {
+    return Intl.message(
+      'Reading backups...',
+      name: 'readingBackups',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No backups are available.`
+  String get noAvailableBackups {
+    return Intl.message(
+      'No backups are available.',
+      name: 'noAvailableBackups',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Only profile data will be restored. Other settings will not be changed.`
+  String get restoreProfilesOnlyWarning {
+    return Intl.message(
+      'Only profile data will be restored. Other settings will not be changed.',
+      name: 'restoreProfilesOnlyWarning',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Profile data restored.`
+  String get profilesRestored {
+    return Intl.message(
+      'Profile data restored.',
+      name: 'profilesRestored',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Profile data restored, but the proxy is not loaded yet.`
+  String get profilesRestoredProxyNotLoaded {
+    return Intl.message(
+      'Profile data restored, but the proxy is not loaded yet.',
+      name: 'profilesRestoredProxyNotLoaded',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Select backup`
+  String get selectBackup {
+    return Intl.message(
+      'Select backup',
+      name: 'selectBackup',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Restore {name}`
+  String restoreNamedBackup(Object name) {
+    return Intl.message(
+      'Restore $name',
+      name: 'restoreNamedBackup',
+      desc: '',
+      args: [name],
+    );
+  }
+
+  /// `Select a restore method.`
+  String get selectRestoreStrategy {
+    return Intl.message(
+      'Select a restore method.',
+      name: 'selectRestoreStrategy',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No nodes to check`
+  String get noNodesToCheck {
+    return Intl.message(
+      'No nodes to check',
+      name: 'noNodesToCheck',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Check results will appear here`
+  String get checkResultsAppearHere {
+    return Intl.message(
+      'Check results will appear here',
+      name: 'checkResultsAppearHere',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Not enough history`
+  String get notEnoughHistory {
+    return Intl.message(
+      'Not enough history',
+      name: 'notEnoughHistory',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No {filter} results`
+  String noFilteredResults(Object filter) {
+    return Intl.message(
+      'No $filter results',
+      name: 'noFilteredResults',
+      desc: '',
+      args: [filter],
+    );
+  }
+
+  /// `Node checkup`
+  String get nodeCheckup {
+    return Intl.message(
+      'Node checkup',
+      name: 'nodeCheckup',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Cached`
+  String get cached {
+    return Intl.message('Cached', name: 'cached', desc: '', args: []);
+  }
+
+  /// `Not checked`
+  String get notChecked {
+    return Intl.message('Not checked', name: 'notChecked', desc: '', args: []);
+  }
+
+  /// `Health monitoring`
+  String get healthMonitoring {
+    return Intl.message(
+      'Health monitoring',
+      name: 'healthMonitoring',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Select test item`
+  String get selectTestItem {
+    return Intl.message(
+      'Select test item',
+      name: 'selectTestItem',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Cache`
+  String get cache {
+    return Intl.message('Cache', name: 'cache', desc: '', args: []);
+  }
+
+  /// `Concurrency`
+  String get concurrency {
+    return Intl.message('Concurrency', name: 'concurrency', desc: '', args: []);
+  }
+
+  /// `Running`
+  String get running {
+    return Intl.message('Running', name: 'running', desc: '', args: []);
+  }
+
+  /// `No cache`
+  String get noCache {
+    return Intl.message('No cache', name: 'noCache', desc: '', args: []);
+  }
+
+  /// `Last {time}`
+  String lastCheckedAt(Object time) {
+    return Intl.message(
+      'Last $time',
+      name: 'lastCheckedAt',
+      desc: '',
+      args: [time],
+    );
+  }
+
+  /// `Expired`
+  String get expired {
+    return Intl.message('Expired', name: 'expired', desc: '', args: []);
+  }
+
+  /// `Checking`
+  String get checking {
+    return Intl.message('Checking', name: 'checking', desc: '', args: []);
+  }
+
+  /// `Health`
+  String get health {
+    return Intl.message('Health', name: 'health', desc: '', args: []);
+  }
+
+  /// `GPT access`
+  String get gptUnlock {
+    return Intl.message('GPT access', name: 'gptUnlock', desc: '', args: []);
+  }
+
+  /// `YouTube routed to China`
+  String get youtubeRoutedToChina {
+    return Intl.message(
+      'YouTube routed to China',
+      name: 'youtubeRoutedToChina',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `All green · low latency`
+  String get allGreenLowLatency {
+    return Intl.message(
+      'All green · low latency',
+      name: 'allGreenLowLatency',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Unlocked regions`
+  String get unlockedRegions {
+    return Intl.message(
+      'Unlocked regions',
+      name: 'unlockedRegions',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `China-route candidates`
+  String get chinaRouteCandidates {
+    return Intl.message(
+      'China-route candidates',
+      name: 'chinaRouteCandidates',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Historically stable`
+  String get historicallyStable {
+    return Intl.message(
+      'Historically stable',
+      name: 'historicallyStable',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No history`
+  String get noHistory {
+    return Intl.message('No history', name: 'noHistory', desc: '', args: []);
+  }
+
+  /// `{count} checks · {rate}%{delay}{streak}`
+  String healthHistorySummary(
+    Object count,
+    Object rate,
+    Object delay,
+    Object streak,
+  ) {
+    return Intl.message(
+      '$count checks · $rate%$delay$streak',
+      name: 'healthHistorySummary',
+      desc: '',
+      args: [count, rate, delay, streak],
+    );
+  }
+
+  /// ` · green streak {count}`
+  String greenStreak(Object count) {
+    return Intl.message(
+      ' · green streak $count',
+      name: 'greenStreak',
+      desc: '',
+      args: [count],
+    );
+  }
+
+  /// `Unlocked`
+  String get unlocked {
+    return Intl.message('Unlocked', name: 'unlocked', desc: '', args: []);
+  }
+
+  /// `Unlocked ({region})`
+  String unlockedWithRegion(Object region) {
+    return Intl.message(
+      'Unlocked ($region)',
+      name: 'unlockedWithRegion',
+      desc: '',
+      args: [region],
+    );
+  }
+
+  /// `Blocked`
+  String get blocked {
+    return Intl.message('Blocked', name: 'blocked', desc: '', args: []);
+  }
+
+  /// `Timed out`
+  String get timedOut {
+    return Intl.message('Timed out', name: 'timedOut', desc: '', args: []);
+  }
+
+  /// `Routed to China`
+  String get routedToChina {
+    return Intl.message(
+      'Routed to China',
+      name: 'routedToChina',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Possibly routed to China`
+  String get possiblyRoutedToChina {
+    return Intl.message(
+      'Possibly routed to China',
+      name: 'possiblyRoutedToChina',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Allow SlClash to install unknown apps, then tap Install again.`
+  String get allowUnknownAppInstall {
+    return Intl.message(
+      'Allow SlClash to install unknown apps, then tap Install again.',
+      name: 'allowUnknownAppInstall',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Download update`
+  String get downloadUpdate {
+    return Intl.message(
+      'Download update',
+      name: 'downloadUpdate',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Downloading APK`
+  String get downloadingApk {
+    return Intl.message(
+      'Downloading APK',
+      name: 'downloadingApk',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Downloading APK · {percent}%`
+  String downloadingApkProgress(Object percent) {
+    return Intl.message(
+      'Downloading APK · $percent%',
+      name: 'downloadingApkProgress',
+      desc: '',
+      args: [percent],
+    );
+  }
+
+  /// `The system installer will open automatically after the download finishes.`
+  String get apkInstallAfterDownload {
+    return Intl.message(
+      'The system installer will open automatically after the download finishes.',
+      name: 'apkInstallAfterDownload',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `New version`
+  String get newVersion {
+    return Intl.message('New version', name: 'newVersion', desc: '', args: []);
+  }
+
+  /// `The proxy core is unavailable and Provider nodes cannot be read.`
+  String get proxyCoreCannotReadProvider {
+    return Intl.message(
+      'The proxy core is unavailable and Provider nodes cannot be read.',
+      name: 'proxyCoreCannotReadProvider',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The proxy core is unavailable and subscriptions in the backup cannot be validated.`
+  String get proxyCoreCannotValidateBackup {
+    return Intl.message(
+      'The proxy core is unavailable and subscriptions in the backup cannot be validated.',
+      name: 'proxyCoreCannotValidateBackup',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `SlClash and Clash Verge Rev profile backups now support two-way import.`
+  String get changelog205Item1 {
+    return Intl.message(
+      'SlClash and Clash Verge Rev profile backups now support two-way import.',
+      name: 'changelog205Item1',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Fixed the first backup failing when Unified Profile Center was not used.`
+  String get changelog205Item2 {
+    return Intl.message(
+      'Fixed the first backup failing when Unified Profile Center was not used.',
+      name: 'changelog205Item2',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Improved compatibility and overwrite restore to avoid duplicate profiles while preserving local state.`
+  String get changelog205Item3 {
+    return Intl.message(
+      'Improved compatibility and overwrite restore to avoid duplicate profiles while preserving local state.',
+      name: 'changelog205Item3',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Local exports and WebDAV backups now use the native V1 package.`
+  String get changelog204Item1 {
+    return Intl.message(
+      'Local exports and WebDAV backups now use the native V1 package.',
+      name: 'changelog204Item1',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Packages exported by SlClash can be imported directly into Clash Verge Rev to overwrite profile data.`
+  String get changelog204Item2 {
+    return Intl.message(
+      'Packages exported by SlClash can be imported directly into Clash Verge Rev to overwrite profile data.',
+      name: 'changelog204Item2',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Restore updates profile data only and leaves other app settings unchanged.`
+  String get changelog204Item3 {
+    return Intl.message(
+      'Restore updates profile data only and leaves other app settings unchanged.',
+      name: 'changelog204Item3',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `{mode} mode`
+  String modeDescription(Object mode) {
+    return Intl.message(
+      '$mode mode',
+      name: 'modeDescription',
+      desc: '',
+      args: [mode],
+    );
+  }
+
+  /// `Initialization failed`
+  String get initFailed {
+    return Intl.message(
+      'Initialization failed',
+      name: 'initFailed',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The application encountered a critical error during startup and cannot continue.`
+  String get initFailedDescription {
+    return Intl.message(
+      'The application encountered a critical error during startup and cannot continue.',
+      name: 'initFailedDescription',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Error details`
+  String get errorDetails {
+    return Intl.message(
+      'Error details',
+      name: 'errorDetails',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Stack trace`
+  String get stackTrace {
+    return Intl.message('Stack trace', name: 'stackTrace', desc: '', args: []);
+  }
+
+  /// `Copy details`
+  String get copyDetails {
+    return Intl.message(
+      'Copy details',
+      name: 'copyDetails',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Error details copied to clipboard`
+  String get errorDetailsCopied {
+    return Intl.message(
+      'Error details copied to clipboard',
+      name: 'errorDetailsCopied',
+      desc: '',
+      args: [],
+    );
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {
@@ -4491,8 +5646,6 @@ class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {
   List<Locale> get supportedLocales {
     return const <Locale>[
       Locale.fromSubtags(languageCode: 'en'),
-      Locale.fromSubtags(languageCode: 'ja'),
-      Locale.fromSubtags(languageCode: 'ru'),
       Locale.fromSubtags(languageCode: 'zh', countryCode: 'CN'),
     ];
   }

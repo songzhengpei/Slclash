@@ -80,7 +80,7 @@ class TrafficUsage extends StatelessWidget {
 
             return SurgeDashboardCard(
               title: appLocalizations.trafficUsage,
-              subtitle: 'Traffic',
+              subtitle: appLocalizations.trafficUsage,
               icon: SurgeIcons.traffic,
               height: height,
               child: LayoutBuilder(

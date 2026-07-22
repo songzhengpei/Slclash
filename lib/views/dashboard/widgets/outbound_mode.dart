@@ -28,7 +28,7 @@ class OutboundMode extends StatelessWidget {
           );
           return SurgeDashboardCard(
             title: appLocalizations.outboundMode,
-            subtitle: 'Outbound Mode',
+            subtitle: appLocalizations.outboundMode,
             icon: SurgeIcons.outboundMode,
             height: getWidgetHeight(2),
             child: Column(
@@ -36,7 +36,7 @@ class OutboundMode extends StatelessWidget {
               children: [
                 SurgeSegmentedControl<Mode>(
                   value: mode,
-                  items: _modeItems,
+                  items: _modeItems(context),
                   onChanged: _handleChangeMode,
                   height: 38,
                 ),
@@ -77,7 +77,7 @@ class OutboundModeV2 extends StatelessWidget {
               alignment: Alignment.topCenter,
               child: SurgeSegmentedControl<Mode>(
                 value: mode,
-                items: _modeItems,
+                items: _modeItems(context),
                 onChanged: _handleChangeMode,
                 height: 34,
               ),
@@ -89,10 +89,16 @@ class OutboundModeV2 extends StatelessWidget {
   }
 }
 
-const _modeItems = [
-  SurgeSegmentedItem(value: Mode.rule, label: 'Rule'),
-  SurgeSegmentedItem(value: Mode.global, label: 'Global'),
-  SurgeSegmentedItem(value: Mode.direct, label: 'Direct'),
+List<SurgeSegmentedItem<Mode>> _modeItems(BuildContext context) => [
+  SurgeSegmentedItem(value: Mode.rule, label: context.appLocalizations.rule),
+  SurgeSegmentedItem(
+    value: Mode.global,
+    label: context.appLocalizations.global,
+  ),
+  SurgeSegmentedItem(
+    value: Mode.direct,
+    label: context.appLocalizations.direct,
+  ),
 ];
 
 class _ModeDescription extends StatelessWidget {
@@ -104,9 +110,15 @@ class _ModeDescription extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final text = switch (mode) {
-      Mode.rule => 'Rule Mode',
-      Mode.global => 'Global Mode',
-      Mode.direct => 'Direct Mode',
+      Mode.rule => context.appLocalizations.modeDescription(
+        context.appLocalizations.rule,
+      ),
+      Mode.global => context.appLocalizations.modeDescription(
+        context.appLocalizations.global,
+      ),
+      Mode.direct => context.appLocalizations.modeDescription(
+        context.appLocalizations.direct,
+      ),
     };
 
     return Container(

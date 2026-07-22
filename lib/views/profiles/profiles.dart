@@ -99,7 +99,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                   builder: (_) {
                     return AdaptiveSheetScaffold(
                       body: _ProfilesManageSheet(profiles: profiles),
-                      title: '订阅管理',
+                      title: context.appLocalizations.profileManagement,
                       appBarActions: const [],
                     );
                   },
@@ -126,7 +126,7 @@ class _ProfilesViewState extends State<ProfilesView> {
         return CommonScaffold(
           backgroundColor: surge.background,
           isLoading: isLoading,
-          title: '配置',
+          title: context.appLocalizations.profiles,
           appBarActions: _buildActions(state.profiles),
           titleVariant: SlAppBarTitleVariant.root,
           body: state.profiles.isEmpty
@@ -162,7 +162,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                           ),
                         const SizedBox(height: 14),
                         SurgeSection(
-                          title: '订阅',
+                          title: context.appLocalizations.profiles,
                           margin: const EdgeInsets.only(bottom: 14),
                           children: [
                             _ProfileListContainer(
@@ -246,7 +246,7 @@ class _MediaCheckCompactRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '流媒体检测',
+                    context.appLocalizations.mediaCheck,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: context.typography.itemLabel.copyWith(
@@ -255,7 +255,9 @@ class _MediaCheckCompactRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    profileCount > 1 ? '按订阅手动检测 · 结果缓存' : '手动检测 · 结果缓存',
+                    profileCount > 1
+                        ? context.appLocalizations.mediaCheckByProfileDesc
+                        : context.appLocalizations.mediaCheckDesc,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: context.typography.compactDescription.copyWith(
@@ -418,7 +420,7 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ProfileSettingSection(
-            title: '添加订阅',
+            title: context.appLocalizations.addProfileTitle,
             children: [
               _ProfileSettingOption(
                 label: appLocalizations.qrcode,
@@ -439,13 +441,13 @@ class _ProfilesManageSheetState extends State<_ProfilesManageSheet> {
           ),
           const SizedBox(height: 14),
           _ProfileSettingSection(
-            title: '订阅排序',
+            title: context.appLocalizations.profileSort,
             subtitle: '${_profiles.length}',
             children: [
               if (_profiles.isEmpty)
                 _ProfileSettingOption(
                   icon: SurgeIcons.sort,
-                  label: '暂无订阅',
+                  label: context.appLocalizations.noProfiles,
                   enabled: false,
                   onTap: () {},
                 )
@@ -1017,20 +1019,20 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
             groupsOwnerProfileId == profileId &&
             (snapshot.freshness == ProxyGroupsFreshnessState.fresh ||
                 snapshot.freshness == ProxyGroupsFreshnessState.stale))) {
-      label = '当前使用';
+      label = context.appLocalizations.currentlyUsed;
       color = surge.green;
       loading = false;
     } else if (snapshot.freshness == ProxyGroupsFreshnessState.refreshing ||
         (groupsOwnerProfileId != null && groupsOwnerProfileId != profileId)) {
-      label = '正在切换';
+      label = context.appLocalizations.switching;
       color = surge.primary;
       loading = true;
     } else if (snapshot.freshness == ProxyGroupsFreshnessState.failed) {
-      label = '不可用';
+      label = context.appLocalizations.unavailable;
       color = surge.red;
       loading = false;
     } else {
-      label = '未就绪';
+      label = context.appLocalizations.notReady;
       color = surge.textSecondary;
       loading = false;
     }
@@ -1111,7 +1113,9 @@ class _CurrentProfileExpandButton extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  enabled ? '展开显示当前订阅节点' : '正在读取当前订阅节点',
+                  enabled
+                      ? context.appLocalizations.expandCurrentProfileNodes
+                      : context.appLocalizations.readingCurrentProfileNodes,
                   style: context.typography.itemLabel.copyWith(
                     color: enabled ? surge.textPrimary : surge.textSecondary,
                   ),
@@ -1149,7 +1153,7 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     if (proxies.isEmpty) {
       return Text(
-        '当前订阅没有可展示的节点',
+        context.appLocalizations.currentProfileHasNoNodes,
         style: context.typography.supporting.copyWith(
           color: surge.textSecondary,
         ),
@@ -1166,7 +1170,7 @@ class _CurrentProfileProxyPreview extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '节点列表',
+                    context.appLocalizations.nodeList,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: context.typography.previewLabel.copyWith(
@@ -1243,7 +1247,7 @@ class _ProfileProxyTestAllButtonState
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return Tooltip(
-      message: '测试全部延迟',
+      message: context.appLocalizations.testAllLatencies,
       child: SurgePressable(
         compact: true,
         borderRadius: BorderRadius.circular(
@@ -2040,7 +2044,7 @@ class _ProfileListSummary extends StatelessWidget {
         ? DateTime.fromMillisecondsSinceEpoch(
             subscriptionInfo.expire * 1000,
           ).show.toString()
-        : '永久有效';
+        : context.appLocalizations.neverExpires;
     final trafficText = '${used.traffic.show} / ${total.traffic.show}';
     final detailStyle = context.typography.detailLabel.copyWith(
       color: surge.textSecondary,
@@ -2140,11 +2144,15 @@ class _ProfileUpdateSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     if (profile.lastUpdateDate == null) {
       return _SummaryText(
-        text: profile.type == ProfileType.file ? '本地文件' : '',
+        text: profile.type == ProfileType.file
+            ? context.appLocalizations.localFile
+            : '',
         style: style,
       );
     }
-    final prefix = profile.type == ProfileType.file ? '本地文件 · ' : '';
+    final prefix = profile.type == ProfileType.file
+        ? '${context.appLocalizations.localFile} · '
+        : '';
     return TickBuilder(
       duration: const Duration(minutes: 1),
       builder: (context, _) {

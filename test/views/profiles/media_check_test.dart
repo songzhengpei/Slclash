@@ -460,6 +460,7 @@ void main() {
               GlobalWidgetsLocalizations.delegate,
             ],
             supportedLocales: AppLocalizations.delegate.supportedLocales,
+            locale: const Locale('zh', 'CN'),
             home: ProfileMediaCheckView(
               profiles: profiles,
               initialProfile: profiles.first,

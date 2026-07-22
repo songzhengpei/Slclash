@@ -51,7 +51,7 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
       height: getWidgetHeight(1),
       child: SurgeDashboardCard(
         title: appLocalizations.networkDetection,
-        subtitle: 'Network',
+        subtitle: appLocalizations.network,
         icon: SurgeIcons.networkCheck,
         height: getWidgetHeight(1),
         trailing: SizedBox.square(
@@ -125,7 +125,7 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
               : hasChecked
               ? Text(
                   key: const ValueKey('network-timeout'),
-                  'Timeout',
+                  appLocalizations.timeout,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: context.typography.controlLabel.copyWith(

@@ -296,7 +296,7 @@ class CommonAction extends _$CommonAction {
         closeProgressDialog();
         final installed = await app?.installApk(apkPath) ?? false;
         if (!installed) {
-          throw '请允许 SlClash 安装未知应用后，再次点击安装更新。';
+          throw currentAppLocalizations.allowUnknownAppInstall;
         }
       },
       title: currentAppLocalizations.download,
@@ -316,7 +316,7 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return CommonDialog(
-      title: '下载更新',
+      title: currentAppLocalizations.downloadUpdate,
       overrideScroll: true,
       child: ValueListenableBuilder<double?>(
         valueListenable: progress,
@@ -358,7 +358,11 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        percent == null ? '正在下载 APK' : '正在下载 APK · $percent%',
+                        percent == null
+                            ? currentAppLocalizations.downloadingApk
+                            : currentAppLocalizations.downloadingApkProgress(
+                                percent,
+                              ),
                         maxLines: 2,
                         style: context.typography.rowTitle.copyWith(
                           color: surge.textPrimary,
@@ -380,7 +384,7 @@ class _UpdateDownloadProgressDialog extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '下载完成后将自动打开系统安装界面。',
+                currentAppLocalizations.apkInstallAfterDownload,
                 style: context.typography.supporting.copyWith(
                   color: surge.textSecondary,
                 ),
@@ -428,7 +432,9 @@ class _UpdateAvailableDialog extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    tagName.takeFirstValid(['新版本']),
+                    tagName.takeFirstValid([
+                      currentAppLocalizations.newVersion,
+                    ]),
                     maxLines: 2,
                     style: context.typography.cardTitle.copyWith(
                       color: surge.textPrimary,
@@ -458,7 +464,7 @@ class _UpdateAvailableDialog extends StatelessWidget {
           const SizedBox(height: 18),
           SurgeDialogActionRow(
             cancelLabel: cancelText,
-            submitLabel: '下载',
+            submitLabel: currentAppLocalizations.download,
             onCancel: () => Navigator.of(context).pop(false),
             onSubmit: () => Navigator.of(context).pop(true),
           ),
@@ -1148,7 +1154,9 @@ class BackupAction extends _$BackupAction {
                 coreController.init(ref.read(versionProvider)),
           );
           if (!ready) {
-            throw StateError('代理内核暂不可用，无法读取 Provider 节点');
+            throw StateError(
+              currentAppLocalizations.proxyCoreCannotReadProvider,
+            );
           }
           return coreController.normalizeProviderContent(bytes);
         },
@@ -1222,7 +1230,7 @@ class BackupAction extends _$BackupAction {
       'backup-restore:core-ready elapsedMs=${coreWatch.elapsedMilliseconds} ready=$coreReady',
     );
     if (!coreReady) {
-      throw StateError('代理内核暂不可用，无法校验备份中的订阅配置');
+      throw StateError(currentAppLocalizations.proxyCoreCannotValidateBackup);
     }
     final result =
         await UnifiedBackupService(

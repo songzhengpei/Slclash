@@ -215,6 +215,24 @@ void main() {
       expect(restored.pureBlack, true);
       expect(restored.textScale.scale, 1.5);
     });
+
+    test('safeFromJson clamps saved text scale to supported range', () {
+      Map<String, Object?> serialized(double scale) =>
+          jsonDecode(
+                jsonEncode(
+                  ThemeProps(
+                    textScale: TextScale(enable: true, scale: scale),
+                  ).toJson(),
+                ),
+              )
+              as Map<String, Object?>;
+
+      final tooLarge = ThemeProps.safeFromJson(serialized(1.4));
+      final tooSmall = ThemeProps.safeFromJson(serialized(0.8));
+
+      expect(tooLarge.textScale.scale, maxTextScale);
+      expect(tooSmall.textScale.scale, minTextScale);
+    });
   });
 
   group('AccessControlProps', () {

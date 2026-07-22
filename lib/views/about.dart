@@ -12,8 +12,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class AboutView extends StatelessWidget {
   const AboutView({super.key});
 
-  static const _slclashDesc =
-      'SlClash 是基于 FlClash 和 Mihomo 内核私有裁剪和重设计的 Android 代理客户端。';
   static const _unknown = 'unknown';
 
   String get _coreVersion {
@@ -31,8 +29,6 @@ class AboutView extends StatelessWidget {
     if (dateTime == null) return releaseDate;
     return dateTime.toLocal().show;
   }
-
-  String get _coreInfo => 'Mihomo Core $_coreVersion · 发布日期 $_coreReleaseDate';
 
   String get _coreSourceUrl {
     final version = globalState.mihomoVersion;
@@ -71,12 +67,12 @@ class AboutView extends StatelessWidget {
         ),
         _AboutLinkItem(
           icon: SurgeIcons.newRelease,
-          title: '更新日志',
+          title: appLocalizations.changelog,
           onTap: () => _showChangelog(context),
         ),
         _AboutLinkItem(
           icon: SurgeIcons.code,
-          title: '原生项目',
+          title: appLocalizations.upstreamProject,
           onTap: () =>
               globalState.openUrl('https://github.com/chen08209/FlClash'),
         ),
@@ -145,7 +141,10 @@ class AboutView extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    _coreInfo,
+                                    appLocalizations.coreReleaseInfo(
+                                      _coreVersion,
+                                      _coreReleaseDate,
+                                    ),
                                     style: context.typography.supporting
                                         .copyWith(color: surge.textSecondary),
                                   ),
@@ -171,7 +170,7 @@ class AboutView extends StatelessWidget {
                   Divider(height: 0, color: surge.separator),
                   const SizedBox(height: 12),
                   Text(
-                    _slclashDesc,
+                    appLocalizations.aboutDescription,
                     style: context.typography.supporting.copyWith(
                       color: surge.textSecondary,
                     ),

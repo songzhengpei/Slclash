@@ -2,7 +2,9 @@ import 'package:fl_clash/widgets/changelog_dialog.dart';
 import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/providers/app.dart';
+import 'package:fl_clash/l10n/l10n.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,12 +23,17 @@ void main() {
           viewSizeProvider.overrideWithBuild((_, _) => const Size(360, 720)),
         ],
         child: MaterialApp(
+          locale: const Locale('zh', 'CN'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.delegate.supportedLocales,
           theme: ThemeData(
             textTheme: textTheme,
-            extensions: [
-              SurgeTheme.light(),
-              typography,
-            ],
+            extensions: [SurgeTheme.light(), typography],
           ),
           home: const Scaffold(body: AppChangelogDialog()),
         ),

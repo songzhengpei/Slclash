@@ -342,28 +342,38 @@ class _ProxiesListViewState extends State<ProxiesListView> {
               ? ProxiesEmptyStateKind.failed
               : ProxiesEmptyStateKind.empty;
           final emptyLabel = switch (emptyKind) {
-            ProxiesEmptyStateKind.loading => '正在同步代理组',
-            ProxiesEmptyStateKind.timeout => 'Provider 尚未加载完成',
-            ProxiesEmptyStateKind.coreUnavailable => '代理内核暂不可用',
-            ProxiesEmptyStateKind.failed => 'Provider 加载失败',
-            ProxiesEmptyStateKind.empty => '暂无代理组',
+            ProxiesEmptyStateKind.loading =>
+              context.appLocalizations.syncingProxyGroups,
+            ProxiesEmptyStateKind.timeout =>
+              context.appLocalizations.providerNotReady,
+            ProxiesEmptyStateKind.coreUnavailable =>
+              context.appLocalizations.proxyCoreUnavailable,
+            ProxiesEmptyStateKind.failed =>
+              context.appLocalizations.providerLoadFailed,
+            ProxiesEmptyStateKind.empty =>
+              context.appLocalizations.noProxyGroups,
           };
           final emptyDescription = switch (emptyKind) {
-            ProxiesEmptyStateKind.loading => '正在从 Provider 获取节点，请稍候。',
-            ProxiesEmptyStateKind.timeout => '请检查网络后重试。',
-            ProxiesEmptyStateKind.coreUnavailable => '请重新连接。',
-            ProxiesEmptyStateKind.failed => '请稍后重试。',
-            ProxiesEmptyStateKind.empty => '当前配置没有可用节点。',
+            ProxiesEmptyStateKind.loading =>
+              context.appLocalizations.fetchingProviderNodes,
+            ProxiesEmptyStateKind.timeout =>
+              context.appLocalizations.checkNetworkAndRetry,
+            ProxiesEmptyStateKind.coreUnavailable =>
+              context.appLocalizations.reconnectPrompt,
+            ProxiesEmptyStateKind.failed =>
+              context.appLocalizations.tryAgainLater,
+            ProxiesEmptyStateKind.empty =>
+              context.appLocalizations.noAvailableNodesInProfile,
           };
           return ProxiesEmptyState(
             label: emptyLabel,
             description: emptyDescription,
             actionLabel: canRefresh
                 ? emptyKind == ProxiesEmptyStateKind.coreUnavailable
-                      ? '重新连接'
+                      ? context.appLocalizations.reconnect
                       : emptyKind == ProxiesEmptyStateKind.empty
-                      ? '刷新代理组'
-                      : '重新加载'
+                      ? context.appLocalizations.refreshProxyGroups
+                      : context.appLocalizations.reload
                 : null,
             onAction: canRefresh
                 ? () {
@@ -389,9 +399,9 @@ class _ProxiesListViewState extends State<ProxiesListView> {
           cardType: state.proxyCardType,
         );
         if (items.isEmpty) {
-          return const ProxiesEmptyState(
-            label: '没有匹配的代理组',
-            description: '请调整筛选条件。',
+          return ProxiesEmptyState(
+            label: context.appLocalizations.noMatchingProxyGroups,
+            description: context.appLocalizations.adjustFilters,
             kind: ProxiesEmptyStateKind.empty,
           );
         }
@@ -829,7 +839,7 @@ class _ListHeaderState extends State<ListHeader> {
       children: [
         if (isExpand) ...[
           SoftOsDockButton(
-            tooltip: '定位当前节点',
+            tooltip: context.appLocalizations.locateCurrentNode,
             icon: SurgeIcons.selector,
             iconSize: 15.5,
             onTap: () {
@@ -838,7 +848,7 @@ class _ListHeaderState extends State<ListHeader> {
           ),
           const SoftOsDockDivider(height: 18),
           SoftOsDockButton(
-            tooltip: '测试延迟',
+            tooltip: context.appLocalizations.testLatency,
             icon: SurgeIcons.networkPing,
             iconSize: 15.5,
             onTap: _delayTest,
@@ -846,7 +856,9 @@ class _ListHeaderState extends State<ListHeader> {
           const SoftOsDockDivider(height: 18),
         ],
         SoftOsDockButton(
-          tooltip: isExpand ? '收起' : '展开',
+          tooltip: isExpand
+              ? context.appLocalizations.collapse
+              : context.appLocalizations.expand,
           icon: isExpand ? SurgeIcons.collapse : SurgeIcons.expand,
           iconSize: 15.5,
           onTap: () {

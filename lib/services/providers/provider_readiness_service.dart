@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:fl_clash/common/app_localizations.dart';
+
 enum ProviderReadinessStatus {
   ready,
   noProviders,
@@ -29,14 +31,14 @@ class ProviderReadinessTimeout implements Exception {
   const ProviderReadinessTimeout();
 
   @override
-  String toString() => 'Provider 尚未加载完成，请检查网络后重试';
+  String toString() => currentAppLocalizations.providerNotReady;
 }
 
 class ProviderReadinessCoreUnavailable implements Exception {
   const ProviderReadinessCoreUnavailable();
 
   @override
-  String toString() => '代理内核暂不可用';
+  String toString() => currentAppLocalizations.proxyCoreUnavailable;
 }
 
 typedef ProviderReadinessLog =
