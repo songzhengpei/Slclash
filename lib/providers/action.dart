@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:yaml/yaml.dart';
 
 part 'generated/action.g.dart';
 
@@ -101,6 +102,28 @@ bool shouldReconnectCoreOnResume({
 
 bool hasExternalProviderDefinitions(ClashConfig config) {
   return config.proxyProviders.isNotEmpty || config.ruleProviders.isNotEmpty;
+}
+
+({bool external, bool proxy}) parseProfileProviderDefinitions(String source) {
+  final document = loadYaml(source);
+  if (document is! YamlMap) return (external: false, proxy: false);
+
+  bool hasEntries(String key) {
+    final value = document[key];
+    return value is Map && value.isNotEmpty;
+  }
+
+  final proxy = hasEntries('proxy-providers');
+  final rule = hasEntries('rule-providers');
+  return (external: proxy || rule, proxy: proxy);
+}
+
+Future<({bool external, bool proxy})> readProfileProviderDefinitions(
+  int profileId,
+) async {
+  final profilePath = await appPath.getProfilePath(profileId.toString());
+  final source = await File(profilePath).readAsString();
+  return parseProfileProviderDefinitions(source);
 }
 
 @Riverpod(keepAlive: true)
@@ -592,12 +615,13 @@ class SetupAction extends _$SetupAction {
     return SetupParams(selectedMap: selectedMap, testUrl: testUrl);
   }
 
-  void fullSetup() {
-    if (!ref.read(initProvider)) return;
+  Future<bool> fullSetup() async {
+    if (!ref.read(initProvider)) return false;
     ref.read(delayDataSourceProvider.notifier).value = {};
-    applyProfile(force: true);
+    final applied = await applyProfile(force: true);
     ref.read(logsProvider.notifier).value = FixedList(500);
     ref.read(requestsProvider.notifier).value = FixedList(500);
+    return applied;
   }
 
   Future<bool> _handleStart() async {
@@ -1288,27 +1312,24 @@ class BackupAction extends _$BackupAction {
 @Riverpod(keepAlive: true)
 class CoreAction extends _$CoreAction {
   Future<bool>? _connectCoreFuture;
+  Future<bool>? _ensureCoreReadyFuture;
 
   @override
   void build() {}
 
   Future<void> initCore() async {
-    final isInit = await coreController.isInit;
-
-    final version = ref.read(versionProvider);
-    if (!isInit) {
-      final res = await coreController.init(version);
-      commonPrint.log('init result: $res');
-      if (res) {
-        final profileId = ref.read(currentProfileIdProvider);
-        if (profileId != null) {
-          ref.invalidate(clashConfigProvider(profileId));
-          unawaited(
-            ref
-                .read(proxiesActionProvider.notifier)
-                .ensureCurrentProfileReady(forceApply: true),
-          );
-        }
+    final wasInitialized = await coreController.isInit;
+    final ready = await ensureCoreReady();
+    if (!ready) return;
+    if (!wasInitialized) {
+      final profileId = ref.read(currentProfileIdProvider);
+      if (profileId != null) {
+        ref.invalidate(clashConfigProvider(profileId));
+        unawaited(
+          ref
+              .read(proxiesActionProvider.notifier)
+              .ensureCurrentProfileReady(forceApply: true),
+        );
       }
     } else {
       final profileId = ref.read(currentProfileIdProvider);
@@ -1342,6 +1363,44 @@ class CoreAction extends _$CoreAction {
         _connectCoreFuture = null;
       }
     }
+  }
+
+  Future<bool> ensureCoreReady() async {
+    final running = _ensureCoreReadyFuture;
+    if (running != null) {
+      commonPrint.log('core-ready:reuse');
+      return running;
+    }
+    final future = _ensureCoreReady();
+    _ensureCoreReadyFuture = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_ensureCoreReadyFuture, future)) {
+        _ensureCoreReadyFuture = null;
+      }
+    }
+  }
+
+  Future<bool> _ensureCoreReady() async {
+    final watch = Stopwatch()..start();
+    if (!coreController.isCompleted && !await connectCore()) return false;
+    if (await coreController.isInit) {
+      commonPrint.log(
+        'core-ready:already-initialized elapsedMs=${watch.elapsedMilliseconds}',
+      );
+      return true;
+    }
+    final initialized = await coreController.init(ref.read(versionProvider));
+    commonPrint.log(
+      'core-ready:initialized elapsedMs=${watch.elapsedMilliseconds} '
+      'success=$initialized',
+      logLevel: initialized ? LogLevel.info : LogLevel.warning,
+    );
+    if (!initialized) {
+      ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+    }
+    return initialized;
   }
 
   Future<bool> _connectCore() async {
@@ -1630,11 +1689,7 @@ class ProxiesAction extends _$ProxiesAction {
       currentProfileId: () => ref.read(currentProfileIdProvider),
       readProviderDefinitions: () async {
         if (profileId == null) return (external: false, proxy: false);
-        final config = await ref.read(clashConfigProvider(profileId).future);
-        return (
-          external: hasExternalProviderDefinitions(config),
-          proxy: config.proxyProviders.isNotEmpty,
-        );
+        return readProfileProviderDefinitions(profileId);
       },
       ensureCoreReady: _ensureCoreReadyForDisplay,
       applyProfileForDisplay: () =>
@@ -1678,23 +1733,7 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   Future<bool> _ensureCoreReadyForDisplay() async {
-    if (!coreController.isCompleted) {
-      final connected = await ref
-          .read(coreActionProvider.notifier)
-          .connectCore();
-      if (!connected) return false;
-    }
-
-    final isInit = await coreController.isInit;
-    if (isInit) return true;
-
-    final version = ref.read(versionProvider);
-    final initialized = await coreController.init(version);
-    commonPrint.log('init result: $initialized');
-    if (!initialized) {
-      ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
-    }
-    return initialized;
+    return ref.read(coreActionProvider.notifier).ensureCoreReady();
   }
 
   Future<List<Group>> _readRuntimeGroups() {
@@ -1947,57 +1986,47 @@ class ProxiesAction extends _$ProxiesAction {
       ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
 
       commonPrint.log('update-groups:start profileId=$profileId');
-      if (!coreController.isCompleted) {
-        final connected = await ref
-            .read(coreActionProvider.notifier)
-            .connectCore();
-        if (!connected) {
-          final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
-          final oldGroups = ref.read(groupsProvider);
-          final hasSameProfileOldGroups =
-              ownerProfileId == profileId && oldGroups.isNotEmpty;
+      final coreReady = await _ensureCoreReadyForDisplay();
+      if (!coreReady) {
+        final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
+        final oldGroups = ref.read(groupsProvider);
+        final hasSameProfileOldGroups =
+            ownerProfileId == profileId && oldGroups.isNotEmpty;
 
-          if (hasSameProfileOldGroups) {
-            ref
-                .read(proxyGroupsSnapshotProvider.notifier)
-                .failed('connectCore failed');
-            return;
-          }
-
-          final hydrated = await hydrateProxyGroupsSnapshot(
-            profileId: profileId,
-            allowStaleOnFingerprintMismatch: true,
-          );
-
-          if (hydrated) {
-            commonPrint.log(
-              'updateGroups connectCore failed, fallback to stale snapshot: profileId=$profileId',
-              logLevel: LogLevel.warning,
-            );
-            ref
-                .read(proxyGroupsSnapshotProvider.notifier)
-                .failed('connectCore failed');
-            return;
-          }
-
-          commonPrint.log(
-            'updateGroups preserve empty fallback: profileId=$profileId, '
-            'reason=connectCore failed, ownerProfileId=$ownerProfileId, '
-            'oldGroups=${oldGroups.length}',
-            logLevel: LogLevel.warning,
-          );
-
+        if (hasSameProfileOldGroups) {
           ref
               .read(proxyGroupsSnapshotProvider.notifier)
               .failed('connectCore failed');
           return;
         }
-        final isInit = await coreController.isInit;
-        if (!isInit) {
-          final version = ref.read(versionProvider);
-          final res = await coreController.init(version);
-          commonPrint.log('init result: $res');
+
+        final hydrated = await hydrateProxyGroupsSnapshot(
+          profileId: profileId,
+          allowStaleOnFingerprintMismatch: true,
+        );
+
+        if (hydrated) {
+          commonPrint.log(
+            'updateGroups connectCore failed, fallback to stale snapshot: profileId=$profileId',
+            logLevel: LogLevel.warning,
+          );
+          ref
+              .read(proxyGroupsSnapshotProvider.notifier)
+              .failed('connectCore failed');
+          return;
         }
+
+        commonPrint.log(
+          'updateGroups preserve empty fallback: profileId=$profileId, '
+          'reason=connectCore failed, ownerProfileId=$ownerProfileId, '
+          'oldGroups=${oldGroups.length}',
+          logLevel: LogLevel.warning,
+        );
+
+        ref
+            .read(proxyGroupsSnapshotProvider.notifier)
+            .failed('connectCore failed');
+        return;
       }
       Future<List<Group>> loadGroups() {
         return retry(

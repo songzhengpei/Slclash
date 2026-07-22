@@ -82,16 +82,28 @@ class _CoreContainerState extends ConsumerState<CoreManager>
     ref.listenManual(currentProfileIdProvider, (prev, next) {
       if (prev != next) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
+          final targetProfileId = next;
           ref.read(providersProvider.notifier).clear();
           ref.read(groupsProvider.notifier).value = const [];
           ref.read(groupsOwnerProfileIdProvider.notifier).set(null);
           await ref
               .read(proxiesActionProvider.notifier)
               .hydrateProxyGroupsSnapshot();
-          ref.read(setupActionProvider.notifier).fullSetup();
+          if (targetProfileId == null) return;
+          final coreReady = await ref
+              .read(coreActionProvider.notifier)
+              .ensureCoreReady();
+          if (!coreReady ||
+              ref.read(currentProfileIdProvider) != targetProfileId) {
+            return;
+          }
+          final applied = await ref
+              .read(setupActionProvider.notifier)
+              .fullSetup();
+          if (ref.read(currentProfileIdProvider) != targetProfileId) return;
           await ref
               .read(proxiesActionProvider.notifier)
-              .ensureCurrentProfileReady(forceApply: true);
+              .ensureCurrentProfileReady(forceApply: !applied);
         });
       }
     });

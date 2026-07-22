@@ -13,6 +13,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'setting.dart';
 
+final _profileHasExternalProvidersProvider = FutureProvider.autoDispose
+    .family<bool, int>((ref, profileId) async {
+      final definitions = await readProfileProviderDefinitions(profileId);
+      return definitions.external;
+    });
+
 class ProxiesView extends ConsumerStatefulWidget {
   const ProxiesView({super.key});
 
@@ -28,12 +34,10 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     final currentProfileId = ref.watch(currentProfileIdProvider);
     final profileHasProviders =
         currentProfileId != null &&
-        ref.watch(
-          clashConfigProvider(currentProfileId).select((state) {
-            final config = state.value;
-            return config != null && hasExternalProviderDefinitions(config);
-          }),
-        );
+        ref
+                .watch(_profileHasExternalProvidersProvider(currentProfileId))
+                .value ==
+            true;
     return runtimeHasProviders || profileHasProviders;
   }
 
@@ -95,11 +99,6 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       ref.read(proxiesStyleSettingProvider.notifier).update((state) {
         return state.copyWith(type: ProxiesType.list);
       });
-
-      final profileId = ref.read(currentProfileIdProvider);
-      if (profileId != null) {
-        ref.invalidate(clashConfigProvider(profileId));
-      }
 
       await ref
           .read(proxiesActionProvider.notifier)
