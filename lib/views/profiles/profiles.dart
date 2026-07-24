@@ -1549,7 +1549,7 @@ class _ProfileListItem extends StatelessWidget {
       child: SizedBox(
         height: hasTraffic ? 92 : 74,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -2026,7 +2026,7 @@ class _ProfileTextBlock extends StatelessWidget {
             ),
             if (showTypePill) ...[
               const SizedBox(width: 7),
-              _ProfileTypePill(label: profile.type.name),
+              _ProfileTypeLabel(label: profile.type.name),
             ],
           ],
         ),
@@ -2042,30 +2042,25 @@ class _ProfileTextBlock extends StatelessWidget {
   }
 }
 
-class _ProfileTypePill extends StatelessWidget {
-  const _ProfileTypePill({required this.label});
+class _ProfileTypeLabel extends StatelessWidget {
+  const _ProfileTypeLabel({required this.label});
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return Container(
-      height: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: surge.textSecondary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(9),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 1),
       child: Text(
-        label,
+        label.toUpperCase(),
         maxLines: 1,
         textScaler: TextScaler.noScaling,
         style: context.typography.badgeLabel.copyWith(
-          color: surge.textSecondary.withValues(alpha: 0.78),
-          fontSize: 10,
+          color: surge.textSecondary.withValues(alpha: 0.68),
+          fontSize: 10.5,
           height: 1,
+          letterSpacing: 0.6,
         ),
       ),
     );
