@@ -12,6 +12,11 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.0.8',
+    date: '2026-07-24',
+    changes: ["修复仅统计代理流量 优化订阅卡信息布局"],
+  ),
+  AppChangelogEntry(
     version: 'v2.0.7',
     date: '2026-07-22',
     changes: [
