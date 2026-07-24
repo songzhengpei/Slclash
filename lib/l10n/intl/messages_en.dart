@@ -1216,6 +1216,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Sub rule cannot be empty",
     ),
     "submit": MessageLookupByLibrary.simpleMessage("Submit"),
+    "subscriptions": MessageLookupByLibrary.simpleMessage("Subscriptions"),
     "suspended": MessageLookupByLibrary.simpleMessage("Suspended..."),
     "switching": MessageLookupByLibrary.simpleMessage("Switching"),
     "sync": MessageLookupByLibrary.simpleMessage("Sync"),

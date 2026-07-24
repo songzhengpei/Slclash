@@ -200,8 +200,8 @@ abstract final class SlclashTypeScale {
     letterSpacing: _letterSpacing,
   );
   static const compactRowTitle = TextStyle(
-    fontSize: 13,
-    height: 1.4667,
+    fontSize: 14,
+    height: 1.4286,
     fontWeight: FontWeight.w400,
     letterSpacing: _letterSpacing,
   );

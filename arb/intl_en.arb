@@ -6,6 +6,7 @@
   "proxies": "Proxies",
   "profile": "Profile",
   "profiles": "Profiles",
+  "subscriptions": "Subscriptions",
   "tools": "Tools",
   "logs": "Logs",
   "logsDesc": "Captured app logs",

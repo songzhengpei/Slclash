@@ -62,7 +62,7 @@ void main() {
         SlclashFontFamilies.jetBrainsMono,
       ),
       (SlclashTypeScale.detailLabel, 12, null, FontWeight.w400, null),
-      (SlclashTypeScale.compactRowTitle, 13, 1.4667, FontWeight.w400, null),
+      (SlclashTypeScale.compactRowTitle, 14, 1.4286, FontWeight.w400, null),
       (SlclashTypeScale.proxyGroupTitle, 16, 1.2941, FontWeight.w500, null),
       (SlclashTypeScale.proxySelectorLabel, 12, 1.3846, FontWeight.w400, null),
       (SlclashTypeScale.proxyCardSubtitle, 12, 1.3846, FontWeight.w400, null),

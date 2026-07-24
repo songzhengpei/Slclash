@@ -861,6 +861,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subRuleEmpty": MessageLookupByLibrary.simpleMessage("子规则为空"),
     "subRuleNotEmpty": MessageLookupByLibrary.simpleMessage("子规则不能为空"),
     "submit": MessageLookupByLibrary.simpleMessage("提交"),
+    "subscriptions": MessageLookupByLibrary.simpleMessage("订阅"),
     "suspended": MessageLookupByLibrary.simpleMessage("挂起中..."),
     "switching": MessageLookupByLibrary.simpleMessage("正在切换"),
     "sync": MessageLookupByLibrary.simpleMessage("同步"),

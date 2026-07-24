@@ -162,7 +162,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                           ),
                         const SizedBox(height: 14),
                         SurgeSection(
-                          title: context.appLocalizations.profiles,
+                          title: context.appLocalizations.subscriptions,
                           margin: const EdgeInsets.only(bottom: 14),
                           children: [
                             _ProfileListContainer(
@@ -1501,7 +1501,7 @@ class _ProfileListItem extends StatelessWidget {
           : SurgeSelectableRowPosition.middle,
       showDivider: showDivider,
       child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: hasTraffic ? 92 : 74),
+        constraints: BoxConstraints(minHeight: hasTraffic ? 108 : 74),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
           child: Row(
@@ -1514,10 +1514,9 @@ class _ProfileListItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 120),
+              SizedBox(
+                width: 92,
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Flexible(
@@ -2066,11 +2065,12 @@ class _ProfileListSummary extends StatelessWidget {
           SoftOsUsageBar(value: progress),
           const SizedBox(height: 7),
           _ProfileSummaryLine(
-            lastUpdateDate: profile.lastUpdateDate,
             trafficText: trafficText,
             expireText: expireText,
             style: detailStyle,
           ),
+          const SizedBox(height: 7),
+          _ProfileUpdateSummary(profile: profile, style: detailStyle),
         ],
       ),
     );
@@ -2106,32 +2106,18 @@ class SoftOsUsageBar extends StatelessWidget {
 
 class _ProfileSummaryLine extends StatelessWidget {
   const _ProfileSummaryLine({
-    required this.lastUpdateDate,
     required this.trafficText,
     required this.expireText,
     required this.style,
   });
 
-  final DateTime? lastUpdateDate;
   final String trafficText;
   final String expireText;
   final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
-    if (lastUpdateDate == null) {
-      return _SummaryText(text: '$trafficText · $expireText', style: style);
-    }
-    return TickBuilder(
-      duration: const Duration(minutes: 1),
-      builder: (context, _) {
-        return _SummaryText(
-          text:
-              '${lastUpdateDate!.getLastUpdateTimeDesc(context)} · $trafficText · $expireText',
-          style: style,
-        );
-      },
-    );
+    return _SummaryText(text: '$trafficText · $expireText', style: style);
   }
 }
 
@@ -2199,15 +2185,12 @@ class _ProfilePill extends StatelessWidget {
     final textColor = surge.textPrimary.withValues(alpha: 0.68);
     final height = metrics.value(surge.controls.statusPillHeight);
     return Container(
+      height: height,
       constraints: BoxConstraints(
-        minHeight: height,
         minWidth: metrics.value(48),
-        maxWidth: metrics.value(72),
+        maxWidth: metrics.value(64),
       ),
-      padding: EdgeInsets.symmetric(
-        horizontal: metrics.value(10),
-        vertical: metrics.value(5),
-      ),
+      padding: EdgeInsets.symmetric(horizontal: metrics.value(10)),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: backgroundAlpha),
@@ -2217,12 +2200,14 @@ class _ProfilePill extends StatelessWidget {
           width: surge.spacing.hairline,
         ),
       ),
-      child: Text(
-        label,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: context.typography.badgeLabel.copyWith(color: textColor),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          maxLines: 1,
+          textScaler: TextScaler.noScaling,
+          style: context.typography.badgeLabel.copyWith(color: textColor),
+        ),
       ),
     );
   }
