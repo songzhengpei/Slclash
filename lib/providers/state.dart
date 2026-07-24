@@ -26,9 +26,7 @@ GroupsState currentGroupsState(Ref ref) {
   final mode = ref.watch(
     patchClashConfigProvider.select((state) => state.mode),
   );
-  final groups = ref.watch(
-    groupsProvider.select(stripRuntimeNowFromGroups),
-  );
+  final groups = ref.watch(groupsProvider.select(stripRuntimeNowFromGroups));
   return GroupsState(
     value: switch (mode) {
       Mode.direct => [],
@@ -44,7 +42,6 @@ GroupsState currentGroupsState(Ref ref) {
 
 @riverpod
 NavigationItemsState navigationItemsState(Ref ref) {
-  final openLogs = ref.watch(appSettingProvider).openLogs;
   final hasProfiles = ref.watch(
     profilesProvider.select((state) => state.isNotEmpty),
   );
@@ -53,10 +50,7 @@ NavigationItemsState navigationItemsState(Ref ref) {
   );
   final isInit = ref.watch(initProvider);
   return NavigationItemsState(
-    value: navigation.getItems(
-      openLogs: openLogs,
-      hasProxies: !isInit ? hasProfiles : hasProxies,
-    ),
+    value: navigation.getItems(hasProxies: !isInit ? hasProfiles : hasProxies),
   );
 }
 
@@ -256,8 +250,8 @@ ProxyGroupSelectorState proxyGroupSelectorState(
   final proxies = group == null
       ? <Proxy>[]
       : query.isEmpty
-          ? group.all
-          : filterProxiesByName(group.all, query);
+      ? group.all
+      : filterProxiesByName(group.all, query);
   return ProxyGroupSelectorState(
     testUrl: group?.testUrl,
     proxiesSortType: proxiesStyle.sortType,
@@ -407,7 +401,10 @@ String? selectedProxyName(Ref ref, String groupName) {
   final cachedNow = ref.watch(
     computedSelectedMapProvider.select((state) => state[groupName]),
   );
-  return group.getCurrentSelectedName(proxyName ?? '', cachedComputedNow: cachedNow);
+  return group.getCurrentSelectedName(
+    proxyName ?? '',
+    cachedComputedNow: cachedNow,
+  );
 }
 
 @riverpod

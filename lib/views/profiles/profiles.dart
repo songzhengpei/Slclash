@@ -162,7 +162,7 @@ class _ProfilesViewState extends State<ProfilesView> {
                           ),
                         const SizedBox(height: 14),
                         SurgeSection(
-                          title: context.appLocalizations.profiles,
+                          title: context.appLocalizations.subscriptions,
                           margin: const EdgeInsets.only(bottom: 14),
                           children: [
                             _ProfileListContainer(
@@ -1488,6 +1488,52 @@ class _ProfileListItem extends StatelessWidget {
     final surge = SurgeTheme.of(context);
     final hasTraffic =
         profile.subscriptionInfo != null && profile.subscriptionInfo!.total > 0;
+    final trailingAction = SizedBox.square(
+      dimension: 44,
+      child: Consumer(
+        builder: (_, ref, _) {
+          final isUpdating = ref.watch(isUpdatingProvider(profile.updatingKey));
+          return FadeThroughBox(
+            child: isUpdating
+                ? Center(
+                    key: const ValueKey('loading'),
+                    child: SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.8,
+                        color: surge.textSecondary,
+                      ),
+                    ),
+                  )
+                : _ProfileActionButton(
+                    onEdit: () {
+                      _handleShowEditExtendPage(context);
+                    },
+                    onPreview: () {
+                      _handlePreview(context);
+                    },
+                    onSync: profile.type == ProfileType.url
+                        ? _updateProfile
+                        : null,
+                    onOverride: () {
+                      _handlePushGenProfilePage(context, profile.id);
+                    },
+                    onCopyLink: profile.type == ProfileType.url
+                        ? () {
+                            _handleCopyLink(context);
+                          }
+                        : null,
+                    onExport: () {
+                      _handleExportFile(context);
+                    },
+                    onDelete: () {
+                      _handleDeleteProfile(context);
+                    },
+                  ),
+          );
+        },
+      ),
+    );
     return SurgeSelectableRow(
       selected: isSelected,
       onTap: onTap,
@@ -1503,83 +1549,36 @@ class _ProfileListItem extends StatelessWidget {
       child: SizedBox(
         height: hasTraffic ? 92 : 74,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: _ProfileTextBlock(
-                  profile: profile,
-                  info: [_ProfileListSummary(profile: profile)],
-                ),
+                child: hasTraffic
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _ProfileTextBlock(
+                            profile: profile,
+                            showTypePill: true,
+                            info: [_ProfileListSummary(profile: profile)],
+                          ),
+                          const SizedBox(height: 7),
+                          SizedBox(
+                            width: double.infinity,
+                            child: _ProfileCombinedSummary(profile: profile),
+                          ),
+                        ],
+                      )
+                    : _ProfileTextBlock(
+                        profile: profile,
+                        showTypePill: true,
+                        info: [_ProfileListSummary(profile: profile)],
+                      ),
               ),
               const SizedBox(width: 10),
-              SizedBox(
-                width: 92,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Flexible(
-                      child: _ProfilePill(
-                        label: profile.type.name,
-                        color: surge.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Consumer(
-                      builder: (_, ref, _) {
-                        final isUpdating = ref.watch(
-                          isUpdatingProvider(profile.updatingKey),
-                        );
-                        return FadeThroughBox(
-                          child: isUpdating
-                              ? SizedBox.square(
-                                  key: const ValueKey('loading'),
-                                  dimension: 44,
-                                  child: Center(
-                                    child: SizedBox.square(
-                                      dimension: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.8,
-                                        color: surge.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : _ProfileActionButton(
-                                  onEdit: () {
-                                    _handleShowEditExtendPage(context);
-                                  },
-                                  onPreview: () {
-                                    _handlePreview(context);
-                                  },
-                                  onSync: profile.type == ProfileType.url
-                                      ? _updateProfile
-                                      : null,
-                                  onOverride: () {
-                                    _handlePushGenProfilePage(
-                                      context,
-                                      profile.id,
-                                    );
-                                  },
-                                  onCopyLink: profile.type == ProfileType.url
-                                      ? () {
-                                          _handleCopyLink(context);
-                                        }
-                                      : null,
-                                  onExport: () {
-                                    _handleExportFile(context);
-                                  },
-                                  onDelete: () {
-                                    _handleDeleteProfile(context);
-                                  },
-                                ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
+              trailingAction,
             ],
           ),
         ),
@@ -1995,10 +1994,15 @@ class _ProfileActionMenuItem extends StatelessWidget {
 }
 
 class _ProfileTextBlock extends StatelessWidget {
-  const _ProfileTextBlock({required this.profile, this.info = const []});
+  const _ProfileTextBlock({
+    required this.profile,
+    this.info = const [],
+    this.showTypePill = false,
+  });
 
   final Profile profile;
   final List<Widget> info;
+  final bool showTypePill;
 
   @override
   Widget build(BuildContext context) {
@@ -2007,11 +2011,24 @@ class _ProfileTextBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          profile.realLabel,
-          style: context.typography.rowTitle.copyWith(color: surge.textPrimary),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                profile.realLabel,
+                style: context.typography.rowTitle.copyWith(
+                  color: surge.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (showTypePill) ...[
+              const SizedBox(width: 7),
+              _ProfileTypeLabel(type: profile.type),
+            ],
+          ],
         ),
         if (info.isNotEmpty)
           Column(
@@ -2021,6 +2038,36 @@ class _ProfileTextBlock extends StatelessWidget {
             children: info,
           ),
       ],
+    );
+  }
+}
+
+class _ProfileTypeLabel extends StatelessWidget {
+  const _ProfileTypeLabel({required this.type});
+
+  final ProfileType type;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    final baseColor = switch (type) {
+      ProfileType.url => surge.semantic.dashboardActiveGreen,
+      ProfileType.file => surge.semantic.dashboardDynamicActive,
+    };
+    final color = Color.lerp(baseColor, surge.textPrimary, 0.12)!;
+    return Padding(
+      padding: const EdgeInsets.only(top: 1),
+      child: Text(
+        type.name.toUpperCase(),
+        maxLines: 1,
+        textScaler: TextScaler.noScaling,
+        style: context.typography.badgeLabel.copyWith(
+          color: color.withValues(alpha: 0.92),
+          fontSize: 10.5,
+          height: 1,
+          letterSpacing: 0.6,
+        ),
+      ),
     );
   }
 }
@@ -2040,12 +2087,6 @@ class _ProfileListSummary extends StatelessWidget {
         : 0;
     final total = hasTraffic ? subscriptionInfo.total : 0;
     final progress = hasTraffic ? (used / total).clamp(0.0, 1.0) : 0.0;
-    final expireText = hasTraffic && subscriptionInfo.expire != 0
-        ? DateTime.fromMillisecondsSinceEpoch(
-            subscriptionInfo.expire * 1000,
-          ).show.toString()
-        : context.appLocalizations.neverExpires;
-    final trafficText = '${used.traffic.show} / ${total.traffic.show}';
     final detailStyle = context.typography.detailLabel.copyWith(
       color: surge.textSecondary,
     );
@@ -2059,19 +2100,7 @@ class _ProfileListSummary extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(top: 7),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SoftOsUsageBar(value: progress),
-          const SizedBox(height: 7),
-          _ProfileSummaryLine(
-            lastUpdateDate: profile.lastUpdateDate,
-            trafficText: trafficText,
-            expireText: expireText,
-            style: detailStyle,
-          ),
-        ],
-      ),
+      child: SoftOsUsageBar(value: progress),
     );
   }
 }
@@ -2103,33 +2132,36 @@ class SoftOsUsageBar extends StatelessWidget {
   }
 }
 
-class _ProfileSummaryLine extends StatelessWidget {
-  const _ProfileSummaryLine({
-    required this.lastUpdateDate,
-    required this.trafficText,
-    required this.expireText,
-    required this.style,
-  });
+class _ProfileCombinedSummary extends StatelessWidget {
+  const _ProfileCombinedSummary({required this.profile});
 
-  final DateTime? lastUpdateDate;
-  final String trafficText;
-  final String expireText;
-  final TextStyle? style;
+  final Profile profile;
 
   @override
   Widget build(BuildContext context) {
-    if (lastUpdateDate == null) {
+    final surge = SurgeTheme.of(context);
+    final subscriptionInfo = profile.subscriptionInfo!;
+    final used = subscriptionInfo.upload + subscriptionInfo.download;
+    final trafficText =
+        '${used.traffic.show} / ${subscriptionInfo.total.traffic.show}';
+    final expireText = subscriptionInfo.expire != 0
+        ? DateTime.fromMillisecondsSinceEpoch(
+            subscriptionInfo.expire * 1000,
+          ).show.toString()
+        : context.appLocalizations.neverExpires;
+    final style = context.typography.detailLabel.copyWith(
+      color: surge.textSecondary,
+    );
+    if (profile.lastUpdateDate == null) {
       return _SummaryText(text: '$trafficText · $expireText', style: style);
     }
     return TickBuilder(
       duration: const Duration(minutes: 1),
-      builder: (context, _) {
-        return _SummaryText(
-          text:
-              '${lastUpdateDate!.getLastUpdateTimeDesc(context)} · $trafficText · $expireText',
-          style: style,
-        );
-      },
+      builder: (context, _) => _SummaryText(
+        text:
+            '${profile.lastUpdateDate!.getLastUpdateTimeDesc(context)} · $trafficText · $expireText',
+        style: style,
+      ),
     );
   }
 }

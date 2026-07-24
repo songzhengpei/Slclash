@@ -4,10 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('shouldCollectCoreLogs', () {
-    test('collects logs only on foreground logs page when enabled', () {
+    test('collects logs on foreground logs page', () {
       expect(
         shouldCollectCoreLogs(
-          openLogs: true,
           appForeground: true,
           currentPageLabel: PageLabel.logs,
         ),
@@ -15,21 +14,9 @@ void main() {
       );
     });
 
-    test('does not collect logs when setting is disabled', () {
-      expect(
-        shouldCollectCoreLogs(
-          openLogs: false,
-          appForeground: true,
-          currentPageLabel: PageLabel.logs,
-        ),
-        isFalse,
-      );
-    });
-
     test('does not collect logs outside logs page', () {
       expect(
         shouldCollectCoreLogs(
-          openLogs: true,
           appForeground: true,
           currentPageLabel: PageLabel.dashboard,
         ),
@@ -40,7 +27,6 @@ void main() {
     test('does not collect logs in background', () {
       expect(
         shouldCollectCoreLogs(
-          openLogs: true,
           appForeground: false,
           currentPageLabel: PageLabel.logs,
         ),

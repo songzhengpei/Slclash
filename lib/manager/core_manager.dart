@@ -12,11 +12,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 @visibleForTesting
 bool shouldCollectCoreLogs({
-  required bool openLogs,
   required bool appForeground,
   required PageLabel currentPageLabel,
 }) {
-  return openLogs && appForeground && currentPageLabel == PageLabel.logs;
+  return appForeground && currentPageLabel == PageLabel.logs;
 }
 
 @visibleForTesting
@@ -47,7 +46,6 @@ class _CoreContainerState extends ConsumerState<CoreManager>
 
   void _syncCoreEventControls() {
     final shouldCollectLogs = shouldCollectCoreLogs(
-      openLogs: ref.read(appSettingProvider.select((state) => state.openLogs)),
       appForeground: ref.read(appForegroundProvider),
       currentPageLabel: ref.read(currentPageLabelProvider),
     );
@@ -113,10 +111,6 @@ class _CoreContainerState extends ConsumerState<CoreManager>
       }
     });
     ref.listenManual(
-      appSettingProvider.select((state) => state.openLogs),
-      (prev, next) => _syncCoreEventControls(),
-    );
-    ref.listenManual(
       appForegroundProvider,
       (prev, next) => _syncCoreEventControls(),
     );
@@ -166,7 +160,6 @@ class _CoreContainerState extends ConsumerState<CoreManager>
   @override
   void onLogs(List<Log> logs) {
     if (!shouldCollectCoreLogs(
-      openLogs: ref.read(appSettingProvider.select((state) => state.openLogs)),
       appForeground: ref.read(appForegroundProvider),
       currentPageLabel: ref.read(currentPageLabelProvider),
     )) {
