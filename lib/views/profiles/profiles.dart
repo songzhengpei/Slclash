@@ -2026,7 +2026,7 @@ class _ProfileTextBlock extends StatelessWidget {
             ),
             if (showTypePill) ...[
               const SizedBox(width: 7),
-              _ProfileTypeLabel(label: profile.type.name),
+              _ProfileTypeLabel(type: profile.type),
             ],
           ],
         ),
@@ -2043,21 +2043,25 @@ class _ProfileTextBlock extends StatelessWidget {
 }
 
 class _ProfileTypeLabel extends StatelessWidget {
-  const _ProfileTypeLabel({required this.label});
+  const _ProfileTypeLabel({required this.type});
 
-  final String label;
+  final ProfileType type;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
+    final color = switch (type) {
+      ProfileType.url => surge.orange,
+      ProfileType.file => surge.primary,
+    };
     return Padding(
       padding: const EdgeInsets.only(top: 1),
       child: Text(
-        label.toUpperCase(),
+        type.name.toUpperCase(),
         maxLines: 1,
         textScaler: TextScaler.noScaling,
         style: context.typography.badgeLabel.copyWith(
-          color: surge.textSecondary.withValues(alpha: 0.68),
+          color: color.withValues(alpha: 0.92),
           fontSize: 10.5,
           height: 1,
           letterSpacing: 0.6,
