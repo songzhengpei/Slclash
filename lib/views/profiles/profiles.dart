@@ -2051,8 +2051,8 @@ class _ProfileTypeLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final baseColor = switch (type) {
-      ProfileType.url => surge.semantic.dashboardDynamicActive,
-      ProfileType.file => surge.semantic.dashboardActiveGreen,
+      ProfileType.url => surge.semantic.dashboardActiveGreen,
+      ProfileType.file => surge.semantic.dashboardDynamicActive,
     };
     final color = Color.lerp(baseColor, surge.textPrimary, 0.12)!;
     return Padding(
