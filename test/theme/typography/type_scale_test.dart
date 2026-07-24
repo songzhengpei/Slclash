@@ -41,6 +41,7 @@ void main() {
       (SlclashTypeScale.navigationLabel, 11, 1, FontWeight.w500, null),
       (SlclashTypeScale.selectedNavigationLabel, 11, 1, FontWeight.w600, null),
       (SlclashTypeScale.badgeLabel, 11, 1, FontWeight.w600, null),
+      (SlclashTypeScale.profileTypeLabel, 10.5, 1, FontWeight.w600, null),
       (SlclashTypeScale.selectedRowTitle, 15, 1.4667, FontWeight.w600, null),
       (SlclashTypeScale.modeTabLabel, 14, 1.4667, FontWeight.w500, null),
       (
@@ -100,7 +101,7 @@ void main() {
       ),
     ];
 
-    expect(cases, hasLength(50));
+    expect(cases, hasLength(51));
     for (final (style, size, height, weight, family) in cases) {
       expect(style.fontSize, size);
       if (height == null) {

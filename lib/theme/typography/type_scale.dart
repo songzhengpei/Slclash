@@ -145,6 +145,12 @@ abstract final class SlclashTypeScale {
     fontWeight: FontWeight.w600,
     letterSpacing: _letterSpacing,
   );
+  static const profileTypeLabel = TextStyle(
+    fontSize: 10.5,
+    height: 1,
+    fontWeight: FontWeight.w600,
+    letterSpacing: _letterSpacing,
+  );
   static const selectedRowTitle = TextStyle(
     fontSize: 15,
     height: 1.4667,
