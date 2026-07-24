@@ -97,12 +97,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "aboutDescription": MessageLookupByLibrary.simpleMessage(
       "SlClash is a privately tailored and redesigned Android proxy client based on FlClash and the Mihomo core.",
     ),
-    "accessControl": MessageLookupByLibrary.simpleMessage("AccessControl"),
+    "accessControl": MessageLookupByLibrary.simpleMessage("Access control"),
     "accessControlAllowDesc": MessageLookupByLibrary.simpleMessage(
       "Only allow selected app to enter VPN",
     ),
     "accessControlDesc": MessageLookupByLibrary.simpleMessage(
-      "Configure application access proxy",
+      "Choose which apps use the VPN",
     ),
     "accessControlNotAllowDesc": MessageLookupByLibrary.simpleMessage(
       "The selected application will be excluded from VPN",
@@ -158,9 +158,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "allowBypassDesc": MessageLookupByLibrary.simpleMessage(
       "Some apps can bypass VPN when turned on",
     ),
-    "allowLan": MessageLookupByLibrary.simpleMessage("AllowLan"),
+    "allowLan": MessageLookupByLibrary.simpleMessage("Allow LAN access"),
     "allowLanDesc": MessageLookupByLibrary.simpleMessage(
-      "Allow access proxy through the LAN",
+      "Let devices on your LAN use this proxy",
     ),
     "allowUnknownAppInstall": MessageLookupByLibrary.simpleMessage(
       "Allow SlClash to install unknown apps, then tap Install again.",
@@ -180,7 +180,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "application": MessageLookupByLibrary.simpleMessage("Application"),
     "applicationDesc": MessageLookupByLibrary.simpleMessage(
-      "Modify application related settings",
+      "Language, startup, updates, and app behavior",
     ),
     "authorized": MessageLookupByLibrary.simpleMessage("Authorized"),
     "auto": MessageLookupByLibrary.simpleMessage("Auto"),
@@ -196,13 +196,13 @@ class MessageLookup extends MessageLookupByLibrary {
     "autoCloseConnectionsDesc": MessageLookupByLibrary.simpleMessage(
       "Auto close connections after change node",
     ),
-    "autoLaunch": MessageLookupByLibrary.simpleMessage("Auto launch"),
+    "autoLaunch": MessageLookupByLibrary.simpleMessage("Start automatically"),
     "autoLaunchDesc": MessageLookupByLibrary.simpleMessage(
-      "Follow the system self startup",
+      "Start SlClash when the device starts",
     ),
-    "autoRun": MessageLookupByLibrary.simpleMessage("AutoRun"),
+    "autoRun": MessageLookupByLibrary.simpleMessage("Connect on launch"),
     "autoRunDesc": MessageLookupByLibrary.simpleMessage(
-      "Auto run when the application is opened",
+      "Connect automatically when SlClash opens",
     ),
     "autoSetSystemDns": MessageLookupByLibrary.simpleMessage(
       "Auto set system DNS",
@@ -324,7 +324,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "connectionsDesc": MessageLookupByLibrary.simpleMessage(
       "View current connections data",
     ),
-    "connectivity": MessageLookupByLibrary.simpleMessage("Connectivity："),
+    "connectivity": MessageLookupByLibrary.simpleMessage("Connectivity"),
     "content": MessageLookupByLibrary.simpleMessage("Content"),
     "contentColor": MessageLookupByLibrary.simpleMessage("Content"),
     "contentNotEmpty": MessageLookupByLibrary.simpleMessage(
@@ -403,7 +403,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "disconnected": MessageLookupByLibrary.simpleMessage("Disconnected"),
     "discoverNewVersion": MessageLookupByLibrary.simpleMessage(
-      "Discover the new version",
+      "New version available",
     ),
     "dnsDesc": MessageLookupByLibrary.simpleMessage(
       "Update DNS related settings",
@@ -507,7 +507,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "geoipCode": MessageLookupByLibrary.simpleMessage("Geoip code"),
     "global": MessageLookupByLibrary.simpleMessage("Global"),
     "go": MessageLookupByLibrary.simpleMessage("Go"),
-    "goDownload": MessageLookupByLibrary.simpleMessage("Go to download"),
+    "goDownload": MessageLookupByLibrary.simpleMessage("Download"),
     "goToConfigureScript": MessageLookupByLibrary.simpleMessage(
       "Go to configure script",
     ),
@@ -634,7 +634,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Disabling will hide the log entry",
     ),
     "logs": MessageLookupByLibrary.simpleMessage("Logs"),
-    "logsDesc": MessageLookupByLibrary.simpleMessage("Log capture records"),
+    "logsDesc": MessageLookupByLibrary.simpleMessage("Captured app logs"),
     "logsTest": MessageLookupByLibrary.simpleMessage("Logs test"),
     "loopback": MessageLookupByLibrary.simpleMessage("Loopback unlock tool"),
     "loopbackDesc": MessageLookupByLibrary.simpleMessage(
@@ -744,7 +744,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "The current proxy group cannot be selected.",
     ),
     "nullProfileDesc": MessageLookupByLibrary.simpleMessage(
-      "No profile, Please add a profile",
+      "No profiles yet. Add one to get started.",
     ),
     "nullTip": m22,
     "numberTip": m23,
@@ -754,10 +754,10 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "onlyIcon": MessageLookupByLibrary.simpleMessage("Icon"),
     "onlyStatisticsProxy": MessageLookupByLibrary.simpleMessage(
-      "Only statistics proxy",
+      "Count proxy traffic only",
     ),
     "onlyStatisticsProxyDesc": MessageLookupByLibrary.simpleMessage(
-      "When turned on, only statistics proxy traffic",
+      "Exclude traffic sent through DIRECT",
     ),
     "openResourceAutoUpdateSettings": MessageLookupByLibrary.simpleMessage(
       "Open automatic resource update settings",
@@ -846,7 +846,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "profilesRestoredProxyNotLoaded": MessageLookupByLibrary.simpleMessage(
       "Profile data restored, but the proxy is not loaded yet.",
     ),
-    "profilesSort": MessageLookupByLibrary.simpleMessage("Profiles sort"),
+    "profilesSort": MessageLookupByLibrary.simpleMessage("Sort profiles"),
     "project": MessageLookupByLibrary.simpleMessage("Project"),
     "providerLoadFailed": MessageLookupByLibrary.simpleMessage(
       "Provider failed to load",
@@ -981,7 +981,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "resources": MessageLookupByLibrary.simpleMessage("Resources"),
     "resourcesDesc": MessageLookupByLibrary.simpleMessage(
-      "External resource related info",
+      "External resource files",
     ),
     "respectRules": MessageLookupByLibrary.simpleMessage("Respect rules"),
     "respectRulesDesc": MessageLookupByLibrary.simpleMessage(
@@ -1171,7 +1171,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "settings": MessageLookupByLibrary.simpleMessage("Settings"),
     "show": MessageLookupByLibrary.simpleMessage("Show"),
     "shrink": MessageLookupByLibrary.simpleMessage("Shrink"),
-    "silentLaunch": MessageLookupByLibrary.simpleMessage("SilentLaunch"),
+    "silentLaunch": MessageLookupByLibrary.simpleMessage("Start in background"),
     "silentLaunchDesc": MessageLookupByLibrary.simpleMessage(
       "Start in the background",
     ),
@@ -1249,7 +1249,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "theme": MessageLookupByLibrary.simpleMessage("Theme"),
     "themeColor": MessageLookupByLibrary.simpleMessage("Theme color"),
     "themeDesc": MessageLookupByLibrary.simpleMessage(
-      "Set dark mode,adjust the color",
+      "Choose the appearance and accent color",
     ),
     "themeMode": MessageLookupByLibrary.simpleMessage("Theme mode"),
     "tight": MessageLookupByLibrary.simpleMessage("Tight"),
@@ -1272,7 +1272,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "tun": MessageLookupByLibrary.simpleMessage("TUN"),
     "tunDesc": MessageLookupByLibrary.simpleMessage(
-      "only effective in administrator mode",
+      "Routes device traffic through the VPN",
     ),
     "turnOff": MessageLookupByLibrary.simpleMessage("Turn Off"),
     "turnOn": MessageLookupByLibrary.simpleMessage("Turn On"),

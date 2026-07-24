@@ -99,10 +99,10 @@ class AppLocalizations {
     return Intl.message('Logs', name: 'logs', desc: '', args: []);
   }
 
-  /// `Log capture records`
+  /// `Captured app logs`
   String get logsDesc {
     return Intl.message(
-      'Log capture records',
+      'Captured app logs',
       name: 'logsDesc',
       desc: '',
       args: [],
@@ -114,10 +114,10 @@ class AppLocalizations {
     return Intl.message('Resources', name: 'resources', desc: '', args: []);
   }
 
-  /// `External resource related info`
+  /// `External resource files`
   String get resourcesDesc {
     return Intl.message(
-      'External resource related info',
+      'External resource files',
       name: 'resourcesDesc',
       desc: '',
       args: [],
@@ -174,10 +174,10 @@ class AppLocalizations {
     return Intl.message('Download', name: 'download', desc: '', args: []);
   }
 
-  /// `No profile, Please add a profile`
+  /// `No profiles yet. Add one to get started.`
   String get nullProfileDesc {
     return Intl.message(
-      'No profile, Please add a profile',
+      'No profiles yet. Add one to get started.',
       name: 'nullProfileDesc',
       desc: '',
       args: [],
@@ -234,10 +234,10 @@ class AppLocalizations {
     return Intl.message('Theme', name: 'theme', desc: '', args: []);
   }
 
-  /// `Set dark mode,adjust the color`
+  /// `Choose the appearance and accent color`
   String get themeDesc {
     return Intl.message(
-      'Set dark mode,adjust the color',
+      'Choose the appearance and accent color',
       name: 'themeDesc',
       desc: '',
       args: [],
@@ -249,15 +249,20 @@ class AppLocalizations {
     return Intl.message('Override', name: 'override', desc: '', args: []);
   }
 
-  /// `AllowLan`
+  /// `Allow LAN access`
   String get allowLan {
-    return Intl.message('AllowLan', name: 'allowLan', desc: '', args: []);
+    return Intl.message(
+      'Allow LAN access',
+      name: 'allowLan',
+      desc: '',
+      args: [],
+    );
   }
 
-  /// `Allow access proxy through the LAN`
+  /// `Let devices on your LAN use this proxy`
   String get allowLanDesc {
     return Intl.message(
-      'Allow access proxy through the LAN',
+      'Let devices on your LAN use this proxy',
       name: 'allowLanDesc',
       desc: '',
       args: [],
@@ -269,10 +274,10 @@ class AppLocalizations {
     return Intl.message('TUN', name: 'tun', desc: '', args: []);
   }
 
-  /// `only effective in administrator mode`
+  /// `Routes device traffic through the VPN`
   String get tunDesc {
     return Intl.message(
-      'only effective in administrator mode',
+      'Routes device traffic through the VPN',
       name: 'tunDesc',
       desc: '',
       args: [],
@@ -299,25 +304,30 @@ class AppLocalizations {
     );
   }
 
-  /// `Auto launch`
+  /// `Start automatically`
   String get autoLaunch {
-    return Intl.message('Auto launch', name: 'autoLaunch', desc: '', args: []);
+    return Intl.message(
+      'Start automatically',
+      name: 'autoLaunch',
+      desc: '',
+      args: [],
+    );
   }
 
-  /// `Follow the system self startup`
+  /// `Start SlClash when the device starts`
   String get autoLaunchDesc {
     return Intl.message(
-      'Follow the system self startup',
+      'Start SlClash when the device starts',
       name: 'autoLaunchDesc',
       desc: '',
       args: [],
     );
   }
 
-  /// `SilentLaunch`
+  /// `Start in background`
   String get silentLaunch {
     return Intl.message(
-      'SilentLaunch',
+      'Start in background',
       name: 'silentLaunch',
       desc: '',
       args: [],
@@ -334,15 +344,20 @@ class AppLocalizations {
     );
   }
 
-  /// `AutoRun`
+  /// `Connect on launch`
   String get autoRun {
-    return Intl.message('AutoRun', name: 'autoRun', desc: '', args: []);
+    return Intl.message(
+      'Connect on launch',
+      name: 'autoRun',
+      desc: '',
+      args: [],
+    );
   }
 
-  /// `Auto run when the application is opened`
+  /// `Connect automatically when SlClash opens`
   String get autoRunDesc {
     return Intl.message(
-      'Auto run when the application is opened',
+      'Connect automatically when SlClash opens',
       name: 'autoRunDesc',
       desc: '',
       args: [],
@@ -384,20 +399,20 @@ class AppLocalizations {
     );
   }
 
-  /// `AccessControl`
+  /// `Access control`
   String get accessControl {
     return Intl.message(
-      'AccessControl',
+      'Access control',
       name: 'accessControl',
       desc: '',
       args: [],
     );
   }
 
-  /// `Configure application access proxy`
+  /// `Choose which apps use the VPN`
   String get accessControlDesc {
     return Intl.message(
-      'Configure application access proxy',
+      'Choose which apps use the VPN',
       name: 'accessControlDesc',
       desc: '',
       args: [],
@@ -409,10 +424,10 @@ class AppLocalizations {
     return Intl.message('Application', name: 'application', desc: '', args: []);
   }
 
-  /// `Modify application related settings`
+  /// `Language, startup, updates, and app behavior`
   String get applicationDesc {
     return Intl.message(
-      'Modify application related settings',
+      'Language, startup, updates, and app behavior',
       name: 'applicationDesc',
       desc: '',
       args: [],
@@ -854,10 +869,10 @@ class AppLocalizations {
     return Intl.message('Bind', name: 'bind', desc: '', args: []);
   }
 
-  /// `Connectivity：`
+  /// `Connectivity`
   String get connectivity {
     return Intl.message(
-      'Connectivity：',
+      'Connectivity',
       name: 'connectivity',
       desc: '',
       args: [],
@@ -914,10 +929,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Discover the new version`
+  /// `New version available`
   String get discoverNewVersion {
     return Intl.message(
-      'Discover the new version',
+      'New version available',
       name: 'discoverNewVersion',
       desc: '',
       args: [],
@@ -934,14 +949,9 @@ class AppLocalizations {
     );
   }
 
-  /// `Go to download`
+  /// `Download`
   String get goDownload {
-    return Intl.message(
-      'Go to download',
-      name: 'goDownload',
-      desc: '',
-      args: [],
-    );
+    return Intl.message('Download', name: 'goDownload', desc: '', args: []);
   }
 
   /// `Unknown`
@@ -1299,20 +1309,20 @@ class AppLocalizations {
     );
   }
 
-  /// `Only statistics proxy`
+  /// `Count proxy traffic only`
   String get onlyStatisticsProxy {
     return Intl.message(
-      'Only statistics proxy',
+      'Count proxy traffic only',
       name: 'onlyStatisticsProxy',
       desc: '',
       args: [],
     );
   }
 
-  /// `When turned on, only statistics proxy traffic`
+  /// `Exclude traffic sent through DIRECT`
   String get onlyStatisticsProxyDesc {
     return Intl.message(
-      'When turned on, only statistics proxy traffic',
+      'Exclude traffic sent through DIRECT',
       name: 'onlyStatisticsProxyDesc',
       desc: '',
       args: [],
@@ -1444,10 +1454,10 @@ class AppLocalizations {
     return Intl.message('Loose', name: 'loose', desc: '', args: []);
   }
 
-  /// `Profiles sort`
+  /// `Sort profiles`
   String get profilesSort {
     return Intl.message(
-      'Profiles sort',
+      'Sort profiles',
       name: 'profilesSort',
       desc: '',
       args: [],
