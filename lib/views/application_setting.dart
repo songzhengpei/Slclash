@@ -196,30 +196,6 @@ class AnimateTabItem extends ConsumerWidget {
   }
 }
 
-class OpenLogsItem extends ConsumerWidget {
-  const OpenLogsItem({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final appLocalizations = context.appLocalizations;
-    final openLogs = ref.watch(
-      appSettingProvider.select((state) => state.openLogs),
-    );
-    return ListItem.switchItem(
-      title: Text(appLocalizations.logcat),
-      subtitle: Text(appLocalizations.logcatDesc),
-      delegate: SwitchDelegate(
-        value: openLogs,
-        onChanged: (bool value) {
-          ref
-              .read(appSettingProvider.notifier)
-              .update((state) => state.copyWith(openLogs: value));
-        },
-      ),
-    );
-  }
-}
-
 class AutoCheckUpdateItem extends ConsumerWidget {
   const AutoCheckUpdateItem({super.key});
 
@@ -258,7 +234,6 @@ class ApplicationSettingView extends StatelessWidget {
       const AutoRunItem(),
       if (system.isAndroid) ...[const HiddenItem()],
       const AnimateTabItem(),
-      const OpenLogsItem(),
       const CloseConnectionsItem(),
       const UsageItem(),
       const AutoCheckUpdateItem(),
