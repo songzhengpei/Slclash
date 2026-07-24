@@ -2050,11 +2050,11 @@ class _ProfileTypeLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final color = Color.lerp(
-      surge.semantic.dashboardDynamicActive,
-      surge.textPrimary,
-      0.12,
-    )!;
+    final baseColor = switch (type) {
+      ProfileType.url => surge.semantic.dashboardDynamicActive,
+      ProfileType.file => surge.semantic.dashboardActiveGreen,
+    };
+    final color = Color.lerp(baseColor, surge.textPrimary, 0.12)!;
     return Padding(
       padding: const EdgeInsets.only(top: 1),
       child: Text(
