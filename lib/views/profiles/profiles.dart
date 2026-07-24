@@ -1500,10 +1500,10 @@ class _ProfileListItem extends StatelessWidget {
           ? SurgeSelectableRowPosition.last
           : SurgeSelectableRowPosition.middle,
       showDivider: showDivider,
-      child: SizedBox(
-        height: hasTraffic ? 92 : 74,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: hasTraffic ? 92 : 74),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -1514,9 +1514,10 @@ class _ProfileListItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              SizedBox(
-                width: 92,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Flexible(
@@ -2198,12 +2199,15 @@ class _ProfilePill extends StatelessWidget {
     final textColor = surge.textPrimary.withValues(alpha: 0.68);
     final height = metrics.value(surge.controls.statusPillHeight);
     return Container(
-      height: height,
       constraints: BoxConstraints(
+        minHeight: height,
         minWidth: metrics.value(48),
-        maxWidth: metrics.value(64),
+        maxWidth: metrics.value(72),
       ),
-      padding: EdgeInsets.symmetric(horizontal: metrics.value(10)),
+      padding: EdgeInsets.symmetric(
+        horizontal: metrics.value(10),
+        vertical: metrics.value(5),
+      ),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: backgroundAlpha),
@@ -2213,14 +2217,12 @@ class _ProfilePill extends StatelessWidget {
           width: surge.spacing.hairline,
         ),
       ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          label,
-          maxLines: 1,
-          textScaler: TextScaler.noScaling,
-          style: context.typography.badgeLabel.copyWith(color: textColor),
-        ),
+      child: Text(
+        label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: context.typography.badgeLabel.copyWith(color: textColor),
       ),
     );
   }
