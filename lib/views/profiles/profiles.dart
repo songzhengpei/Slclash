@@ -8,6 +8,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/pages/scan.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/theme/typography/type_scale.dart';
 import 'package:fl_clash/views/profiles/overwrite/overwrite.dart';
 import 'package:fl_clash/views/proxies/common.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
@@ -2061,11 +2062,8 @@ class _ProfileTypeLabel extends StatelessWidget {
         type.name.toUpperCase(),
         maxLines: 1,
         textScaler: TextScaler.noScaling,
-        style: context.typography.badgeLabel.copyWith(
+        style: SlclashTypeScale.profileTypeLabel.copyWith(
           color: color.withValues(alpha: 0.92),
-          fontSize: 10.5,
-          height: 1,
-          letterSpacing: 0.6,
         ),
       ),
     );
