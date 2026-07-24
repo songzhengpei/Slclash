@@ -33,13 +33,13 @@ import (
 )
 
 var (
-	isInit                  = false
-	externalProviders       = map[string]cp.Provider{}
-	logSubscriber           observable.Subscription[log.Event]
-	proxiesCache            ProxiesData
-	proxiesCacheRawCount    int
-	proxiesCacheProviders   map[string]providerCacheVersion
-	proxiesCacheDirty       = true
+	isInit                = false
+	externalProviders     = map[string]cp.Provider{}
+	logSubscriber         observable.Subscription[log.Event]
+	proxiesCache          ProxiesData
+	proxiesCacheRawCount  int
+	proxiesCacheProviders map[string]providerCacheVersion
+	proxiesCacheDirty     = true
 )
 
 const (
@@ -279,8 +279,10 @@ func handleChangeProxy(data string, fn func(string string)) {
 }
 
 func handleGetTraffic(onlyStatisticsProxy bool) string {
-	_ = onlyStatisticsProxy
 	up, down := statistic.DefaultManager.Now()
+	if onlyStatisticsProxy {
+		up, down = statistic.DefaultManager.ProxyNow()
+	}
 	traffic := map[string]int64{
 		"up":   up,
 		"down": down,
@@ -294,8 +296,10 @@ func handleGetTraffic(onlyStatisticsProxy bool) string {
 }
 
 func handleGetTotalTraffic(onlyStatisticsProxy bool) string {
-	_ = onlyStatisticsProxy
 	up, down := statistic.DefaultManager.Total()
+	if onlyStatisticsProxy {
+		up, down = statistic.DefaultManager.ProxyTotal()
+	}
 	traffic := map[string]int64{
 		"up":   up,
 		"down": down,
@@ -309,9 +313,12 @@ func handleGetTotalTraffic(onlyStatisticsProxy bool) string {
 }
 
 func handleGetTrafficSnapshot(onlyStatisticsProxy bool) string {
-	_ = onlyStatisticsProxy
 	up, down := statistic.DefaultManager.Now()
 	totalUp, totalDown := statistic.DefaultManager.Total()
+	if onlyStatisticsProxy {
+		up, down = statistic.DefaultManager.ProxyNow()
+		totalUp, totalDown = statistic.DefaultManager.ProxyTotal()
+	}
 	traffic := map[string]int64{
 		"up":        up,
 		"down":      down,
