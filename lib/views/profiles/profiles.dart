@@ -2064,13 +2064,13 @@ class _ProfileListSummary extends StatelessWidget {
         children: [
           SoftOsUsageBar(value: progress),
           const SizedBox(height: 7),
-          _ProfileSummaryLine(
-            trafficText: trafficText,
-            expireText: expireText,
+          _ProfileSummaryLine(trafficText: trafficText, style: detailStyle),
+          const SizedBox(height: 3),
+          _ProfileUpdateSummary(
+            profile: profile,
+            trailingText: expireText,
             style: detailStyle,
           ),
-          const SizedBox(height: 7),
-          _ProfileUpdateSummary(profile: profile, style: detailStyle),
         ],
       ),
     );
@@ -2105,27 +2105,27 @@ class SoftOsUsageBar extends StatelessWidget {
 }
 
 class _ProfileSummaryLine extends StatelessWidget {
-  const _ProfileSummaryLine({
-    required this.trafficText,
-    required this.expireText,
-    required this.style,
-  });
+  const _ProfileSummaryLine({required this.trafficText, required this.style});
 
   final String trafficText;
-  final String expireText;
   final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
-    return _SummaryText(text: '$trafficText · $expireText', style: style);
+    return _SummaryText(text: trafficText, style: style);
   }
 }
 
 class _ProfileUpdateSummary extends StatelessWidget {
-  const _ProfileUpdateSummary({required this.profile, required this.style});
+  const _ProfileUpdateSummary({
+    required this.profile,
+    required this.style,
+    this.trailingText,
+  });
 
   final Profile profile;
   final TextStyle? style;
+  final String? trailingText;
 
   @override
   Widget build(BuildContext context) {
@@ -2133,19 +2133,20 @@ class _ProfileUpdateSummary extends StatelessWidget {
       return _SummaryText(
         text: profile.type == ProfileType.file
             ? context.appLocalizations.localFile
-            : '',
+            : trailingText ?? '',
         style: style,
       );
     }
     final prefix = profile.type == ProfileType.file
         ? '${context.appLocalizations.localFile} · '
         : '';
+    final suffix = trailingText == null ? '' : ' · $trailingText';
     return TickBuilder(
       duration: const Duration(minutes: 1),
       builder: (context, _) {
         return _SummaryText(
           text:
-              '$prefix${profile.lastUpdateDate!.getLastUpdateTimeDesc(context)}',
+              '$prefix${profile.lastUpdateDate!.getLastUpdateTimeDesc(context)}$suffix',
           style: style,
         );
       },
