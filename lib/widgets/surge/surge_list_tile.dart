@@ -91,12 +91,11 @@ class SurgeListTile extends StatelessWidget {
                                 children: [
                                   Text(
                                     title,
-                                    maxLines: 2,
+                                    maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style:
-                                        (titleTextStyle ??
-                                                context.typography.rowTitle)
-                                            .copyWith(color: titleColor),
+                                    style: (titleTextStyle ?? context.typography.rowTitle).copyWith(
+                                      color: titleColor,
+                                    ),
                                   ),
                                   if (hasSubtitle) ...[
                                     const SizedBox(height: 3),
@@ -104,9 +103,7 @@ class SurgeListTile extends StatelessWidget {
                                       subtitle!,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style:
-                                          (subtitleTextStyle ??
-                                          context.typography.supporting),
+                                      style: (subtitleTextStyle ?? context.typography.supporting),
                                     ),
                                   ],
                                 ],

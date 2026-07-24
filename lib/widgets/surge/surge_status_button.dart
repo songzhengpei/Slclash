@@ -48,9 +48,7 @@ class SurgeStatusButton extends StatelessWidget {
         : inactiveColor ?? surge.primary;
     final text = label ?? (isActive ? activeLabel : inactiveLabel);
     final icon = isActive ? activeIcon : inactiveIcon;
-    final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5);
-    final baseHeight = metrics.value(height ?? (compact ? 34 : 40));
-    final effectiveHeight = baseHeight * (1 + (textScale - 1) * 0.45);
+    final effectiveHeight = metrics.value(height ?? (compact ? 34 : 40));
 
     return FilledButton(
       onPressed: loading ? null : onPressed,
@@ -90,13 +88,11 @@ class SurgeStatusButton extends StatelessWidget {
             Icon(icon, size: metrics.value(compact ? 14 : 16)),
             SizedBox(width: metrics.value(6)),
           ],
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
+          Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
         ],
       ),

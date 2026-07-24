@@ -485,7 +485,7 @@ class _HeroModeCardSurface extends StatelessWidget {
             children: [
               Text(
                 title,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: context.typography.cardTitle.copyWith(
                   color: foregroundColor,
@@ -494,7 +494,7 @@ class _HeroModeCardSurface extends StatelessWidget {
               SizedBox(height: layout.geometry(4)),
               Text(
                 modeLabel,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: context.typography.supporting.copyWith(
                   color: secondaryColor,

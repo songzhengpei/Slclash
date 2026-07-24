@@ -622,7 +622,6 @@ class _MediaCheckControlCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
     return SurgeCard(
       shadow: true,
       backgroundColor: surge.elevatedCard,
@@ -653,38 +652,27 @@ class _MediaCheckControlCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stackControls =
-                  constraints.maxWidth < 340 || textScale >= 1.3;
-              final profileSelector = _ProfileSelector(
-                profiles: profiles,
-                profile: profile,
-                enabled: onProfileChanged != null,
-                onChanged: onProfileChanged,
-              );
-              final modeDropdown = _ModeDropdown(
-                value: filter,
-                enabled: onFilterChanged != null,
-                onChanged: onFilterChanged,
-              );
-              if (stackControls) {
-                return Column(
-                  children: [
-                    profileSelector,
-                    const SizedBox(height: 8),
-                    modeDropdown,
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(flex: 11, child: profileSelector),
-                  const SizedBox(width: 8),
-                  Expanded(flex: 9, child: modeDropdown),
-                ],
-              );
-            },
+          Row(
+            children: [
+              Expanded(
+                flex: 11,
+                child: _ProfileSelector(
+                  profiles: profiles,
+                  profile: profile,
+                  enabled: onProfileChanged != null,
+                  onChanged: onProfileChanged,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 9,
+                child: _ModeDropdown(
+                  value: filter,
+                  enabled: onFilterChanged != null,
+                  onChanged: onFilterChanged,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 9),
           Divider(height: 1, color: surge.separator),
@@ -698,45 +686,46 @@ class _MediaCheckControlCard extends StatelessWidget {
           const SizedBox(height: 8),
           Divider(height: 1, color: surge.separator),
           const SizedBox(height: 4),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stackProgress =
-                  constraints.maxWidth < 340 || textScale >= 1.3;
-              final progressIndicator = SizedBox(
-                height: 22,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: checking
-                              ? progress
-                              : (cachedCount > 0 ? 1 : 0),
-                          minHeight: 5,
-                          backgroundColor: surge.textSecondary.withValues(
-                            alpha: 0.1,
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 22,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: checking
+                                ? progress
+                                : (cachedCount > 0 ? 1 : 0),
+                            minHeight: 5,
+                            backgroundColor: surge.textSecondary.withValues(
+                              alpha: 0.1,
+                            ),
+                            color: checking ? surge.primary : surge.green,
                           ),
-                          color: checking ? surge.primary : surge.green,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      checking
-                          ? '${(progress * 100).clamp(0, 100).round()}%'
-                          : cachedCount > 0
-                          ? context.appLocalizations.cached
-                          : context.appLocalizations.notChecked,
-                      style: context.typography.badgeLabel.copyWith(
-                        color: surge.textSecondary,
+                      const SizedBox(width: 8),
+                      Text(
+                        checking
+                            ? '${(progress * 100).clamp(0, 100).round()}%'
+                            : cachedCount > 0
+                            ? context.appLocalizations.cached
+                            : context.appLocalizations.notChecked,
+                        style: context.typography.badgeLabel.copyWith(
+                          color: surge.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              );
-              final concurrencySlider = SizedBox(
-                width: stackProgress ? double.infinity : 112,
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 96,
                 height: 32,
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(trackHeight: 5),
@@ -751,24 +740,8 @@ class _MediaCheckControlCard extends StatelessWidget {
                         : (value) => onConcurrencyChanged!(value.round()),
                   ),
                 ),
-              );
-              if (stackProgress) {
-                return Column(
-                  children: [
-                    progressIndicator,
-                    const SizedBox(height: 4),
-                    concurrencySlider,
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: progressIndicator),
-                  const SizedBox(width: 12),
-                  concurrencySlider,
-                ],
-              );
-            },
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Divider(height: 1, color: surge.separator),
@@ -810,8 +783,8 @@ class _ObservationControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 46),
+    return SizedBox(
+      height: 46,
       child: Row(
         children: [
           Icon(
@@ -823,7 +796,7 @@ class _ObservationControl extends StatelessWidget {
           Expanded(
             child: Text(
               context.appLocalizations.healthMonitoring,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: context.typography.controlLabel.copyWith(
                 color: observing ? surge.green : surge.textPrimary,
@@ -932,91 +905,36 @@ class _ControlMetricsLine extends StatelessWidget {
       (context.appLocalizations.concurrency, '$concurrency'),
       if (runningCount > 0) (context.appLocalizations.running, '$runningCount'),
     ];
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 340 || textScale >= 1.3) {
-          final itemWidth = (constraints.maxWidth - 8) / 2;
-          return Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final item in items)
-                SizedBox(
-                  width: itemWidth,
-                  child: _ControlMetricText(
-                    label: item.$1,
-                    value: item.$2,
-                    stacked: true,
-                  ),
-                ),
-            ],
-          );
-        }
-        return Row(
-          children: [
-            for (var i = 0; i < items.length; i++) ...[
-              Expanded(
-                child: _ControlMetricText(
-                  label: items[i].$1,
-                  value: items[i].$2,
-                ),
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          Expanded(
+            child: _ControlMetricText(label: items[i].$1, value: items[i].$2),
+          ),
+          if (i != items.length - 1)
+            SizedBox(
+              height: 28,
+              child: VerticalDivider(
+                width: 18,
+                thickness: 1,
+                color: surge.separator,
               ),
-              if (i != items.length - 1)
-                SizedBox(
-                  height: 28,
-                  child: VerticalDivider(
-                    width: 18,
-                    thickness: 1,
-                    color: surge.separator,
-                  ),
-                ),
-            ],
-          ],
-        );
-      },
+            ),
+        ],
+      ],
     );
   }
 }
 
 class _ControlMetricText extends StatelessWidget {
-  const _ControlMetricText({
-    required this.label,
-    required this.value,
-    this.stacked = false,
-  });
+  const _ControlMetricText({required this.label, required this.value});
 
   final String label;
   final String value;
-  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
-    if (stacked) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: context.typography.mediaControlMetricLabel.copyWith(
-              color: surge.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            style: context.typography.cardTitle.copyWith(
-              color: surge.textPrimary,
-            ),
-          ),
-        ],
-      );
-    }
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.baseline,

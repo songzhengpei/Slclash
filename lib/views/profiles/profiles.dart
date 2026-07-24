@@ -1500,10 +1500,10 @@ class _ProfileListItem extends StatelessWidget {
           ? SurgeSelectableRowPosition.last
           : SurgeSelectableRowPosition.middle,
       showDivider: showDivider,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: hasTraffic ? 108 : 74),
+      child: SizedBox(
+        height: hasTraffic ? 108 : 74,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+          padding: const EdgeInsets.fromLTRB(16, 0, 10, 0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

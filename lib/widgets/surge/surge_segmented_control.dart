@@ -158,9 +158,8 @@ class SurgeSlidingSegmentedControl<T> extends StatelessWidget {
                                       ),
                               child: Text(
                                 item.label,
-                                maxLines: 2,
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
                               ),
                             ),
                           ),
