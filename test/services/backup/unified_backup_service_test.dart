@@ -169,6 +169,68 @@ void main() {
     expect(profile.autoUpdate, isFalse);
   });
 
+  test(
+    'Worker v1 override preserves scripts rules links and proxy groups',
+    () async {
+      final temp = await Directory.systemTemp.createTemp('unified-scope-test-');
+      final db = Database(NativeDatabase.memory());
+      addTearDown(() async {
+        await db.close();
+        await temp.delete(recursive: true);
+      });
+
+      final script = Script(
+        id: 9,
+        label: 'keep-script',
+        lastUpdateTime: DateTime.utc(2026),
+      );
+      await db.restore(
+        const [],
+        [script],
+        const [
+          Rule(
+            id: 10,
+            ruleAction: RuleAction.DOMAIN,
+            content: 'example.com',
+            ruleTarget: 'DIRECT',
+          ),
+        ],
+        const [ProfileRuleLink(ruleId: 10, scene: RuleScene.added, order: 'a')],
+        const [
+          ProxyGroup(
+            id: 11,
+            name: 'Keep Group',
+            type: GroupType.Selector,
+            proxies: ['DIRECT'],
+          ),
+        ],
+        isOverride: true,
+      );
+      final scriptFile = File(p.join(temp.path, 'scripts', '9.js'));
+      await scriptFile.parent.create(recursive: true);
+      await scriptFile.writeAsString('keep');
+
+      await UnifiedBackupService(
+        database: db,
+        paths: RestorePaths(
+          profilesDirectory: p.join(temp.path, 'profiles'),
+          scriptsDirectory: p.join(temp.path, 'scripts'),
+          workerUnifiedArchivePath: p.join(temp.path, 'worker-v1.zip'),
+        ),
+      ).restoreBytes(_workerArchive(), override: true);
+
+      expect((await db.scriptsDao.query().get()).single.label, 'keep-script');
+      expect((await db.rulesDao.queryAllRules()).single.id, 10);
+      expect((await db.rulesDao.queryAllLinks()).single.ruleId, 10);
+      expect(
+        (await db.proxyGroupsDao.queryAll().get()).single.name,
+        'Keep Group',
+      );
+      expect(await scriptFile.readAsString(), 'keep');
+      expect((await db.profilesDao.query().get()).length, 1);
+    },
+  );
+
   test('restores the real Worker client policy roundtrip fixture', () async {
     final bytes = await File(
       p.join(
