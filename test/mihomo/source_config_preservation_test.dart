@@ -329,12 +329,12 @@ rules:
       },
     );
 
-    test('keeps existing whole-map DNS override behavior', () async {
+    test('DNS override keeps unowned DNS siblings', () async {
       final runtimeBase = mergeSourceWithNormalized(
         {
           'dns': {
             'enable': true,
-            'future-dns-option': 'removed-by-current-override',
+            'future-dns-option': 'kept-by-owned-patch',
           },
           'rules': ['MATCH,DIRECT'],
         },
@@ -358,7 +358,9 @@ rules:
         ),
       );
       final runtime = parseMihomoSourceConfig(output.a);
-      expect(runtime['dns'], isNot(contains('future-dns-option')));
+      // Phase 2B: the Slclash DNS patch is ownership-aware; unowned siblings
+      // are no longer dropped by a whole-map replacement.
+      expect(runtime['dns']['future-dns-option'], 'kept-by-owned-patch');
     });
   });
 }

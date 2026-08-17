@@ -212,7 +212,9 @@ void main() {
         '1.1.1.1',
         '8.8.8.8',
       ]);
-      expect(output['dns'], isNot(contains('future-dns-option')));
+      // Phase 2B: unowned DNS siblings survive the Slclash override instead
+      // of being dropped by the old whole-map replacement.
+      expect(output['dns']['future-dns-option'], 'removed');
     });
 
     test('rebuilds disabled DNS and adds the system resolver', () async {

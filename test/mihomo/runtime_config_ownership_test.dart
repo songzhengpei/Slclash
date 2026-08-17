@@ -150,4 +150,149 @@ void main() {
       expect(output['tun']['strict-route'], isTrue);
     });
   });
+
+  group('DNS ownership contract', () {
+    const ownedPatch = PatchClashConfig(
+      dns: Dns(
+        nameserver: ['https://doh.pub/dns-query'],
+        nameserverPolicy: {'patched.example': '8.8.8.8'},
+        fallbackFilter: FallbackFilter(geoip: true, geosite: ['cn']),
+      ),
+    );
+
+    test(
+      'overrideDns=false with source enabled keeps the profile DNS untouched',
+      () async {
+        final input = _fixture('dns_ownership.yaml');
+        final output = await _materialize(input);
+        final dns = output['dns'] as Map;
+        expect(dns['enable'], isTrue);
+        expect(dns['nameserver'], ['1.1.1.1']);
+        expect(dns['cache-algorithm'], 'arc');
+        expect(dns['direct-nameserver'], ['223.5.5.5']);
+      },
+    );
+
+    test('overrideDns=true applies Slclash-owned DNS fields', () async {
+      final input = _fixture('dns_ownership.yaml');
+      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final dns = output['dns'] as Map;
+      expect(dns['enable'], isTrue);
+      expect(dns['nameserver'], ['https://doh.pub/dns-query']);
+    });
+
+    test('overrideDns=true preserves real kernel-owned DNS fields', () async {
+      final input = _fixture('dns_ownership.yaml');
+      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final dns = output['dns'] as Map;
+      expect(dns['cache-algorithm'], 'arc');
+      expect(dns['direct-nameserver'], ['223.5.5.5']);
+      expect(dns['direct-nameserver-follow-policy'], isTrue);
+    });
+
+    test('synthetic unknown DNS sibling survives the ownership patch', () async {
+      final input = _fixture('dns_ownership.yaml')
+        ..['dns']['future-option'] = 'dns-future';
+      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      expect((output['dns'] as Map)['future-option'], 'dns-future');
+    });
+
+    test('fallback-filter owned subfields are overridden', () async {
+      final input = _fixture('dns_ownership.yaml');
+      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final filter = output['dns']['fallback-filter'] as Map;
+      expect(filter['geoip'], isTrue);
+      expect(filter['geosite'], ['cn']);
+    });
+
+    test('fallback-filter synthetic unknown sibling is preserved', () async {
+      final input = _fixture('dns_ownership.yaml')
+        ..['dns']['fallback-filter']['future-field'] = 'filter-future';
+      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final filter = output['dns']['fallback-filter'] as Map;
+      expect(filter['future-field'], 'filter-future');
+      expect(filter['geoip'], isTrue);
+    });
+
+    test('nameserver-policy is replaced as an atomic Slclash map', () async {
+      final input = _fixture('dns_ownership.yaml')
+        ..['dns']['nameserver-policy'] = {'source.example': '1.1.1.1'};
+      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final policy = output['dns']['nameserver-policy'] as Map;
+      expect(policy, {'patched.example': '8.8.8.8'});
+      expect(policy, isNot(contains('source.example')));
+    });
+
+    test('source dns.enable=false keeps automatic Slclash DNS behavior',
+        () async {
+      final input = _fixture('dns_ownership.yaml')..['dns']['enable'] = false;
+      final output = await _materialize(input, patch: ownedPatch);
+      final dns = output['dns'] as Map;
+      expect(dns['enable'], isTrue);
+      expect(dns['nameserver'], [
+        'https://doh.pub/dns-query',
+        'system://',
+      ]);
+      expect(dns['cache-algorithm'], 'arc');
+    });
+
+    test('missing source dns keeps automatic Slclash DNS behavior', () async {
+      final input = _fixture('dns_ownership.yaml')..remove('dns');
+      final output = await _materialize(input, patch: ownedPatch);
+      final dns = output['dns'] as Map;
+      expect(dns['enable'], isTrue);
+      expect(dns['nameserver'], [
+        'https://doh.pub/dns-query',
+        'system://',
+      ]);
+    });
+
+    test('appendSystemDns adds exactly one system resolver', () async {
+      final input = _fixture('dns_ownership.yaml')..remove('dns');
+      final output = await _materialize(
+        input,
+        patch: ownedPatch,
+        appendSystemDns: true,
+      );
+      final nameserver = output['dns']['nameserver'] as List;
+      expect(nameserver.where((item) => item == 'system://'), hasLength(1));
+    });
+
+    test('appendSystemDns runs after the ownership patch', () async {
+      final input = _fixture('dns_ownership.yaml')..remove('dns');
+      final output = await _materialize(
+        input,
+        patch: ownedPatch,
+        appendSystemDns: true,
+      );
+      // The automatic system:// (from !isEnableDns) already contains
+      // system:// once; appendSystemDns must not duplicate it.
+      final nameserver = output['dns']['nameserver'] as List;
+      expect(nameserver.first, 'https://doh.pub/dns-query');
+      expect(nameserver.last, 'system://');
+      expect(nameserver.where((item) => item == 'system://'), hasLength(1));
+    });
+
+    test('materialized dns_ownership fixture reparses for bundled validity',
+        () async {
+      // Empty nameserverPolicy keeps the validity fixture free of
+      // geosite:cn, which requires a local GeoSite.dat that CI-host
+      // config.Parse cannot load.
+      const validityPatch = PatchClashConfig(
+        dns: Dns(
+          nameserverPolicy: {},
+          fallbackFilter: FallbackFilter(geoip: false, geosite: []),
+        ),
+      );
+      final output = await _materialize(
+        _fixture('dns_ownership.yaml'),
+        patch: validityPatch,
+        overrideDns: true,
+        writeTo: p.join('build', 'mihomo-runtime-fixtures', 'dns_ownership.yaml'),
+      );
+      final dns = output['dns'] as Map;
+      expect(dns['cache-algorithm'], 'arc');
+      expect(dns['direct-nameserver'], ['223.5.5.5']);
+    });
+  });
 }

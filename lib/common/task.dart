@@ -203,12 +203,22 @@ Future<VM2<String, String>> _makeRealProfileTask(
       ),
       false => realPatchConfig.dns,
     };
-    rawConfig['dns'] = dns.toJson();
-    rawConfig['dns']['nameserver-policy'] = {};
-    for (final entry in dns.nameserverPolicy.entries) {
-      rawConfig['dns']['nameserver-policy'][entry.key] =
-          entry.value.splitByMultipleSeparators;
-    }
+    // Dns.toJson emits exactly the Slclash-owned keys; nameserver-policy is
+    // re-serialized with the multiple-separator splitting and fallback-filter
+    // is expanded to a plain map so the ownership patch can merge it.
+    final dnsPatch = dns.toJson()
+      ..['nameserver-policy'] = {
+        for (final entry in dns.nameserverPolicy.entries)
+          entry.key: entry.value.splitByMultipleSeparators,
+      }
+      ..['fallback-filter'] = {
+        'geoip': dns.fallbackFilter.geoip,
+        'geoip-code': dns.fallbackFilter.geoipCode,
+        'geosite': dns.fallbackFilter.geosite,
+        'ipcidr': dns.fallbackFilter.ipcidr,
+        'domain': dns.fallbackFilter.domain,
+      };
+    applyOwnedDnsPatch(rawConfig, dnsPatch);
   }
   if (appendSystemDns) {
     final List<String> nameserver = List<String>.from(
