@@ -16,6 +16,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
+import 'package:fl_clash/services/mihomo_config/source_config.dart';
 import 'package:fl_clash/services/providers/provider_readiness_service.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
@@ -990,8 +991,23 @@ class SetupAction extends _$SetupAction {
     final realPatchConfig = patchConfig.copyWith(
       tun: patchConfig.tun.getRealTun(routeMode),
     );
-    Map<String, dynamic> rawConfig = configMap;
-    if (scriptContent?.isNotEmpty == true) {
+    final usesScript = setupState.overwriteType == OverwriteType.script;
+    Map<String, dynamic> rawConfig = await resolveMihomoRuntimeBase(
+      normalizedConfig: configMap,
+      preserveSource: !usesScript,
+      loadSourceConfig: () async {
+        final profilePath = await appPath.getProfilePath(profileId.toString());
+        return loadMihomoSourceConfigFile(profilePath);
+      },
+      onPreservationFailure: (error, _) {
+        commonPrint.log(
+          'source config preservation failed for profileId=$profileId: '
+          '$error; falling back to normalized config',
+          logLevel: LogLevel.warning,
+        );
+      },
+    );
+    if (usesScript && scriptContent?.isNotEmpty == true) {
       rawConfig = await handleEvaluate(scriptContent!, rawConfig);
     }
     final directory = await appPath.profilesPath;

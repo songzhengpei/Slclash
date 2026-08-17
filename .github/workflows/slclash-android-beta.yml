@@ -173,7 +173,9 @@ jobs:
         run: flutter test test/theme/typography/typography_source_contract_test.dart
 
       - name: Verify Mihomo runtime config regression baseline
-        run: flutter test test/mihomo/runtime_config_regression_test.dart
+        run: |
+          flutter test test/mihomo/runtime_config_regression_test.dart
+          flutter test test/mihomo/source_config_preservation_test.dart
 
       - name: Verify Go modules are tidy
         shell: bash
