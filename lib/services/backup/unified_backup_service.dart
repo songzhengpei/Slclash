@@ -194,6 +194,10 @@ class UnifiedBackupService {
       profiles: profiles,
       currentProfileId: uidToId[currentUid],
       files: files,
+      // The Worker capsule only carries subscriptions. Without this the default
+      // RestoreScope.all would hand empty script/rule/proxy-group lists to
+      // database.restore, which wipes those tables in override mode.
+      scope: RestoreScope.profilesOnly,
       providerCachePolicy: ProviderCachePolicy.invalidateRestoredProfiles,
       workerUnifiedArchive: standalone
           ? null

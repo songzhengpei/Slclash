@@ -869,6 +869,7 @@ class _ModeDropdown extends StatelessWidget {
     return SoftOsSelectPill<_MediaCheckFilter>(
       value: value,
       semanticLabel: context.appLocalizations.selectTestItem,
+      popupWidth: 240,
       items: [
         for (final item in _MediaCheckFilter.values)
           SoftOsSelectItem(

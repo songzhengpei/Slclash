@@ -31,6 +31,7 @@ class SoftOsSelectPill<T> extends StatelessWidget {
     required this.onChanged,
     required this.semanticLabel,
     this.width,
+    this.popupWidth,
     this.maxPopupHeight = 320,
   });
 
@@ -39,6 +40,7 @@ class SoftOsSelectPill<T> extends StatelessWidget {
   final ValueChanged<T>? onChanged;
   final String semanticLabel;
   final double? width;
+  final double? popupWidth;
   final double maxPopupHeight;
 
   @override
@@ -56,7 +58,7 @@ class SoftOsSelectPill<T> extends StatelessWidget {
             items: items,
             onChanged: onChanged,
             maxHeight: maxPopupHeight,
-            width: resolvedWidth,
+            width: popupWidth ?? resolvedWidth,
           ),
           targetBuilder: (open) => Semantics(
             button: true,
