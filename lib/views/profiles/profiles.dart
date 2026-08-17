@@ -2014,6 +2014,7 @@ class _ProfileTextBlock extends StatelessWidget {
       children: [
         Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Flexible(
               child: Text(
