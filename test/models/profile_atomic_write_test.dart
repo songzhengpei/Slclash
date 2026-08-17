@@ -116,18 +116,40 @@ void main() {
     expect(stagingFiles(), isEmpty);
   });
 
-  test('saveFile and saveFileWithPath share the same replacement primitive',
-      () async {
-    final sourcePath = p.join(tempDir.path, 'source.yaml');
-    await File(sourcePath).writeAsBytes(utf8Bytes('from: source\n'));
-    // Both entry points route through atomicReplaceProfileFile; exercising
-    // saveFileWithPath here covers the shared path end to end.
-    final sourceBytes = await File(sourcePath).readAsBytes();
-    await atomicReplaceProfileFile(
-      targetPath: targetPath,
-      bytes: sourceBytes,
-      validate: acceptingValidator(),
+  test('replacement error leaves the old target intact', () async {
+    // Renaming over an existing directory fails on POSIX/Windows, which
+    // exercises the replacement-failure path: the old target (the directory)
+    // must remain and the staging file must be cleaned up.
+    final dirTarget = p.join(tempDir.path, 'dir-target');
+    await Directory(dirTarget).create();
+    await expectLater(
+      atomicReplaceProfileFile(
+        targetPath: dirTarget,
+        bytes: utf8Bytes('new: content\n'),
+        validate: acceptingValidator(),
+      ),
+      throwsA(anything),
     );
-    expect(await File(targetPath).readAsBytes(), sourceBytes);
+    expect(await Directory(dirTarget).exists(), isTrue);
+    expect(stagingFiles(), isEmpty);
   });
+
+  test(
+    'atomicReplaceProfileFile is the shared primitive behind saveFile '
+    'and saveFileWithPath',
+    () async {
+      // Profile.saveFile/saveFileWithPath delegate to this primitive with the
+      // Core validator; the host-side tests exercise the primitive directly
+      // with an injected validator since Core is unavailable here.
+      final sourcePath = p.join(tempDir.path, 'source.yaml');
+      await File(sourcePath).writeAsBytes(utf8Bytes('from: source\n'));
+      final sourceBytes = await File(sourcePath).readAsBytes();
+      await atomicReplaceProfileFile(
+        targetPath: targetPath,
+        bytes: sourceBytes,
+        validate: acceptingValidator(),
+      );
+      expect(await File(targetPath).readAsBytes(), sourceBytes);
+    },
+  );
 }

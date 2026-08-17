@@ -149,6 +149,12 @@ void main() {
       expect(output['tun']['mtu'], 9000);
       expect(output['tun']['strict-route'], isTrue);
     });
+
+    test('ownership sets match the Tun model serialization keys', () {
+      // Keeps the Slclash-owned contract in sync with the Tun model: adding a
+      // UI field without updating slclashOwnedTunFields fails CI immediately.
+      expect(slclashOwnedTunFields, const Tun().toJson().keys.toSet());
+    });
   });
 
   group('DNS ownership contract', () {
@@ -271,6 +277,15 @@ void main() {
       expect(nameserver.first, 'https://doh.pub/dns-query');
       expect(nameserver.last, 'system://');
       expect(nameserver.where((item) => item == 'system://'), hasLength(1));
+    });
+
+    test('ownership sets match the Dns model serialization keys', () {
+      // Keeps the Slclash-owned DNS contract in sync with the Dns model.
+      expect(slclashOwnedDnsFields, const Dns().toJson().keys.toSet());
+      expect(
+        slclashOwnedFallbackFilterFields,
+        const FallbackFilter().toJson().keys.toSet(),
+      );
     });
 
     test('materialized dns_ownership fixture reparses for bundled validity',
