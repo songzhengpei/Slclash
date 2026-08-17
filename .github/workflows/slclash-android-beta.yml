@@ -172,12 +172,19 @@ jobs:
       - name: Enforce typography source contract
         run: flutter test test/theme/typography/typography_source_contract_test.dart
 
+      - name: Verify Mihomo runtime config regression baseline
+        run: flutter test test/mihomo/runtime_config_regression_test.dart
+
       - name: Verify Go modules are tidy
         shell: bash
         run: |
           cd core
           go mod tidy
           git diff --exit-code go.mod go.sum
+
+      - name: Validate Mihomo compatibility fixtures
+        shell: bash
+        run: cd core && go test ./configfixture
 
       - name: Build Go core
         if: steps.cache-gocore.outputs.cache-hit != 'true'
