@@ -1,0 +1,11 @@
+rule-providers:
+  sample:
+    type: http
+    behavior: domain
+    format: yaml
+    url: https://example.com/rules.yaml
+    path: ./original-rules.yaml
+    interval: 3600
+rules:
+  - RULE-SET,sample,DIRECT
+  - MATCH,DIRECT

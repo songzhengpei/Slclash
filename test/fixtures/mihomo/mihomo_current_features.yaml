@@ -1,0 +1,30 @@
+ipv6: true
+global-ua: Slclash-fixture
+profile:
+  store-selected: true
+hosts:
+  fixture.example: 192.0.2.20
+dns:
+  enable: true
+  enhanced-mode: fake-ip
+  nameserver: [system://]
+tun:
+  enable: false
+  stack: mixed
+sniffer:
+  enable: true
+  sniff:
+    TLS:
+      ports: [443]
+proxy-providers:
+  sample:
+    type: http
+    url: https://example.com/proxies.yaml
+    path: ./proxies.yaml
+    interval: 3600
+proxy-groups:
+  - name: SELECT
+    type: select
+    use: [sample]
+rules:
+  - MATCH,SELECT

@@ -1,0 +1,23 @@
+x-slclash-test-field: top-level
+dns:
+  enable: true
+  nameserver: [system://]
+  future-dns-option: dns-sibling
+tun:
+  enable: false
+  future-option: tun-sibling
+proxy-providers:
+  sample:
+    type: http
+    url: https://example.com/proxies.yaml
+    path: ./proxies.yaml
+    future-option: proxy-provider-sibling
+rule-providers:
+  sample:
+    type: http
+    behavior: domain
+    url: https://example.com/rules.yaml
+    path: ./rules.yaml
+    future-option: rule-provider-sibling
+rules:
+  - MATCH,DIRECT

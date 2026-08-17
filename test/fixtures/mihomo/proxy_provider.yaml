@@ -1,0 +1,12 @@
+proxy-providers:
+  sample:
+    type: http
+    url: https://example.com/proxies.yaml
+    path: ./original-proxies.yaml
+    interval: 3600
+proxy-groups:
+  - name: PROVIDER
+    type: select
+    use: [sample]
+rules:
+  - MATCH,PROVIDER
