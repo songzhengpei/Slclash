@@ -1,0 +1,7 @@
+tun:
+  enable: false
+  stack: mixed
+  auto-route: false
+  dns-hijack: [any:53]
+rules:
+  - MATCH,DIRECT

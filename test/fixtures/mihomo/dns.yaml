@@ -1,0 +1,6 @@
+dns:
+  enable: true
+  nameserver: [system://]
+  default-nameserver: [223.5.5.5]
+rules:
+  - MATCH,DIRECT

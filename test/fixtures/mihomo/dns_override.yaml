@@ -1,0 +1,7 @@
+dns:
+  enable: true
+  nameserver: [1.1.1.1]
+  proxy-server-nameserver: [system://]
+  respect-rules: true
+rules:
+  - MATCH,DIRECT

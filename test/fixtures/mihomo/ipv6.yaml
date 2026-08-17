@@ -1,0 +1,7 @@
+ipv6: true
+dns:
+  enable: true
+  ipv6: true
+  nameserver: [system://]
+rules:
+  - MATCH,DIRECT
