@@ -167,7 +167,6 @@ jobs:
           fi
 
           git commit -m "chore: update mihomo core to $LATEST_TAG"
-          git push --force-with-lease origin "$BRANCH"
 
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
@@ -210,6 +209,7 @@ jobs:
           set -euo pipefail
 
           flutter pub get
+          dart run plugins/setup/buildkit/build_tool/bin/build_tool.dart patch-mihomo
           # Keep analyzer errors blocking while allowing the repository's existing
           # warning/info baseline to be handled independently of core updates.
           flutter analyze --no-fatal-warnings --no-fatal-infos
@@ -217,6 +217,7 @@ jobs:
           cd core
           go mod tidy
           git diff --exit-code go.mod go.sum
+          go test ./...
           cd ..
 
           flutter build apk --debug --target-platform android-arm64
@@ -228,6 +229,12 @@ jobs:
           fi
 
           echo "Core update validation completed for $ACTUAL_VERSION."
+
+      - name: Push validated update branch
+        if: ${{ steps.update.outputs.branch != '' && steps.update.outputs.dry_run != 'true' }}
+        shell: bash
+        run: |
+          git push --force-with-lease origin "${{ steps.update.outputs.branch }}"
 
       - name: Open pull request
         if: ${{ steps.update.outputs.branch != '' && steps.update.outputs.dry_run != 'true' }}
