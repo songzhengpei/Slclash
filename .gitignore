@@ -50,6 +50,7 @@ app.*.map.json
 
 # Documentation (generated/planning artifacts)
 docs/*
+!docs/mihomo-compatibility-phase1.md
 !docs/images/
 docs/images/*
 !docs/images/readme/
