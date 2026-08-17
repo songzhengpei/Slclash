@@ -209,7 +209,12 @@ jobs:
           set -euo pipefail
 
           flutter pub get
-          dart run plugins/setup/buildkit/build_tool/bin/build_tool.dart patch-mihomo
+          (
+            cd plugins/setup/buildkit/build_tool
+            dart pub get
+            dart run bin/build_tool.dart \
+              --root-dir "$GITHUB_WORKSPACE" patch-mihomo
+          )
           # Keep analyzer errors blocking while allowing the repository's existing
           # warning/info baseline to be handled independently of core updates.
           flutter analyze --no-fatal-warnings --no-fatal-infos
