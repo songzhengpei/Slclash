@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'environment.dart';
 import 'error.dart';
 import 'logging.dart';
+import 'mihomo_patcher.dart';
 import 'options.dart';
 import 'target.dart';
 import 'util.dart';
@@ -86,6 +87,7 @@ class GoBuilder {
   }
 
   Future<List<String>> buildAll(List<Target> targets) async {
+    MihomoPatcher(rootDir: rootDir).apply();
     final results = await Future.wait(targets.map(build));
     return results;
   }

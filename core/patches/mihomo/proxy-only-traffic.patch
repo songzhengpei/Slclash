@@ -1,0 +1,363 @@
+diff --git a/adapter/outbound/base.go b/adapter/outbound/base.go
+index 01e00798..5565f7ac 100644
+--- a/adapter/outbound/base.go
++++ b/adapter/outbound/base.go
+@@ -227,6 +227,7 @@ type conn struct {
+ 	chain       C.Chain
+ 	pdChain     C.Chain
+ 	adapterAddr string
++	adapterType C.AdapterType
+ }
+ 
+ func (c *conn) RemoteDestination() string {
+@@ -252,6 +253,10 @@ func (c *conn) ProviderChains() C.Chain {
+ 	return c.pdChain
+ }
+ 
++func (c *conn) OutboundType() C.AdapterType {
++	return c.adapterType
++}
++
+ // AppendToChains implements C.Connection
+ func (c *conn) AppendToChains(a C.ProxyAdapter) {
+ 	c.chain = append(c.chain, a.Name())
+@@ -278,7 +283,11 @@ func NewConn(c net.Conn, a C.ProxyAdapter) C.Conn {
+ 	if _, ok := c.(syscall.Conn); !ok { // exclusion system conn like *net.TCPConn
+ 		c = N.NewDeadlineConn(c) // most conn from outbound can't handle readDeadline correctly
+ 	}
+-	cc := &conn{N.NewExtendedConn(c), nil, nil, a.Addr()}
++	cc := &conn{
++		ExtendedConn: N.NewExtendedConn(c),
++		adapterAddr:  a.Addr(),
++		adapterType:  a.Type(),
++	}
+ 	cc.AppendToChains(a)
+ 	return cc
+ }
+@@ -288,6 +297,7 @@ type packetConn struct {
+ 	chain       C.Chain
+ 	pdChain     C.Chain
+ 	adapterName string
++	adapterType C.AdapterType
+ 	connID      string
+ 	adapterAddr string
+ 	resolveUDP  func(ctx context.Context, metadata *C.Metadata) error
+@@ -312,6 +322,10 @@ func (c *packetConn) ProviderChains() C.Chain {
+ 	return c.pdChain
+ }
+ 
++func (c *packetConn) OutboundType() C.AdapterType {
++	return c.adapterType
++}
++
+ // AppendToChains implements C.Connection
+ func (c *packetConn) AppendToChains(a C.ProxyAdapter) {
+ 	c.chain = append(c.chain, a.Name())
+@@ -344,7 +358,14 @@ func NewPacketConn(pc net.PacketConn, a ProxyAdapter) C.PacketConn {
+ 	if _, ok := pc.(syscall.Conn); !ok { // exclusion system conn like *net.UDPConn
+ 		epc = N.NewDeadlineEnhancePacketConn(epc) // most conn from outbound can't handle readDeadline correctly
+ 	}
+-	cpc := &packetConn{epc, nil, nil, a.Name(), utils.NewUUIDV4().String(), a.Addr(), a.ResolveUDP}
++	cpc := &packetConn{
++		EnhancePacketConn: epc,
++		adapterName:       a.Name(),
++		adapterType:       a.Type(),
++		connID:            utils.NewUUIDV4().String(),
++		adapterAddr:       a.Addr(),
++		resolveUDP:        a.ResolveUDP,
++	}
+ 	cpc.AppendToChains(a)
+ 	return cpc
+ }
+diff --git a/constant/adapters.go b/constant/adapters.go
+index ddcdbead..6daaa417 100644
+--- a/constant/adapters.go
++++ b/constant/adapters.go
+@@ -68,6 +68,7 @@ var ErrNotSupport = errors.New("no support")
+ type Connection interface {
+ 	Chains() Chain
+ 	ProviderChains() Chain
++	OutboundType() AdapterType
+ 	AppendToChains(adapter ProxyAdapter)
+ 	RemoteDestination() string
+ }
+diff --git a/tunnel/statistic/manager.go b/tunnel/statistic/manager.go
+index c69746db..7157948a 100644
+--- a/tunnel/statistic/manager.go
++++ b/tunnel/statistic/manager.go
+@@ -7,34 +7,47 @@ import (
+ 	"github.com/metacubex/mihomo/common/atomic"
+ 	"github.com/metacubex/mihomo/common/xsync"
+ 	"github.com/metacubex/mihomo/component/memory"
++	C "github.com/metacubex/mihomo/constant"
+ )
+ 
+ var DefaultManager *Manager
+ 
+ func init() {
+ 	DefaultManager = &Manager{
+-		uploadTemp:    atomic.NewInt64(0),
+-		downloadTemp:  atomic.NewInt64(0),
+-		uploadBlip:    atomic.NewInt64(0),
+-		downloadBlip:  atomic.NewInt64(0),
+-		uploadTotal:   atomic.NewInt64(0),
+-		downloadTotal: atomic.NewInt64(0),
+-		pid:           int32(os.Getpid()),
++		uploadTemp:         atomic.NewInt64(0),
++		downloadTemp:       atomic.NewInt64(0),
++		uploadBlip:         atomic.NewInt64(0),
++		downloadBlip:       atomic.NewInt64(0),
++		uploadTotal:        atomic.NewInt64(0),
++		downloadTotal:      atomic.NewInt64(0),
++		proxyUploadTemp:    atomic.NewInt64(0),
++		proxyDownloadTemp:  atomic.NewInt64(0),
++		proxyUploadBlip:    atomic.NewInt64(0),
++		proxyDownloadBlip:  atomic.NewInt64(0),
++		proxyUploadTotal:   atomic.NewInt64(0),
++		proxyDownloadTotal: atomic.NewInt64(0),
++		pid:                int32(os.Getpid()),
+ 	}
+ 
+ 	go DefaultManager.handle()
+ }
+ 
+ type Manager struct {
+-	connections   xsync.Map[string, Tracker]
+-	uploadTemp    atomic.Int64
+-	downloadTemp  atomic.Int64
+-	uploadBlip    atomic.Int64
+-	downloadBlip  atomic.Int64
+-	uploadTotal   atomic.Int64
+-	downloadTotal atomic.Int64
+-	pid           int32
+-	memory        uint64
++	connections        xsync.Map[string, Tracker]
++	uploadTemp         atomic.Int64
++	downloadTemp       atomic.Int64
++	uploadBlip         atomic.Int64
++	downloadBlip       atomic.Int64
++	uploadTotal        atomic.Int64
++	downloadTotal      atomic.Int64
++	proxyUploadTemp    atomic.Int64
++	proxyDownloadTemp  atomic.Int64
++	proxyUploadBlip    atomic.Int64
++	proxyDownloadBlip  atomic.Int64
++	proxyUploadTotal   atomic.Int64
++	proxyDownloadTotal atomic.Int64
++	pid                int32
++	memory             uint64
+ }
+ 
+ func (m *Manager) Join(c Tracker) {
+@@ -58,12 +71,20 @@ func (m *Manager) Range(f func(c Tracker) bool) {
+ 	})
+ }
+ 
+-func (m *Manager) PushUploaded(size int64) {
++func (m *Manager) PushUploaded(outboundType C.AdapterType, size int64) {
++	if outboundType != C.Direct && outboundType != C.Compatible {
++		m.proxyUploadTemp.Add(size)
++		m.proxyUploadTotal.Add(size)
++	}
+ 	m.uploadTemp.Add(size)
+ 	m.uploadTotal.Add(size)
+ }
+ 
+-func (m *Manager) PushDownloaded(size int64) {
++func (m *Manager) PushDownloaded(outboundType C.AdapterType, size int64) {
++	if outboundType != C.Direct && outboundType != C.Compatible {
++		m.proxyDownloadTemp.Add(size)
++		m.proxyDownloadTotal.Add(size)
++	}
+ 	m.downloadTemp.Add(size)
+ 	m.downloadTotal.Add(size)
+ }
+@@ -76,6 +97,14 @@ func (m *Manager) Total() (up, down int64) {
+ 	return m.uploadTotal.Load(), m.downloadTotal.Load()
+ }
+ 
++func (m *Manager) ProxyNow() (up int64, down int64) {
++	return m.proxyUploadBlip.Load(), m.proxyDownloadBlip.Load()
++}
++
++func (m *Manager) ProxyTotal() (up, down int64) {
++	return m.proxyUploadTotal.Load(), m.proxyDownloadTotal.Load()
++}
++
+ func (m *Manager) Memory() uint64 {
+ 	m.updateMemory()
+ 	return m.memory
+@@ -110,6 +139,12 @@ func (m *Manager) ResetStatistic() {
+ 	m.downloadTemp.Store(0)
+ 	m.downloadBlip.Store(0)
+ 	m.downloadTotal.Store(0)
++	m.proxyUploadTemp.Store(0)
++	m.proxyUploadBlip.Store(0)
++	m.proxyUploadTotal.Store(0)
++	m.proxyDownloadTemp.Store(0)
++	m.proxyDownloadBlip.Store(0)
++	m.proxyDownloadTotal.Store(0)
+ }
+ 
+ func (m *Manager) handle() {
+@@ -118,6 +153,8 @@ func (m *Manager) handle() {
+ 	for range ticker.C {
+ 		m.uploadBlip.Store(m.uploadTemp.Swap(0))
+ 		m.downloadBlip.Store(m.downloadTemp.Swap(0))
++		m.proxyUploadBlip.Store(m.proxyUploadTemp.Swap(0))
++		m.proxyDownloadBlip.Store(m.proxyDownloadTemp.Swap(0))
+ 	}
+ }
+ 
+diff --git a/tunnel/statistic/manager_proxy_test.go b/tunnel/statistic/manager_proxy_test.go
+new file mode 100644
+index 00000000..817460a9
+--- /dev/null
++++ b/tunnel/statistic/manager_proxy_test.go
+@@ -0,0 +1,35 @@
++package statistic
++
++import (
++	"testing"
++
++	C "github.com/metacubex/mihomo/constant"
++)
++
++func TestManagerSeparatesDirectAndProxyTraffic(t *testing.T) {
++	m := &Manager{}
++
++	m.PushUploaded(C.Direct, 10)
++	m.PushDownloaded(C.Direct, 20)
++	m.PushUploaded(C.Shadowsocks, 30)
++	m.PushDownloaded(C.Shadowsocks, 40)
++
++	if up, down := m.Total(); up != 40 || down != 60 {
++		t.Fatalf("Total() = (%d, %d), want (40, 60)", up, down)
++	}
++	if up, down := m.ProxyTotal(); up != 30 || down != 40 {
++		t.Fatalf("ProxyTotal() = (%d, %d), want (30, 40)", up, down)
++	}
++}
++
++func TestManagerResetClearsProxyTraffic(t *testing.T) {
++	m := &Manager{}
++	m.PushUploaded(C.Shadowsocks, 30)
++	m.PushDownloaded(C.Shadowsocks, 40)
++
++	m.ResetStatistic()
++
++	if up, down := m.ProxyTotal(); up != 0 || down != 0 {
++		t.Fatalf("ProxyTotal() after reset = (%d, %d), want (0, 0)", up, down)
++	}
++}
+diff --git a/tunnel/statistic/tracker.go b/tunnel/statistic/tracker.go
+index 2fbb1cf9..706d0ef1 100644
+--- a/tunnel/statistic/tracker.go
++++ b/tunnel/statistic/tracker.go
+@@ -53,7 +53,7 @@ func (tt *tcpTracker) Read(b []byte) (int, error) {
+ 	n, err := tt.Conn.Read(b)
+ 	download := int64(n)
+ 	if tt.pushToManager {
+-		tt.manager.PushDownloaded(download)
++		tt.manager.PushDownloaded(tt.OutboundType(), download)
+ 	}
+ 	tt.DownloadTotal.Add(download)
+ 	return n, err
+@@ -63,7 +63,7 @@ func (tt *tcpTracker) ReadBuffer(buffer *buf.Buffer) (err error) {
+ 	err = tt.Conn.ReadBuffer(buffer)
+ 	download := int64(buffer.Len())
+ 	if tt.pushToManager {
+-		tt.manager.PushDownloaded(download)
++		tt.manager.PushDownloaded(tt.OutboundType(), download)
+ 	}
+ 	tt.DownloadTotal.Add(download)
+ 	return
+@@ -72,7 +72,7 @@ func (tt *tcpTracker) ReadBuffer(buffer *buf.Buffer) (err error) {
+ func (tt *tcpTracker) UnwrapReader() (io.Reader, []N.CountFunc) {
+ 	return tt.Conn, []N.CountFunc{func(download int64) {
+ 		if tt.pushToManager {
+-			tt.manager.PushDownloaded(download)
++			tt.manager.PushDownloaded(tt.OutboundType(), download)
+ 		}
+ 		tt.DownloadTotal.Add(download)
+ 	}}
+@@ -82,7 +82,7 @@ func (tt *tcpTracker) Write(b []byte) (int, error) {
+ 	n, err := tt.Conn.Write(b)
+ 	upload := int64(n)
+ 	if tt.pushToManager {
+-		tt.manager.PushUploaded(upload)
++		tt.manager.PushUploaded(tt.OutboundType(), upload)
+ 	}
+ 	tt.UploadTotal.Add(upload)
+ 	return n, err
+@@ -92,7 +92,7 @@ func (tt *tcpTracker) WriteBuffer(buffer *buf.Buffer) (err error) {
+ 	upload := int64(buffer.Len())
+ 	err = tt.Conn.WriteBuffer(buffer)
+ 	if tt.pushToManager {
+-		tt.manager.PushUploaded(upload)
++		tt.manager.PushUploaded(tt.OutboundType(), upload)
+ 	}
+ 	tt.UploadTotal.Add(upload)
+ 	return
+@@ -101,7 +101,7 @@ func (tt *tcpTracker) WriteBuffer(buffer *buf.Buffer) (err error) {
+ func (tt *tcpTracker) UnwrapWriter() (io.Writer, []N.CountFunc) {
+ 	return tt.Conn, []N.CountFunc{func(upload int64) {
+ 		if tt.pushToManager {
+-			tt.manager.PushUploaded(upload)
++			tt.manager.PushUploaded(tt.OutboundType(), upload)
+ 		}
+ 		tt.UploadTotal.Add(upload)
+ 	}}
+@@ -137,10 +137,10 @@ func NewTCPTracker(conn C.Conn, manager *Manager, metadata *C.Metadata, rule C.R
+ 
+ 	if pushToManager {
+ 		if uploadTotal > 0 {
+-			manager.PushUploaded(uploadTotal)
++			manager.PushUploaded(t.OutboundType(), uploadTotal)
+ 		}
+ 		if downloadTotal > 0 {
+-			manager.PushDownloaded(downloadTotal)
++			manager.PushDownloaded(t.OutboundType(), downloadTotal)
+ 		}
+ 	}
+ 
+@@ -173,7 +173,7 @@ func (ut *udpTracker) ReadFrom(b []byte) (int, net.Addr, error) {
+ 	n, addr, err := ut.PacketConn.ReadFrom(b)
+ 	download := int64(n)
+ 	if ut.pushToManager {
+-		ut.manager.PushDownloaded(download)
++		ut.manager.PushDownloaded(ut.OutboundType(), download)
+ 	}
+ 	ut.DownloadTotal.Add(download)
+ 	return n, addr, err
+@@ -183,7 +183,7 @@ func (ut *udpTracker) WaitReadFrom() (data []byte, put func(), addr net.Addr, er
+ 	data, put, addr, err = ut.PacketConn.WaitReadFrom()
+ 	download := int64(len(data))
+ 	if ut.pushToManager {
+-		ut.manager.PushDownloaded(download)
++		ut.manager.PushDownloaded(ut.OutboundType(), download)
+ 	}
+ 	ut.DownloadTotal.Add(download)
+ 	return
+@@ -193,7 +193,7 @@ func (ut *udpTracker) WriteTo(b []byte, addr net.Addr) (int, error) {
+ 	n, err := ut.PacketConn.WriteTo(b, addr)
+ 	upload := int64(n)
+ 	if ut.pushToManager {
+-		ut.manager.PushUploaded(upload)
++		ut.manager.PushUploaded(ut.OutboundType(), upload)
+ 	}
+ 	ut.UploadTotal.Add(upload)
+ 	return n, err
+@@ -229,10 +229,10 @@ func NewUDPTracker(conn C.PacketConn, manager *Manager, metadata *C.Metadata, ru
+ 
+ 	if pushToManager {
+ 		if uploadTotal > 0 {
+-			manager.PushUploaded(uploadTotal)
++			manager.PushUploaded(ut.OutboundType(), uploadTotal)
+ 		}
+ 		if downloadTotal > 0 {
+-			manager.PushDownloaded(downloadTotal)
++			manager.PushDownloaded(ut.OutboundType(), downloadTotal)
+ 		}
+ 	}
+ 

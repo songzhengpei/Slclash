@@ -4,10 +4,10 @@ import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
-import 'environment.dart';
 import 'error.dart';
 import 'go_builder.dart';
 import 'logging.dart';
+import 'mihomo_patcher.dart';
 import 'options.dart';
 import 'target.dart';
 
@@ -19,7 +19,7 @@ String _findProjectRoot() {
   var dir = Directory.current;
   while (true) {
     if (File(p.join(dir.path, 'pubspec.yaml')).existsSync() &&
-        File(p.join(dir.path, 'core')).existsSync()) {
+        Directory(p.join(dir.path, 'core')).existsSync()) {
       return dir.path;
     }
     final parent = dir.parent;
@@ -76,6 +76,19 @@ class BuildAndroidCommand extends BuildCommand {
   }
 }
 
+class PatchMihomoCommand extends BuildCommand {
+  @override
+  final name = 'patch-mihomo';
+
+  @override
+  final description = 'Apply required SlClash patches to the Mihomo submodule';
+
+  @override
+  Future<void> runBuildCommand() async {
+    MihomoPatcher(rootDir: _rootDir).apply();
+  }
+}
+
 Future<void> runMain(List<String> args) async {
   try {
     initLogging();
@@ -86,7 +99,8 @@ Future<void> runMain(List<String> args) async {
         valueHelp: '<path>',
         help: 'Project root directory (default: auto-detect)',
       )
-      ..addCommand(BuildAndroidCommand());
+      ..addCommand(BuildAndroidCommand())
+      ..addCommand(PatchMihomoCommand());
 
     final topResults = runner.parse(args);
     _rootDir = (topResults['root-dir'] as String?) ?? _findProjectRoot();
