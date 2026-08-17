@@ -189,6 +189,7 @@ jobs:
           flutter test test/mihomo/source_config_preservation_test.dart
           flutter test test/mihomo/runtime_config_ownership_test.dart
           flutter test test/models/profile_atomic_write_test.dart
+          flutter test test/core/controller_test.dart
 
           cd core
           go mod tidy
