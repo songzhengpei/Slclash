@@ -14,15 +14,22 @@ for `coreController.getConfig()` (MethodChannel round-trip) and Dart read it
 again for the source overlay, so the overlay could mix `normalized(A)` with
 `source(B)` if the file changed between the reads (TOCTOU).
 
-Phase 2B reads the profile file exactly once:
+Phase 2B reads the profile file exactly once and hands Core the same bytes via
+a unique snapshot file, so the only thing that travels over the Android Binder
+is a short path (the Binder transaction buffer is ~1MB and whole profiles
+would overflow it):
 
 ```text
 Profile path
 ↓
-one snapshot (bytes)
+one snapshot read (bytes)
 ↓
 ├─ parseMihomoSourceConfig(utf8(snapshot))     -> source map
-└─ coreController.getConfigWithData(snapshot)  -> normalized map (same bytes)
+└─ write unique snapshot file in profiles dir
+      ↓
+   getConfigAtPath(snapshotFile)               -> normalized map (same bytes)
+      ↓
+   snapshot file deleted
 ↓
 mergeSourceWithNormalized(source, normalized)
 ↓
@@ -33,13 +40,15 @@ Runtime YAML
 
 ### Bridge
 
-- `getConfig(path)` is preserved unchanged for existing callers.
-- `getConfigWithData(bytes)` is new: Dart base64-encodes the snapshot, Go
-  decodes it and runs `config.UnmarshalRawConfig` on the same bytes.
-- Go exposes a single `normalizeRawConfig(bytes)` helper shared by both
-  entry points, so the path-based and data-based APIs cannot diverge.
-- Dart canonicalizes `rule -> rules` in one `_normalizeConfigResult` helper
-  used by both `getConfig` and `getConfigWithData`.
+- `getConfig(path)` is unchanged for existing callers.
+- `getConfigAtPath(path)` is the path-based entry point used by the snapshot
+  path; `getConfig(id)` delegates to it internally.
+- Go keeps the single `normalizeRawConfig(bytes)` helper so all config reads
+  share one normalization path.
+- Dart canonicalizes `rule -> rules` in one `_normalizeConfigResult` helper;
+  an empty Core result (e.g. an invoke timeout faked as success) throws
+  `StateError` so snapshot preservation falls back instead of overlaying an
+  empty normalized config.
 
 ### Fallback
 

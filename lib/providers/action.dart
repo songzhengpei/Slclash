@@ -1008,7 +1008,29 @@ class SetupAction extends _$SetupAction {
           );
           return File(profilePath).readAsBytes();
         },
-        normalizeSnapshot: coreController.getConfigWithData,
+        normalizeSnapshot: (snapshot) async {
+          // The same snapshot bytes reach Core through a unique snapshot file
+          // whose path travels over the Android Binder instead of the whole
+          // profile: the Binder transaction buffer is ~1MB and large
+          // subscriptions would overflow it. The file is removed once Core
+          // has normalized it.
+          final snapshotDir = await appPath.profilesPath;
+          final snapshotFile = File(
+            p.join(
+              snapshotDir,
+              '.${profileId}.snapshot-'
+              '${DateTime.now().microsecondsSinceEpoch}.yaml',
+            ),
+          );
+          try {
+            await snapshotFile.writeAsBytes(snapshot, flush: true);
+            return await coreController.getConfigAtPath(snapshotFile.path);
+          } finally {
+            if (await snapshotFile.exists()) {
+              await snapshotFile.delete();
+            }
+          }
+        },
         fallbackNormalized: () => coreController.getConfig(profileId),
         onPreservationFailure: (error, _) {
           commonPrint.log(

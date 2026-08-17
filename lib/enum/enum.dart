@@ -213,7 +213,6 @@ enum ActionMethod {
   validateConfig,
   updateConfig,
   getConfig,
-  getConfigWithData,
   getProxies,
   materializeProfileSnapshot,
   normalizeProviderContent,

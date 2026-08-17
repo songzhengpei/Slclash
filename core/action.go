@@ -145,15 +145,6 @@ func handleAction(action *Action, result ActionResult) {
 		}
 		result.success(config)
 		return
-	case getConfigWithDataMethod:
-		data := action.Data.(string)
-		config, err := handleGetConfigWithData(data)
-		if err != nil {
-			result.error(err)
-			return
-		}
-		result.success(config)
-		return
 	case closeConnectionMethod:
 		id := action.Data.(string)
 		result.success(handleCloseConnection(id))
