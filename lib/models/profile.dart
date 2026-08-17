@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:path/path.dart' as p;
 
 part 'generated/profile.freezed.dart';
 part 'generated/profile.g.dart';
@@ -181,26 +183,57 @@ extension ProfileExtension on Profile {
   }
 
   Future<Profile> saveFile(Uint8List bytes) async {
-    final path = await appPath.tempFilePath;
-    final tempFile = File(path);
-    await tempFile.safeWriteAsBytes(bytes);
-    final message = await coreController.validateConfig(path);
-    if (message.isNotEmpty) {
-      throw message;
-    }
-    final mFile = await file;
-    await tempFile.copy(mFile.path);
-    await tempFile.safeDelete();
+    final mFile = await _getFile(false);
+    await atomicReplaceProfileFile(
+      targetPath: mFile.path,
+      bytes: bytes,
+      validate: coreController.validateConfig,
+    );
     return copyWith(lastUpdateDate: DateTime.now());
   }
 
   Future<Profile> saveFileWithPath(String path) async {
-    final message = await coreController.validateConfig(path);
+    final mFile = await _getFile(false);
+    await atomicReplaceProfileFile(
+      targetPath: mFile.path,
+      bytes: await File(path).readAsBytes(),
+      validate: coreController.validateConfig,
+    );
+    return copyWith(lastUpdateDate: DateTime.now());
+  }
+}
+
+/// Atomically replaces [targetPath] with [bytes] via a unique staging file in
+/// the same directory: write, flush, Core-validate the staged copy, then
+/// rename it over the target (atomic on POSIX/Android). A failed validation
+/// or replacement leaves the existing target untouched and never truncates it
+/// early; the staging file is always cleaned up.
+Future<void> atomicReplaceProfileFile({
+  required String targetPath,
+  required List<int> bytes,
+  required Future<String> Function(String path) validate,
+}) async {
+  final target = File(targetPath);
+  final dir = target.parent;
+  await dir.create(recursive: true);
+  final staging = File(
+    p.join(
+      dir.path,
+      '.${p.basename(targetPath)}.'
+      '${DateTime.now().microsecondsSinceEpoch}.'
+      '${Random().nextInt(1 << 16)}.staging',
+    ),
+  );
+  try {
+    await staging.writeAsBytes(bytes, flush: true);
+    final message = await validate(staging.path);
     if (message.isNotEmpty) {
       throw message;
     }
-    final mFile = await file;
-    await File(path).copy(mFile.path);
-    return copyWith(lastUpdateDate: DateTime.now());
+    await staging.rename(target.path);
+  } finally {
+    if (await staging.exists()) {
+      await staging.delete();
+    }
   }
 }
