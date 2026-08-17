@@ -4,6 +4,7 @@ import 'package:fl_clash/common/javascript.dart';
 import 'package:fl_clash/common/task.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/services/mihomo_config/source_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
@@ -77,6 +78,7 @@ void main() {
         'script.yaml',
         'ipv6.yaml',
         'mihomo_current_features.yaml',
+        'real_source_preservation.yaml',
       ];
       for (final name in fixtures) {
         await _materialize(
@@ -333,6 +335,47 @@ function main(config) {
       () {},
       skip:
           'Known limitation: typed Mihomo RawDNS and RawTun drop unknown siblings.',
+    );
+  });
+
+  group('JSON bridge key contract', () {
+    test(
+      'overlay keeps YAML-canonical keys without Go field-name duplicates',
+      () async {
+        final source = _fixture('real_source_preservation.yaml');
+        // Mirrors what CoreController.getConfig() returns: Go json.Marshal of
+        // RawConfig plus the rule -> rules rewrite.
+        final normalized = <String, dynamic>{
+          'tun': {
+            'enable': false,
+            'stack': 'mixed',
+            'auto-detect-interface': true,
+            'auto-route': false,
+            'dns-hijack': ['any:53'],
+          },
+          'experimental': {
+            'quic-go-disable-gso': true,
+            'quic-go-disable-ecn': true,
+            'dialer-ip4p-convert': true,
+          },
+          'dns': {'enable': true},
+          'rules': ['MATCH,DIRECT'],
+        };
+        final runtimeBase = mergeSourceWithNormalized(source, normalized);
+        final output = await _materialize(runtimeBase);
+
+        final tun = output['tun'] as Map;
+        expect(tun['auto-detect-interface'], isTrue);
+        expect(tun, isNot(contains('AutoDetectInterface')));
+
+        final experimental = output['experimental'] as Map;
+        expect(experimental['quic-go-disable-gso'], isTrue);
+        expect(experimental['quic-go-disable-ecn'], isTrue);
+        expect(experimental['dialer-ip4p-convert'], isTrue);
+        expect(experimental, isNot(contains('QUICGoDisableGSO')));
+        expect(experimental, isNot(contains('QUICGoDisableECN')));
+        expect(experimental, isNot(contains('IP4PEnable')));
+      },
     );
   });
 }

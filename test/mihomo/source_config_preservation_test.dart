@@ -225,15 +225,6 @@ nullable: null
             defaultUA: 'Slclash-test-UA',
           ),
         );
-        final validityFixture = File(
-          p.join(
-            'build',
-            'mihomo-runtime-fixtures',
-            'source_preservation.yaml',
-          ),
-        );
-        validityFixture.parent.createSync(recursive: true);
-        validityFixture.writeAsStringSync(output.a);
         final runtime = parseMihomoSourceConfig(output.a);
         expect(runtime['x-slclash-test-field'], 'top-level');
         expect(runtime['dns']['future-dns-option'], 'dns-sibling');
