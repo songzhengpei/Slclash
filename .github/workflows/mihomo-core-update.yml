@@ -23,17 +23,17 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  actions: write
 
 jobs:
   update-core:
-    name: Check Mihomo stable, update and release
+    name: Check Mihomo stable and open beta review
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: beta
           submodules: recursive
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -94,7 +94,7 @@ jobs:
           cache-dependency-path: |
             core/go.sum
 
-      - name: Update submodule and bump app patch version
+      - name: Update Mihomo submodule
         if: ${{ inputs.force == true || inputs.dry_run == true || steps.current.outputs.version != steps.latest.outputs.version }}
         id: update
         shell: bash
@@ -116,41 +116,13 @@ jobs:
 
           git -C core/Clash.Meta checkout -q "$LATEST_TAG"
 
-          # Beta builds deliberately use 9.9.9 to suppress update prompts. Release
-          # numbering must therefore follow the latest stable app tag, not pubspec.
-          LATEST_APP_TAG="$(
-            git tag --list \
-              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-              | sed 's/^v//' \
-              | sort -V \
-              | tail -n 1
-          )"
-          if [ -z "$LATEST_APP_TAG" ]; then
-            echo "Could not find a stable app release tag."
-            exit 1
-          fi
-
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_APP_TAG"
-          if ! [[ "$MAJOR" =~ ^[0-9]+$ && "$MINOR" =~ ^[0-9]+$ && "$PATCH" =~ ^[0-9]+$ ]]; then
-            echo "Unsupported stable app tag: v$LATEST_APP_TAG"
-            exit 1
-          fi
-
-          NEXT_PATCH=$((PATCH + 1))
-          NEXT_APP_VERSION="$MAJOR.$MINOR.$NEXT_PATCH+0"
-          RELEASE_TAG="v$MAJOR.$MINOR.$NEXT_PATCH"
-
-          perl -0pi -e "s/^version: .*/version: $NEXT_APP_VERSION/m" pubspec.yaml
-
           (cd core && go mod tidy)
 
           NEW_COMMIT="$(git -C core/Clash.Meta rev-parse --short=12 HEAD)"
 
-          git add core/Clash.Meta core/go.mod core/go.sum pubspec.yaml
+          git add core/Clash.Meta core/go.mod core/go.sum
           if git diff --cached --quiet; then
             echo "No update changes were produced."
-            echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
-            echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
             echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
             echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
             exit 0
@@ -159,8 +131,6 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             echo "Dry run enabled. Leaving update changes uncommitted for validation."
             git diff --cached --stat
-            echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
-            echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
             echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
             echo "dry_run=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -169,8 +139,6 @@ jobs:
           git commit -m "chore: update mihomo core to $LATEST_TAG"
 
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "app_version=$NEXT_APP_VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
           echo "dry_run=false" >> "$GITHUB_OUTPUT"
 
@@ -218,6 +186,7 @@ jobs:
           # Keep analyzer errors blocking while allowing the repository's existing
           # warning/info baseline to be handled independently of core updates.
           flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test test/mihomo/runtime_config_regression_test.dart
 
           cd core
           go mod tidy
@@ -228,6 +197,7 @@ jobs:
           # executable. Test the patched Mihomo package here; the arm64 build
           # below validates the complete wrapper and native library.
           (cd core/Clash.Meta && go test ./tunnel/statistic)
+          (cd core && go test ./configfixture)
 
           flutter build apk --debug --target-platform android-arm64
 
@@ -261,122 +231,23 @@ jobs:
 
           - Previous: v${{ steps.current.outputs.version }} (${{ steps.current.outputs.commit }})
           - New: ${{ steps.latest.outputs.tag }} (${{ steps.update.outputs.mihomo_commit }})
-          - App version: ${{ steps.update.outputs.app_version }}
-          - Release tag: ${{ steps.update.outputs.release_tag }}
 
           Core source is checked out directly from the official \`MetaCubeX/mihomo\` stable release tag.
-          This update was analyzed and built successfully before this PR was opened.
+          This update passed config regression tests, analysis, Go checks, and
+          Android arm64 build validation before this draft PR was opened.
           EOF
 
-          EXISTING_PR="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          EXISTING_PR="$(gh pr list --head "$BRANCH" --base beta --state open --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING_PR" ]; then
             PR_NUMBER="$EXISTING_PR"
             gh pr edit "$PR_NUMBER" --title "$TITLE" --body-file "$BODY_FILE"
           else
-            PR_URL="$(gh pr create --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE")"
+            PR_URL="$(gh pr create --draft --base beta --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE")"
             PR_NUMBER="$(echo "$PR_URL" | grep -oE '[0-9]+$')"
           fi
 
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "PR #$PR_NUMBER created/updated"
-
-      - name: Auto-merge validated update
-        if: ${{ steps.pr.outputs.pr_number != '' }}
-        id: merge
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
-          echo "Waiting for PR #$PR_NUMBER to become mergeable..."
-
-          MAX_WAIT=180
-          ELAPSED=0
-          while [ $ELAPSED -lt $MAX_WAIT ]; do
-            MERGEABLE="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json mergeable --jq '.mergeable')"
-            STATE="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json state --jq '.state')"
-            CHECK_TOTAL="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json statusCheckRollup --jq '.statusCheckRollup | length')"
-            CHECK_PENDING="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json statusCheckRollup --jq '[.statusCheckRollup[] | select(((.status // "COMPLETED") != "COMPLETED") or ((.state // "SUCCESS") == "PENDING") or ((.state // "SUCCESS") == "EXPECTED"))] | length')"
-            CHECK_FAILED="$(gh pr view "$PR_NUMBER" --repo songzhengpei/Slclash --json statusCheckRollup --jq '[.statusCheckRollup[] | select(((.conclusion // "SUCCESS") != "SUCCESS" and (.conclusion // "SUCCESS") != "NEUTRAL" and (.conclusion // "SUCCESS") != "SKIPPED") or ((.state // "SUCCESS") != "SUCCESS" and (.state // "SUCCESS") != "PENDING" and (.state // "SUCCESS") != "EXPECTED"))] | length')"
-
-            if [ "$STATE" != "OPEN" ]; then
-              echo "PR #$PR_NUMBER is no longer open (state=$STATE). Skipping merge."
-              echo "merged=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-
-            if [ "$CHECK_FAILED" != "0" ]; then
-              echo "PR #$PR_NUMBER has failing checks."
-              echo "merged=false" >> "$GITHUB_OUTPUT"
-              exit 1
-            fi
-
-            # PRs opened with GITHUB_TOKEN intentionally do not start another
-            # workflow. Zero checks is valid because this job already completed
-            # the analyze/build validation above. Any checks that do exist must pass.
-            if [ "$CHECK_PENDING" = "0" ] && [ "$MERGEABLE" = "MERGEABLE" ]; then
-              echo "PR #$PR_NUMBER is mergeable. Merging..."
-              gh pr merge "$PR_NUMBER" --repo songzhengpei/Slclash --merge --delete-branch
-              echo "merged=true" >> "$GITHUB_OUTPUT"
-              echo "PR #$PR_NUMBER merged."
-              break
-            fi
-
-            echo "Waiting: checks total=$CHECK_TOTAL pending=$CHECK_PENDING failed=$CHECK_FAILED mergeable=$MERGEABLE."
-            sleep 10
-            ELAPSED=$((ELAPSED + 10))
-          done
-
-          if [ $ELAPSED -ge $MAX_WAIT ]; then
-            echo "Timed out waiting for PR #$PR_NUMBER to become mergeable."
-            echo "merged=false" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
-
-      - name: Create release tag
-        if: ${{ steps.merge.outputs.merged == 'true' }}
-        id: tag
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "Syncing main..."
-          git fetch origin main
-          git checkout main
-          git merge origin/main --ff-only
-
-          TAG_NAME="${{ steps.update.outputs.release_tag }}"
-          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
-
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Tag $TAG_NAME already exists locally."
-            exit 1
-          fi
-
-          if git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
-            echo "Tag $TAG_NAME already exists on origin."
-            exit 1
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG_NAME"
-          git push origin "$TAG_NAME"
-          echo "Tag $TAG_NAME created and pushed."
-
-      - name: Trigger release workflow
-        if: ${{ steps.tag.outputs.tag_name != '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # A tag pushed with GITHUB_TOKEN does not recursively trigger another
-          # workflow, so dispatch the release exactly once with the new tag.
-          TAG_NAME="${{ steps.tag.outputs.tag_name }}"
-          gh workflow run "SlClash Android Release" \
-            --repo songzhengpei/Slclash \
-            --ref main \
-            -f tag="$TAG_NAME"
-          echo "Release workflow dispatched for $TAG_NAME."
 
       - name: Summary
         if: always()
@@ -388,14 +259,11 @@ jobs:
           echo "- Previous core: v${{ steps.current.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.update.outputs.dry_run }}" = "true" ]; then
             echo "- Status: dry run validated" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Simulated app version: ${{ steps.update.outputs.app_version }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- Mihomo commit: ${{ steps.update.outputs.mihomo_commit }}" >> "$GITHUB_STEP_SUMMARY"
             echo "- PR/tag/release: skipped" >> "$GITHUB_STEP_SUMMARY"
           elif [ "${{ steps.update.outputs.branch }}" != "" ]; then
             echo "- PR: #${{ steps.pr.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Merged: ${{ steps.merge.outputs.merged }}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- App version: ${{ steps.update.outputs.app_version }}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Tag: ${{ steps.tag.outputs.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Status: draft PR opened against beta; manual review required" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- No update needed" >> "$GITHUB_STEP_SUMMARY"
           fi
