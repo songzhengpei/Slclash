@@ -176,6 +176,8 @@ jobs:
         run: |
           flutter test test/mihomo/runtime_config_regression_test.dart
           flutter test test/mihomo/source_config_preservation_test.dart
+          flutter test test/mihomo/runtime_config_ownership_test.dart
+          flutter test test/models/profile_atomic_write_test.dart
 
       - name: Verify Go modules are tidy
         shell: bash
