@@ -222,8 +222,12 @@ jobs:
           cd core
           go mod tidy
           git diff --exit-code go.mod go.sum
-          go test ./...
           cd ..
+
+          # The wrapper is Android-specific and cannot be tested as a Linux
+          # executable. Test the patched Mihomo package here; the arm64 build
+          # below validates the complete wrapper and native library.
+          (cd core/Clash.Meta && go test ./tunnel/statistic)
 
           flutter build apk --debug --target-platform android-arm64
 
