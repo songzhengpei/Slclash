@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fl_clash/common/task.dart';
@@ -147,44 +148,139 @@ nullable: null
     });
   });
 
-  group('runtime base selection', () {
-    test('falls back to normalized config when source parsing fails', () async {
-      final normalized = <String, dynamic>{'mode': 'rule'};
+  group('single snapshot runtime base', () {
+    test('source parse and normalization consume the exact same bytes', () async {
+      final snapshot = utf8.encode('''
+mode: rule
+dns:
+  enable: true
+  nameserver: [system://]
+''');
+      List<int>? normalizedBytes;
+      final result = await resolveSnapshotRuntimeBase(
+        loadSnapshot: () async => snapshot,
+        normalizeSnapshot: (bytes) async {
+          normalizedBytes = bytes;
+          return {'mode': 'rule', 'dns': {'enable': true}};
+        },
+        fallbackNormalized: () async => {'mode': 'direct'},
+      );
+      expect(normalizedBytes, snapshot);
+      expect(result['mode'], 'rule');
+      expect(result['dns']['nameserver'], ['system://']);
+    });
+
+    test(
+      'uses only the captured snapshot even if the file changes later',
+      () async {
+        // Simulates: snapshot read at T1, profile file replaced at T2. The
+        // runtime result must come entirely from the T1 snapshot; the
+        // normalized side must never trigger a second file read.
+        final snapshot = utf8.encode('''
+mode: rule
+x-snapshot-marker: version-A
+''');
+        var reads = 0;
+        final result = await resolveSnapshotRuntimeBase(
+          loadSnapshot: () async {
+            reads++;
+            return snapshot;
+          },
+          normalizeSnapshot: (bytes) async {
+            expect(bytes, snapshot);
+            return {'mode': 'rule'};
+          },
+          fallbackNormalized: () async => {'mode': 'direct'},
+        );
+        expect(reads, 1);
+        expect(result['x-snapshot-marker'], 'version-A');
+        expect(result['mode'], 'rule');
+      },
+    );
+
+    test('falls back to normalized-only when the snapshot read fails', () async {
       Object? reportedError;
-      final result = await resolveMihomoRuntimeBase(
-        normalizedConfig: normalized,
-        preserveSource: true,
-        loadSourceConfig: () async => parseMihomoSourceConfig('['),
+      final result = await resolveSnapshotRuntimeBase(
+        loadSnapshot: () async => throw const FileSystemException('read'),
+        normalizeSnapshot: (_) async => {'mode': 'rule'},
+        fallbackNormalized: () async => {'mode': 'direct'},
         onPreservationFailure: (error, _) => reportedError = error,
       );
-      expect(identical(result, normalized), isTrue);
+      expect(result, {'mode': 'direct'});
       expect(reportedError, isA<Object>());
     });
 
-    test('falls back when source YAML root is unusable', () async {
-      final normalized = <String, dynamic>{'mode': 'rule'};
-      final result = await resolveMihomoRuntimeBase(
-        normalizedConfig: normalized,
-        preserveSource: true,
-        loadSourceConfig: () async => parseMihomoSourceConfig('- invalid-root'),
+    test('falls back to normalized-only when source YAML is unparsable',
+        () async {
+      final result = await resolveSnapshotRuntimeBase(
+        loadSnapshot: () async => utf8.encode('['),
+        normalizeSnapshot: (_) async => {'mode': 'rule'},
+        fallbackNormalized: () async => {'mode': 'direct'},
       );
-      expect(identical(result, normalized), isTrue);
+      expect(result, {'mode': 'direct'});
     });
 
-    test('Script path does not read or apply the source overlay', () async {
-      final normalized = <String, dynamic>{'mode': 'rule'};
-      var sourceReads = 0;
-      final result = await resolveMihomoRuntimeBase(
-        normalizedConfig: normalized,
-        preserveSource: false,
-        loadSourceConfig: () async {
-          sourceReads++;
-          return {'x-source-only': true};
+    test(
+      'falls back to normalized-only when Core normalization fails '
+      'without overlaying stale source',
+      () async {
+        final snapshot = utf8.encode('''
+x-stale-source-field: version-B
+''');
+        Object? reportedError;
+        final result = await resolveSnapshotRuntimeBase(
+          loadSnapshot: () async => snapshot,
+          normalizeSnapshot: (_) async =>
+              throw StateError('core normalization failed'),
+          fallbackNormalized: () async => {'mode': 'direct'},
+          onPreservationFailure: (error, _) => reportedError = error,
+        );
+        expect(result, {'mode': 'direct'});
+        expect(result, isNot(contains('x-stale-source-field')));
+        expect(reportedError, isA<StateError>());
+      },
+    );
+
+    test('normalizes a large-ish snapshot end to end', () async {
+      final snapshot = utf8.encode('''
+mode: rule
+ipv6: true
+proxies:
+  - name: p1
+    type: ss
+    server: 1.1.1.1
+    port: 8388
+    cipher: aes-128-gcm
+    password: secret1
+  - name: p2
+    type: ss
+    server: 2.2.2.2
+    port: 8388
+    cipher: aes-128-gcm
+    password: secret2
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies: [p1, p2]
+rules:
+  - DOMAIN,example.com,PROXY
+  - MATCH,DIRECT
+''');
+      final result = await resolveSnapshotRuntimeBase(
+        loadSnapshot: () async => snapshot,
+        normalizeSnapshot: (bytes) async {
+          final source = parseMihomoSourceConfig(utf8.decode(bytes));
+          return {
+            'mode': source['mode'],
+            'rules': source['rules'],
+          };
         },
+        fallbackNormalized: () async => {'mode': 'direct'},
       );
-      expect(identical(result, normalized), isTrue);
-      expect(sourceReads, 0);
-      expect(result, isNot(contains('x-source-only')));
+      expect(result['mode'], 'rule');
+      expect(result['rules'], ['DOMAIN,example.com,PROXY', 'MATCH,DIRECT']);
+      expect(result['proxies'], hasLength(2));
+      expect(result['proxy-groups'], hasLength(1));
     });
   });
 

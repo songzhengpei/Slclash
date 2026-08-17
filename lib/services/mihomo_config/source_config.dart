@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:yaml/yaml.dart';
 
@@ -12,11 +12,6 @@ MihomoConfigMap parseMihomoSourceConfig(String source) {
     throw const FormatException('Mihomo source config root must be a map');
   }
   return plain;
-}
-
-Future<MihomoConfigMap> loadMihomoSourceConfigFile(String path) async {
-  final source = await File(path).readAsString();
-  return parseMihomoSourceConfig(source);
 }
 
 /// Converts YAML collections (and nested ordinary collections) into fresh,
@@ -72,20 +67,26 @@ MihomoConfigMap mergeSourceWithNormalized(
   return result;
 }
 
-/// Applies source preservation only when requested and falls back to the
-/// existing normalized path on any source read, parse, or overlay failure.
-Future<MihomoConfigMap> resolveMihomoRuntimeBase({
-  required MihomoConfigMap normalizedConfig,
-  required bool preserveSource,
-  required Future<MihomoConfigMap> Function() loadSourceConfig,
+/// Resolves the non-Script runtime base from ONE profile snapshot so the
+/// generic source parse and the Mihomo normalization always consume the same
+/// bytes (no source B + normalized A). Any failure in snapshot reading, source
+/// parsing, Core normalization, or overlay abandons preservation entirely and
+/// falls back to the normalized-only path; a partially preserved overlay is
+/// never produced.
+Future<MihomoConfigMap> resolveSnapshotRuntimeBase({
+  required Future<List<int>> Function() loadSnapshot,
+  required Future<MihomoConfigMap> Function(List<int> snapshot)
+      normalizeSnapshot,
+  required Future<MihomoConfigMap> Function() fallbackNormalized,
   void Function(Object error, StackTrace stackTrace)? onPreservationFailure,
 }) async {
-  if (!preserveSource) return normalizedConfig;
   try {
-    final sourceConfig = await loadSourceConfig();
+    final snapshot = await loadSnapshot();
+    final sourceConfig = parseMihomoSourceConfig(utf8.decode(snapshot));
+    final normalizedConfig = await normalizeSnapshot(snapshot);
     return mergeSourceWithNormalized(sourceConfig, normalizedConfig);
   } catch (error, stackTrace) {
     onPreservationFailure?.call(error, stackTrace);
-    return normalizedConfig;
+    return fallbackNormalized();
   }
 }

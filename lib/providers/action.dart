@@ -975,7 +975,6 @@ class SetupAction extends _$SetupAction {
     final overrideDns = ref.read(overrideDnsProvider);
     final appendSystemDns = networkVM2.a;
     final routeMode = networkVM2.b;
-    final configMap = await coreController.getConfig(profileId);
     String? scriptContent;
     final List<Rule> addedRules = [];
     final List<ProxyGroup> proxyGroups = [];
@@ -992,23 +991,33 @@ class SetupAction extends _$SetupAction {
       tun: patchConfig.tun.getRealTun(routeMode),
     );
     final usesScript = setupState.overwriteType == OverwriteType.script;
-    Map<String, dynamic> rawConfig = await resolveMihomoRuntimeBase(
-      normalizedConfig: configMap,
-      preserveSource: !usesScript,
-      loadSourceConfig: () async {
-        final profilePath = await appPath.getProfilePath(profileId.toString());
-        return loadMihomoSourceConfigFile(profilePath);
-      },
-      onPreservationFailure: (error, _) {
-        commonPrint.log(
-          'source config preservation failed for profileId=$profileId: '
-          '$error; falling back to normalized config',
-          logLevel: LogLevel.warning,
-        );
-      },
-    );
-    if (usesScript && scriptContent?.isNotEmpty == true) {
-      rawConfig = await handleEvaluate(scriptContent!, rawConfig);
+    final Map<String, dynamic> rawConfig;
+    if (usesScript) {
+      final configMap = await coreController.getConfig(profileId);
+      rawConfig = scriptContent?.isNotEmpty == true
+          ? await handleEvaluate(scriptContent!, configMap)
+          : configMap;
+    } else {
+      // Non-Script profiles read ONE snapshot; the same bytes feed both the
+      // generic source parse and the Mihomo normalization. Any failure falls
+      // back to the normalized-only path without mixing snapshots.
+      rawConfig = await resolveSnapshotRuntimeBase(
+        loadSnapshot: () async {
+          final profilePath = await appPath.getProfilePath(
+            profileId.toString(),
+          );
+          return File(profilePath).readAsBytes();
+        },
+        normalizeSnapshot: coreController.getConfigWithData,
+        fallbackNormalized: () => coreController.getConfig(profileId),
+        onPreservationFailure: (error, _) {
+          commonPrint.log(
+            'source snapshot preservation failed for profileId=$profileId: '
+            '$error; falling back to normalized-only config',
+            logLevel: LogLevel.warning,
+          );
+        },
+      );
     }
     final directory = await appPath.profilesPath;
     final res = makeRealProfileTask(

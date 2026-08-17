@@ -279,14 +279,30 @@ class CoreController {
     );
   }
 
+  // Single canonicalization contract shared by the path-based and data-based
+  // config APIs: RawConfig marshals rules under the json tag "rule" and both
+  // entry points must produce the same Dart map.
+  Map<String, dynamic> _normalizeConfigResult(dynamic data) {
+    final map = Map<String, dynamic>.from(data as Map);
+    map['rules'] = map['rule'];
+    map.remove('rule');
+    return map;
+  }
+
   Future<Map<String, dynamic>> getConfig(int id) async {
     final profilePath = await appPath.getProfilePath(id.toString());
     final res = await _interface.getConfig(profilePath);
     if (res.isSuccess) {
-      final data = Map<String, dynamic>.from(res.data);
-      data['rules'] = data['rule'];
-      data.remove('rule');
-      return data;
+      return _normalizeConfigResult(res.data);
+    } else {
+      throw res.message;
+    }
+  }
+
+  Future<Map<String, dynamic>> getConfigWithData(List<int> bytes) async {
+    final res = await _interface.getConfigWithData(bytes);
+    if (res.isSuccess) {
+      return _normalizeConfigResult(res.data);
     } else {
       throw res.message;
     }

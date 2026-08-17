@@ -116,6 +116,7 @@ const (
 	crashMethod                    Method = "crash"
 	setupConfigMethod              Method = "setupConfig"
 	getConfigMethod                Method = "getConfig"
+	getConfigWithDataMethod        Method = "getConfigWithData"
 	deleteFile                     Method = "deleteFile"
 )
 

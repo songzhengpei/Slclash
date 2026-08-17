@@ -20,6 +20,8 @@ mixin CoreInterface {
 
   Future<Result> getConfig(String path);
 
+  Future<Result> getConfigWithData(List<int> bytes);
+
   Future<String> asyncTestDelay(String url, String proxyName);
 
   Future<String> mediaCheck(
@@ -150,7 +152,8 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   Future<T> parasResult<T>(ActionResult result) async {
     return switch (result.method) {
-      ActionMethod.getConfig => result.toResult as T,
+      ActionMethod.getConfig || ActionMethod.getConfigWithData =>
+        result.toResult as T,
       _ => result.data as T,
     };
   }
@@ -198,6 +201,15 @@ abstract class CoreHandlerInterface with CoreInterface {
   @override
   Future<Result> getConfig(String path) async {
     final res = await _invoke(method: ActionMethod.getConfig, data: path);
+    return res ?? Result.success({});
+  }
+
+  @override
+  Future<Result> getConfigWithData(List<int> bytes) async {
+    final res = await _invoke(
+      method: ActionMethod.getConfigWithData,
+      data: base64Encode(bytes),
+    );
     return res ?? Result.success({});
   }
 
