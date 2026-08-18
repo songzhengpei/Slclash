@@ -96,7 +96,7 @@ jobs:
           flutter test test/mihomo/e2e_compatibility_test.dart
           flutter test test/models/clash_config_rule_test.dart
 
-      - name: Go RawConfig bridge tests
+      - name: Go bridge compatibility tests
         if: steps.sensitive.outputs.core == 'true'
         shell: bash
         run: |
@@ -104,9 +104,10 @@ jobs:
           cd core
           go mod tidy
           git diff --exit-code go.mod go.sum
-          # `go test .` covers the bridge package (provider side-update
-          # regression etc.), ./configfixture covers the RawConfig JSON bridge.
-          go test . ./configfixture
+          # The root package is an Android/cgo bridge and is not a valid Linux
+          # host-test target. providerbridge contains the pure side-update path;
+          # configfixture covers the RawConfig JSON bridge.
+          go test ./providerbridge ./configfixture
 
       - name: Summary
         if: always()
