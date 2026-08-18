@@ -1,0 +1,20 @@
+# Real-field TUN ownership fixture.
+#
+# Every field here is a real key the current bundled Mihomo RawTun
+# represents, so the materialized output is safe to feed into config.Parse
+# as a blocking core-update validity check.
+#
+# Slclash-owned: enable, device, dns-hijack, stack, route-address, auto-route
+# Kernel/Profile-owned (preserved): auto-detect-interface, mtu, strict-route
+tun:
+  enable: false
+  stack: mixed
+  device: Slclash-fixture
+  auto-route: false
+  dns-hijack: [any:53]
+  route-address: [10.0.0.0/8]
+  auto-detect-interface: true
+  mtu: 9000
+  strict-route: true
+rules:
+  - MATCH,DIRECT

@@ -1,0 +1,24 @@
+# Real-field DNS ownership fixture.
+#
+# Every field here is a real key the current bundled Mihomo RawDNS
+# represents, so the materialized output is safe to feed into config.Parse
+# as a blocking core-update validity check.
+#
+# Slclash-owned (overridden when Slclash DNS is active):
+# enable, nameserver, fallback-filter, ...
+# Kernel/Profile-owned (preserved): cache-algorithm, direct-nameserver,
+# direct-nameserver-follow-policy
+dns:
+  enable: true
+  nameserver:
+    - 1.1.1.1
+  cache-algorithm: arc
+  direct-nameserver:
+    - 223.5.5.5
+  direct-nameserver-follow-policy: true
+  fallback-filter:
+    geoip: false
+    domain:
+      - +.source.example
+rules:
+  - MATCH,DIRECT

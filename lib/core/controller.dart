@@ -279,14 +279,33 @@ class CoreController {
     );
   }
 
+  // Single canonicalization contract for the config APIs: RawConfig marshals
+  // rules under the json tag "rule" and every entry point must produce the
+  // same Dart map. An empty result means Core did not return a config at all
+  // (e.g. the invoke timed out and was faked as success); treat that as a
+  // failure so snapshot preservation falls back instead of overlaying.
+  Map<String, dynamic> _normalizeConfigResult(dynamic data) {
+    if (data is! Map || data.isEmpty) {
+      throw StateError('Mihomo normalization returned no config');
+    }
+    final map = Map<String, dynamic>.from(data);
+    map['rules'] = map['rule'];
+    map.remove('rule');
+    return map;
+  }
+
   Future<Map<String, dynamic>> getConfig(int id) async {
     final profilePath = await appPath.getProfilePath(id.toString());
-    final res = await _interface.getConfig(profilePath);
+    return getConfigAtPath(profilePath);
+  }
+
+  /// Normalizes the config at [path]. Used by the single-snapshot path to
+  /// hand Core the exact snapshot bytes via a short file path instead of
+  /// sending the whole profile over the Android Binder.
+  Future<Map<String, dynamic>> getConfigAtPath(String path) async {
+    final res = await _interface.getConfig(path);
     if (res.isSuccess) {
-      final data = Map<String, dynamic>.from(res.data);
-      data['rules'] = data['rule'];
-      data.remove('rule');
-      return data;
+      return _normalizeConfigResult(res.data);
     } else {
       throw res.message;
     }

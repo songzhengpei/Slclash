@@ -52,6 +52,7 @@ app.*.map.json
 docs/*
 !docs/mihomo-compatibility-phase1.md
 !docs/mihomo-compatibility-phase2a.md
+!docs/mihomo-compatibility-phase2b.md
 !docs/images/
 docs/images/*
 !docs/images/readme/
