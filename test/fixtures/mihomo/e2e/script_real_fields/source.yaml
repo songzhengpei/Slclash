@@ -1,0 +1,32 @@
+# Real-field Script-profile E2E fixture.
+#
+# Exercises the Script transform path with real RawConfig fields: the Dart E2E
+# test simulates a Script (mode -> global, dns.nameserver delete, rules list
+# replacement, explicit null) against this source and verifies the structural
+# diff preserves source-only siblings while Script edits win.
+mode: rule
+ipv6: true
+global-ua: Slclash-e2e-script
+dns:
+  enable: true
+  nameserver:
+    - 1.1.1.1
+  cache-algorithm: arc
+  direct-nameserver:
+    - 223.5.5.5
+  direct-nameserver-follow-policy: true
+tun:
+  enable: false
+  stack: mixed
+  auto-detect-interface: true
+  mtu: 1400
+experimental:
+  quic-go-disable-gso: true
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - DIRECT
+rules:
+  - DOMAIN,example.com,PROXY
+  - MATCH,DIRECT

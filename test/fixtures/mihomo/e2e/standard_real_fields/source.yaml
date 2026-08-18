@@ -1,0 +1,42 @@
+# Real-field standard-profile E2E fixture.
+#
+# Every field here is a real key the current bundled Mihomo RawConfig
+# represents, so the Go E2E test pins this exact source -> RawConfig -> JSON
+# bridge output and the materialized runtime YAML is safe to feed into
+# config.Parse as a blocking core-update validity check.
+#
+# The Go contract test (rawconfig_e2e_fixture_test.go) mechanically proves
+# source.yaml -> config.UnmarshalRawConfig -> json.Marshal equals the
+# checked-in rawconfig.json.
+mode: rule
+ipv6: true
+global-ua: Slclash-e2e-standard
+profile:
+  store-selected: true
+dns:
+  enable: true
+  nameserver:
+    - 1.1.1.1
+  cache-algorithm: arc
+  direct-nameserver:
+    - 223.5.5.5
+  direct-nameserver-follow-policy: true
+tun:
+  enable: true
+  stack: mixed
+  auto-route: true
+  auto-detect-interface: true
+  mtu: 9000
+  strict-route: true
+experimental:
+  quic-go-disable-gso: true
+  quic-go-disable-ecn: true
+  dialer-ip4p-convert: true
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - DIRECT
+rules:
+  - DOMAIN,example.com,PROXY
+  - MATCH,DIRECT
