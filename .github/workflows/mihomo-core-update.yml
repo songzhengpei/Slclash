@@ -257,6 +257,123 @@ jobs:
             echo "Current core validation completed for $CHECKED_OUT."
           fi
 
+      - name: 生成内核升级评估
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' }}
+        id: review
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_SHA: ${{ steps.rel.outputs.current_sha }}
+          LATEST_SHA: ${{ steps.rel.outputs.latest_stable_sha }}
+          LATEST_TAG: ${{ steps.rel.outputs.latest_stable_tag }}
+        run: |
+          set -euo pipefail
+
+          CHANGED_FILES="$(git -C core/Clash.Meta diff --name-only "$CURRENT_SHA" "$LATEST_SHA")"
+          COMMIT_COUNT="$(git -C core/Clash.Meta rev-list --count "$CURRENT_SHA..$LATEST_SHA")"
+          COMMITS="$(git -C core/Clash.Meta log --no-merges --format='- `%h` %s' "$CURRENT_SHA..$LATEST_SHA" | sed -n '1,80p')"
+          RELEASE_BODY="$(gh api "repos/MetaCubeX/mihomo/releases/tags/$LATEST_TAG" --jq '.body // ""' 2>/dev/null || true)"
+          RELEASE_EXCERPT="$(printf '%s\n' "$RELEASE_BODY" | sed -n '1,80p')"
+
+          REVIEW_TEXT="$(printf '%s\n%s\n' "$RELEASE_BODY" "$COMMITS" | tr '[:upper:]' '[:lower:]')"
+          CONFIG_FILES="$(printf '%s\n' "$CHANGED_FILES" | grep -E '^(config/|dns/|rules/|provider/|component/(trie|geodata|resolver)/)' || true)"
+          RUNTIME_FILES="$(printf '%s\n' "$CHANGED_FILES" | grep -E '^(tunnel/|listener/|adapter/|component/dialer/|transport/)' || true)"
+          PRODUCT_FILES="$(printf '%s\n' "$CHANGED_FILES" | grep -E '^(config/|adapter/(outbound|inbound)/|listener/|provider/|dns/)' || true)"
+
+          BREAKING_SIGNAL="$(printf '%s\n' "$REVIEW_TEXT" | grep -E -m1 'breaking|incompatib|deprecat|rename(d)?[^[:alnum:]]*(field|option|config|api|schema)|remove(d)?[^[:alnum:]]*(field|option|config|api|schema|support)' || true)"
+          FEATURE_SIGNAL="$(printf '%s\n' "$REVIEW_TEXT" | grep -E -m1 '(^|[^[:alnum:]])(add|added|support|supports|supported|introduce|introduced|new feature|implement|implemented|enable|enabled)([^[:alnum:]]|$)' || true)"
+
+          CONCLUSION="可直接合并"
+          CODE_ACTION="无需修改 Slclash 代码"
+          UI_ACTION="无需新增或删减界面"
+          RISK="低"
+          REASON="全部兼容性测试和 Android arm64 构建通过，未检测到需要额外处理的上游兼容性信号。"
+
+          if [ -n "$BREAKING_SIGNAL" ] && { [ -n "$CONFIG_FILES" ] || [ -n "$RUNTIME_FILES" ]; }; then
+            CONCLUSION="建议修改后合并"
+            CODE_ACTION="需要人工复核受影响代码；如确认上游契约发生变化，应先完成 Slclash 适配"
+            UI_ACTION="先完成代码兼容性判断，再决定是否需要界面调整"
+            RISK="高"
+            REASON="上游说明或提交中出现删除、重命名、弃用或不兼容信号，并且触及配置或运行时敏感路径。"
+          elif [ -n "$FEATURE_SIGNAL" ] && [ -n "$PRODUCT_FILES" ]; then
+            CONCLUSION="建议评估产品和界面后合并"
+            CODE_ACTION="当前自动兼容性验证已通过，暂未发现必须修改的 Slclash 代码"
+            UI_ACTION="需要评估新能力是否应在 Slclash 中增加、删减或调整界面入口；也可以明确选择不暴露"
+            RISK="中"
+            REASON="上游存在新增或扩展能力信号，并且触及配置、协议、Provider、DNS 或入站能力等产品表面。"
+          elif [ -n "$CONFIG_FILES" ] || [ -n "$RUNTIME_FILES" ]; then
+            RISK="中"
+            REASON="自动验证全部通过，但上游修改触及配置或运行时敏感路径；可以进入 Beta，但建议重点做对应真机回归。"
+          fi
+
+          {
+            echo "conclusion=$CONCLUSION"
+            echo "code_action=$CODE_ACTION"
+            echo "ui_action=$UI_ACTION"
+            echo "risk=$RISK"
+            echo "commit_count=$COMMIT_COUNT"
+          } >> "$GITHUB_OUTPUT"
+
+          REPORT_FILE="$RUNNER_TEMP/mihomo-upgrade-review.md"
+          {
+            echo "## 自动升级评估"
+            echo ""
+            echo "> **结论：$CONCLUSION**"
+            echo ""
+            echo "- 风险等级：$RISK"
+            echo "- 代码修改建议：$CODE_ACTION"
+            echo "- 产品/界面建议：$UI_ACTION"
+            echo "- 判断依据：$REASON"
+            echo "- 上游提交数量：$COMMIT_COUNT"
+            echo ""
+            echo "### 自动验证"
+            echo ""
+            echo "- 配置回归、source preservation、DNS/TUN ownership：通过"
+            echo "- Script structural diff / source preservation：通过"
+            echo "- RawConfig / JSON bridge / E2E compatibility：通过"
+            echo "- Go 检查与 Android arm64 构建：通过"
+            echo ""
+            echo "### 上游提交"
+            echo ""
+            if [ -n "$COMMITS" ]; then
+              printf '%s\n' "$COMMITS"
+            else
+              echo "- 未取得提交列表"
+            fi
+            echo ""
+            echo "### 重点变更文件"
+            echo ""
+            if [ -n "$CHANGED_FILES" ]; then
+              printf '%s\n' "$CHANGED_FILES" | sed -n '1,80p' | sed 's/^/- `/' | sed 's/$/`/'
+            else
+              echo "- 未检测到文件变化"
+            fi
+            echo ""
+            echo "### Mihomo 发布说明摘录"
+            echo ""
+            if [ -n "$RELEASE_EXCERPT" ]; then
+              printf '%s\n' "$RELEASE_EXCERPT"
+            else
+              echo "官方 release 未提供说明。"
+            fi
+            echo ""
+            echo "### 人工决策"
+            echo ""
+            case "$CONCLUSION" in
+              "可直接合并")
+                echo "自动护栏未发现阻塞项。可以合入 Beta，再按正常流程进行 Beta Release、真机稳定性测试，然后 beta → main。"
+                ;;
+              "建议修改后合并")
+                echo "不要直接合入 Beta。先审查上游 breaking/deprecation 信号与敏感路径，必要时完成代码适配并重新跑完整护栏。"
+                ;;
+              *)
+                echo "Core 本身已通过兼容性验证，但存在新产品能力信号。请先决定 Slclash 是否需要暴露、隐藏或调整相关界面；决定后再合入 Beta。"
+                ;;
+            esac
+          } > "$REPORT_FILE"
+
+          echo "report_file=$REPORT_FILE" >> "$GITHUB_OUTPUT"
+
       - name: Push validated update branch
         if: ${{ steps.update.outputs.branch != '' && inputs.dry_run != true }}
         shell: bash
@@ -271,20 +388,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           BRANCH="${{ steps.update.outputs.branch }}"
-          TITLE="chore: update Mihomo core to ${{ steps.rel.outputs.latest_stable_tag }}"
+          TITLE="Mihomo 内核更新 ${{ steps.rel.outputs.latest_stable_tag }}：${{ steps.review.outputs.conclusion }}"
 
           BODY_FILE="$(mktemp)"
           cat > "$BODY_FILE" <<EOF
-          ## Mihomo Core Update
+          ## Mihomo 内核更新
 
-          - Previous: ${{ steps.rel.outputs.nearest_release_tag }} (${{ steps.rel.outputs.current_sha }})
-          - New: ${{ steps.rel.outputs.latest_stable_tag }} (${{ steps.update.outputs.mihomo_commit }})
-          - Relationship: BEHIND_STABLE (current is an ancestor of latest stable)
+          - 当前版本：${{ steps.rel.outputs.nearest_release_tag }}（${{ steps.rel.outputs.current_sha }}）
+          - 目标版本：${{ steps.rel.outputs.latest_stable_tag }}（${{ steps.update.outputs.mihomo_commit }}）
+          - 关系：当前 Core 落后于最新稳定版，目标版本是当前版本的后继提交
 
-          Core source is checked out directly from the official \`MetaCubeX/mihomo\` stable release tag.
-          This update passed config regression tests, analysis, Go checks, and
-          Android arm64 build validation before this draft PR was opened.
+          本次更新直接使用官方 \`MetaCubeX/mihomo\` 稳定版 tag。
+          在创建这个 Draft PR 之前，已经完成 Slclash 配置兼容性测试、Script preservation、RawConfig E2E、Go 检查和 Android arm64 构建验证。
+
           EOF
+          cat "${{ steps.review.outputs.report_file }}" >> "$BODY_FILE"
 
           EXISTING_PR="$(gh pr list --head "$BRANCH" --base beta --state open --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING_PR" ]; then
@@ -296,7 +414,7 @@ jobs:
           fi
 
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "PR #$PR_NUMBER created/updated"
+          echo "PR #$PR_NUMBER 已创建或更新"
 
       - name: Summary
         if: always()
@@ -309,37 +427,43 @@ jobs:
           STABLE_SHA: ${{ steps.rel.outputs.latest_stable_sha }}
           ALPHA_SHA: ${{ steps.rel.outputs.latest_alpha_sha }}
           REL_ALPHA: ${{ steps.rel.outputs.relationship_to_alpha }}
+          REVIEW: ${{ steps.review.outputs.conclusion }}
+          REVIEW_RISK: ${{ steps.review.outputs.risk }}
         run: |
           {
-            echo "## Mihomo Core Update Summary"
+            echo "## Mihomo 内核更新摘要"
             echo ""
-            echo "- Current core: $CURRENT_SHA"
-            echo "- Latest stable: $STABLE_TAG ($STABLE_SHA)"
-            echo "- Relationship to stable: $REL"
-            echo "- Latest alpha: $ALPHA_SHA"
-            echo "- Relationship to alpha: $REL_ALPHA"
+            echo "- 当前 Core：$CURRENT_SHA"
+            echo "- 最新稳定版：$STABLE_TAG ($STABLE_SHA)"
+            echo "- 与稳定版关系：$REL"
+            echo "- 最新 Alpha：$ALPHA_SHA"
+            echo "- 与 Alpha 关系：$REL_ALPHA"
             echo ""
             case "$ACTION" in
               fail_closed)
-                echo "- Status: FAILED CLOSED — history diverged from stable; manual review required."
+                echo "- 状态：已阻塞。Core 历史与稳定版分叉，未修改 submodule、未 push、未创建 PR，需要人工审查。"
                 ;;
               noop)
-                echo "- Status: no update needed."
+                echo "- 状态：无需更新。"
                 if [ "$REL" = "AHEAD_OF_STABLE" ]; then
-                  echo "- Current core is ahead of latest stable. No automatic downgrade performed."
+                  echo "- 当前 Core 领先于最新稳定版，已拒绝自动降级。"
                 fi
                 ;;
               validate_current)
-                echo "- Status: current core re-validated ($CURRENT_SHA)."
-                echo "- No downgrade, no PR."
+                echo "- 状态：当前 Core 已重新验证 ($CURRENT_SHA)。"
+                echo "- 未降级、未创建 PR。"
                 ;;
               upgrade_stable)
-                echo "- Status: stable core validated."
+                echo "- 状态：目标稳定版已通过自动验证。"
+                if [ -n "$REVIEW" ]; then
+                  echo "- 自动评估：$REVIEW"
+                  echo "- 风险等级：$REVIEW_RISK"
+                fi
                 if [ "${{ inputs.dry_run }}" = "true" ]; then
-                  echo "- Dry run: changes left uncommitted; no push / PR / tag / release."
+                  echo "- Dry run：仅验证，不 push、不创建 PR、不打 tag、不发布。"
                 else
-                  echo "- PR: #${{ steps.pr.outputs.pr_number }}"
-                  echo "- Status: draft PR opened against beta; manual review required."
+                  echo "- PR：#${{ steps.pr.outputs.pr_number }}"
+                  echo "- 下一步：按 PR 中的中文结论决定直接合并、先修改，或先做产品/界面决策。"
                 fi
                 ;;
             esac
