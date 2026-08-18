@@ -197,6 +197,20 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
+      # The root core package (go test .) compiles against the patched
+      # Mihomo tree; apply before any Go test. MihomoPatcher is idempotent,
+      # so the later Build Go core patch step simply no-ops.
+      - name: Apply Mihomo patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd plugins/setup/buildkit/build_tool
+            dart pub get
+            dart run bin/build_tool.dart \
+              --root-dir "$GITHUB_WORKSPACE" patch-mihomo
+          )
+
       - name: Validate Mihomo compatibility fixtures
         shell: bash
         run: cd core && go test . ./configfixture

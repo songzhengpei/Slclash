@@ -13,6 +13,9 @@ concurrency:
 
 permissions:
   contents: read
+  # dorny/paths-filter resolves changed files via the GitHub API on
+  # pull_request events; without this the REST call is denied.
+  pull-requests: read
 
 jobs:
   compatibility:
