@@ -1,8 +1,16 @@
 import 'dart:convert';
 
+import 'package:fl_clash/services/mihomo_config/structural_config_diff.dart';
 import 'package:yaml/yaml.dart';
 
 typedef MihomoConfigMap = Map<String, dynamic>;
+
+/// The two views derived from ONE profile snapshot: the raw source parse and
+/// the Mihomo-normalized map. Both always come from the same bytes.
+typedef MihomoSnapshotParts = ({
+  MihomoConfigMap source,
+  MihomoConfigMap normalized,
+});
 
 /// Parses a Mihomo YAML document into isolate-safe plain Dart structures.
 MihomoConfigMap parseMihomoSourceConfig(String source) {
@@ -67,6 +75,20 @@ MihomoConfigMap mergeSourceWithNormalized(
   return result;
 }
 
+/// Reads ONE profile snapshot and derives both the source parse and the
+/// Mihomo-normalized view from the exact same bytes, so source and normalized
+/// can never come from different profile versions.
+Future<MihomoSnapshotParts> loadMihomoSnapshotParts({
+  required Future<List<int>> Function() loadSnapshot,
+  required Future<MihomoConfigMap> Function(List<int> snapshot)
+      normalizeSnapshot,
+}) async {
+  final snapshot = await loadSnapshot();
+  final source = parseMihomoSourceConfig(utf8.decode(snapshot));
+  final normalized = await normalizeSnapshot(snapshot);
+  return (source: source, normalized: normalized);
+}
+
 /// Resolves the non-Script runtime base from ONE profile snapshot so the
 /// generic source parse and the Mihomo normalization always consume the same
 /// bytes (no source B + normalized A). Any failure in snapshot reading, source
@@ -81,12 +103,73 @@ Future<MihomoConfigMap> resolveSnapshotRuntimeBase({
   void Function(Object error, StackTrace stackTrace)? onPreservationFailure,
 }) async {
   try {
-    final snapshot = await loadSnapshot();
-    final sourceConfig = parseMihomoSourceConfig(utf8.decode(snapshot));
-    final normalizedConfig = await normalizeSnapshot(snapshot);
-    return mergeSourceWithNormalized(sourceConfig, normalizedConfig);
+    final parts = await loadMihomoSnapshotParts(
+      loadSnapshot: loadSnapshot,
+      normalizeSnapshot: normalizeSnapshot,
+    );
+    return mergeSourceWithNormalized(parts.source, parts.normalized);
   } catch (error, stackTrace) {
     onPreservationFailure?.call(error, stackTrace);
     return fallbackNormalized();
+  }
+}
+
+/// Resolves the Script runtime base from ONE profile snapshot with source
+/// preservation around the Script transform.
+///
+/// Pipeline: snapshot parts (source + normalizedBefore) -> the Script evaluates
+/// a deep copy of normalizedBefore -> structural diff(normalizedBefore, after)
+/// -> applied onto the source-preserved base (source + normalized overlay).
+///
+/// Guarantees:
+/// - The Script always receives a deep copy of the normalized map, never the
+///   raw source and never a preserved map, so the observable input contract is
+///   unchanged.
+/// - The Script evaluates at most once. Infrastructure failures (snapshot
+///   read, source parse, Core normalization) abandon preservation and fall
+///   back to the existing normalized-only Script path; a Script error
+///   propagates; a post-Script merge/diff/apply failure reuses the first
+///   Script result instead of re-evaluating.
+Future<MihomoConfigMap> resolveScriptSnapshotRuntimeBase({
+  required Future<List<int>> Function() loadSnapshot,
+  required Future<MihomoConfigMap> Function(List<int> snapshot)
+      normalizeSnapshot,
+  required Future<MihomoConfigMap> Function() fallbackNormalized,
+  required Future<MihomoConfigMap> Function(MihomoConfigMap scriptInput)
+      evaluateScript,
+  void Function(Object error, StackTrace stackTrace)? onPreservationFailure,
+  void Function(Object error, StackTrace stackTrace)? onScriptApplyFailure,
+}) async {
+  final MihomoSnapshotParts parts;
+  try {
+    parts = await loadMihomoSnapshotParts(
+      loadSnapshot: loadSnapshot,
+      normalizeSnapshot: normalizeSnapshot,
+    );
+  } catch (error, stackTrace) {
+    onPreservationFailure?.call(error, stackTrace);
+    return fallbackNormalized();
+  }
+
+  final before = Map<String, dynamic>.from(
+    deepCopyConfigValue(parts.normalized) as Map<String, dynamic>,
+  );
+  // The Script input is an independent copy: even if the evaluator mutates
+  // its argument, the diff base stays pristine.
+  final scriptInput = Map<String, dynamic>.from(
+    deepCopyConfigValue(before) as Map<String, dynamic>,
+  );
+  final after = await evaluateScript(scriptInput);
+
+  try {
+    final preservationBase = mergeSourceWithNormalized(
+      parts.source,
+      parts.normalized,
+    );
+    final changes = diffStructuralChanges(before, after);
+    return applyStructuralChanges(preservationBase, changes);
+  } catch (error, stackTrace) {
+    onScriptApplyFailure?.call(error, stackTrace);
+    return after;
   }
 }
