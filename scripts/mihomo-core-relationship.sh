@@ -15,7 +15,10 @@
 #   latest_alpha_sha       full SHA of the Prerelease-Alpha tag (or Alpha head)
 #   relationship_to_alpha  EXACT | AHEAD | BEHIND | DIVERGED
 #
-# Relationship rules (never dates, never tag-string comparison):
+# Relationship rules (never dates, never tag-string comparison). The raw
+# relationship() result (EXACT | AHEAD | BEHIND | DIVERGED) is mapped to the
+# stable-specific contract below; alpha keeps the raw values because the
+# workflow only displays them.
 #   EXACT   current == target
 #   AHEAD   target is an ancestor of current
 #   BEHIND  current is an ancestor of target
@@ -58,8 +61,23 @@ relationship() {
   echo "DIVERGED"
 }
 
-REL_TO_STABLE="$(relationship "$CURRENT_SHA" "$LATEST_STABLE_SHA")"
+REL_TO_STABLE_RAW="$(relationship "$CURRENT_SHA" "$LATEST_STABLE_SHA")"
 REL_TO_ALPHA="$(relationship "$CURRENT_SHA" "$LATEST_ALPHA_SHA")"
+
+# Map the raw relationship to the stable-specific contract the workflow and
+# the summary consume (EXACT_STABLE | AHEAD_OF_STABLE | BEHIND_STABLE |
+# DIVERGED). Keeping the workflow's vocabulary avoids touching the decision
+# logic and PR/summary text.
+case "$REL_TO_STABLE_RAW" in
+  EXACT)    REL_TO_STABLE="EXACT_STABLE" ;;
+  AHEAD)    REL_TO_STABLE="AHEAD_OF_STABLE" ;;
+  BEHIND)   REL_TO_STABLE="BEHIND_STABLE" ;;
+  DIVERGED) REL_TO_STABLE="DIVERGED" ;;
+  *)
+    echo "Unexpected stable relationship: $REL_TO_STABLE_RAW" >&2
+    exit 1
+    ;;
+esac
 
 echo "current_sha=$CURRENT_SHA"
 echo "nearest_release_tag=$NEAREST_RELEASE_TAG"
