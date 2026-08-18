@@ -32,6 +32,10 @@ jobs:
         shell: bash
         run: echo "sha=$(git -C core/Clash.Meta rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Verify updater relationship contract
+        shell: bash
+        run: bash scripts/test_mihomo_core_relationship_contract.sh
+
       - name: Fetch submodule tags
         shell: bash
         run: |

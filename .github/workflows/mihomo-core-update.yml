@@ -30,12 +30,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # Phase 1.1 safety fuse: the updater always inspects and upgrades the
+      # BETA core, no matter which ref triggered the workflow. Scheduled runs
+      # execute the workflow definition from the default branch (main), but
+      # the working tree must be beta.
+      - name: Checkout beta
         uses: actions/checkout@v4
         with:
+          ref: beta
           submodules: recursive
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify updater relationship contract
+        shell: bash
+        run: bash scripts/test_mihomo_core_relationship_contract.sh
 
       - name: Fetch submodule tags
         shell: bash
