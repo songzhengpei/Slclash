@@ -47,8 +47,16 @@ dynamic toPlainDartStructure(dynamic value) {
   );
 }
 
+/// List keys whose items carry a stable `name` identity. Items in these lists
+/// are merged by name instead of being atomically replaced: the normalized item
+/// stays authoritative, while source-only sibling fields inside the matched
+/// item survive. All other lists are still replaced wholesale.
+const _keyedListKeys = {'proxies', 'proxy-groups', 'listeners'};
+
 /// Uses the original source as a preservation base while keeping normalized
-/// Mihomo values authoritative. Lists are replaced, not structurally merged.
+/// Mihomo values authoritative. Maps are recursively merged; [proxies],
+/// [proxy-groups] and [listeners] items are merged by `name`; all other lists
+/// are replaced, not structurally merged.
 MihomoConfigMap mergeSourceWithNormalized(
   MihomoConfigMap source,
   MihomoConfigMap normalized,
@@ -68,11 +76,40 @@ MihomoConfigMap mergeSourceWithNormalized(
           toPlainDartStructure(normalizedValue) as Map<String, dynamic>,
         ),
       );
+    } else if (sourceValue is List &&
+        normalizedValue is List &&
+        _keyedListKeys.contains(entry.key)) {
+      result[entry.key] = _mergeKeyedLists(sourceValue, normalizedValue);
     } else {
       result[entry.key] = toPlainDartStructure(normalizedValue);
     }
   }
   return result;
+}
+
+/// Merges [normalized] items onto same-named [source] items (recursively via
+/// [mergeSourceWithNormalized]); the normalized list defines order and
+/// membership, source-only items are dropped, and items without a string
+/// `name` pass through untouched.
+List<dynamic> _mergeKeyedLists(
+  List<dynamic> source,
+  List<dynamic> normalized,
+) {
+  final sourceByName = <String, dynamic>{};
+  for (final item in source) {
+    if (item is Map && item['name'] is String) {
+      sourceByName[item['name'] as String] = item;
+    }
+  }
+  return normalized.map((item) {
+    if (item is! Map || item['name'] is! String) return item;
+    final sourceItem = sourceByName[item['name'] as String];
+    if (sourceItem is! Map) return item;
+    return mergeSourceWithNormalized(
+      Map<String, dynamic>.from(sourceItem),
+      Map<String, dynamic>.from(item),
+    );
+  }).toList();
 }
 
 /// Reads ONE profile snapshot and derives both the source parse and the

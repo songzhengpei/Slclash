@@ -123,6 +123,185 @@ void main() {
     });
   });
 
+  group('keyed list preservation', () {
+    test('preserves source-only siblings inside matched proxy-group items', () {
+      final result = mergeSourceWithNormalized(
+        {
+          'proxy-groups': [
+            {
+              'name': 'HK',
+              'type': 'select',
+              'proxies': ['A', 'B'],
+              'some-new-mihomo-option': true,
+            },
+          ],
+        },
+        {
+          'proxy-groups': [
+            {
+              'name': 'HK',
+              'type': 'select',
+              'proxies': ['A', 'B'],
+            },
+          ],
+        },
+      );
+      expect(
+        result['proxy-groups'],
+        [
+          {
+            'name': 'HK',
+            'type': 'select',
+            'proxies': ['A', 'B'],
+            'some-new-mihomo-option': true,
+          },
+        ],
+      );
+    });
+
+    test('preserves future fields in proxies and listeners items', () {
+      final result = mergeSourceWithNormalized(
+        {
+          'proxies': [
+            {'name': 'p1', 'type': 'ss', 'future-proxy-option': 'kept'},
+          ],
+          'listeners': [
+            {'name': 'l1', 'type': 'mixed', 'future-listener-option': 42},
+          ],
+        },
+        {
+          'proxies': [
+            {'name': 'p1', 'type': 'ss'},
+          ],
+          'listeners': [
+            {'name': 'l1', 'type': 'mixed'},
+          ],
+        },
+      );
+      expect(result['proxies'][0]['future-proxy-option'], 'kept');
+      expect(result['listeners'][0]['future-listener-option'], 42);
+    });
+
+    test('normalized values win inside matched items', () {
+      final result = mergeSourceWithNormalized(
+        {
+          'proxies': [
+            {
+              'name': 'p1',
+              'type': 'ss',
+              'server': 'old.example',
+              'future': 'kept',
+            },
+          ],
+        },
+        {
+          'proxies': [
+            {
+              'name': 'p1',
+              'type': 'ss',
+              'server': 'new.example',
+            },
+          ],
+        },
+      );
+      expect(result['proxies'][0]['server'], 'new.example');
+      expect(result['proxies'][0]['future'], 'kept');
+    });
+
+    test('normalized order and membership are authoritative', () {
+      final result = mergeSourceWithNormalized(
+        {
+          'proxy-groups': [
+            {'name': 'dropped', 'type': 'select', 'future': 'kept'},
+            {'name': 'HK', 'type': 'select', 'future': 'kept'},
+          ],
+        },
+        {
+          'proxy-groups': [
+            {'name': 'HK', 'type': 'select'},
+            {'name': 'new', 'type': 'url-test'},
+          ],
+        },
+      );
+      expect(
+        (result['proxy-groups'] as List).map((e) => e['name']).toList(),
+        ['HK', 'new'],
+      );
+      expect(result['proxy-groups'][0]['future'], 'kept');
+      expect(result['proxy-groups'][1], {'name': 'new', 'type': 'url-test'});
+    });
+
+    test('items without a string name pass through untouched', () {
+      final result = mergeSourceWithNormalized(
+        {'proxies': ['plain-string-item']},
+        {'proxies': ['normalized-string']},
+      );
+      expect(result['proxies'], ['normalized-string']);
+    });
+
+    test('unnamed lists are still atomically replaced', () {
+      final result = mergeSourceWithNormalized(
+        {
+          'rules': [
+            'DOMAIN,source.example,DIRECT',
+            'future-sibling-rule',
+          ],
+        },
+        {
+          'rules': ['MATCH,DIRECT'],
+        },
+      );
+      expect(result['rules'], ['MATCH,DIRECT']);
+    });
+
+    test('nested maps inside matched items merge recursively', () {
+      final result = mergeSourceWithNormalized(
+        {
+          'proxy-groups': [
+            {
+              'name': 'G',
+              'type': 'select',
+              'proxies': ['A'],
+              'override': {'future-nested': 'kept', 'tcp-concurrent': true},
+            },
+          ],
+        },
+        {
+          'proxy-groups': [
+            {
+              'name': 'G',
+              'type': 'select',
+              'proxies': ['A'],
+              'override': {'tcp-concurrent': false},
+            },
+          ],
+        },
+      );
+      expect(result['proxy-groups'][0]['override']['tcp-concurrent'], isFalse);
+      expect(result['proxy-groups'][0]['override']['future-nested'], 'kept');
+    });
+
+    test('does not mutate input lists', () {
+      final source = {
+        'proxy-groups': [
+          {'name': 'G', 'type': 'select', 'future': 'kept'},
+        ],
+      };
+      final normalized = {
+        'proxy-groups': [
+          {'name': 'G', 'type': 'select'},
+        ],
+      };
+      final result = mergeSourceWithNormalized(source, normalized);
+      (result['proxy-groups'] as List).add({'name': 'mutated'});
+      final sourceGroups = source['proxy-groups'] as List;
+      final normalizedGroups = normalized['proxy-groups'] as List;
+      expect(sourceGroups, hasLength(1));
+      expect(normalizedGroups, hasLength(1));
+      expect(sourceGroups[0]['future'], 'kept');
+    });
+  });
+
   group('source YAML parsing', () {
     test('converts YamlMap and YamlList to plain Dart structures', () {
       final result = parseMihomoSourceConfig('''
