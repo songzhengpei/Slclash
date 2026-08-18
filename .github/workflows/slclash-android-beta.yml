@@ -32,6 +32,10 @@ jobs:
         shell: bash
         run: echo "sha=$(git -C core/Clash.Meta rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Verify updater relationship contract
+        shell: bash
+        run: bash scripts/test_mihomo_core_relationship_contract.sh
+
       - name: Fetch submodule tags
         shell: bash
         run: |
@@ -172,12 +176,44 @@ jobs:
       - name: Enforce typography source contract
         run: flutter test test/theme/typography/typography_source_contract_test.dart
 
+      - name: Verify Mihomo runtime config regression baseline
+        run: |
+          flutter test test/mihomo/runtime_config_regression_test.dart
+          flutter test test/mihomo/source_config_preservation_test.dart
+          flutter test test/mihomo/runtime_config_ownership_test.dart
+          flutter test test/models/profile_atomic_write_test.dart
+          flutter test test/core/controller_test.dart
+
+      - name: Verify Phase 2CD compatibility suite
+        run: |
+          flutter test test/mihomo/structural_config_diff_test.dart
+          flutter test test/mihomo/script_source_preservation_test.dart
+          flutter test test/mihomo/e2e_compatibility_test.dart
+
       - name: Verify Go modules are tidy
         shell: bash
         run: |
           cd core
           go mod tidy
           git diff --exit-code go.mod go.sum
+
+      # Host-safe bridge/config tests compile against the patched Mihomo tree.
+      # MihomoPatcher is idempotent, so the later Build Go core patch step
+      # simply no-ops.
+      - name: Apply Mihomo patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd plugins/setup/buildkit/build_tool
+            dart pub get
+            dart run bin/build_tool.dart \
+              --root-dir "$GITHUB_WORKSPACE" patch-mihomo
+          )
+
+      - name: Validate Mihomo compatibility fixtures
+        shell: bash
+        run: cd core && go test ./providerbridge ./configfixture
 
       - name: Build Go core
         if: steps.cache-gocore.outputs.cache-hit != 'true'

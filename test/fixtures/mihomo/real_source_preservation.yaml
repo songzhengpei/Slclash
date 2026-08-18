@@ -1,0 +1,24 @@
+# Real-field source preservation fixture.
+#
+# Unlike synthetic_unknown_fields.yaml, every field here is a real key the
+# current bundled Mihomo RawConfig represents, so this fixture is safe to feed
+# into config.Parse as a blocking core-update validity check.
+#
+# tun.auto-detect-interface and the experimental.* keys are the JSON bridge
+# contract pins: CoreController.getConfig() receives them over the Go JSON
+# bridge and must keep these exact YAML-canonical spellings after overlay.
+tun:
+  enable: false
+  stack: mixed
+  auto-detect-interface: true
+  auto-route: false
+  dns-hijack: [any:53]
+experimental:
+  quic-go-disable-gso: true
+  quic-go-disable-ecn: true
+  dialer-ip4p-convert: true
+dns:
+  enable: true
+  nameserver: [system://]
+rules:
+  - MATCH,DIRECT

@@ -458,7 +458,9 @@ extension RuleExt on Rule {
   String get rawValue {
     return [
       ruleAction.value,
-      realContent,
+      // MATCH has no payload; emitting it yields "MATCH,null,DIRECT",
+      // which Mihomo cannot parse. See mihomo ParseRulePayload.
+      if (ruleAction != RuleAction.MATCH) realContent,
       realTarget,
       if (ruleAction.hasParams) ...[
         if (src) 'src',

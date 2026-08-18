@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
@@ -16,6 +17,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
+import 'package:fl_clash/services/mihomo_config/source_config.dart';
 import 'package:fl_clash/services/providers/provider_readiness_service.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
@@ -974,7 +976,6 @@ class SetupAction extends _$SetupAction {
     final overrideDns = ref.read(overrideDnsProvider);
     final appendSystemDns = networkVM2.a;
     final routeMode = networkVM2.b;
-    final configMap = await coreController.getConfig(profileId);
     String? scriptContent;
     final List<Rule> addedRules = [];
     final List<ProxyGroup> proxyGroups = [];
@@ -990,9 +991,92 @@ class SetupAction extends _$SetupAction {
     final realPatchConfig = patchConfig.copyWith(
       tun: patchConfig.tun.getRealTun(routeMode),
     );
-    Map<String, dynamic> rawConfig = configMap;
-    if (scriptContent?.isNotEmpty == true) {
-      rawConfig = await handleEvaluate(scriptContent!, rawConfig);
+    final usesScript = setupState.overwriteType == OverwriteType.script;
+    final Map<String, dynamic> rawConfig;
+    // Both Script and non-Script profiles read ONE snapshot whose bytes feed
+    // both the generic source parse and the Mihomo normalization. The same
+    // snapshot bytes reach Core through a unique snapshot file whose path
+    // travels over the Android Binder instead of the whole profile: the Binder
+    // transaction buffer is ~1MB and large subscriptions would overflow it.
+    // The file is removed once Core has normalized it.
+    Future<MihomoConfigMap> normalizeSnapshot(List<int> snapshot) async {
+      final snapshotDir = await appPath.profilesPath;
+      // Timestamp plus random suffix makes the name collision-resistant even
+      // under concurrent materializations of the same profile; a shared name
+      // could otherwise let one task overwrite or delete another task's
+      // in-flight snapshot.
+      final snapshotFile = File(
+        p.join(
+          snapshotDir,
+          '.$profileId.snapshot-'
+          '${DateTime.now().microsecondsSinceEpoch}.'
+          '${Random().nextInt(1 << 16)}.yaml',
+        ),
+      );
+      try {
+        await snapshotFile.writeAsBytes(snapshot, flush: true);
+        return await coreController.getConfigAtPath(snapshotFile.path);
+      } finally {
+        if (await snapshotFile.exists()) {
+          await snapshotFile.delete();
+        }
+      }
+    }
+
+    if (usesScript) {
+      rawConfig = await resolveScriptSnapshotRuntimeBase(
+        loadSnapshot: () async {
+          final profilePath = await appPath.getProfilePath(
+            profileId.toString(),
+          );
+          return File(profilePath).readAsBytes();
+        },
+        normalizeSnapshot: normalizeSnapshot,
+        fallbackNormalized: () async {
+          final configMap = await coreController.getConfig(profileId);
+          return scriptContent?.isNotEmpty == true
+              ? await handleEvaluate(scriptContent!, configMap)
+              : configMap;
+        },
+        evaluateScript: (scriptInput) async =>
+            scriptContent?.isNotEmpty == true
+                ? await handleEvaluate(scriptContent!, scriptInput)
+                : scriptInput,
+        onPreservationFailure: (error, _) {
+          commonPrint.log(
+            'script source preservation failed for profileId=$profileId: '
+            '$error; falling back to normalized-only script config',
+            logLevel: LogLevel.warning,
+          );
+        },
+        onScriptApplyFailure: (error, _) {
+          commonPrint.log(
+            'script preservation apply failed for profileId=$profileId: '
+            '$error; using first script evaluation result',
+            logLevel: LogLevel.warning,
+          );
+        },
+      );
+    } else {
+      // Any failure falls back to the normalized-only path without mixing
+      // snapshots.
+      rawConfig = await resolveSnapshotRuntimeBase(
+        loadSnapshot: () async {
+          final profilePath = await appPath.getProfilePath(
+            profileId.toString(),
+          );
+          return File(profilePath).readAsBytes();
+        },
+        normalizeSnapshot: normalizeSnapshot,
+        fallbackNormalized: () => coreController.getConfig(profileId),
+        onPreservationFailure: (error, _) {
+          commonPrint.log(
+            'source snapshot preservation failed for profileId=$profileId: '
+            '$error; falling back to normalized-only config',
+            logLevel: LogLevel.warning,
+          );
+        },
+      );
     }
     final directory = await appPath.profilesPath;
     final res = makeRealProfileTask(

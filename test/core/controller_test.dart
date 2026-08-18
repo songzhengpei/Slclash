@@ -97,6 +97,43 @@ void main() {
       verify(() => mock.validateConfig('/path')).called(1);
     });
 
+    test('getConfigAtPath canonicalizes rule -> rules', () async {
+      when(() => mock.getConfig('/snapshot.yaml')).thenAnswer(
+        (_) async => Result.success({
+          'mode': 'rule',
+          'rule': ['MATCH,DIRECT'],
+        }),
+      );
+      final result = await controller.getConfigAtPath('/snapshot.yaml');
+      expect(result['rules'], ['MATCH,DIRECT']);
+      expect(result, isNot(contains('rule')));
+      expect(result['mode'], 'rule');
+    });
+
+    test('getConfigAtPath throws when Core returns an empty result', () async {
+      // CoreLib.invoke can return null on timeout, which the interface
+      // fakes as Result.success({}). The controller must treat that as a
+      // normalization failure so snapshot preservation falls back instead
+      // of overlaying an empty normalized config.
+      when(() => mock.getConfig(any())).thenAnswer(
+        (_) async => Result.success({}),
+      );
+      await expectLater(
+        controller.getConfigAtPath('/snapshot.yaml'),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('getConfigAtPath throws the Core error message on failure', () async {
+      when(() => mock.getConfig(any())).thenAnswer(
+        (_) async => Result.error('parse failed'),
+      );
+      await expectLater(
+        controller.getConfigAtPath('/snapshot.yaml'),
+        throwsA('parse failed'),
+      );
+    });
+
     test('updateConfig delegates to interface', () async {
       const params = UpdateParams(
         tun: Tun(enable: false),

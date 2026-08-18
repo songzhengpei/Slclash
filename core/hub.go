@@ -657,16 +657,18 @@ func handleGetMemory(fn func(value string)) {
 	}()
 }
 
+// normalizeRawConfig is the single normalization entry for the config API so
+// path-based reads and any future callers produce identical RawConfig.
+func normalizeRawConfig(buf []byte) (*config.RawConfig, error) {
+	return config.UnmarshalRawConfig(buf)
+}
+
 func handleGetConfig(path string) (*config.RawConfig, error) {
 	bytes, err := readFile(path)
 	if err != nil {
 		return nil, err
 	}
-	prof, err := config.UnmarshalRawConfig(bytes)
-	if err != nil {
-		return nil, err
-	}
-	return prof, nil
+	return normalizeRawConfig(bytes)
 }
 
 func handleCrash() {

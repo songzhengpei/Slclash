@@ -1,0 +1,9 @@
+proxies:
+  - name: local-direct
+    type: direct
+proxy-groups:
+  - name: SELECT
+    type: select
+    proxies: [local-direct, DIRECT]
+rules:
+  - MATCH,SELECT

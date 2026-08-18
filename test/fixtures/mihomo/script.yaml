@@ -1,0 +1,6 @@
+mode: rule
+hosts:
+  script-input.example: 192.0.2.10
+rules:
+  - DOMAIN,before-script.example,DIRECT
+  - MATCH,DIRECT

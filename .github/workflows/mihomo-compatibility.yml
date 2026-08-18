@@ -1,0 +1,120 @@
+name: Mihomo Compatibility Gate
+
+# The job must exist on EVERY pull request: GitHub leaves a required check
+# pending forever when the whole workflow is skipped by a workflow-level
+# `paths:` filter. Sensitive-path detection therefore happens inside the job,
+# and the heavy steps are conditionally skipped for unrelated PRs.
+on:
+  pull_request:
+
+concurrency:
+  group: mihomo-compatibility-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # dorny/paths-filter resolves changed files via the GitHub API on
+  # pull_request events; without this the REST call is denied.
+  pull-requests: read
+
+jobs:
+  compatibility:
+    name: Mihomo compatibility suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Detect sensitive changes
+        id: sensitive
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            core:
+              - 'core/**'
+              - 'lib/core/**'
+              - 'lib/providers/action.dart'
+              - 'lib/common/task.dart'
+              - 'lib/models/clash_config.dart'
+              - 'lib/models/profile.dart'
+              - 'lib/services/mihomo_config/**'
+
+      - name: Set up Go
+        if: steps.sensitive.outputs.core == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: core/go.sum
+
+      - name: Set up Java
+        if: steps.sensitive.outputs.core == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Flutter
+        if: steps.sensitive.outputs.core == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.9
+          cache: true
+
+      # The core bridge depends on proxy-only-traffic.patch; validation must
+      # run against the same patched tree the release build uses.
+      - name: Apply Mihomo patch
+        if: steps.sensitive.outputs.core == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          (
+            cd plugins/setup/buildkit/build_tool
+            dart pub get
+            dart run bin/build_tool.dart \
+              --root-dir "$GITHUB_WORKSPACE" patch-mihomo
+          )
+
+      - name: Dart compatibility tests
+        if: steps.sensitive.outputs.core == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter test test/mihomo/runtime_config_regression_test.dart
+          flutter test test/mihomo/source_config_preservation_test.dart
+          flutter test test/mihomo/runtime_config_ownership_test.dart
+          flutter test test/models/profile_atomic_write_test.dart
+          flutter test test/core/controller_test.dart
+          flutter test test/mihomo/structural_config_diff_test.dart
+          flutter test test/mihomo/script_source_preservation_test.dart
+          flutter test test/mihomo/e2e_compatibility_test.dart
+          flutter test test/models/clash_config_rule_test.dart
+
+      - name: Go bridge compatibility tests
+        if: steps.sensitive.outputs.core == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+          # The root package is an Android/cgo bridge and is not a valid Linux
+          # host-test target. providerbridge contains the pure side-update path;
+          # configfixture covers the RawConfig JSON bridge.
+          go test ./providerbridge ./configfixture
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ steps.sensitive.outputs.core }}" = "true" ]; then
+            echo "Sensitive paths changed; full Mihomo compatibility suite executed."
+          else
+            echo "No sensitive paths changed; compatibility suite skipped (check still reported)."
+          fi

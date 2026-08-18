@@ -1,0 +1,4 @@
+rules:
+  - DOMAIN,example.com,DIRECT
+  - IP-CIDR,192.0.2.0/24,REJECT,no-resolve
+  - MATCH,DIRECT
