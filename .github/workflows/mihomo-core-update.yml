@@ -235,7 +235,7 @@ jobs:
           # executable. Test the patched Mihomo package here; the arm64 build
           # below validates the complete wrapper and native library.
           (cd core/Clash.Meta && go test ./tunnel/statistic)
-          (cd core && go test . ./configfixture)
+          (cd core && go test ./providerbridge ./configfixture)
 
           flutter build apk --debug --target-platform android-arm64
 
@@ -398,7 +398,7 @@ jobs:
           - 目标版本：${{ steps.rel.outputs.latest_stable_tag }}（${{ steps.update.outputs.mihomo_commit }}）
           - 关系：当前 Core 落后于最新稳定版，目标版本是当前版本的后继提交
 
-          本次更新直接使用官方 \`MetaCubeX/mihomo\` 稳定版 tag。
+          本次更新直接使用官方 `MetaCubeX/mihomo` 稳定版 tag。
           在创建这个 Draft PR 之前，已经完成 Slclash 配置兼容性测试、Script preservation、RawConfig E2E、Go 检查和 Android arm64 构建验证。
 
           EOF
