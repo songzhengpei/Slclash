@@ -244,7 +244,7 @@ void main() {
           ],
         );
         expect(output['rules'].first, 'DOMAIN,added.example,DIRECT');
-        expect(output['rules'][1], 'MATCH,null,DIRECT');
+        expect(output['rules'][1], 'MATCH,DIRECT');
         expect(output['rules'], contains('DOMAIN,example.com,DIRECT'));
       },
     );
@@ -259,7 +259,7 @@ void main() {
       );
       expect(output['rules'], [
         'DOMAIN,replacement.example,REJECT',
-        'MATCH,null,DIRECT',
+        'MATCH,DIRECT',
       ]);
     });
 
