@@ -197,9 +197,9 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
-      # The root core package (go test .) compiles against the patched
-      # Mihomo tree; apply before any Go test. MihomoPatcher is idempotent,
-      # so the later Build Go core patch step simply no-ops.
+      # Host-safe bridge/config tests compile against the patched Mihomo tree.
+      # MihomoPatcher is idempotent, so the later Build Go core patch step
+      # simply no-ops.
       - name: Apply Mihomo patch
         shell: bash
         run: |
@@ -213,7 +213,7 @@ jobs:
 
       - name: Validate Mihomo compatibility fixtures
         shell: bash
-        run: cd core && go test . ./configfixture
+        run: cd core && go test ./providerbridge ./configfixture
 
       - name: Build Go core
         if: steps.cache-gocore.outputs.cache-hit != 'true'
