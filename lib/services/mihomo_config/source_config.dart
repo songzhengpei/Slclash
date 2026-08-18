@@ -102,9 +102,13 @@ List<dynamic> _mergeKeyedLists(
     }
   }
   return normalized.map((item) {
-    if (item is! Map || item['name'] is! String) return item;
+    if (item is! Map || item['name'] is! String) {
+      // Unnamed or malformed items are still deep-copied so the result never
+      // shares object identity with the normalized input.
+      return toPlainDartStructure(item);
+    }
     final sourceItem = sourceByName[item['name'] as String];
-    if (sourceItem is! Map) return item;
+    if (sourceItem is! Map) return toPlainDartStructure(item);
     return mergeSourceWithNormalized(
       Map<String, dynamic>.from(sourceItem),
       Map<String, dynamic>.from(item),

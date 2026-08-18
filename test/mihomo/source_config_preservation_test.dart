@@ -281,6 +281,25 @@ void main() {
       expect(result['proxy-groups'][0]['override']['future-nested'], 'kept');
     });
 
+    test('unmatched normalized items are deep-copied into the result', () {
+      final source = {
+        'proxies': [
+          {'name': 'existing', 'type': 'ss'},
+        ],
+      };
+      final normalized = {
+        'proxies': [
+          {'name': 'new', 'type': 'ss', 'nested': {'a': 1}},
+          'plain-item',
+        ],
+      };
+      final result = mergeSourceWithNormalized(source, normalized);
+      (result['proxies'][0]['nested'] as Map)['a'] = 999;
+      final normalizedProxies = normalized['proxies'] as List;
+      expect(normalizedProxies[0]['nested'], {'a': 1});
+      expect(normalizedProxies[1], 'plain-item');
+    });
+
     test('does not mutate input lists', () {
       final source = {
         'proxy-groups': [
