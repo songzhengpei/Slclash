@@ -2,6 +2,11 @@ import 'package:fl_clash/common/app_changelog.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('latest changelog matches the v2.0.7 release', () {
+    expect(appChangelogEntries.first.version, 'v2.0.7');
+    expect(appChangelogEntries.first.changes, hasLength(4));
+  });
+
   test('fresh installs do not show the changelog automatically', () {
     expect(
       shouldShowChangelogAfterUpdate(wasUpdated: false, lastShownVersion: null),

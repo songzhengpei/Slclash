@@ -201,6 +201,18 @@ class MessageLookup extends MessageLookupByLibrary {
     "changelog205Item3": MessageLookupByLibrary.simpleMessage(
       "优化兼容与覆盖恢复，避免重复订阅并保留本地配置状态。",
     ),
+    "changelog207Item1": MessageLookupByLibrary.simpleMessage(
+      "重构全局字体层级，优化文字呈现与信息布局。",
+    ),
+    "changelog207Item2": MessageLookupByLibrary.simpleMessage(
+      "打通 SlClash 与 Clash Verge Rev 的订阅备份互导。",
+    ),
+    "changelog207Item3": MessageLookupByLibrary.simpleMessage(
+      "减少无效错误提示，降低操作干扰。",
+    ),
+    "changelog207Item4": MessageLookupByLibrary.simpleMessage(
+      "优化运行流程，提升整体稳定性。",
+    ),
     "checkNetworkAndRetry": MessageLookupByLibrary.simpleMessage("请检查网络后重试。"),
     "checkResultsAppearHere": MessageLookupByLibrary.simpleMessage(
       "检测结果会展示在这里",

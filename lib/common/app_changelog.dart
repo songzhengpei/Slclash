@@ -12,6 +12,28 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.0.9',
+    date: '2026-08-17',
+    changes: [
+      "优化英文界面文案与文字缩放适配，减少多处文本截断。 优化流媒体检测界面及模式选择菜单显示。 修复 Worker 备份恢复时误清空脚本、规则和策略组的问题。 优化订阅类型标签与订阅名称的对齐效果。",
+    ],
+  ),
+  AppChangelogEntry(
+    version: 'v2.0.8',
+    date: '2026-07-24',
+    changes: ["修复仅统计代理流量 优化订阅卡信息布局"],
+  ),
+  AppChangelogEntry(
+    version: 'v2.0.7',
+    date: '2026-07-22',
+    changes: [
+      'changelog207Item1',
+      'changelog207Item2',
+      'changelog207Item3',
+      'changelog207Item4',
+    ],
+  ),
+  AppChangelogEntry(
     version: 'v2.0.5',
     date: '2026-07-19',
     changes: ['changelog205Item1', 'changelog205Item2', 'changelog205Item3'],

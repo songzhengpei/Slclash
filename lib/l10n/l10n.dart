@@ -5484,6 +5484,46 @@ class AppLocalizations {
     );
   }
 
+  /// `Refined the global type hierarchy, text rendering, and information layout.`
+  String get changelog207Item1 {
+    return Intl.message(
+      'Refined the global type hierarchy, text rendering, and information layout.',
+      name: 'changelog207Item1',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Enabled two-way profile backup import between SlClash and Clash Verge Rev.`
+  String get changelog207Item2 {
+    return Intl.message(
+      'Enabled two-way profile backup import between SlClash and Clash Verge Rev.',
+      name: 'changelog207Item2',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Reduced unnecessary error prompts and interruptions.`
+  String get changelog207Item3 {
+    return Intl.message(
+      'Reduced unnecessary error prompts and interruptions.',
+      name: 'changelog207Item3',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Improved runtime flow and overall stability.`
+  String get changelog207Item4 {
+    return Intl.message(
+      'Improved runtime flow and overall stability.',
+      name: 'changelog207Item4',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `SlClash and Clash Verge Rev profile backups now support two-way import.`
   String get changelog205Item1 {
     return Intl.message(
