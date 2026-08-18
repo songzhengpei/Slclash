@@ -1,0 +1,208 @@
+{
+  "port": 0,
+  "socks-port": 0,
+  "redir-port": 0,
+  "tproxy-port": 0,
+  "mixed-port": 0,
+  "ss-config": "",
+  "vmess-config": "",
+  "inbound-tfo": false,
+  "inbound-mptcp": false,
+  "authentication": [],
+  "skip-auth-prefixes": null,
+  "lan-allowed-ips": [
+    "0.0.0.0/0",
+    "::/0"
+  ],
+  "lan-disallowed-ips": null,
+  "allow-lan": false,
+  "bind-address": "*",
+  "mode": "rule",
+  "unified-delay": false,
+  "log-level": "info",
+  "ipv6": true,
+  "external-controller": "",
+  "external-controller-routing-mark": 0,
+  "external-controller-pipe": "",
+  "external-controller-unix": "",
+  "external-controller-tls": "",
+  "external-controller-cors": {
+    "allow-origins": [
+      "*"
+    ],
+    "allow-private-network": true
+  },
+  "external-ui": "",
+  "external-ui-url": "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
+  "external-ui-name": "",
+  "external-doh-server": "",
+  "secret": "",
+  "interface-name": "",
+  "routing-mark": 0,
+  "tunnels": null,
+  "geo-auto-update": false,
+  "geo-update-interval": 24,
+  "geodata-mode": false,
+  "geodata-loader": "memconservative",
+  "geosite-matcher": "",
+  "tcp-concurrent": false,
+  "find-process-mode": "strict",
+  "global-client-fingerprint": "",
+  "global-ua": "Slclash-e2e-standard",
+  "etag-support": true,
+  "keep-alive-idle": 0,
+  "keep-alive-interval": 0,
+  "disable-keep-alive": false,
+  "proxy-providers": null,
+  "rule-providers": null,
+  "proxies": [],
+  "proxy-groups": [
+    {
+      "name": "PROXY",
+      "proxies": [
+        "DIRECT"
+      ],
+      "type": "select"
+    }
+  ],
+  "rule": [
+    "DOMAIN,example.com,PROXY",
+    "MATCH,DIRECT"
+  ],
+  "sub-rules": null,
+  "listeners": null,
+  "hosts": {},
+  "dns": {
+    "enable": true,
+    "prefer-h3": false,
+    "ipv6": false,
+    "ipv6-timeout": 100,
+    "use-hosts": true,
+    "use-system-hosts": true,
+    "respect-rules": false,
+    "nameserver": [
+      "1.1.1.1"
+    ],
+    "fallback": null,
+    "fallback-filter": {
+      "geoip": true,
+      "geoip-code": "CN",
+      "ipcidr": [],
+      "domain": null,
+      "geosite": []
+    },
+    "fallback-lazy-query": false,
+    "listen": "",
+    "listen-routing-mark": 0,
+    "enhanced-mode": "redir-host",
+    "fake-ip-range": "198.18.0.1/16",
+    "fake-ip-range6": "",
+    "fake-ip-filter": [
+      "dns.msftnsci.com",
+      "www.msftnsci.com",
+      "www.msftconnecttest.com"
+    ],
+    "fake-ip-filter-mode": "blacklist",
+    "fake-ip-ttl": 1,
+    "default-nameserver": [
+      "114.114.114.114",
+      "223.5.5.5",
+      "8.8.8.8",
+      "1.0.0.1"
+    ],
+    "cache-algorithm": "arc",
+    "cache-max-size": 0,
+    "nameserver-policy": null,
+    "proxy-server-nameserver": null,
+    "proxy-server-nameserver-policy": null,
+    "direct-nameserver": [
+      "223.5.5.5"
+    ],
+    "direct-nameserver-follow-policy": true
+  },
+  "ntp": {
+    "enable": false,
+    "server": "time.apple.com",
+    "port": 123,
+    "interval": 30,
+    "dialer-proxy": "",
+    "write-to-system": false
+  },
+  "tun": {
+    "enable": true,
+    "device": "",
+    "stack": "Mixed",
+    "dns-hijack": [
+      "0.0.0.0:53"
+    ],
+    "auto-route": true,
+    "auto-detect-interface": true,
+    "mtu": 9000,
+    "inet6-address": [
+      "fdfe:dcba:9876::1/126"
+    ],
+    "strict-route": true,
+    "file-descriptor": 0,
+    "recvmsgx": true
+  },
+  "tuic-server": {
+    "enable": false,
+    "listen": "",
+    "token": null,
+    "certificate": "",
+    "private-key": "",
+    "max-idle-time": 15000,
+    "authentication-timeout": 1000,
+    "alpn": [
+      "h3"
+    ],
+    "max-udp-relay-packet-size": 1500
+  },
+  "iptables": {
+    "enable": false,
+    "inbound-interface": "lo",
+    "bypass": [],
+    "dns-redirect": true
+  },
+  "experimental": {
+    "fingerprints": null,
+    "quic-go-disable-gso": true,
+    "quic-go-disable-ecn": true,
+    "dialer-ip4p-convert": true
+  },
+  "profile": {
+    "store-selected": true,
+    "store-fake-ip": false
+  },
+  "geox-url": {
+    "geoip": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat",
+    "mmdb": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb",
+    "asn": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/GeoLite2-ASN.mmdb",
+    "geosite": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
+  },
+  "sniffer": {
+    "enable": false,
+    "override-destination": true,
+    "sniffing": null,
+    "force-domain": [],
+    "skip-src-address": null,
+    "skip-dst-address": null,
+    "skip-domain": [],
+    "port-whitelist": [],
+    "force-dns-mapping": true,
+    "parse-pure-ip": true,
+    "sniff": {}
+  },
+  "tls": {
+    "certificate": "",
+    "private-key": "",
+    "client-auth-type": "",
+    "client-auth-cert": "",
+    "ech-key": "",
+    "custom-certifactes": null
+  },
+  "clash-for-android": {
+    "append-system-dns": false,
+    "ui-subtitle-pattern": ""
+  }
+}

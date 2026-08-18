@@ -1,0 +1,18 @@
+# Minimal bridge-contract E2E fixture.
+#
+# Pins the exact keys the Go JSON bridge must preserve with their
+# YAML-canonical spellings: tun.auto-detect-interface, the experimental.*
+# keys, and rules marshaling under the json tag 'rule' (which Dart rewrites
+# to 'rules'). A future Mihomo bump that renames any of these keys fails the
+# Go E2E test immediately.
+tun:
+  enable: true
+  auto-detect-interface: true
+experimental:
+  quic-go-disable-gso: true
+  quic-go-disable-ecn: true
+  dialer-ip4p-convert: true
+dns:
+  enable: true
+rules:
+  - MATCH,DIRECT

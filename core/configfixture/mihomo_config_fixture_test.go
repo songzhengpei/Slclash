@@ -20,6 +20,7 @@ func TestBundledMihomoAcceptsCompatibilityFixtures(t *testing.T) {
 		"rules.yaml", "proxy_groups.yaml", "script.yaml", "ipv6.yaml",
 		"mihomo_current_features.yaml", "real_source_preservation.yaml",
 		"tun_ownership.yaml", "dns_ownership.yaml",
+		"e2e_standard.yaml", "e2e_script.yaml",
 	}
 	fixtureDir := filepath.Join("..", "..", "build", "mihomo-runtime-fixtures")
 	if _, err := os.Stat(fixtureDir); os.IsNotExist(err) {
