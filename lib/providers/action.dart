@@ -1016,10 +1016,10 @@ class SetupAction extends _$SetupAction {
           // subscriptions would overflow it. The file is removed once Core
           // has normalized it.
           final snapshotDir = await appPath.profilesPath;
-          // Timestamp plus random suffix makes the name collision-proof even
-          // under concurrent materializations of the same profile; a shared
-          // name could otherwise let one task overwrite or delete another
-          // task's in-flight snapshot.
+          // Timestamp plus random suffix makes the name collision-resistant
+          // even under concurrent materializations of the same profile; a
+          // shared name could otherwise let one task overwrite or delete
+          // another task's in-flight snapshot.
           final snapshotFile = File(
             p.join(
               snapshotDir,

@@ -138,11 +138,14 @@ snapshot path.
 - `test/models/profile_atomic_write_test.dart`: atomic replacement, failure
   rollback, staging cleanup, missing-target behavior.
 - `test/mihomo/runtime_config_ownership_test.dart`: TUN and DNS ownership
-  contracts, synthetic sibling preservation, bundled-validity materialization.
-- `core/hub_config_data_test.go`: data API and path API produce identical
-  normalized JSON and share the bridge key contract.
+  contracts, synthetic sibling preservation, bundled-validity materialization,
+  ownership sets pinned to model serialization keys.
+- `test/core/controller_test.dart`: `getConfigAtPath` rule -> rules
+  canonicalization, empty Core result failure contract (fallback trigger),
+  Core error propagation.
 - `core/configfixture/rawconfig_json_bridge_test.go`: unchanged Phase 2A.1
-  contract (auto-detect-interface, experimental.*, rule -> rules).
+  RawConfig JSON/YAML bridge contract (auto-detect-interface, experimental.*,
+  rule -> rules).
 - Bundled validity fixtures: `tun_ownership.yaml`, `dns_ownership.yaml`
   (real fields only; synthetic fixtures stay out of blocking validity).
 
