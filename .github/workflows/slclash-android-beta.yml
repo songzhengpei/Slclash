@@ -199,7 +199,7 @@ jobs:
 
       - name: Validate Mihomo compatibility fixtures
         shell: bash
-        run: cd core && go test ./configfixture
+        run: cd core && go test . ./configfixture
 
       - name: Build Go core
         if: steps.cache-gocore.outputs.cache-hit != 'true'

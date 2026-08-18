@@ -235,7 +235,7 @@ jobs:
           # executable. Test the patched Mihomo package here; the arm64 build
           # below validates the complete wrapper and native library.
           (cd core/Clash.Meta && go test ./tunnel/statistic)
-          (cd core && go test ./configfixture)
+          (cd core && go test . ./configfixture)
 
           flutter build apk --debug --target-platform android-arm64
 

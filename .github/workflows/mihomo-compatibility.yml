@@ -1,15 +1,11 @@
 name: Mihomo Compatibility Gate
 
+# The job must exist on EVERY pull request: GitHub leaves a required check
+# pending forever when the whole workflow is skipped by a workflow-level
+# `paths:` filter. Sensitive-path detection therefore happens inside the job,
+# and the heavy steps are conditionally skipped for unrelated PRs.
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - core/**
-      - lib/core/**
-      - lib/providers/action.dart
-      - lib/common/task.dart
-      - lib/models/clash_config.dart
-      - lib/services/mihomo_config/**
 
 concurrency:
   group: mihomo-compatibility-${{ github.ref }}
@@ -30,19 +26,36 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Detect sensitive changes
+        id: sensitive
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            core:
+              - 'core/**'
+              - 'lib/core/**'
+              - 'lib/providers/action.dart'
+              - 'lib/common/task.dart'
+              - 'lib/models/clash_config.dart'
+              - 'lib/models/profile.dart'
+              - 'lib/services/mihomo_config/**'
+
       - name: Set up Go
+        if: steps.sensitive.outputs.core == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: "1.24.0"
           cache-dependency-path: core/go.sum
 
       - name: Set up Java
+        if: steps.sensitive.outputs.core == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Flutter
+        if: steps.sensitive.outputs.core == 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -52,6 +65,7 @@ jobs:
       # The core bridge depends on proxy-only-traffic.patch; validation must
       # run against the same patched tree the release build uses.
       - name: Apply Mihomo patch
+        if: steps.sensitive.outputs.core == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -64,6 +78,7 @@ jobs:
           )
 
       - name: Dart compatibility tests
+        if: steps.sensitive.outputs.core == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -76,12 +91,26 @@ jobs:
           flutter test test/mihomo/structural_config_diff_test.dart
           flutter test test/mihomo/script_source_preservation_test.dart
           flutter test test/mihomo/e2e_compatibility_test.dart
+          flutter test test/models/clash_config_rule_test.dart
 
       - name: Go RawConfig bridge tests
+        if: steps.sensitive.outputs.core == 'true'
         shell: bash
         run: |
           set -euo pipefail
           cd core
           go mod tidy
           git diff --exit-code go.mod go.sum
-          go test ./configfixture
+          # `go test .` covers the bridge package (provider side-update
+          # regression etc.), ./configfixture covers the RawConfig JSON bridge.
+          go test . ./configfixture
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ steps.sensitive.outputs.core }}" = "true" ]; then
+            echo "Sensitive paths changed; full Mihomo compatibility suite executed."
+          else
+            echo "No sensitive paths changed; compatibility suite skipped (check still reported)."
+          fi
