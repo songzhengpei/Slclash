@@ -271,9 +271,9 @@ jobs:
 
           CHANGED_FILES="$(git -C core/Clash.Meta diff --name-only "$CURRENT_SHA" "$LATEST_SHA")"
           COMMIT_COUNT="$(git -C core/Clash.Meta rev-list --count "$CURRENT_SHA..$LATEST_SHA")"
-          COMMITS="$(git -C core/Clash.Meta log --no-merges --format='- `%h` %s' "$CURRENT_SHA..$LATEST_SHA" | head -n 80)"
+          COMMITS="$(git -C core/Clash.Meta log --no-merges --format='- `%h` %s' "$CURRENT_SHA..$LATEST_SHA" | sed -n '1,80p')"
           RELEASE_BODY="$(gh api "repos/MetaCubeX/mihomo/releases/tags/$LATEST_TAG" --jq '.body // ""' 2>/dev/null || true)"
-          RELEASE_EXCERPT="$(printf '%s\n' "$RELEASE_BODY" | head -n 80)"
+          RELEASE_EXCERPT="$(printf '%s\n' "$RELEASE_BODY" | sed -n '1,80p')"
 
           REVIEW_TEXT="$(printf '%s\n%s\n' "$RELEASE_BODY" "$COMMITS" | tr '[:upper:]' '[:lower:]')"
           CONFIG_FILES="$(printf '%s\n' "$CHANGED_FILES" | grep -E '^(config/|dns/|rules/|provider/|component/(trie|geodata|resolver)/)' || true)"
@@ -344,7 +344,7 @@ jobs:
             echo "### 重点变更文件"
             echo ""
             if [ -n "$CHANGED_FILES" ]; then
-              printf '%s\n' "$CHANGED_FILES" | head -n 80 | sed 's/^/- `/' | sed 's/$/`/'
+              printf '%s\n' "$CHANGED_FILES" | sed -n '1,80p' | sed 's/^/- `/' | sed 's/$/`/'
             else
               echo "- 未检测到文件变化"
             fi
