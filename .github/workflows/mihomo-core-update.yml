@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Create an update PR even when the recorded Mihomo version matches latest stable"
+        description: "Force re-validation of the current core (never downgrades; ignored for DIVERGED)"
         required: false
         default: false
         type: boolean
       dry_run:
-        description: "Validate the update/build path without pushing, opening PRs, merging, tagging, or releasing"
+        description: "Validate the decision and validation path without pushing, opening PRs, merging, tagging, or releasing"
         required: false
         default: false
         type: boolean
@@ -26,17 +26,25 @@ permissions:
 
 jobs:
   update-core:
-    name: Check Mihomo stable and open beta review
+    name: Check Mihomo relationship and open beta review
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # Phase 1.1 safety fuse: the updater always inspects and upgrades the
+      # BETA core, no matter which ref triggered the workflow. Scheduled runs
+      # execute the workflow definition from the default branch (main), but
+      # the working tree must be beta.
+      - name: Checkout beta
         uses: actions/checkout@v4
         with:
           ref: beta
           submodules: recursive
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify updater relationship contract
+        shell: bash
+        run: bash scripts/test_mihomo_core_relationship_contract.sh
 
       - name: Fetch submodule tags
         shell: bash
@@ -46,63 +54,79 @@ jobs:
           git -C core/Clash.Meta fetch --tags origin 2>/dev/null || true
           git -C core/Clash.Meta fetch --tags --force metacubex 2>/dev/null || true
 
-      - name: Resolve latest stable Mihomo release
-        id: latest
+      - name: Resolve core relationship
+        id: rel
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          LATEST_TAG="$(gh api repos/MetaCubeX/mihomo/releases/latest --jq '.tag_name')"
+          set -euo pipefail
+          # Relationship is decided by exact commit SHAs and merge-base
+          # ancestry, never by dates or tag-string comparison.
+          bash scripts/mihomo-core-relationship.sh core/Clash.Meta > /tmp/rel.txt
+          cat /tmp/rel.txt
+          # Publish every KEY=VALUE line as a step output.
+          while IFS='=' read -r key value; do
+            [ -n "$key" ] && echo "$key=$value" >> "$GITHUB_OUTPUT"
+          done < /tmp/rel.txt
 
-          if [ -z "$LATEST_TAG" ] || ! [[ "$LATEST_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Unexpected Mihomo release tag: $LATEST_TAG"
-            exit 1
-          fi
+      - name: Decide update action
+        id: decision
+        shell: bash
+        env:
+          REL: ${{ steps.rel.outputs.relationship_to_stable }}
+          FORCE: ${{ inputs.force }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          echo "relationship_to_stable=$REL"
+          echo "force=$FORCE"
+          echo "dry_run=$DRY_RUN"
 
-          echo "tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${LATEST_TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "Latest stable Mihomo release: $LATEST_TAG"
+          case "$REL" in
+            DIVERGED)
+              echo "action=fail_closed" >> "$GITHUB_OUTPUT"
+              ;;
+            BEHIND_STABLE)
+              echo "action=upgrade_stable" >> "$GITHUB_OUTPUT"
+              ;;
+            EXACT_STABLE|AHEAD_OF_STABLE)
+              if [ "$FORCE" = "true" ] || [ "$DRY_RUN" = "true" ]; then
+                echo "action=validate_current" >> "$GITHUB_OUTPUT"
+              else
+                echo "action=noop" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            *)
+              echo "Unknown relationship: $REL" >&2
+              exit 1
+              ;;
+          esac
 
-      - name: Compare current core version
-        id: current
+      - name: Fail closed on diverged history
+        if: ${{ steps.decision.outputs.action == 'fail_closed' }}
         shell: bash
         run: |
-          CURRENT_VERSION="$(git -C core/Clash.Meta describe --tags --abbrev=0 2>/dev/null || true)"
-          CURRENT_COMMIT="$(git -C core/Clash.Meta rev-parse --short=12 HEAD)"
+          echo "::error::Core history is DIVERGED from the latest stable release. " \
+            "No submodule change, push, or PR was performed. Manual review required."
+          exit 1
 
-          if [ -z "$CURRENT_VERSION" ]; then
-            echo "Could not resolve current Mihomo version from git tag."
-            exit 1
-          fi
-
-          CURRENT_VERSION="${CURRENT_VERSION#v}"
-          echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "commit=$CURRENT_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "Current Mihomo core: v$CURRENT_VERSION ($CURRENT_COMMIT)"
-
-      - name: Stop when already up to date
-        if: ${{ inputs.force != true && inputs.dry_run != true && steps.current.outputs.version == steps.latest.outputs.version }}
-        shell: bash
-        run: |
-          echo "Mihomo core is already at ${{ steps.latest.outputs.tag }}."
-
-      - name: Setup Go for update
-        if: ${{ inputs.force == true || inputs.dry_run == true || steps.current.outputs.version != steps.latest.outputs.version }}
+      - name: Setup Go for validation
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
         uses: actions/setup-go@v5
         with:
           go-version: "1.24.0"
           cache-dependency-path: |
             core/go.sum
 
-      - name: Update Mihomo submodule
-        if: ${{ inputs.force == true || inputs.dry_run == true || steps.current.outputs.version != steps.latest.outputs.version }}
+      - name: Update Mihomo submodule to stable
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' }}
         id: update
         shell: bash
         run: |
           set -euo pipefail
 
-          LATEST_TAG="${{ steps.latest.outputs.tag }}"
-          LATEST_VERSION="${{ steps.latest.outputs.version }}"
+          LATEST_TAG="${{ steps.rel.outputs.latest_stable_tag }}"
           BRANCH="codex/mihomo-core-${LATEST_TAG}"
           DRY_RUN="${{ inputs.dry_run == true }}"
 
@@ -143,14 +167,14 @@ jobs:
           echo "dry_run=false" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java for validation
-        if: ${{ steps.update.outputs.mihomo_commit != '' }}
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Flutter for validation
-        if: ${{ steps.update.outputs.mihomo_commit != '' }}
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
         uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -158,7 +182,7 @@ jobs:
           cache: true
 
       - name: Setup NDK for validation
-        if: ${{ steps.update.outputs.mihomo_commit != '' }}
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
         id: setup_ndk
         uses: nttld/setup-ndk@v1
         with:
@@ -166,13 +190,20 @@ jobs:
           add-to-path: true
           link-to-sdk: true
 
-      - name: Validate core update
-        if: ${{ steps.update.outputs.mihomo_commit != '' }}
+      # Validates the checked-out core: the pinned stable for
+      # upgrade_stable, the CURRENT (possibly ahead-of-stable) core for
+      # validate_current. Never checks out an older stable when current is
+      # ahead, and never overwrites a diverged current.
+      - name: Validate core
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
         shell: bash
         env:
           ANDROID_NDK: ${{ steps.setup_ndk.outputs.ndk-path }}
           APP_ENV: stable
           PROJECT_DIR: ${{ github.workspace }}
+          ACTION: ${{ steps.decision.outputs.action }}
+          CURRENT_SHA: ${{ steps.rel.outputs.current_sha }}
+          LATEST_TAG: ${{ steps.rel.outputs.latest_stable_tag }}
         run: |
           set -euo pipefail
 
@@ -187,6 +218,13 @@ jobs:
           # warning/info baseline to be handled independently of core updates.
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test test/mihomo/runtime_config_regression_test.dart
+          flutter test test/mihomo/source_config_preservation_test.dart
+          flutter test test/mihomo/runtime_config_ownership_test.dart
+          flutter test test/models/profile_atomic_write_test.dart
+          flutter test test/core/controller_test.dart
+          flutter test test/mihomo/structural_config_diff_test.dart
+          flutter test test/mihomo/script_source_preservation_test.dart
+          flutter test test/mihomo/e2e_compatibility_test.dart
 
           cd core
           go mod tidy
@@ -201,36 +239,47 @@ jobs:
 
           flutter build apk --debug --target-platform android-arm64
 
-          ACTUAL_VERSION="$(git -C core/Clash.Meta describe --tags --abbrev=0)"
-          if [ "$ACTUAL_VERSION" != "${{ steps.latest.outputs.tag }}" ]; then
-            echo "Core version mismatch: expected ${{ steps.latest.outputs.tag }}, got $ACTUAL_VERSION"
-            exit 1
+          CHECKED_OUT="$(git -C core/Clash.Meta rev-parse HEAD)"
+          if [ "$ACTION" = "upgrade_stable" ]; then
+            ACTUAL_VERSION="$(git -C core/Clash.Meta describe --tags --abbrev=0)"
+            if [ "$ACTUAL_VERSION" != "$LATEST_TAG" ]; then
+              echo "Core version mismatch: expected $LATEST_TAG, got $ACTUAL_VERSION"
+              exit 1
+            fi
+            echo "Core update validation completed for $ACTUAL_VERSION."
+          else
+            # validate_current: the submodule must still be the current SHA,
+            # proving no downgrade or overwrite happened.
+            if [ "$CHECKED_OUT" != "$CURRENT_SHA" ]; then
+              echo "Core changed during validate_current: expected $CURRENT_SHA, got $CHECKED_OUT"
+              exit 1
+            fi
+            echo "Current core validation completed for $CHECKED_OUT."
           fi
 
-          echo "Core update validation completed for $ACTUAL_VERSION."
-
       - name: Push validated update branch
-        if: ${{ steps.update.outputs.branch != '' && steps.update.outputs.dry_run != 'true' }}
+        if: ${{ steps.update.outputs.branch != '' && inputs.dry_run != true }}
         shell: bash
         run: |
           git push --force-with-lease origin "${{ steps.update.outputs.branch }}"
 
       - name: Open pull request
-        if: ${{ steps.update.outputs.branch != '' && steps.update.outputs.dry_run != 'true' }}
+        if: ${{ steps.update.outputs.branch != '' && inputs.dry_run != true }}
         id: pr
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           BRANCH="${{ steps.update.outputs.branch }}"
-          TITLE="chore: update Mihomo core to ${{ steps.latest.outputs.tag }}"
+          TITLE="chore: update Mihomo core to ${{ steps.rel.outputs.latest_stable_tag }}"
 
           BODY_FILE="$(mktemp)"
           cat > "$BODY_FILE" <<EOF
           ## Mihomo Core Update
 
-          - Previous: v${{ steps.current.outputs.version }} (${{ steps.current.outputs.commit }})
-          - New: ${{ steps.latest.outputs.tag }} (${{ steps.update.outputs.mihomo_commit }})
+          - Previous: ${{ steps.rel.outputs.nearest_release_tag }} (${{ steps.rel.outputs.current_sha }})
+          - New: ${{ steps.rel.outputs.latest_stable_tag }} (${{ steps.update.outputs.mihomo_commit }})
+          - Relationship: BEHIND_STABLE (current is an ancestor of latest stable)
 
           Core source is checked out directly from the official \`MetaCubeX/mihomo\` stable release tag.
           This update passed config regression tests, analysis, Go checks, and
@@ -252,18 +301,46 @@ jobs:
       - name: Summary
         if: always()
         shell: bash
+        env:
+          REL: ${{ steps.rel.outputs.relationship_to_stable }}
+          ACTION: ${{ steps.decision.outputs.action }}
+          CURRENT_SHA: ${{ steps.rel.outputs.current_sha }}
+          STABLE_TAG: ${{ steps.rel.outputs.latest_stable_tag }}
+          STABLE_SHA: ${{ steps.rel.outputs.latest_stable_sha }}
+          ALPHA_SHA: ${{ steps.rel.outputs.latest_alpha_sha }}
+          REL_ALPHA: ${{ steps.rel.outputs.relationship_to_alpha }}
         run: |
-          echo "## Mihomo Core Update Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Latest Mihomo: ${{ steps.latest.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Previous core: v${{ steps.current.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.update.outputs.dry_run }}" = "true" ]; then
-            echo "- Status: dry run validated" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Mihomo commit: ${{ steps.update.outputs.mihomo_commit }}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- PR/tag/release: skipped" >> "$GITHUB_STEP_SUMMARY"
-          elif [ "${{ steps.update.outputs.branch }}" != "" ]; then
-            echo "- PR: #${{ steps.pr.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Status: draft PR opened against beta; manual review required" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- No update needed" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "## Mihomo Core Update Summary"
+            echo ""
+            echo "- Current core: $CURRENT_SHA"
+            echo "- Latest stable: $STABLE_TAG ($STABLE_SHA)"
+            echo "- Relationship to stable: $REL"
+            echo "- Latest alpha: $ALPHA_SHA"
+            echo "- Relationship to alpha: $REL_ALPHA"
+            echo ""
+            case "$ACTION" in
+              fail_closed)
+                echo "- Status: FAILED CLOSED — history diverged from stable; manual review required."
+                ;;
+              noop)
+                echo "- Status: no update needed."
+                if [ "$REL" = "AHEAD_OF_STABLE" ]; then
+                  echo "- Current core is ahead of latest stable. No automatic downgrade performed."
+                fi
+                ;;
+              validate_current)
+                echo "- Status: current core re-validated ($CURRENT_SHA)."
+                echo "- No downgrade, no PR."
+                ;;
+              upgrade_stable)
+                echo "- Status: stable core validated."
+                if [ "${{ inputs.dry_run }}" = "true" ]; then
+                  echo "- Dry run: changes left uncommitted; no push / PR / tag / release."
+                else
+                  echo "- PR: #${{ steps.pr.outputs.pr_number }}"
+                  echo "- Status: draft PR opened against beta; manual review required."
+                fi
+                ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
