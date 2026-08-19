@@ -22,14 +22,25 @@ REPO = ROOT.parents[1]
 sys.path.insert(0, str(ROOT))
 
 from adbutil import Adb, HarnessError, resolve_adb, select_device  # noqa: E402
+from build_mode import parse_package_debuggable, resolve_build_mode  # noqa: E402
 from parsers import (  # noqa: E402
+    aggregate_startup_marks,
+    assess_vpn_state,
+    connectivity_has_vpn_network,
     parse_am_start_w,
     parse_gfxinfo,
     parse_meminfo,
     parse_phase4_logcat,
     parse_pidof,
+    parse_tun_interfaces,
+    vpn_stop_cleared,
 )
-from report import compare_results, utc_now, write_reports  # noqa: E402
+from report import (  # noqa: E402
+    compare_results,
+    render_baseline_markdown,
+    utc_now,
+    write_reports,
+)
 from stats import summarize  # noqa: E402
 
 PRODUCT_BASELINE = "b7e08b6ef84546e9b3d084a411c3a59e3e4df7c8"
@@ -74,9 +85,16 @@ def fail_result(code: str, message: str, **extra) -> dict:
 
 
 class Runner:
-    def __init__(self, adb: Adb, package: str) -> None:
+    def __init__(
+        self,
+        adb: Adb,
+        package: str,
+        *,
+        build_mode: str | None = None,
+    ) -> None:
         self.adb = adb
         self.package = package
+        self.build_mode_override = build_mode
 
     def require_package(self) -> None:
         proc = self.adb.shell(f"pm path {self.package}")
@@ -96,7 +114,12 @@ class Runner:
                 version_name = stripped.split("=", 1)[1]
             elif stripped.startswith("versionCode="):
                 version_code = stripped.split("=", 1)[1].split()[0]
-        return {"version_name": version_name, "version_code": version_code}
+        return {
+            "version_name": version_name,
+            "version_code": version_code,
+            "debuggable": parse_package_debuggable(proc.stdout),
+            "raw": proc.stdout,
+        }
 
     def pid_of(self, process: str) -> int | None:
         proc = self.adb.shell(f"pidof {process}")
@@ -112,6 +135,11 @@ class Runner:
         android = self.adb.shell("getprop ro.build.version.release").stdout.strip()
         sdk = self.adb.shell("getprop ro.build.version.sdk").stdout.strip()
         pkg = self.dumpsys_package()
+        build_info = resolve_build_mode(
+            explicit=self.build_mode_override,
+            debuggable=pkg["debuggable"],
+        )
+        self.build_info = build_info
         flutter_pid = self.pid_of(self.package)
         remote_pid = self.pid_of(f"{self.package}:remote")
         return {
@@ -125,6 +153,12 @@ class Runner:
             "flutter_pid": flutter_pid,
             "remote_pid": remote_pid,
             "git_commit": git_commit(),
+            "build_mode": build_info["mode"],
+            "build_role": build_info["role"],
+            "formal_eligible": build_info["formal_eligible"],
+            "debuggable": build_info["debuggable"],
+            "build_mode_detection": build_info["detection"],
+            "build_mode_notes": build_info["notes"],
         }
 
     def force_stop(self) -> None:
@@ -145,44 +179,67 @@ class Runner:
         return parsed
 
     def logcat_phase4_marks(self) -> dict[str, int]:
-        proc = self.adb.run(
-            ["logcat", "-d", "-t", "200", "-s", "flutter:I", "flutter:D"],
-            timeout=20,
-        )
+        # Do not rely on `-s flutter` alone: some devices/OEM builds buffer
+        # Flutter lines under different tags. Dump recent buffer and parse.
+        proc = self.adb.run(["logcat", "-d", "-t", "2000"], timeout=30)
         return parse_phase4_logcat(proc.stdout + proc.stderr)
 
     def cold_start(self, warmup: int = WARMUP_RUNS, runs: int = MEASURE_RUNS) -> dict:
         self.require_package()
         warmup_samples = []
         measure_samples = []
-        traces = []
+        warmup_traces = []
+        measure_traces = []
         notes = []
         for i in range(warmup + runs):
             self.force_stop()
             time.sleep(1.0)
             self.adb.run(["logcat", "-c"], timeout=15)
             sample = self.start_main()
-            time.sleep(1.5)
+            # Allow attach/initStatus marks to land before dump.
+            time.sleep(2.5)
             marks = self.logcat_phase4_marks()
             row = {"index": i, "am_start": sample, "phase4_marks": marks or None}
-            traces.append(row)
             if not sample.get("ok"):
                 notes.append(f"run {i} am start -W failed")
+                if i < warmup:
+                    warmup_traces.append(row)
+                else:
+                    measure_traces.append(row)
                 continue
             value = sample.get("total_time_ms")
             if value is None:
                 notes.append(f"run {i} missing TotalTime")
+                if i < warmup:
+                    warmup_traces.append(row)
+                else:
+                    measure_traces.append(row)
                 continue
             if i < warmup:
                 warmup_samples.append(value)
+                warmup_traces.append(row)
             else:
                 measure_samples.append(value)
+                measure_traces.append(row)
         stats = summarize(measure_samples)
+        startup_marks = aggregate_startup_marks(measure_traces)
         ok = len(measure_samples) == runs
         unreliable = []
-        if not any((row.get("phase4_marks") or {}) for row in traces):
+        if startup_marks["runs_with_marks"] == 0:
+            role = (getattr(self, "build_info", None) or {}).get("role")
+            if role == "production":
+                unreliable.append(
+                    "phase4_logcat_marks_missing: release/production defaults omit "
+                    "StartupTrace; use profile (or release + PHASE4_PERF) for marks"
+                )
+            else:
+                unreliable.append(
+                    "phase4_logcat_marks_missing: no [PHASE4] lines in logcat "
+                    "(need profile build or --dart-define=PHASE4_PERF=true)"
+                )
+        elif startup_marks["runs_with_marks"] < len(measure_samples):
             unreliable.append(
-                "phase4_logcat_marks_missing: build is likely release without PHASE4_PERF"
+                f"phase4_marks_partial: {startup_marks['runs_with_marks']}/{len(measure_samples)} runs"
             )
         return {
             "ok": ok,
@@ -192,7 +249,11 @@ class Runner:
             "stats": stats,
             "warmup_samples_ms": warmup_samples,
             "samples_ms": measure_samples,
-            "traces": traces[-3:],
+            "startup_marks": startup_marks,
+            "traces": {
+                "warmup_tail": warmup_traces[-1:],
+                "measure_tail": measure_traces[-1:],
+            },
             "unreliable": unreliable,
             "notes": notes,
         }
@@ -268,19 +329,19 @@ class Runner:
         }
 
     def _vpn_status(self) -> dict:
-        tun = self.adb.shell("ip -o link show").stdout
-        tun_present = any("tun" in line for line in tun.splitlines())
+        tun_ifaces = parse_tun_interfaces(self.adb.shell("ip -o link show").stdout)
         services = self.adb.shell("dumpsys activity services").stdout
         vpn_service = "com.follow.clash.service.VpnService" in services
         remote_pid = self.pid_of(f"{self.package}:remote")
-        connectivity = self.adb.shell("dumpsys connectivity").stdout
-        vpn_network = "VPN" in connectivity or "vpn" in connectivity.lower()
-        return {
-            "tun_present": tun_present,
-            "vpn_service": vpn_service,
-            "vpn_network": vpn_network,
-            "remote_pid": remote_pid,
-        }
+        connectivity_vpn = connectivity_has_vpn_network(
+            self.adb.shell("dumpsys connectivity").stdout
+        )
+        return assess_vpn_state(
+            tun_ifaces=tun_ifaces,
+            vpn_service_running=vpn_service,
+            remote_pid=remote_pid,
+            connectivity_vpn=connectivity_vpn,
+        )
 
     def _network_probe(self) -> dict:
         proc = self.adb.shell("ping -c 1 -W 3 1.1.1.1", timeout=10)
@@ -300,6 +361,7 @@ class Runner:
         ]
         notes = [
             "Uses existing TempActivity START/STOP intents from Phase 1–3 Android quick actions.",
+            "vpn_ready requires VpnService + real tunN iface; remote pid alone is not enough.",
         ]
         self.force_stop()
         time.sleep(0.5)
@@ -310,48 +372,94 @@ class Runner:
         started_at = time.monotonic()
         start_proc = self.adb.shell(start_cmd, timeout=30)
         start_parsed = parse_am_start_w(start_proc.stdout + "\n" + start_proc.stderr)
-        status = None
-        elapsed_ms = None
+
+        observed = None
+        start_to_observable_ms = None
+        start_to_ready_ms = None
+        vpn_ready = None
         deadline = started_at + timeout_s
         while time.monotonic() < deadline:
-            status = self._vpn_status()
-            if status["vpn_service"] or status["tun_present"] or status["remote_pid"]:
-                elapsed_ms = int((time.monotonic() - started_at) * 1000)
+            observed = self._vpn_status()
+            now_ms = int((time.monotonic() - started_at) * 1000)
+            if start_to_observable_ms is None and observed["start_observable"]:
+                start_to_observable_ms = now_ms
+            if observed["vpn_ready"] is True:
+                start_to_ready_ms = now_ms
+                vpn_ready = True
                 break
             time.sleep(0.5)
-        success = bool(
-            status
-            and (status["vpn_service"] or status["tun_present"] or status["remote_pid"])
-        )
-        if not success:
-            notes.append(
-                "VPN did not become observable. Consent dialog, missing profile, "
-                "or core failure — timing is not recorded as success."
-            )
-            elapsed_ms = None
-        probe = self._network_probe() if success else None
+        else:
+            if observed is None:
+                observed = self._vpn_status()
+            vpn_ready = observed.get("vpn_ready")
+            if vpn_ready is True and start_to_ready_ms is None:
+                start_to_ready_ms = int((time.monotonic() - started_at) * 1000)
+            if vpn_ready is None:
+                unreliable.append("vpn_ready_unconfirmed_partial_signals_only")
+                notes.append(
+                    "Partial start signals observed but VpnService+tunN were not both present; "
+                    "start_to_ready_ms left null."
+                )
+            elif vpn_ready is False:
+                notes.append(
+                    "VPN did not become ready. Consent dialog, missing profile, "
+                    "or core failure — ready timing is null."
+                )
+
+        probe = self._network_probe() if vpn_ready is True else None
+
         stop_cmd = (
             f"am start -W -n {self.package}/{TEMP_ACTIVITY} "
             f"-a {self.package}.action.STOP"
         )
+        stop_started = time.monotonic()
         stop_proc = self.adb.shell(stop_cmd, timeout=30)
-        time.sleep(1.0)
-        after_stop = self._vpn_status()
+        stop_observed = None
+        stop_to_cleared_ms = None
+        stop_success = False
+        stop_deadline = stop_started + timeout_s
+        while time.monotonic() < stop_deadline:
+            stop_observed = self._vpn_status()
+            if vpn_stop_cleared(stop_observed):
+                stop_to_cleared_ms = int((time.monotonic() - stop_started) * 1000)
+                stop_success = True
+                break
+            time.sleep(0.5)
+        if stop_observed is None:
+            stop_observed = self._vpn_status()
+        if not stop_success:
+            if vpn_stop_cleared(stop_observed):
+                stop_success = True
+                stop_to_cleared_ms = int((time.monotonic() - stop_started) * 1000)
+            else:
+                unreliable.append("vpn_stop_not_cleared")
+                notes.append(
+                    "After STOP, VpnService and/or tunN still present; stop timing not counted as success."
+                )
+                stop_to_cleared_ms = None
+
+        # Scenario ok only when VPN readiness was confirmed; never invent ready timing.
+        ok = vpn_ready is True
         return {
-            "ok": success,
+            "ok": ok,
             "start": {
                 "command": start_cmd,
                 "am_start": start_parsed,
                 "returncode": start_proc.returncode,
             },
-            "observed": status,
-            "start_to_observable_ms": elapsed_ms,
+            "observed": observed,
+            "start_observable": bool(observed and observed.get("start_observable")),
+            "start_to_observable_ms": start_to_observable_ms,
+            "vpn_ready": vpn_ready,
+            "start_to_ready_ms": start_to_ready_ms if vpn_ready is True else None,
             "network_probe": probe,
             "stop": {
                 "command": stop_cmd,
                 "returncode": stop_proc.returncode,
-                "observed": after_stop,
+                "observed": stop_observed,
             },
+            "stop_success": stop_success,
+            "stop_to_cleared_ms": stop_to_cleared_ms if stop_success else None,
             "unreliable": unreliable,
             "notes": notes,
         }
@@ -364,21 +472,34 @@ class Runner:
         self.adb.shell("input keyevent KEYCODE_HOME")
         time.sleep(wait_s)
         bg = self._snapshot_process("background")
+        vpn_active = (fg.get("vpn_state") or {}).get("vpn_ready") is True or (
+            (bg.get("vpn_state") or {}).get("vpn_ready") is True
+        )
+        vpn_inactive = (fg.get("vpn_state") or {}).get("vpn_ready") is False and (
+            (bg.get("vpn_state") or {}).get("vpn_ready") is False
+        )
         notes = [
             "Battery mAh is not inferred. These are process CPU/PSS/focus observations only.",
             "UI stats timer is cancelled on pause in Dart; ADB cannot see the Dart Timer directly.",
+            "vpn_active/inactive use the same VpnService+tunN ready rule as the VPN scenario.",
         ]
+        unreliable = [
+            "cpu_from_dumpsys_cpuinfo_is_coarse",
+            "no_battery_mah",
+            "ui_timer_not_directly_observable",
+        ]
+        if (fg.get("vpn_state") or {}).get("vpn_ready") is None or (
+            (bg.get("vpn_state") or {}).get("vpn_ready") is None
+        ):
+            unreliable.append("background_vpn_state_unconfirmed")
         return {
             "ok": fg.get("flutter_pid") is not None,
-            "vpn_active": bool(fg.get("remote_pid") or bg.get("remote_pid")),
+            "vpn_active": vpn_active,
+            "vpn_inactive": vpn_inactive,
             "foreground": fg,
             "background": bg,
             "notes": notes,
-            "unreliable": [
-                "cpu_from_dumpsys_cpuinfo_is_coarse",
-                "no_battery_mah",
-                "ui_timer_not_directly_observable",
-            ],
+            "unreliable": unreliable,
         }
 
     def _snapshot_process(self, label: str) -> dict:
@@ -390,6 +511,7 @@ class Runner:
         if flutter_pid is not None:
             mem = parse_meminfo(self.adb.shell(f"dumpsys meminfo {self.package}").stdout)
         cpu = self._cpu_for_pids([flutter_pid, remote_pid])
+        vpn_state = self._vpn_status()
         return {
             "label": label,
             "app_focused": focused,
@@ -397,6 +519,7 @@ class Runner:
             "remote_pid": remote_pid,
             "memory": mem,
             "cpu": cpu,
+            "vpn_state": vpn_state,
         }
 
     def _cpu_for_pids(self, pids: list[int | None]) -> dict:
@@ -425,9 +548,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--current", type=Path)
     parser.add_argument(
+        "--build-mode",
+        choices=["debug", "profile", "release"],
+        help=(
+            "Flutter build mode of the installed APK. Required for formal profile baselines "
+            "(non-debuggable packages otherwise default to release/production)."
+        ),
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         help="Output directory. Default: .perf-captures/phase4/<timestamp>",
+    )
+    parser.add_argument(
+        "--write-baseline-doc",
+        type=Path,
+        help=(
+            "Write aggregated formal baseline markdown. Rejects debug/diagnostic_only builds."
+        ),
     )
     return parser
 
@@ -451,7 +589,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         adb_path = resolve_adb(args.adb)
         serial = select_device(adb_path, args.serial)
-        runner = Runner(Adb(adb_path, serial), args.package)
+        runner = Runner(
+            Adb(adb_path, serial),
+            args.package,
+            build_mode=args.build_mode,
+        )
         env = runner.collect_env()
         result = {
             "ok": True,
@@ -463,15 +605,27 @@ def main(argv: list[str] | None = None) -> int:
                 "package": env.get("package"),
                 "version_name": env.get("version_name"),
                 "version_code": env.get("version_code"),
+                "mode": env.get("build_mode"),
+                "role": env.get("build_role"),
+                "formal_eligible": env.get("formal_eligible"),
+                "debuggable": env.get("debuggable"),
+                "mode_detection": env.get("build_mode_detection"),
+                "mode_notes": env.get("build_mode_notes"),
             },
             "env": env,
             "errors": [],
+            "notes": [],
             "cold_start": None,
             "memory": None,
             "jank": None,
             "vpn": None,
             "background": None,
         }
+        if env.get("build_role") == "diagnostic_only":
+            result["notes"].append(
+                "debug/diagnostic_only build: harness OK for instrumentation checks only; "
+                "not formal baseline and not for claiming improvement percentages"
+            )
         mapping = {
             "env": [],
             "cold-start": ["cold_start"],
@@ -508,6 +662,22 @@ def main(argv: list[str] | None = None) -> int:
         result["compare"] = None
 
     json_path, md_path = write_reports(result, out_dir, latest_dir)
+    if args.write_baseline_doc:
+        build = result.get("build") or {}
+        if not build.get("formal_eligible"):
+            print(
+                "refusing --write-baseline-doc: formal baseline requires profile "
+                "(profiling) or release (production); debug is diagnostic_only only",
+                file=sys.stderr,
+            )
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            print(f"wrote {json_path} and {md_path}", file=sys.stderr)
+            return 2
+        args.write_baseline_doc.parent.mkdir(parents=True, exist_ok=True)
+        args.write_baseline_doc.write_text(
+            render_baseline_markdown(result), encoding="utf-8"
+        )
+        print(f"wrote baseline doc {args.write_baseline_doc}", file=sys.stderr)
     print(json.dumps(result, indent=2, ensure_ascii=False))
     print(f"wrote {json_path} and {md_path}", file=sys.stderr)
     return 0 if result.get("ok") else 1

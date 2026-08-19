@@ -7,7 +7,11 @@
   "build": {
     "package": "com.slclash.app.dev",
     "version_name": "0.0.0-example",
-    "version_code": "1"
+    "version_code": "1",
+    "mode": "profile",
+    "role": "profiling",
+    "formal_eligible": true,
+    "debuggable": false
   },
   "env": {
     "model": "Example Device",
@@ -29,6 +33,31 @@
       "max": 1000,
       "median": 812,
       "p90": 940
+    },
+    "startup_marks": {
+      "runs_with_marks": 10,
+      "core_outcome_counts": {
+        "core_ready": 0,
+        "core_skipped": 10,
+        "core_connect_failed": 0,
+        "core_init_failed": 0
+      },
+      "stats": {
+        "first_frame": {
+          "count": 10,
+          "min": 380,
+          "max": 520,
+          "median": 410,
+          "p90": 480
+        },
+        "main_ready": {
+          "count": 10,
+          "min": 1500,
+          "max": 2200,
+          "median": 1800,
+          "p90": 2100
+        }
+      }
     }
   },
   "memory": {
@@ -44,20 +73,31 @@
     "summary": {
       "total_frames": 120,
       "janky_frames": 6,
-      "janky_percent": 5.0
+      "janky_percent": 5.0,
+      "p90_ms": 12
     },
     "unreliable": ["idle_only_no_ui_automation"]
   },
   "vpn": {
     "ok": false,
-    "start_to_observable_ms": null,
+    "start_observable": true,
+    "start_to_observable_ms": 800,
+    "vpn_ready": null,
+    "start_to_ready_ms": null,
+    "stop_success": true,
+    "stop_to_cleared_ms": 300,
     "notes": [
-      "Example of a failed VPN start: success is false and no timing is invented."
+      "Example: partial signals are observable but not confirmed ready; ready timing stays null."
+    ],
+    "unreliable": [
+      "vpn_consent_cannot_be_granted_over_adb",
+      "vpn_ready_unconfirmed_partial_signals_only"
     ]
   },
   "background": {
     "ok": true,
     "vpn_active": false,
+    "vpn_inactive": true,
     "unreliable": ["no_battery_mah"]
   },
   "compare": null

@@ -1,9 +1,29 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 
 _KV = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 .]+?):\s*(-?\d+)\s*(?:ms)?\s*$")
 _PHASE4 = re.compile(r"\[PHASE4\] mark=([A-Za-z0-9_.]+) elapsed_ms=(\d+)")
+# `ip -o link show` lines look like: `12: tun0: <POINTOPOINT,...>`
+_TUN_IFACE = re.compile(r"^\d+:\s*(tun\d+)\s*:")
+
+TIMING_MARKS = (
+    "first_frame",
+    "main_ready",
+    "core_ready",
+    "globalState.attach",
+    "proxy_group_snapshot_hydration",
+    "setupAction.initStatus",
+    "runApp",
+)
+
+CORE_OUTCOME_MARKS = (
+    "core_ready",
+    "core_skipped",
+    "core_connect_failed",
+    "core_init_failed",
+)
 
 
 def parse_am_start_w(output: str) -> dict:
@@ -118,6 +138,103 @@ def parse_pidof(output: str) -> int | None:
         return int(text[0])
     except ValueError:
         return None
+
+
+def parse_tun_interfaces(ip_link_output: str) -> list[str]:
+    """Return only real `tunN` interface names from `ip -o link show`."""
+    found: list[str] = []
+    for line in ip_link_output.splitlines():
+        match = _TUN_IFACE.match(line.strip())
+        if match:
+            found.append(match.group(1))
+    return found
+
+
+def connectivity_has_vpn_network(connectivity_output: str) -> bool:
+    """Detect an active VPN network block in dumpsys connectivity.
+
+    Requires NETWORK-type VPN wording; a bare substring 'vpn' is not enough.
+    """
+    for line in connectivity_output.splitlines():
+        lower = line.lower()
+        if "networkagentinfo" in lower.replace(" ", "") and "vpn" in lower:
+            return True
+        if re.search(r"\btype:\s*vpn\b", lower):
+            return True
+        if re.search(r"\bnetworkinfo:\s*type:\s*vpn\b", lower):
+            return True
+        if "vpn {" in lower or "transport=vpn" in lower or "transports: vpn" in lower:
+            return True
+    return False
+
+
+def assess_vpn_state(
+    *,
+    tun_ifaces: list[str],
+    vpn_service_running: bool,
+    remote_pid: int | None,
+    connectivity_vpn: bool,
+) -> dict:
+    """Distinguish weak start_observable from confidently confirmed VPN ready.
+
+    ready is True only when VpnService is running and a real tunN iface exists.
+    remote_pid alone never proves VPN ready (CommonService can own :remote).
+    """
+    has_tun = bool(tun_ifaces)
+    observable = bool(vpn_service_running or has_tun or remote_pid is not None)
+    if vpn_service_running and has_tun:
+        ready = True
+        confidence = "confirmed"
+    elif not observable:
+        ready = False
+        confidence = "confirmed_absent"
+    else:
+        # Partial signals only — do not claim ready.
+        ready = None
+        confidence = "unconfirmed"
+    return {
+        "tun_ifaces": list(tun_ifaces),
+        "vpn_service_running": vpn_service_running,
+        "remote_pid": remote_pid,
+        "connectivity_vpn": connectivity_vpn,
+        "start_observable": observable,
+        "vpn_ready": ready,
+        "confidence": confidence,
+    }
+
+
+def vpn_stop_cleared(state: dict) -> bool:
+    """STOP success: VpnService gone and no tunN interface remains."""
+    return (not state.get("vpn_service_running")) and not state.get("tun_ifaces")
+
+
+def aggregate_startup_marks(measure_rows: list[dict]) -> dict:
+    """Aggregate PHASE4 marks across formal measurement runs (not warmup)."""
+    by_name: dict[str, list[float]] = defaultdict(list)
+    outcome_counts = {name: 0 for name in CORE_OUTCOME_MARKS}
+    runs_with_marks = 0
+    for row in measure_rows:
+        marks = row.get("phase4_marks") or {}
+        if not marks:
+            continue
+        runs_with_marks += 1
+        for name in TIMING_MARKS:
+            if name in marks:
+                by_name[name].append(float(marks[name]))
+        outcome = None
+        for name in CORE_OUTCOME_MARKS:
+            if name in marks:
+                outcome = name
+                break
+        if outcome:
+            outcome_counts[outcome] += 1
+    from stats import summarize  # local import avoids cycle at module load in tests
+
+    return {
+        "runs_with_marks": runs_with_marks,
+        "core_outcome_counts": outcome_counts,
+        "stats": {name: summarize(values) for name, values in sorted(by_name.items())},
+    }
 
 
 def _named_int(text: str, pattern: str) -> int | None:

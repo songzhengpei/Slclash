@@ -45,6 +45,9 @@ D:\Code\Tools\Android\Sdk\platform-tools\adb.exe install -r build\app\outputs\fl
 - `flutter analyze` may include existing info-level deprecations. New errors or warnings block completion.
 - Focused checks: `flutter test test\views\profiles\media_check_test.dart`; in `core/`, `go test ./...`.
 - Phase 4 perf harness (read-only baseline, no product behavior change): `python tools/perf/phase4.py all`. Usage: `tools/perf/README.md`.
+  - Debug APK = `diagnostic_only` (instrumentation checks only; never formal baseline / improvement %).
+  - Profile = `profiling` formal data (StartupTrace / jank / CPU); release = `production` formal UX metrics.
+  - `--write-baseline-doc` rejects debug builds.
 - If Go core dependencies change, run `go mod tidy` in `core/`.
 - If Go submodule is missing, run `git submodule update --init --recursive`.
 - If Gradle stalls for over 5 minutes with no output, retry after stopping stale `java`, `dart`, and `dartvm` processes.

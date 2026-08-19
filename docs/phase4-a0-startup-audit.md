@@ -153,6 +153,13 @@ The 300ms delay is paired with `coreController.preload()` via `Future.wait` — 
 - `CoreManager`: event gates + profile-change hydrate/setup (post-frame).
 - `AppStateManager`: lifecycle; cancels UI timer on pause; optional `tryStartCore` on resume.
 
-## Instrumentation added in 4A.0
+## Instrumentation added in 4A.0 / 4A.0.1
 
 Gated `StartupTrace` (`lib/common/perf_trace.dart`). Release without `--dart-define=PHASE4_PERF=true` is a bool check only. See `tools/perf/README.md`.
+
+Core outcome marks (mutually exclusive):
+
+- `core_ready` — connected and initialized
+- `core_skipped` — full setup skipped
+- `core_connect_failed` — `connectCore` failed
+- `core_init_failed` — connected but not ready after `initCore`

@@ -805,18 +805,24 @@ class SetupAction extends _$SetupAction {
       if (!connected) {
         startTime = null;
         ref.read(runTimeProvider.notifier).value = null;
-        StartupTrace.mark('core_ready');
+        StartupTrace.mark('core_connect_failed');
         return;
       }
       await coreAction.initCore();
-      StartupTrace.mark('core_ready');
+      final coreReady =
+          coreController.isCompleted && await coreController.isInit;
+      if (coreReady) {
+        StartupTrace.mark('core_ready');
+      } else {
+        StartupTrace.mark('core_init_failed');
+      }
       await updateStatus(true, isInit: true);
     } else {
       globalState.needInitStatus = false;
       ref.read(runTimeProvider.notifier).value = null;
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       commonPrint.log('init status skip full setup');
-      StartupTrace.mark('core_ready');
+      StartupTrace.mark('core_skipped');
     }
   }
 

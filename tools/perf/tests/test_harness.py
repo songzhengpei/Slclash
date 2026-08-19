@@ -10,15 +10,62 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from adbutil import HarnessError, select_device  # noqa: E402
+from build_mode import (  # noqa: E402
+    is_formal_eligible,
+    parse_package_debuggable,
+    resolve_build_mode,
+    role_for_mode,
+)
 from parsers import (  # noqa: E402
+    aggregate_startup_marks,
+    assess_vpn_state,
+    connectivity_has_vpn_network,
     parse_am_start_w,
     parse_gfxinfo,
     parse_meminfo,
     parse_phase4_logcat,
     parse_pidof,
+    parse_tun_interfaces,
+    vpn_stop_cleared,
 )
-from report import compare_results  # noqa: E402
+from report import compare_results, render_baseline_markdown, render_markdown  # noqa: E402
 from stats import summarize  # noqa: E402
+
+
+class BuildModeTests(unittest.TestCase):
+    def test_roles(self) -> None:
+        self.assertEqual(role_for_mode("debug"), "diagnostic_only")
+        self.assertEqual(role_for_mode("profile"), "profiling")
+        self.assertEqual(role_for_mode("release"), "production")
+        self.assertFalse(is_formal_eligible(mode="debug"))
+        self.assertTrue(is_formal_eligible(mode="profile"))
+        self.assertTrue(is_formal_eligible(mode="release"))
+
+    def test_debuggable_detection(self) -> None:
+        self.assertTrue(
+            parse_package_debuggable("flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]")
+        )
+        self.assertFalse(
+            parse_package_debuggable("flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]")
+        )
+        self.assertTrue(parse_package_debuggable("flags=0x28e83"))  # includes 0x2
+        self.assertFalse(parse_package_debuggable("flags=0x28e81"))
+
+    def test_resolve_defaults_and_cli(self) -> None:
+        dbg = resolve_build_mode(explicit=None, debuggable=True)
+        self.assertEqual(dbg["mode"], "debug")
+        self.assertEqual(dbg["role"], "diagnostic_only")
+        self.assertFalse(dbg["formal_eligible"])
+
+        rel = resolve_build_mode(explicit=None, debuggable=False)
+        self.assertEqual(rel["mode"], "release")
+        self.assertEqual(rel["role"], "production")
+        self.assertTrue(rel["formal_eligible"])
+
+        prof = resolve_build_mode(explicit="profile", debuggable=False)
+        self.assertEqual(prof["mode"], "profile")
+        self.assertEqual(prof["role"], "profiling")
+        self.assertTrue(prof["formal_eligible"])
 
 
 class StatsTests(unittest.TestCase):
@@ -90,12 +137,86 @@ Janky frames: 6 (5.00%)
     def test_phase4_logcat_and_pidof(self) -> None:
         marks = parse_phase4_logcat(
             "I/flutter: [PHASE4] mark=first_frame elapsed_ms=410\n"
+            "I/flutter: [PHASE4] mark=core_skipped elapsed_ms=1500\n"
             "I/flutter: [PHASE4] mark=main_ready elapsed_ms=1800\n"
         )
         self.assertEqual(marks["first_frame"], 410)
         self.assertEqual(marks["main_ready"], 1800)
+        self.assertEqual(marks["core_skipped"], 1500)
         self.assertEqual(parse_pidof("1234 5678"), 1234)
         self.assertIsNone(parse_pidof(""))
+
+
+class TunAndVpnAssessmentTests(unittest.TestCase):
+    def test_parse_tun_interfaces_ignores_substring_false_positives(self) -> None:
+        raw = (
+            "1: lo: <LOOPBACK,UP> mtu 65536\n"
+            "2: wlan0: <BROADCAST,UP> mtu 1500\n"
+            "3: fortune0: <BROADCAST> mtu 1500\n"
+            "12: tun0: <POINTOPOINT,UP> mtu 1500\n"
+            "13: tun1: <POINTOPOINT,UP> mtu 1500\n"
+        )
+        self.assertEqual(parse_tun_interfaces(raw), ["tun0", "tun1"])
+
+    def test_remote_pid_alone_is_not_vpn_ready(self) -> None:
+        state = assess_vpn_state(
+            tun_ifaces=[],
+            vpn_service_running=False,
+            remote_pid=99,
+            connectivity_vpn=False,
+        )
+        self.assertTrue(state["start_observable"])
+        self.assertIsNone(state["vpn_ready"])
+        self.assertEqual(state["confidence"], "unconfirmed")
+
+    def test_vpn_ready_requires_service_and_tun(self) -> None:
+        state = assess_vpn_state(
+            tun_ifaces=["tun0"],
+            vpn_service_running=True,
+            remote_pid=99,
+            connectivity_vpn=True,
+        )
+        self.assertTrue(state["vpn_ready"])
+        self.assertTrue(state["start_observable"])
+
+    def test_vpn_stop_cleared(self) -> None:
+        cleared = assess_vpn_state(
+            tun_ifaces=[],
+            vpn_service_running=False,
+            remote_pid=None,
+            connectivity_vpn=False,
+        )
+        self.assertTrue(vpn_stop_cleared(cleared))
+        not_cleared = assess_vpn_state(
+            tun_ifaces=["tun0"],
+            vpn_service_running=False,
+            remote_pid=1,
+            connectivity_vpn=False,
+        )
+        self.assertFalse(vpn_stop_cleared(not_cleared))
+
+    def test_connectivity_vpn_requires_typed_signal(self) -> None:
+        self.assertFalse(connectivity_has_vpn_network("some app named vpnhelper"))
+        self.assertTrue(
+            connectivity_has_vpn_network("NetworkAgentInfo{ ni{[type: VPN]} transport=VPN }")
+        )
+
+
+class StartupMarkAggregationTests(unittest.TestCase):
+    def test_aggregates_all_measure_runs(self) -> None:
+        rows = [
+            {"phase4_marks": {"first_frame": 400, "main_ready": 1600, "core_skipped": 1500}},
+            {"phase4_marks": {"first_frame": 420, "main_ready": 1700, "core_skipped": 1550}},
+            {"phase4_marks": {"first_frame": 500, "main_ready": 2000, "core_ready": 1900}},
+            {"phase4_marks": None},
+        ]
+        agg = aggregate_startup_marks(rows)
+        self.assertEqual(agg["runs_with_marks"], 3)
+        self.assertEqual(agg["stats"]["first_frame"]["count"], 3)
+        self.assertEqual(agg["stats"]["first_frame"]["median"], 420)
+        self.assertEqual(agg["core_outcome_counts"]["core_skipped"], 2)
+        self.assertEqual(agg["core_outcome_counts"]["core_ready"], 1)
+        self.assertNotIn("core_skipped", agg["stats"])
 
 
 class DeviceErrorTests(unittest.TestCase):
@@ -107,29 +228,230 @@ class DeviceErrorTests(unittest.TestCase):
 
     def test_multiple_devices(self) -> None:
         with patch("adbutil.Adb.devices", return_value=["A", "B"]):
-            with self.assertRaises(HarnessError) as ctx:
-                select_device("adb", None)
-            self.assertEqual(ctx.exception.code, "multiple_devices")
+            with patch.dict("os.environ", {}, clear=False):
+                import os
+
+                os.environ.pop("ANDROID_SERIAL", None)
+                with self.assertRaises(HarnessError) as ctx:
+                    select_device("adb", None)
+                self.assertEqual(ctx.exception.code, "multiple_devices")
 
     def test_explicit_serial(self) -> None:
         with patch("adbutil.Adb.devices", return_value=["A", "B"]):
             self.assertEqual(select_device("adb", "B"), "B")
 
+    def test_env_serial_preferred(self) -> None:
+        with patch("adbutil.Adb.devices", return_value=["A", "B"]):
+            with patch.dict("os.environ", {"ANDROID_SERIAL": "A"}):
+                self.assertEqual(select_device("adb", None), "A")
 
-class CompareTests(unittest.TestCase):
+
+class CompareAndSummaryTests(unittest.TestCase):
     def test_vpn_failure_is_not_success(self) -> None:
         failed = {
             "ok": False,
-            "vpn": {"ok": False, "start_to_observable_ms": None},
+            "vpn": {
+                "ok": False,
+                "vpn_ready": None,
+                "start_to_ready_ms": None,
+                "stop_success": False,
+                "stop_to_cleared_ms": None,
+            },
         }
         self.assertFalse(failed["ok"])
-        self.assertIsNone(failed["vpn"]["start_to_observable_ms"])
+        self.assertIsNone(failed["vpn"]["start_to_ready_ms"])
 
-    def test_compare_delta(self) -> None:
-        baseline = {"cold_start": {"stats": {"median": 800, "p90": 900, "min": 700, "max": 1000}}}
-        current = {"cold_start": {"stats": {"median": 850, "p90": 920, "min": 710, "max": 980}}}
+    def test_compare_includes_startup_memory_jank_vpn(self) -> None:
+        baseline = {
+            "cold_start": {
+                "stats": {"median": 800, "p90": 900, "min": 700, "max": 1000},
+                "startup_marks": {
+                    "stats": {
+                        "first_frame": {"median": 400, "p90": 450},
+                        "main_ready": {"median": 1600, "p90": 1800},
+                        "core_ready": {"median": 1500, "p90": 1700},
+                    }
+                },
+            },
+            "memory": {"total_pss_kb": {"app": 100, "remote": 50, "combined": 150}},
+            "jank": {"summary": {"janky_percent": 5.0, "p90_ms": 12}},
+            "vpn": {
+                "start_to_observable_ms": 1000,
+                "start_to_ready_ms": 1500,
+                "stop_to_cleared_ms": 400,
+            },
+        }
+        current = {
+            "cold_start": {
+                "stats": {"median": 850, "p90": 920, "min": 710, "max": 980},
+                "startup_marks": {
+                    "stats": {
+                        "first_frame": {"median": 410, "p90": 460},
+                        "main_ready": {"median": 1650, "p90": 1850},
+                        "core_ready": {"median": 1550, "p90": 1750},
+                    }
+                },
+            },
+            "memory": {"total_pss_kb": {"app": 110, "remote": 55, "combined": 165}},
+            "jank": {"summary": {"janky_percent": 6.0, "p90_ms": 14}},
+            "vpn": {
+                "start_to_observable_ms": 1100,
+                "start_to_ready_ms": 1600,
+                "stop_to_cleared_ms": 450,
+            },
+        }
         delta = compare_results(baseline, current)
         self.assertEqual(delta["cold_start_median_ms"]["delta"], 50)
+        self.assertEqual(delta["first_frame_median_ms"]["delta"], 10)
+        self.assertEqual(delta["main_ready_median_ms"]["delta"], 50)
+        self.assertEqual(delta["core_ready_median_ms"]["delta"], 50)
+        self.assertEqual(delta["memory_app_pss_kb"]["delta"], 10)
+        self.assertEqual(delta["memory_remote_pss_kb"]["delta"], 5)
+        self.assertEqual(delta["memory_combined_pss_kb"]["delta"], 15)
+        self.assertEqual(delta["jank_janky_percent"]["delta"], 1.0)
+        self.assertEqual(delta["vpn_start_to_ready_ms"]["delta"], 100)
+        self.assertEqual(delta["vpn_stop_to_cleared_ms"]["delta"], 50)
+
+    def test_summary_markdown_includes_key_metrics(self) -> None:
+        result = {
+            "ok": True,
+            "timestamp": "2026-08-19T00:00:00Z",
+            "commit": "abc",
+            "phase4_product_baseline": "b7e08b6e",
+            "device": "Phone",
+            "build": {"package": "com.slclash.app.dev", "version_name": "1.0", "version_code": "1"},
+            "env": {"android_version": "15", "flutter_pid": 1, "remote_pid": None},
+            "errors": [],
+            "cold_start": {
+                "ok": True,
+                "stats": {"count": 10, "min": 700, "max": 1000, "median": 812, "p90": 940},
+                "startup_marks": {
+                    "stats": {
+                        "first_frame": {"count": 10, "median": 410, "p90": 480},
+                        "main_ready": {"count": 10, "median": 1800, "p90": 2100},
+                        "core_ready": {"count": 0, "median": None, "p90": None},
+                    },
+                    "core_outcome_counts": {"core_skipped": 10, "core_ready": 0},
+                },
+                "unreliable": [],
+                "notes": [],
+            },
+            "memory": {
+                "ok": True,
+                "total_pss_kb": {"app": 180000, "remote": None, "combined": 180000},
+                "app": {"java_heap_kb": 1, "native_heap_kb": 2},
+                "notes": [],
+                "unreliable": [],
+            },
+            "jank": {
+                "ok": True,
+                "summary": {
+                    "total_frames": 120,
+                    "janky_frames": 6,
+                    "janky_percent": 5.0,
+                    "p50_ms": 8,
+                    "p90_ms": 12,
+                    "p95_ms": 16,
+                    "p99_ms": 24,
+                },
+                "unreliable": ["idle_only_no_ui_automation"],
+                "notes": ["idle"],
+            },
+            "vpn": {
+                "ok": False,
+                "start_observable": True,
+                "start_to_observable_ms": 800,
+                "vpn_ready": None,
+                "start_to_ready_ms": None,
+                "stop_success": True,
+                "stop_to_cleared_ms": 300,
+                "unreliable": ["vpn_ready_unconfirmed_partial_signals_only"],
+                "notes": ["partial"],
+            },
+            "background": {
+                "ok": True,
+                "vpn_active": False,
+                "vpn_inactive": True,
+                "foreground": {
+                    "app_focused": True,
+                    "flutter_pid": 1,
+                    "remote_pid": None,
+                    "memory": {"total_pss_kb": 100},
+                    "vpn_state": {"vpn_ready": False},
+                },
+                "background": {
+                    "app_focused": False,
+                    "flutter_pid": 1,
+                    "remote_pid": None,
+                    "memory": {"total_pss_kb": 90},
+                    "vpn_state": {"vpn_ready": False},
+                },
+                "unreliable": ["no_battery_mah"],
+                "notes": [],
+            },
+        }
+        md = render_markdown(result)
+        for needle in (
+            "cold start TotalTime ms",
+            "first_frame ms",
+            "main_ready ms",
+            "app PSS kb",
+            "core/remote PSS kb",
+            "combined PSS kb",
+            "janky frames",
+            "start_to_observable_ms",
+            "start_to_ready_ms",
+            "stop_to_cleared_ms",
+            "vpn_active",
+            "vpn_inactive",
+        ):
+            self.assertIn(needle, md)
+
+    def test_baseline_doc_omits_raw_dumpsys(self) -> None:
+        result = {
+            "timestamp": "2026-08-19T00:00:00Z",
+            "commit": "abc",
+            "phase4_product_baseline": "b7e08b6e",
+            "device": "Phone",
+            "build": {
+                "package": "com.slclash.app.dev",
+                "version_name": "1.0",
+                "version_code": "1",
+                "mode": "profile",
+                "role": "profiling",
+                "formal_eligible": True,
+            },
+            "env": {"android_version": "15", "model": "Phone"},
+            "cold_start": {
+                "stats": {"median": 812, "p90": 940, "min": 700, "max": 1000, "count": 10},
+                "startup_marks": {
+                    "stats": {
+                        "first_frame": {"median": 410, "p90": 480, "count": 10},
+                        "main_ready": {"median": 1800, "p90": 2100, "count": 10},
+                    },
+                    "core_outcome_counts": {"core_skipped": 10},
+                },
+                "unreliable": [],
+            },
+            "memory": {"total_pss_kb": {"app": 1, "remote": None, "combined": 1}, "unreliable": []},
+            "jank": {
+                "summary": {"janky_percent": 5.0, "p90_ms": 12, "total_frames": 10, "janky_frames": 1},
+                "unreliable": ["idle_only_no_ui_automation"],
+            },
+            "vpn": {
+                "vpn_ready": None,
+                "start_to_ready_ms": None,
+                "start_to_observable_ms": 100,
+                "stop_success": True,
+                "stop_to_cleared_ms": 50,
+                "unreliable": ["vpn_ready_unconfirmed_partial_signals_only"],
+            },
+            "background": {"vpn_active": False, "vpn_inactive": True, "unreliable": ["no_battery_mah"]},
+        }
+        md = render_baseline_markdown(result)
+        self.assertIn("Phase 4A.0 baseline", md)
+        self.assertNotIn("dumpsys", md.lower())
+        self.assertIn("first_frame", md)
 
 
 class SchemaTests(unittest.TestCase):
@@ -149,6 +471,9 @@ class SchemaTests(unittest.TestCase):
             "background",
         ):
             self.assertIn(key, example)
+        self.assertIn("startup_marks", example["cold_start"])
+        self.assertIn("vpn_ready", example["vpn"])
+        self.assertIn("stop_success", example["vpn"])
 
 
 if __name__ == "__main__":

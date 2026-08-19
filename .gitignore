@@ -55,6 +55,7 @@ docs/*
 !docs/mihomo-compatibility-phase2b.md
 !docs/mihomo-compatibility-phase2cd.md
 !docs/phase4-a0-startup-audit.md
+!docs/phase4-a0-baseline.md
 !docs/images/
 docs/images/*
 !docs/images/readme/
