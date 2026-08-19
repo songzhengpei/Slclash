@@ -19,5 +19,13 @@ class _KeepContainerState extends State<KeepScope>
   }
 
   @override
+  void didUpdateWidget(covariant KeepScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.keep != widget.keep) {
+      updateKeepAlive();
+    }
+  }
+
+  @override
   bool get wantKeepAlive => widget.keep;
 }

@@ -162,7 +162,9 @@ Janky frames: 6 (5.00%)
             "I/flutter: [PHASE4] mark=nav_begin elapsed_ms=10 seq=1 source=dashboard target=proxies kind=tab\n"
             "I/flutter: [PHASE4] mark=nav_scroll_to_top elapsed_ms=12 seq=1 page=dashboard elements=180 positions=2 duration_us=900\n"
             "I/flutter: [PHASE4] mark=nav_complete elapsed_ms=40 seq=1 source=dashboard target=proxies total_ms=312 "
-            "worst_frame_ms=18.5 over_budget=2 budget_ms=8.333 refresh_hz=120.00 visit=first keep_alive=true\n"
+            "target_first_build_latency_ms=21 first_build_ms=21 "
+            "worst_frame_ms=18.5 over_budget=2 budget_ms=8.333 refresh_hz=120.00 visit=first keep_alive=true "
+            "build_p50_ms=3.1 raster_p50_ms=2.2 total_p50_ms=6.0\n"
             "I/flutter: [PHASE4] mark=nav_complete elapsed_ms=80 seq=2 source=proxies target=dashboard total_ms=410 visit=revisit\n"
         )
         events = parse_phase4_events(raw)
@@ -182,6 +184,9 @@ Janky frames: 6 (5.00%)
         stats = summarize_nav(grouped)
         self.assertEqual(stats["count"], 2)
         self.assertEqual(stats["total_ms"]["min"], 312)
+        self.assertEqual(events[2]["target_first_build_latency_ms"], 21)
+        self.assertEqual(stats["target_first_build_latency_ms"]["min"], 21)
+        self.assertAlmostEqual(stats["build_p50_ms"]["median"], 3.1)
 
     def test_display_refresh_hz(self) -> None:
         parsed = parse_display_refresh_hz(
@@ -531,6 +536,14 @@ class CompareAndSummaryTests(unittest.TestCase):
         self.assertNotEqual(clean["worktree_fingerprint"], dirty["worktree_fingerprint"])
         self.assertEqual(clean["git_head"], "abc")
 
+    def test_submodule_only_porcelain_is_not_source_dirty(self) -> None:
+        only_sub = provenance_from_git_outputs("abc", " m core/Clash.Meta\n", "", "")
+        self.assertFalse(only_sub["dirty"])
+        self.assertTrue(only_sub["submodule_dirty"])
+        file_dirty = provenance_from_git_outputs("abc", " M lib/foo.dart\n", "", "")
+        self.assertTrue(file_dirty["dirty"])
+        self.assertFalse(file_dirty["submodule_dirty"])
+
     def test_summary_markdown_includes_key_metrics(self) -> None:
         result = {
             "ok": True,
@@ -708,7 +721,9 @@ class NavigationReportTests(unittest.TestCase):
                     "mode": "profile",
                     "role": "profiling",
                     "formal_eligible": True,
-                    "git_head": "3cca318b",
+                    "git_head": "ee800121",
+                    "dirty": False,
+                    "worktree_fingerprint": "abc123",
                 },
                 "env": {"android_version": "16", "sdk": 36, "model": "Phone"},
                 "navigation": {
@@ -738,11 +753,33 @@ class NavigationReportTests(unittest.TestCase):
                 },
             }
         )
-        self.assertIn("Phase 4B.0 navigation baseline", md)
+        self.assertIn("Phase 4B.0.1 navigation baseline (formal 4B.1 BEFORE)", md)
         self.assertIn("Idle gfxinfo is not this baseline", md)
+        self.assertIn("target_first_build_latency_ms", md)
+        self.assertIn("not the CPU duration", md)
+        self.assertIn("dirty: `False`", md)
         self.assertIn("Measured ranking", md)
         self.assertIn("8.333", md)
         self.assertIn("dashboard→proxies", md)
+        dirty_md = render_navigation_baseline_markdown(
+            {
+                "timestamp": "2026-08-19T00:00:00Z",
+                "commit": "abc",
+                "phase4_product_baseline": "b7e08b6e",
+                "device": "Phone",
+                "build": {
+                    "package": "com.slclash.app.profile",
+                    "mode": "profile",
+                    "role": "profiling",
+                    "formal_eligible": True,
+                    "git_head": "abc",
+                    "dirty": True,
+                },
+                "env": {},
+                "navigation": {"ok": True, "unreliable": ["worktree_dirty"]},
+            }
+        )
+        self.assertIn("UNRELIABLE", dirty_md)
 
 
 if __name__ == "__main__":

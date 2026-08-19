@@ -33,6 +33,8 @@ void main() {
     expect(extras['mode'], 'animate');
     expect(extras['visit'], 'first');
     expect(extras['seq'], 1);
+    expect(extras['target_first_build_latency_ms'], isNotNull);
+    expect(extras['first_build_ms'], extras['target_first_build_latency_ms']);
     expect(extras['budget_ms'], isNot(equals('16.67')));
   });
 }

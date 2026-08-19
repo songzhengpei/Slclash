@@ -85,6 +85,10 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
 
   @override
   void dispose() {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.dashboardHeroMounted = false;
+      NavigationTrace.dashboardSheenRepeating = false;
+    }
     _failureTimer?.cancel();
     _connectingTimer?.cancel();
     _fillController.dispose();
@@ -159,6 +163,10 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
 
   @override
   Widget build(BuildContext context) {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.dashboardHeroMounted = true;
+      NavigationTrace.dashboardSheenRepeating = _sheenController.isAnimating;
+    }
     final surge =
         Theme.of(context).extension<SurgeTheme>() ?? SurgeTheme.light();
     final appLocalizations = context.appLocalizations;
@@ -1077,6 +1085,9 @@ class _PillStatusLightState extends State<_PillStatusLight>
 
   @override
   Widget build(BuildContext context) {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.dashboardPulseRepeating = _controller.isAnimating;
+    }
     final surge = SurgeTheme.of(context);
     final color = _color(surge);
 

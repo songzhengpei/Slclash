@@ -67,27 +67,51 @@ def _nums(transitions: list[dict], key: str) -> list[float]:
     return values
 
 
+def _latency_nums(transitions: list[dict]) -> list[float]:
+    values: list[float] = []
+    for transition in transitions:
+        complete = _complete(transition)
+        raw = complete.get("target_first_build_latency_ms")
+        if raw is None:
+            raw = complete.get("first_build_ms")
+        if isinstance(raw, (int, float)):
+            values.append(float(raw))
+    return values
+
+
 def summarize_nav(transitions: list[dict]) -> dict:
-    totals = _nums(transitions, "total_ms")
-    first_build = _nums(transitions, "first_build_ms")
-    first_frame = _nums(transitions, "first_frame_ms")
-    worst = _nums(transitions, "worst_frame_ms")
-    over = _nums(transitions, "over_budget")
-    frames = _nums(transitions, "frame_count")
-    scroll_us = _nums(transitions, "scroll_us")
-    scroll_elements = _nums(transitions, "scroll_elements")
-    scroll_positions = _nums(transitions, "scroll_positions")
+    """Per-transition FrameTiming + latency summaries.
+
+    target_first_build_latency_ms is wait until target root build() is called,
+    not the CPU duration of that build.
+    build_*/raster_*/total_span_* are Flutter FrameTiming percentiles already
+    computed per transition, then summarized across transitions.
+    """
     return {
         "count": len(transitions),
-        "total_ms": summarize(totals),
-        "first_build_ms": summarize(first_build),
-        "first_frame_ms": summarize(first_frame),
-        "worst_frame_ms": summarize(worst),
-        "over_budget": summarize(over),
-        "frame_count": summarize(frames),
-        "scroll_us": summarize(scroll_us),
-        "scroll_elements": summarize(scroll_elements),
-        "scroll_positions": summarize(scroll_positions),
+        "total_ms": summarize(_nums(transitions, "total_ms")),
+        "target_first_build_latency_ms": summarize(_latency_nums(transitions)),
+        "first_build_ms": summarize(_latency_nums(transitions)),
+        "first_frame_ms": summarize(_nums(transitions, "first_frame_ms")),
+        "scroll_command_ms": summarize(_nums(transitions, "scroll_command_ms")),
+        "scroll_animation_complete_ms": summarize(
+            _nums(transitions, "scroll_animation_complete_ms")
+        ),
+        "worst_frame_ms": summarize(_nums(transitions, "worst_frame_ms")),
+        "over_budget": summarize(_nums(transitions, "over_budget")),
+        "frame_count": summarize(_nums(transitions, "frame_count")),
+        "build_p50_ms": summarize(_nums(transitions, "build_p50_ms")),
+        "build_p90_ms": summarize(_nums(transitions, "build_p90_ms")),
+        "build_p99_ms": summarize(_nums(transitions, "build_p99_ms")),
+        "raster_p50_ms": summarize(_nums(transitions, "raster_p50_ms")),
+        "raster_p90_ms": summarize(_nums(transitions, "raster_p90_ms")),
+        "raster_p99_ms": summarize(_nums(transitions, "raster_p99_ms")),
+        "total_span_p50_ms": summarize(_nums(transitions, "total_p50_ms")),
+        "total_span_p90_ms": summarize(_nums(transitions, "total_p90_ms")),
+        "total_span_p99_ms": summarize(_nums(transitions, "total_p99_ms")),
+        "scroll_us": summarize(_nums(transitions, "scroll_us")),
+        "scroll_elements": summarize(_nums(transitions, "scroll_elements")),
+        "scroll_positions": summarize(_nums(transitions, "scroll_positions")),
     }
 
 
@@ -98,6 +122,9 @@ def mount_hotspots(transitions: list[dict]) -> list[dict]:
         total = complete.get("total_ms")
         if not isinstance(total, (int, float)):
             continue
+        latency = complete.get("target_first_build_latency_ms")
+        if latency is None:
+            latency = complete.get("first_build_ms")
         ranked.append(
             {
                 "seq": complete.get("seq"),
@@ -106,8 +133,10 @@ def mount_hotspots(transitions: list[dict]) -> list[dict]:
                 "visit": complete.get("visit"),
                 "keep_alive": complete.get("keep_alive"),
                 "total_ms": total,
-                "first_build_ms": complete.get("first_build_ms"),
+                "target_first_build_latency_ms": latency,
                 "worst_frame_ms": complete.get("worst_frame_ms"),
+                "build_p99_ms": complete.get("build_p99_ms"),
+                "raster_p99_ms": complete.get("raster_p99_ms"),
                 "over_budget": complete.get("over_budget"),
                 "scroll_us": complete.get("scroll_us"),
                 "scroll_elements": complete.get("scroll_elements"),

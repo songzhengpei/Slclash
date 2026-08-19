@@ -3,11 +3,12 @@
 Date: 2026-08-19  
 Branch: `beta`  
 Audit start SHA named by the brief: `3cca318b` (`fix: keep outbound fill yellow on smart-pause reopen`)  
-Worktree HEAD when this phase landed: `ae8e6811` (TUN DNS after named start `3cca318b`; not a motion/navigation change)  
+4B.0 instrumentation commit: `ee800121`  
+This document includes **4B.0.1 Navigation Measurement Correction**. Product Motion / UX is unchanged.  
 Motion token source of truth: `lib/widgets/surge/surge_motion.dart`  
 This phase does **not** create a new Motion System, rename SurgeMotion, or change product visuals.
 
-Related captures: `docs/phase4-b0-navigation-baseline.md` (formal profile APK FrameTiming). Idle `dumpsys gfxinfo` is **not** a navigation baseline.
+Related captures: `docs/phase4-b0-navigation-baseline.md`. Formal 4B.1 BEFORE requires `dirty=false`. Idle `dumpsys gfxinfo` is **not** a navigation baseline. 4B.0 dirty capture (`harness_commit=ae8e6811`) is historical only.
 
 ---
 
@@ -117,45 +118,84 @@ Supporting pieces:
 
 ## 3. BEFORE benchmark
 
-Formal numbers: `docs/phase4-b0-navigation-baseline.md` (regenerated after a harness no-op-navigate fix; the first capture already showed the same hotspots).
+**4B.0.1 measurement correction.** The 4B.0 capture (`2026-08-19T08:47:20Z`, dirty worktree, `harness_commit=ae8e6811`) is historical only. It must not be used as 4B.1 BEFORE.
 
-Headline (profile / `com.slclash.app.profile` / 25042PN24C / 120Hz / budget 8.33ms; `ok: true` capture `2026-08-19T08:47:20Z`):
+Formal 4B.1 BEFORE: `docs/phase4-b0-navigation-baseline.md`  
+Capture `2026-08-19T09:24:39Z` / profile `com.slclash.app.profile` / `25042PN24C` / 120Hz / budget 8.33ms / `ok: true` / **`dirty: false`** / `formal: true`.  
+Measured `git_head=9518d40d` (this commit’s source SHA before docs were filled). `submodule_dirty=true` is Clash.Meta only and does not make the source tree dirty.
 
-- A Dashboard↔Proxy (n=20): total_ms median **313.5**, p90 **324.3**; worst-frame median **13.1ms**; over-budget median **7** frames; scroll DFS median **590µs** / 1935 elements / 1 position.
-- B round-robin (n=40): total_ms median **307.5**; worst-frame median **13.6ms**.
-- C: first vs revisit **total_ms** are similar (~303 vs ~315) because both include 280ms `pageEnter`. The split is **first_build_ms**: first median 23.5ms; Dashboard revisit later in the session 87–100ms.
-- D same-tab reselect on Proxies (n=1): **50ms** total, **517µs** DFS. UX unchanged.
-- E mounts: **dashboard 24**, others **1**.
+### Semantics (4B.0.1)
 
-Method (not idle gfxinfo):
+| Field | Meaning |
+|---|---|
+| `target_first_build_latency_ms` | `nav_begin` → target page-root `build()` **invoked**. Alias `first_build_ms`. **Not** build CPU duration. |
+| `build_p50/p90/p99` | Flutter FrameTiming `buildDuration` of frames during the active transition |
+| `raster_p50/p90/p99` | FrameTiming `rasterDuration` |
+| `total_span_p50/p90/p99` | FrameTiming `totalSpan` |
+| D `scroll_command_ms` | DFS + `animateTo` issued |
+| D `scroll_animation_complete_ms` | awaited `animateTo` Future (trace only; product UX still fire-and-forget) |
 
-- Package `com.slclash.app.profile`, `--dart-define=PHASE4_PERF=true`
-- Same device / config / page data / profile build / display mode as 4A.2
-- Flutter `FrameTiming` via `WidgetsBinding.addTimingsCallback` **only while a transition is active**
-- Frame budget = `1000 / refreshHz` (Dart display + dumpsys cross-check)
-- Workloads A–E as specified (≥10 round trips / ≥10 cycles)
-- ADB trigger: `am start` extras (`phase4_cmd`) on already-exported `MainActivity` (`singleTop` / `onNewIntent`). `Phase4PerfReceiver` exists with `exported=false` but OEM broadcast delivery was unreliable on the Xiaomi test device; the harness does not depend on it.
+4B.0 read `tools→dashboard first_build 87–100ms` as Dashboard CPU. That reading is **withdrawn**. Clean capture still shows tools→dashboard **latency** median **91ms** (wait until `build()` is called). The same transitions have FrameTiming build p99 median **10.5ms** and raster p99 median **7.6ms**. Latency ≠ CPU.
 
-Production release without `PHASE4_PERF` does not register the timings callback (compile-time `enabled == false`).
+4B.0 D=`50ms` was two post-frames after starting a 220ms `animateTo`. Withdrawn. Clean D n=10: `scroll_command_ms` median **5.5**, `scroll_animation_complete_ms` median **254.5**, `total_ms` median **276**. DFS median **398µs**.
+
+Headline (product `keep:false`):
+
+- A Dashboard↔Proxy n=20: `total_ms` median **307.5** (pageEnter 280ms floor)
+- Dashboard→Proxy FrameTiming: build p50/p90/p99 **2.2 / 3.7 / 4.0** ms; raster **3.7 / 4.7 / 5.0** ms; worst-frame median **11.8ms**; over-budget median **7.5**; frame_count **20.5**
+- Proxy→Dashboard: build **2.1 / 4.0 / 10.8** ms; raster **3.5 / 5.5 / 7.2** ms; worst-frame median **19.6ms**; over-budget median **4.5**; frame_count **13**; `target_first_build_latency_ms` median **23.5**
+- Tools→Dashboard: latency median **91ms**; build p99 **10.5ms**; raster p99 **7.6ms**; worst-frame median **19.4ms**
+- E mounts: **dashboard 24**, others **1** (remount is real)
+- Round-robin n=40: `total_ms` median **309**; worst-frame median **15.1ms**; over-budget median **6**
+
+ADB trigger remains MainActivity `phase4_cmd` extras on profile/debug. Ordinary production Release does not register `Phase4PerfPlugin` or `Phase4PerfReceiver`.
+
+### Semantics (4B.0.1)
+
+| Field | Meaning |
+|---|---|
+| `target_first_build_latency_ms` | `nav_begin` → target page-root `build()` **invoked**. Alias `first_build_ms`. **Not** build CPU duration. |
+| `build_p50/p90/p99` | Flutter FrameTiming `buildDuration` of frames during the active transition |
+| `raster_p50/p90/p99` | FrameTiming `rasterDuration` |
+| `total_span_p50/p90/p99` | FrameTiming `totalSpan` |
+| D `scroll_command_ms` | DFS + `animateTo` issued |
+| D `scroll_animation_complete_ms` | awaited `animateTo` Future (trace only; product UX still fire-and-forget) |
+
+4B.0 read `tools→dashboard first_build 87–100ms` as Dashboard CPU. That reading is **withdrawn**.
+
+4B.0 D=`50ms` was two post-frames after starting a 220ms `animateTo`, not settle. Withdrawn as complete scroll-to-top duration.
+
+Historical 4B.0 headlines (still true where they do not depend on the withdrawn readings):
+
+- A total_ms median ~313ms ≈ `pageEnter` 280ms floor
+- scroll DFS median ~0.59ms / 1935 elements / 1 position
+- E mounts: dashboard 24 vs others 1 (remount is real)
 
 ---
 
 ## 4. Top performance hotspots (ranked)
 
-Pre-measure architecture guesses (Dashboard remount, overlapping scroll-to-top, DFS, hero tickers) are superseded by the table below. DFS was a candidate and **lost**.
+Corrected after the clean 4B.0.1 capture. DFS is **not** a hotspot. Remount is proven by mount counts. Remount is **not** proven as the largest CPU source.
 
-**Measured ranking (profile APK, 120Hz, budget 8.33ms, same device as 4A.2):**
-
-| Rank | Hotspot | Class | Evidence |
+| Rank | Hotspot | Class | Status |
 |---|---|---|---|
-| 1 | Dashboard `keep: false` remount | T + **P7** | E: `dashboard` 24 mounts / 26 builds vs proxies/profiles/tools **1/1**. C: Dashboard revisit `first_build_ms` 89–100ms (tools→dashboard) vs keep-alive Proxy with **no** remount `first_build`. |
-| 2 | `pageEnter` 280ms floor on every tab change | **P4** | A total_ms median **313.5** (min 302). Almost all of that is the tokenized animation, not DFS. Changing it changes feel. |
-| 3 | Over-budget frames *during* PageView animation | T | A: median **7** frames >8.33ms, worst-frame median **13.1ms** p99 **26.9ms**. Not caused by scroll DFS. |
-| 4 | `visitChildElements` scroll-to-top | T, **not a hotspot** | A: median **590µs**, p99 **813µs**, 1935 elements, **1** ScrollPosition. ~7–10% of one 120Hz frame. **Do not rewrite in 4B.1.** |
-| 5 | Hero fill/sheen tickers | P | Only relevant when Dashboard remounts mid-start. Durations are P1/P2. |
+| — | `pageEnter` 280ms floor | P4 | Caps `total_ms` (~307ms median). Not a bug. Unchanged. |
+| — | Over-budget frames during PageView animation | T | Dashboard→Proxy: more over-budget frames (median 7.5) with **raster** p50 above **build** p50. Proxy→Dashboard remount: **build** p99 median 10.8ms on one heavy frame; raster p99 7.2ms. Split is mixed, not “Dashboard CPU = 87–100ms”. |
+| — | Dashboard remount (`keep:false`) | T + P7 | E: 24 mounts vs others 1. P7 keep:true: offscreen `dashboard_hero_mounted=true`, `network_latency_bar=true`, no `target_first_build_latency` on Proxy→Dashboard (page kept). FrameTiming was **not** clearly better (over-budget 7.5 vs product 4.5; more frames). PSS delta **−3501 kb** (keep:true − keep:false) is not a meaningful memory win. Product keep stays false. |
+| — | Element DFS | T, **not a hotspot** | D DFS median **398µs**. No scroll registry. |
+| — | Hero/sheen tickers offscreen | P7 experiment | keep:true: sheen/pulse false (idle); latency bar kept running. |
 
-**Recommended Phase 4B.1 single target (engineering, not a product decision):**  
-**Dashboard remount** (`KeepScope keep: false`). It is the only extra CPU source that is both large and not the 280ms motion token. Keep-alive vs remount is **P7** — do not flip `keep` until that product call. If P7 stays remount, the next *technical* slice is cutting work that currently runs on the destination Dashboard during `animateToPage` (still without changing auto-to-top or motion tokens). Scroll-controller registry is **not** 4B.1; the DFS is sub-millisecond. **Do not start 4B.1 in this commit.**
+4B.1 is **not** started in this commit. No product keep/motion/scroll-to-top change.
+
+| Rank | Hotspot | Class | Status |
+|---|---|---|---|
+| — | `pageEnter` 280ms floor | P4 | Caps `total_ms`. Not a bug. |
+| — | Over-budget frames during PageView animation | T | Use `build_*` vs `raster_*` in the clean baseline to split UI vs compositing. |
+| — | Dashboard remount (`keep:false`) | T + P7 | Proven by E mount counts. CPU cost is the P7 experiment + FrameTiming, not `target_first_build_latency_ms`. |
+| — | Element DFS | T, **not a hotspot** | ~0.4–0.8ms. No scroll registry. |
+| — | Hero/sheen tickers offscreen | P7 experiment | Only if `keep:true` leaves controllers running. |
+
+4B.1 is **not** started in this commit. No product keep/motion/scroll-to-top change.
 
 ---
 
@@ -170,8 +210,11 @@ Pre-measure architecture guesses (Dashboard remount, overlapping scroll-to-top, 
 | T3 | Navigation jank was previously represented by idle gfxinfo | **Instrumentation** FrameTiming per transition; idle gfxinfo unchanged for 4A. |
 | T4 | Element DFS scroll-to-top may jank (especially Proxy) | **Measured: not a hotspot** (median ~0.59ms / 1935 elements / 1 position). Registry remains a later S option only if a future page makes DFS expensive. No rewrite. |
 | T5 | `TweenAnimationBuilder` with `begin == end` still animates `heroFill` | Recorded; not changed (could be S later). |
-| T6 | `PageView` + Dashboard `keep:false` forces remount | Recorded; keep flag is also P. |
+| T6 | `PageView` + Dashboard `keep:false` forces remount | Recorded; product keep is unchanged. CPU vs remount is the P7 **experiment**, not a product flip. |
 | T7 | Production must not keep a standing `TimingsCallback` | Callback bind/unbind around an active transition; `enabled` is compile-time false in release without `PHASE4_PERF`. |
+| T8 | `first_build_ms` was read as Dashboard CPU | **4B.0.1.** Renamed/aliased `target_first_build_latency_ms`. Reports emit FrameTiming build/raster/totalSpan. |
+| T9 | D reselect completed before `animateTo` | **4B.0.1.** Trace awaits `animateTo` Future; product `animateTo` UX is still fire-and-forget. D n≥10. |
+| T10 | Perf Receiver in main/production manifest | **4B.0.1.** Receiver only in profile/debug manifests (`exported=false`). Ordinary Release does not register Receiver or `Phase4PerfPlugin`; `phase4_cmd` extras are ignored. Harness still uses MainActivity extras on profile/debug. |
 
 ### S — Structural (visual-equivalent candidates; only tiny ones done)
 
@@ -207,7 +250,7 @@ See §7. Includes: all token values, Home using `pageEnter` both ways and `conta
 2. **Phase 4 test hook only?** No. The native APIs are product. The exported intents are unused by the current harness. They look like automation / tile-adjacent leftovers.
 3. **Long-term API value?** Native suspend/resume: yes. Exported implicit intents: convenient for ADB/automation, duplicate of plugin + TempActivity START/STOP already exported.
 4. **Exported API cost?** Same class of risk as existing exported START/STOP/TOGGLE: any app can pause or resume TUN without going through Flutter UI. SMART_STOP does not confirm with the user. Maintenance: two entry points (plugin vs intent) that can diverge (intent SMART_STOP bypasses Flutter; SMART_RESUME uses Flutter if the engine is up).
-5. **Test-only containment?** Yes: `exported=false`, or profile/debug source set, or a signature permission. Pattern used this phase for **navigation** (`Phase4PerfReceiver` exported=false).
+5. **Test-only containment?** Yes: `exported=false`, or profile/debug source set, or a signature permission. 4B.0.1 navigation ADB is MainActivity extras on profile/debug packages only. `Phase4PerfReceiver` is a unused backup in profile/debug manifests (`exported=false`), not in ordinary Release.
 
 ### Options (do not choose here)
 
@@ -296,14 +339,14 @@ This commit used exported SMART_STOP only as a **device smoke** of the existing 
 
 ### P7. Dashboard `keep: false` vs other tabs `keep: true`
 
-- **Current:** Dashboard remounts every visit.
-- **Technical evidence:** Workload C (first vs revisit) + E (mount counts). Hero/overview/detection reconstruct.
-- **Why product:** Fresh dashboard vs memory / preserving Hero animation / scroll.
+- **Current product:** Dashboard remounts every visit (`keep: false` in `navigation.dart`). **Not changed.**
+- **Mount evidence:** Workload E mount counts prove remount. That does **not** prove remount is the largest CPU source.
+- **4B.0.1 experiment only** (profile/perf, `keep_dashboard` override, reset with `keep=clear`): compare product `keep:false` vs experimental `keep:true`. Measures FrameTiming build/raster, worst/over-budget, PSS delta, page revisit latency, offscreen Dashboard tickers/CPU, Hero/overview stale vs preserved. Results in `docs/phase4-b0-navigation-baseline.md`.
+- **Why product (later):** Fresh dashboard vs memory / preserving Hero animation / scroll.
 - **Option A:** Keep remount (today).
 - **Option B:** `keep: true` like Proxies (may preserve stale charts/hero unless you reset).
 - **Option C:** Keep alive but reset selected substate on show.
-- **Engineering recommendation:** If C shows revisit ≈ first, B/C is the largest 4B win — **only after you pick the UX**.
-- **Performance implication:** Largest likely CPU/jank win; B increases idle memory.
+- **This commit does not ask for a P7 decision and does not ship `keep:true`.**
 
 ### P8. `FadeBox` / `commonDuration` / non-token curves
 
@@ -340,30 +383,40 @@ This commit used exported SMART_STOP only as a **device smoke** of the existing 
 
 ## 8. What this phase changed (allowed scope)
 
-- Hero semantic connecting (T1) + tests
+4B.0:
+
+- Hero semantic connecting (T1) + tests — **PASS, no rework**
 - Tiny Hero listen merge (S)
 - Extract scroll visitor (S1) without changing jump/animate/to-top
-- `PHASE4_PERF` / profile/debug navigation instrumentation + non-exported ADB receiver
-- Harness `navigation` command, docs, tests
-- **No** duration/curve/sheet/hero aesthetic/scroll-UX/Proxy 4C/navigation rewrite
+- `PHASE4_PERF` FrameTiming instrumentation
+
+4B.0.1 (measurement correction only):
+
+- `target_first_build_latency_ms` semantics + FrameTiming build/raster in reports
+- Trace-only await of scroll `animateTo` (product UX fire-and-forget)
+- D n≥10
+- Clean provenance (`git_head` / `dirty` / `worktree_fingerprint`); formal BEFORE requires `dirty=false`
+- P7 keep experiment in profile/perf only; product `keep:false` unchanged
+- Perf Receiver / plugin gated to profile/debug packages
+
+**Unchanged:** Motion tokens, auto scroll-to-top, Dashboard product keep, SMART_STOP exported API, Hero fill/sheen/paused visual.
 
 ## 9. Phase 4B.1
 
-Stop here. Product needs P7 (Dashboard keep-alive) and optionally P4/P6. Engineering 4B.1 target is Dashboard remount, **not** scroll DFS. Do not start 4B.1 in this commit.
+**Stop.** Do not start 4B.1 in this commit. Do not ask the product owner to answer P7 / P6 / P4 / SMART_STOP now.
+
+Element DFS is not a 4B.1 hotspot. No scroll registry. Mount counts prove remount; they do not by themselves prove remount is the largest CPU source.
 
 ## 10. Gates (this commit)
 
 | Gate | Result |
 |---|---|
 | `flutter analyze` (touched Dart) | No issues |
-| Flutter tests (nav/hero/scroll + Phase 1–3 mihomo/action) | Pass |
-| Full `flutter test` | 796 pass; **1 pre-existing fail** `app_changelog_test` expects v2.0.7, repo is v2.0.9. Not from this phase. |
-| `python -m unittest tools.perf.tests.test_harness` | 43 OK |
-| Android `:service:test` | BUILD SUCCESSFUL |
-| `:app:testDebugUnitTest` | No app unit tests; compile in `--offline` also lacks unused Flutter ABI debug jars (armeabi-v7a/x86_64). Not a 4B.0 source error. |
-| Navigation FrameTiming baseline | `ok: true`, see `docs/phase4-b0-navigation-baseline.md` |
-| Idle cold-start | `ok: true`, 10× `core_skipped`, `main_ready` median 142.5ms. 4A idle path intact. |
-| RUNNING reattach | `ok: true` after VPN start; 10× `core_ready`, 0× `core_skipped`; same `session_id`; `vpn_ready` true. |
-| PAUSED reopen | SMART_STOP → UI kill → reopen: presence `state=PAUSED` `smartPaused=true` same `sessionId`/`remote` pid; marks `smart_paused_restored` + `paused_core_attached` + `core_skipped` (no RUNNING applyProfile). Hero connecting pulse is unit-tested (T1). |
+| Flutter tests (nav/hero/scroll + Phase 1–3 mihomo/action/media_check) | 182 pass, 3 skip |
+| `python -m unittest tools.perf.tests.test_harness` | 44 OK |
+| Clean Profile navigation benchmark | `ok: true`, `dirty: false`, `formal: true`. See `docs/phase4-b0-navigation-baseline.md` (`git_head=9518d40d`) |
+| Idle cold-start | `ok: true`, 10× `core_skipped`, `main_ready` median 143ms |
+| RUNNING reattach | `ok: true` after VPN start; 9× `core_ready` with marks, 0× `core_skipped`; same `session_id`; `vpn_ready` true |
+| PAUSED reopen | SMART_STOP → UI kill → reopen: presence `state=PAUSED` `smartPaused=true` same `sessionId`/`remote` pid 19987; marks `smart_paused_restored` + `paused_core_attached` + `core_skipped` |
 
-Instrumentation is compile-time off in production release without `PHASE4_PERF`. `all` (4A idle/jank) does not include `navigation`.
+Instrumentation is compile-time off in production release without `PHASE4_PERF`. Ordinary production Release does not register `Phase4PerfPlugin` or `Phase4PerfReceiver`. `all` (4A idle/jank) does not include `navigation`.

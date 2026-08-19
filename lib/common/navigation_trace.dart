@@ -10,6 +10,10 @@ import 'package:flutter/widgets.dart';
 /// Same enablement as [StartupTrace]: debug + profile always on; production
 /// release is a compile-time no-op unless `--dart-define=PHASE4_PERF=true`.
 /// FrameTiming callbacks are registered only while a transition is active.
+///
+/// [target_first_build_latency_ms] / [first_build_ms] is elapsed time from
+/// [begin] until the target page-root [build] is *invoked*. It is **not**
+/// the CPU duration of that build.
 class NavigationTrace {
   NavigationTrace._();
 
@@ -50,6 +54,14 @@ class NavigationTrace {
   }
 
   static int? get activeSeq => _active?.seq;
+
+  static String? get activeKind => _active?.kind;
+
+  static bool dashboardHeroMounted = false;
+  static bool dashboardSheenRepeating = false;
+  static bool dashboardPulseRepeating = false;
+  static bool networkLatencyTimerActive = false;
+  static bool networkLatencyBarRepeating = false;
 
   static void begin({
     required String source,
@@ -136,10 +148,12 @@ class NavigationTrace {
     }
     _buildCounts[page] = (_buildCounts[page] ?? 0) + 1;
     final active = _active;
-    if (active == null || active.target != page || active.firstBuildMs != null) {
+    if (active == null ||
+        active.target != page ||
+        active.targetFirstBuildLatencyMs != null) {
       return;
     }
-    active.firstBuildMs = active.watch.elapsedMilliseconds;
+    active.targetFirstBuildLatencyMs = active.watch.elapsedMilliseconds;
     active.keepAlive = keepAlive;
     active.mountCount = _mountCounts[page] ?? 0;
     active.buildCount = _buildCounts[page] ?? 0;
@@ -199,8 +213,35 @@ class NavigationTrace {
     };
     if (active != null) {
       active.scrollVisits.add(extras);
+      active.scrollCommandMs ??= active.watch.elapsedMilliseconds;
     }
     mark('nav_scroll_to_top', extras: extras);
+    mark(
+      'nav_scroll_command',
+      extras: {
+        ...extras,
+        'command_ms': active?.scrollCommandMs,
+      },
+    );
+  }
+
+  static void markScrollAnimationComplete({bool skipped = false}) {
+    final active = _active;
+    if (!enabled) {
+      return;
+    }
+    final ms = active?.watch.elapsedMilliseconds;
+    if (active != null && active.scrollAnimationCompleteMs == null) {
+      active.scrollAnimationCompleteMs = ms;
+    }
+    mark(
+      'nav_scroll_animation_complete',
+      extras: {
+        'seq': active?.seq ?? 0,
+        'skipped': skipped,
+        'scroll_animation_complete_ms': ms,
+      },
+    );
   }
 
   static void markScrollBy({
@@ -262,8 +303,11 @@ class NavigationTrace {
       'build_count': active.buildCount,
       'total_ms': totalMs,
       'animate_start_ms': active.animateStartMs,
-      'first_build_ms': active.firstBuildMs,
+      'target_first_build_latency_ms': active.targetFirstBuildLatencyMs,
+      'first_build_ms': active.targetFirstBuildLatencyMs,
       'first_frame_ms': active.firstPostFrameMs,
+      'scroll_command_ms': active.scrollCommandMs,
+      'scroll_animation_complete_ms': active.scrollAnimationCompleteMs,
       'animation_complete_ms': active.animationCompleteMs,
       'frame_count': frames.length,
       'build_p50_ms': _pct(build, 50),
@@ -297,7 +341,7 @@ class NavigationTrace {
 
   static Map<String, int> buildCounts() => Map<String, int>.from(_buildCounts);
 
-  static void dumpCounts() {
+  static void dumpCounts({bool? dashboardKeepOverride}) {
     if (!enabled) {
       return;
     }
@@ -306,6 +350,12 @@ class NavigationTrace {
       extras: {
         'mounts': _formatCounts(_mountCounts),
         'builds': _formatCounts(_buildCounts),
+        'dashboard_keep_override': dashboardKeepOverride,
+        'dashboard_hero_mounted': dashboardHeroMounted,
+        'dashboard_sheen_repeating': dashboardSheenRepeating,
+        'dashboard_pulse_repeating': dashboardPulseRepeating,
+        'network_latency_timer': networkLatencyTimerActive,
+        'network_latency_bar': networkLatencyBarRepeating,
       },
     );
   }
@@ -319,6 +369,11 @@ class NavigationTrace {
     _buildCounts.clear();
     _seenPages.clear();
     lastCompleteExtras = null;
+    dashboardHeroMounted = false;
+    dashboardSheenRepeating = false;
+    dashboardPulseRepeating = false;
+    networkLatencyTimerActive = false;
+    networkLatencyBarRepeating = false;
   }
 
   static void _bindTimings() {
@@ -419,7 +474,9 @@ class _ActiveNav {
   String? animateMode;
   int animateDurationMs = 0;
   int? animateStartMs;
-  int? firstBuildMs;
+  int? targetFirstBuildLatencyMs;
+  int? scrollCommandMs;
+  int? scrollAnimationCompleteMs;
   int? firstPostFrameMs;
   int? animationCompleteMs;
   String? visitKind;

@@ -20,13 +20,17 @@ class MainActivity : FlutterActivity(),
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handlePhase4Intent(intent)
+        if (Phase4PerfGate.enabled(this)) {
+            handlePhase4Intent(intent)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handlePhase4Intent(intent)
+        if (Phase4PerfGate.enabled(this)) {
+            handlePhase4Intent(intent)
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -34,7 +38,9 @@ class MainActivity : FlutterActivity(),
         flutterEngine.plugins.add(AppPlugin())
         flutterEngine.plugins.add(ServicePlugin())
         flutterEngine.plugins.add(TilePlugin())
-        flutterEngine.plugins.add(Phase4PerfPlugin())
+        if (Phase4PerfGate.enabled(this)) {
+            flutterEngine.plugins.add(Phase4PerfPlugin())
+        }
         State.flutterEngine = flutterEngine
     }
 

@@ -89,7 +89,7 @@ Only a truly connected+initialized Core emits `core_ready`. Idle autoRun-off pat
 
 `first_frame` is rasterized first frame. `main_ready` is after `initStatus` and `initProvider=true`.
 
-Phase 4B navigation marks (same enablement, FrameTiming only while a transition is active): `nav_listener_ready`, `nav_begin`, `nav_animate_start`, `nav_target_first_build`, `nav_target_first_frame`, `nav_animation_complete`, `nav_scroll_to_top`, `nav_scroll_by`, `nav_complete`, `nav_page_counts`. Production release without `PHASE4_PERF` does not register the timings callback.
+Phase 4B navigation marks (same enablement, FrameTiming only while a transition is active): `nav_listener_ready`, `nav_begin`, `nav_animate_start`, `nav_target_first_build`, `nav_target_first_frame`, `nav_animation_complete`, `nav_scroll_to_top`, `nav_scroll_command`, `nav_scroll_animation_complete`, `nav_scroll_by`, `nav_complete`, `nav_page_counts`. `target_first_build_latency_ms` is wait until target root `build()` is called, not build CPU. Production release without `PHASE4_PERF` does not register the timings callback. Ordinary production Release does not register `Phase4PerfPlugin` / `Phase4PerfReceiver`.
 
 Idle `dumpsys gfxinfo` with `total_frames <= 0` is marked `jank_invalid_no_frames` and excluded from `compare`. Results record `git_head`, `dirty`, and `worktree_fingerprint` so the source tree that produced the run is visible.
 

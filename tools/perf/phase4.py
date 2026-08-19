@@ -70,6 +70,7 @@ MEASURE_RUNS = 10
 NAV_RECEIVER = "com.follow.clash.Phase4PerfReceiver"
 NAV_ROUND_TRIPS = 10
 NAV_CYCLES = 10
+NAV_RESELECTS = 10
 DEFAULT_MOBILE_PAGES = ["dashboard", "proxies", "profiles", "tools"]
 
 
@@ -180,6 +181,7 @@ class Runner:
             "git_commit": provenance.get("git_head") or git_commit(),
             "git_head": provenance.get("git_head"),
             "dirty": provenance.get("dirty"),
+            "submodule_dirty": provenance.get("submodule_dirty"),
             "worktree_fingerprint": provenance.get("worktree_fingerprint"),
             "build_mode": build_info["mode"],
             "build_role": build_info["role"],
@@ -809,6 +811,79 @@ class Runner:
             time.sleep(0.4)
         return last
 
+    def _mem_snapshot(self) -> dict:
+        raw = self.adb.shell(f"dumpsys meminfo {self.package}", timeout=20).stdout
+        parsed = parse_meminfo(raw)
+        return {
+            "total_pss_kb": parsed.get("total_pss_kb"),
+            "java_heap_kb": parsed.get("java_heap_kb"),
+            "native_heap_kb": parsed.get("native_heap_kb"),
+            "parse_ok": parsed.get("parse_ok"),
+        }
+
+    def _idle_gfxinfo(self, settle_seconds: float = 2.0) -> dict:
+        self.adb.shell(f"dumpsys gfxinfo {self.package} reset", timeout=20)
+        time.sleep(settle_seconds)
+        dumped = self.adb.shell(f"dumpsys gfxinfo {self.package}", timeout=20)
+        parsed = parse_gfxinfo(dumped.stdout)
+        parsed["valid"] = jank_is_valid(parsed)
+        return parsed
+
+    def _dashboard_keep_experiment(self, navigate, home: str, other: str) -> dict:
+        """Profile-only keep:true vs product keep:false. Does not change shipped UX."""
+        notes = [
+            "Experimental keep:true is PHASE4_PERF override only. Product Dashboard keep stays false.",
+            "Offscreen probes are taken while Proxies is selected after Dashboard has been visited.",
+        ]
+        keep_before = self._count_marks("nav_keep_dashboard")
+        self.nav_broadcast("keep_dashboard", {"keep": "true"})
+        self.wait_mark_count("nav_keep_dashboard", keep_before + 1, timeout=8)
+        navigate(other)
+        navigate(home)
+        navigate(other)
+        dump_before = self._count_marks("nav_page_counts")
+        self.nav_broadcast("dump_counts")
+        self.wait_mark_count("nav_page_counts", dump_before + 1, timeout=6)
+        offscreen = next(
+            (event for event in reversed(self.logcat_events()) if event.get("mark") == "nav_page_counts"),
+            {},
+        )
+        mem_true = self._mem_snapshot()
+        idle_true = self._idle_gfxinfo(2.0)
+        seq_from = 0
+        events_before = self.logcat_events()
+        seqs = [int(e["seq"]) for e in events_before if isinstance(e.get("seq"), int)]
+        seq_from = max(seqs) if seqs else 0
+        for _ in range(NAV_ROUND_TRIPS):
+            navigate(home)
+            navigate(other)
+        events = self.logcat_events()
+        transitions = group_nav_transitions(events)
+        measured = [row for row in transitions if seq_from < row["seq"]]
+        dash_bound = filter_transitions(measured, target=home)
+        to_proxy = filter_transitions(measured, pair=(home, other))
+        to_dash = filter_transitions(measured, pair=(other, home))
+        self.nav_broadcast("keep_dashboard", {"keep": "clear"})
+        return {
+            "ok": bool(dash_bound),
+            "notes": notes,
+            "offscreen_on_proxies": {
+                "mounts": offscreen.get("mounts"),
+                "builds": offscreen.get("builds"),
+                "dashboard_hero_mounted": offscreen.get("dashboard_hero_mounted"),
+                "dashboard_sheen_repeating": offscreen.get("dashboard_sheen_repeating"),
+                "dashboard_pulse_repeating": offscreen.get("dashboard_pulse_repeating"),
+                "network_latency_timer": offscreen.get("network_latency_timer"),
+                "network_latency_bar": offscreen.get("network_latency_bar"),
+                "dashboard_keep_override": offscreen.get("dashboard_keep_override"),
+            },
+            "memory_pss_kb": mem_true,
+            "idle_gfxinfo_on_proxies": idle_true,
+            "dashboard_bound": summarize_nav(dash_bound),
+            "to_dashboard": summarize_nav(to_dash),
+            "to_proxy": summarize_nav(to_proxy),
+        }
+
     def navigation(self) -> dict:
         self.require_package()
         notes = [
@@ -906,25 +981,38 @@ class Runner:
                 navigate(page)
         b_to_seq = current_max_seq()
 
-        # D same-tab reselect after scrolling a long page
+        # D same-tab reselect after scrolling a long page (>=10)
         if other in pages:
             navigate(other)
-        scroll_before = self._count_marks("nav_scroll_by")
-        self.nav_broadcast("scroll_by", {"dy": "1400"})
-        self.wait_mark_count("nav_scroll_by", scroll_before + 1, timeout=6)
-        self.nav_broadcast("scroll_by", {"dy": "1400"})
-        self.wait_mark_count("nav_scroll_by", scroll_before + 2, timeout=6)
         d_from_seq = current_max_seq()
-        self.nav_broadcast("reselect")
-        if self.wait_mark_count("nav_complete", completes_before + 1, timeout=8):
-            completes_before += 1
-        else:
-            unreliable.append("timeout_waiting_nav_complete:reselect")
+        for _ in range(NAV_RESELECTS):
+            scroll_before = self._count_marks("nav_scroll_by")
+            self.nav_broadcast("scroll_by", {"dy": "1400"})
+            self.wait_mark_count("nav_scroll_by", scroll_before + 1, timeout=6)
+            self.nav_broadcast("scroll_by", {"dy": "1400"})
+            self.wait_mark_count("nav_scroll_by", scroll_before + 2, timeout=6)
+            self.nav_broadcast("reselect")
+            if self.wait_mark_count("nav_complete", completes_before + 1, timeout=8):
+                completes_before += 1
+            else:
+                unreliable.append("timeout_waiting_nav_complete:reselect")
         d_to_seq = current_max_seq()
 
         dump_before = self._count_marks("nav_page_counts")
         self.nav_broadcast("dump_counts")
         self.wait_mark_count("nav_page_counts", dump_before + 1, timeout=6)
+        keep_false_counts = next(
+            (event for event in reversed(self.logcat_events()) if event.get("mark") == "nav_page_counts"),
+            {},
+        )
+        keep_false_mem = self._mem_snapshot()
+        keep_false_idle = self._idle_gfxinfo(2.0)
+
+        keep_experiment = self._dashboard_keep_experiment(
+            navigate=navigate,
+            home=home,
+            other=other,
+        )
 
         events = self.logcat_events()
         transitions = group_nav_transitions(events)
@@ -948,11 +1036,9 @@ class Runner:
         revisit = filter_transitions(transitions, visit="revisit")
         dash_proxy = filter_transitions(measured_a, pair=(home, other))
         proxy_dash = filter_transitions(measured_a, pair=(other, home))
-
-        counts_event = next(
-            (event for event in reversed(events) if event.get("mark") == "nav_page_counts"),
-            {},
-        )
+        tools_dash = filter_transitions(measured_b, pair=("tools", home))
+        if not tools_dash:
+            tools_dash = filter_transitions(transitions, pair=("tools", home))
 
         dart_refresh = None
         dart_budget = None
@@ -968,11 +1054,19 @@ class Runner:
             and "nav_listener_ready" in ready
             and len(measured_a) >= NAV_ROUND_TRIPS
             and len(measured_b) >= NAV_CYCLES
+            and len(measured_d) >= NAV_RESELECTS
             and not any(item.startswith("timeout_waiting_nav_complete") for item in unreliable)
         )
         if display.get("refresh_hz") is None and dart_refresh is None:
             unreliable.append("refresh_rate_unparsed")
             notes.append("Could not parse dumpsys display refresh rate; Dart FrameTiming budget still recorded.")
+        notes.append(
+            "target_first_build_latency_ms is wait until target root build() is called, "
+            "not Dashboard/Proxy build CPU duration."
+        )
+        notes.append(
+            "D total_ms waits for animateTo settle when tracing; product scroll UX is unchanged."
+        )
 
         return {
             "ok": ok,
@@ -995,6 +1089,7 @@ class Runner:
                     "pages": pages,
                     "cycles": NAV_CYCLES,
                     "transitions": summarize_nav(measured_b),
+                    "tools_to_dashboard": summarize_nav(tools_dash),
                 },
                 "C_first_vs_revisit": {
                     "first": summarize_nav(first),
@@ -1002,16 +1097,34 @@ class Runner:
                 },
                 "D_same_tab_reselect": {
                     "page": other,
+                    "repeats": NAV_RESELECTS,
                     "transitions": summarize_nav(measured_d),
-                    "note": "Measures current scroll-to-top behavior; UX was not changed.",
+                    "note": (
+                        "scroll_command_ms = DFS+animateTo issued; "
+                        "scroll_animation_complete_ms = awaited animateTo Future. "
+                        "Product UX still fire-and-forget; only the trace waits."
+                    ),
                 },
                 "E_page_counts": {
-                    "mounts": counts_event.get("mounts"),
-                    "builds": counts_event.get("builds"),
+                    "mounts": keep_false_counts.get("mounts"),
+                    "builds": keep_false_counts.get("builds"),
+                    "dashboard_hero_mounted": keep_false_counts.get("dashboard_hero_mounted"),
+                    "dashboard_sheen_repeating": keep_false_counts.get("dashboard_sheen_repeating"),
+                    "network_latency_timer": keep_false_counts.get("network_latency_timer"),
+                    "network_latency_bar": keep_false_counts.get("network_latency_bar"),
                 },
+                "P7_keep_experiment": keep_experiment,
+            },
+            "frame_timing": {
+                "dashboard_to_proxy": summarize_nav(dash_proxy),
+                "proxy_to_dashboard": summarize_nav(proxy_dash),
+                "tools_to_dashboard": summarize_nav(tools_dash),
+                "round_robin": summarize_nav(measured_b),
             },
             "hotspots": mount_hotspots(measured_a + measured_b + measured_d),
             "transition_count": len(transitions),
+            "keep_false_memory": keep_false_mem,
+            "keep_false_idle_gfx": keep_false_idle,
             "unreliable": unreliable,
             "notes": notes,
         }
@@ -1112,6 +1225,7 @@ def main(argv: list[str] | None = None) -> int:
                 "mode_notes": env.get("build_mode_notes"),
                 "git_head": env.get("git_head"),
                 "dirty": env.get("dirty"),
+                "submodule_dirty": env.get("submodule_dirty"),
                 "worktree_fingerprint": env.get("worktree_fingerprint"),
             },
             "env": env,
@@ -1196,6 +1310,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"wrote {json_path} and {md_path}", file=sys.stderr)
             return 2
         args.write_nav_baseline_doc.parent.mkdir(parents=True, exist_ok=True)
+        nav_block = result.get("navigation") or {}
+        if build.get("dirty"):
+            unreliable = list(nav_block.get("unreliable") or [])
+            if "worktree_dirty" not in unreliable:
+                unreliable.append("worktree_dirty")
+            nav_block["unreliable"] = unreliable
+            result["navigation"] = nav_block
+            print(
+                "nav baseline worktree is dirty: document will be marked UNRELIABLE, "
+                "not a formal 4B.1 BEFORE",
+                file=sys.stderr,
+            )
         args.write_nav_baseline_doc.write_text(
             render_navigation_baseline_markdown(result), encoding="utf-8"
         )

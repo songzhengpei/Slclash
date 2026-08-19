@@ -16,6 +16,15 @@ typedef OnSelected = void Function(int index);
 
 final _homePageViewKey = GlobalKey<_HomePageViewState>();
 
+bool _keepFor(NavigationItem item) {
+  if (item.label == PageLabel.dashboard &&
+      NavigationTrace.enabled &&
+      Phase4PerfCommands.dashboardKeepOverride != null) {
+    return Phase4PerfCommands.dashboardKeepOverride!;
+  }
+  return item.keep;
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -122,12 +131,13 @@ class HomePage extends StatelessWidget {
                             pages: [MaterialPage(child: navigationView)],
                             onDidRemovePage: (_) {},
                           );
+                    final keep = _keepFor(navigationItem);
                     return KeepScope(
-                      keep: navigationItem.keep,
+                      keep: keep,
                       child: NavigationTrace.enabled
                           ? NavigationMountProbe(
                               page: navigationItem.label.name,
-                              keepAlive: navigationItem.keep,
+                              keepAlive: keep,
                               child: page,
                             )
                           : page,
@@ -168,6 +178,11 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
       scrollPageToTop(ref.read(currentPageLabelProvider));
     };
     Phase4PerfCommands.onScrollBy = scrollCurrentPageBy;
+    Phase4PerfCommands.onKeepExperiment = () {
+      if (mounted) {
+        setState(() {});
+      }
+    };
     ref.listenManual(currentPageLabelProvider, (prev, next) {
       if (prev != next) {
         NavigationTrace.begin(
@@ -251,21 +266,24 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
   }
 
   void scrollPageToTop(PageLabel pageLabel, {bool animate = true}) {
-    if (NavigationTrace.enabled &&
+    final isReselect = NavigationTrace.enabled &&
         NavigationTrace.activeSeq == null &&
-        animate) {
+        animate;
+    if (isReselect) {
       NavigationTrace.begin(
         source: pageLabel.name,
         target: pageLabel.name,
         kind: 'reselect',
       );
     }
+    final kind = NavigationTrace.activeKind;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pageContext = GlobalObjectKey(pageLabel).currentContext;
       if (!mounted || pageContext is! Element) {
         if (NavigationTrace.enabled &&
             NavigationTrace.activeSeq != null &&
             animate) {
+          NavigationTrace.markScrollAnimationComplete(skipped: true);
           NavigationTrace.scheduleComplete(reason: 'no_scrollables');
         }
         return;
@@ -276,24 +294,41 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
         animate: animate,
         visit: visit,
       );
+      final animations = <Future<void>>[];
       for (final position in visit.positions) {
         final target = scrollToTopTarget(position);
         if ((position.pixels - target).abs() < 0.5) {
           continue;
         }
         if (animate) {
-          position.animateTo(
-            target,
-            duration: SurgeMotion.container,
-            curve: SurgeMotion.stateCurve,
+          animations.add(
+            position.animateTo(
+              target,
+              duration: SurgeMotion.container,
+              curve: SurgeMotion.stateCurve,
+            ),
           );
         } else {
           position.jumpTo(target);
         }
       }
-      if (NavigationTrace.enabled &&
-          NavigationTrace.activeSeq != null &&
-          animate) {
+      if (!NavigationTrace.enabled || !animate) {
+        return;
+      }
+      if (animations.isEmpty) {
+        NavigationTrace.markScrollAnimationComplete(skipped: true);
+        if (kind == 'reselect') {
+          NavigationTrace.scheduleComplete(reason: 'scroll_noop');
+        }
+        return;
+      }
+      Future.wait(animations).then((_) {
+        NavigationTrace.markScrollAnimationComplete();
+        if (kind == 'reselect') {
+          NavigationTrace.scheduleComplete(reason: 'scroll_settled');
+        }
+      });
+      if (kind != 'reselect') {
         NavigationTrace.scheduleComplete();
       }
     });
@@ -308,6 +343,7 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
   void dispose() {
     Phase4PerfCommands.onReselect = null;
     Phase4PerfCommands.onScrollBy = null;
+    Phase4PerfCommands.onKeepExperiment = null;
     _pageController.dispose();
     super.dispose();
   }

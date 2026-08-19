@@ -13,5 +13,9 @@
             android:name="com.follow.clash.TileService"
             android:label="${profileAppLabel}"
             tools:replace="android:label" />
+        <receiver
+            android:name="com.follow.clash.Phase4PerfReceiver"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 </manifest>

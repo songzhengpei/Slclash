@@ -242,6 +242,7 @@ def _navigation_section(block: dict | None) -> list[str]:
         f"- C first-mount total: {_fmt_stats((c.get('first') or {}).get('total_ms'))}",
         f"- C revisit total: {_fmt_stats((c.get('revisit') or {}).get('total_ms'))}",
         f"- D reselect total: {_fmt_stats((d.get('transitions') or {}).get('total_ms'))}",
+        f"- D scroll_animation_complete_ms: {_fmt_stats((d.get('transitions') or {}).get('scroll_animation_complete_ms'))}",
         f"- E mounts: `{e.get('mounts')}`",
         f"- E builds: `{e.get('builds')}`",
     ]
@@ -438,28 +439,87 @@ def render_baseline_markdown(result: dict) -> str:
     return "\n".join(lines)
 
 
+def _short_median(stats: dict | None) -> str:
+    stats = stats or {}
+    return f"`{stats.get('median')}`"
+
+
+def _pss_delta(p7: dict, nav: dict) -> str:
+    true_kb = (p7.get("memory_pss_kb") or {}).get("total_pss_kb")
+    false_kb = (nav.get("keep_false_memory") or {}).get("total_pss_kb")
+    if not isinstance(true_kb, (int, float)) or not isinstance(false_kb, (int, float)):
+        return "None"
+    return str(true_kb - false_kb)
+
+
+def _frame_lines(title: str, stats: dict | None) -> list[str]:
+    stats = stats or {}
+    return [
+        f"### {title}",
+        "",
+        f"- n=`{stats.get('count')}`",
+        f"- transition total_ms: {_fmt_stats(stats.get('total_ms'))}",
+        f"- target_first_build_latency_ms (**not** build CPU): {_fmt_stats(stats.get('target_first_build_latency_ms'))}",
+        f"- frame build p50/p90/p99 (median across transitions): "
+        f"{_short_median(stats.get('build_p50_ms'))} / "
+        f"{_short_median(stats.get('build_p90_ms'))} / "
+        f"{_short_median(stats.get('build_p99_ms'))}",
+        f"- frame raster p50/p90/p99: "
+        f"{_short_median(stats.get('raster_p50_ms'))} / "
+        f"{_short_median(stats.get('raster_p90_ms'))} / "
+        f"{_short_median(stats.get('raster_p99_ms'))}",
+        f"- frame totalSpan p50/p90/p99: "
+        f"{_short_median(stats.get('total_span_p50_ms'))} / "
+        f"{_short_median(stats.get('total_span_p90_ms'))} / "
+        f"{_short_median(stats.get('total_span_p99_ms'))}",
+        f"- worst_frame_ms: {_fmt_stats(stats.get('worst_frame_ms'))}",
+        f"- over-budget frames: {_fmt_stats(stats.get('over_budget'), 'frames')}",
+        f"- frame_count: {_fmt_stats(stats.get('frame_count'), 'frames')}",
+        "",
+    ]
+
+
 def render_navigation_baseline_markdown(result: dict) -> str:
-    """Formal 4B.0 navigation BEFORE baseline. Idle gfxinfo is not this baseline."""
+    """4B navigation FrameTiming baseline. Idle gfxinfo is not this baseline."""
     env = result.get("env") or {}
     build = result.get("build") or {}
     nav = result.get("navigation") or {}
     display = nav.get("display") or {}
     workloads = nav.get("workloads") or {}
+    frames = nav.get("frame_timing") or {}
     a = workloads.get("A_dashboard_proxy") or {}
     b = workloads.get("B_round_robin") or {}
     c = workloads.get("C_first_vs_revisit") or {}
     d = workloads.get("D_same_tab_reselect") or {}
     e = workloads.get("E_page_counts") or {}
+    p7 = workloads.get("P7_keep_experiment") or {}
     unreliable = list(nav.get("unreliable") or [])
+    dirty = build.get("dirty", env.get("dirty"))
+    formal = (
+        bool(nav.get("ok"))
+        and dirty is False
+        and bool(build.get("formal_eligible", env.get("formal_eligible")))
+    )
+    title = (
+        "# Phase 4B.0.1 navigation baseline (formal 4B.1 BEFORE)"
+        if formal
+        else "# Phase 4B.0.1 navigation baseline (UNRELIABLE — not formal BEFORE)"
+    )
     lines = [
-        "# Phase 4B.0 navigation baseline",
+        title,
         "",
         "> Navigation/Page Mount FrameTiming only. Idle gfxinfo is not this baseline.",
+        ">",
+        "> `target_first_build_latency_ms` is elapsed time from `nav_begin` until the target page-root `build()` is **called**. It is not the CPU duration of that build.",
         "",
         f"- captured_at: `{result.get('timestamp')}`",
+        f"- git_head: `{build.get('git_head') or env.get('git_head') or result.get('commit')}`",
+        f"- dirty: `{dirty}`",
+        f"- submodule_dirty: `{build.get('submodule_dirty', env.get('submodule_dirty'))}`",
+        f"- worktree_fingerprint: `{build.get('worktree_fingerprint') or env.get('worktree_fingerprint')}`",
         f"- harness_commit: `{result.get('commit')}`",
         f"- product_baseline_sha: `{result.get('phase4_product_baseline')}`",
-        f"- 4B navigation BEFORE sha: `{build.get('git_head') or result.get('commit')}`",
+        f"- formal: `{formal}`",
         f"- device: `{result.get('device') or env.get('model')}`",
         f"- android: `{env.get('android_version')}` (sdk `{env.get('sdk')}`)",
         f"- build: `{build.get('package') or env.get('package')}` "
@@ -473,59 +533,106 @@ def render_navigation_baseline_markdown(result: dict) -> str:
         f"- pages: `{nav.get('pages')}`",
         f"- ok: `{nav.get('ok')}`",
         "",
+        "## Semantics",
+        "",
+        "- `total_ms`: nav_begin → nav_complete (tab switch includes `pageEnter` 280ms).",
+        "- `target_first_build_latency_ms`: wait until target root `build()` is invoked. Do not treat 87–100ms as Dashboard CPU.",
+        "- `build_*` / `raster_*` / `total_span_*`: Flutter FrameTiming percentiles for frames during the active transition.",
+        "- D `scroll_command_ms`: DFS + `animateTo` issued. `scroll_animation_complete_ms`: awaited `animateTo` Future. Product UX is still fire-and-forget.",
+        "",
         "## A. Dashboard ↔ Proxy",
         "",
         f"- pair: `{a.get('pair')}` round_trips=`{a.get('round_trips')}`",
         f"- total_ms: {_fmt_stats((a.get('transitions') or {}).get('total_ms'))}",
-        f"- to_proxy total_ms: {_fmt_stats((a.get('to_proxy') or {}).get('total_ms'))}",
-        f"- to_dashboard total_ms: {_fmt_stats((a.get('to_dashboard') or {}).get('total_ms'))}",
-        f"- first_build_ms: {_fmt_stats((a.get('transitions') or {}).get('first_build_ms'))}",
+        f"- target_first_build_latency_ms: {_fmt_stats((a.get('transitions') or {}).get('target_first_build_latency_ms'))}",
         f"- worst_frame_ms: {_fmt_stats((a.get('transitions') or {}).get('worst_frame_ms'))}",
         f"- over_budget frames: {_fmt_stats((a.get('transitions') or {}).get('over_budget'), 'frames')}",
         f"- scroll_to_top us: {_fmt_stats((a.get('transitions') or {}).get('scroll_us'), 'us')}",
         f"- scroll elements: {_fmt_stats((a.get('transitions') or {}).get('scroll_elements'), 'elements')}",
         "",
-        "## B. Bottom navigation round-robin",
-        "",
-        f"- pages: `{b.get('pages')}` cycles=`{b.get('cycles')}`",
-        f"- total_ms: {_fmt_stats((b.get('transitions') or {}).get('total_ms'))}",
-        f"- worst_frame_ms: {_fmt_stats((b.get('transitions') or {}).get('worst_frame_ms'))}",
-        f"- over_budget frames: {_fmt_stats((b.get('transitions') or {}).get('over_budget'), 'frames')}",
-        "",
-        "## C. First mount vs revisit",
-        "",
-        f"- first total_ms: {_fmt_stats((c.get('first') or {}).get('total_ms'))}",
-        f"- revisit total_ms: {_fmt_stats((c.get('revisit') or {}).get('total_ms'))}",
-        f"- first first_build_ms: {_fmt_stats((c.get('first') or {}).get('first_build_ms'))}",
-        f"- revisit first_build_ms: {_fmt_stats((c.get('revisit') or {}).get('first_build_ms'))}",
-        "",
-        "## D. Same-tab reselect / scroll-to-top",
-        "",
-        f"- page: `{d.get('page')}`",
-        f"- total_ms: {_fmt_stats((d.get('transitions') or {}).get('total_ms'))}",
-        f"- scroll_us: {_fmt_stats((d.get('transitions') or {}).get('scroll_us'), 'us')}",
-        f"- note: {d.get('note')}",
-        "",
-        "## E. Page root mount / build counts",
-        "",
-        f"- mounts: `{e.get('mounts')}`",
-        f"- builds: `{e.get('builds')}`",
-        "",
-        "## Measured ranking (do not start 4B.1 here)",
-        "",
-        "- Tab `total_ms` is dominated by `SurgeMotion.pageEnter` (280ms). That duration is a product choice (P4), not a traversal bug.",
-        "- Dashboard `keep:false` remounts on every return (workload E). Keep-alive tabs mount once. This is the largest extra CPU/jank source that is not the 280ms animation floor. Changing keep-alive is also P7.",
-        "- `visitChildElements` scroll-to-top is **not** the hotspot: ~0.4–0.8ms for ~1000–2000 elements and 1 `ScrollPosition`. Do not replace it in 4B.1 without a new regression.",
-        "- Over-budget frames (budget = 1000/refreshHz, here ~8.33ms at 120Hz) happen *during* the PageView animation. Worst frames ~12–24ms.",
-        "",
-        "## Top transitions",
+        "## FrameTiming slices",
         "",
     ]
+    lines.extend(_frame_lines("Dashboard → Proxy", frames.get("dashboard_to_proxy") or a.get("to_proxy")))
+    lines.extend(_frame_lines("Proxy → Dashboard", frames.get("proxy_to_dashboard") or a.get("to_dashboard")))
+    lines.extend(_frame_lines("Tools → Dashboard", frames.get("tools_to_dashboard") or b.get("tools_to_dashboard")))
+    lines.extend(_frame_lines("Round-robin", frames.get("round_robin") or b.get("transitions")))
+    lines.extend(
+        [
+            "## B. Bottom navigation round-robin",
+            "",
+            f"- pages: `{b.get('pages')}` cycles=`{b.get('cycles')}`",
+            f"- total_ms: {_fmt_stats((b.get('transitions') or {}).get('total_ms'))}",
+            f"- worst_frame_ms: {_fmt_stats((b.get('transitions') or {}).get('worst_frame_ms'))}",
+            f"- over_budget frames: {_fmt_stats((b.get('transitions') or {}).get('over_budget'), 'frames')}",
+            "",
+            "## C. First mount vs revisit",
+            "",
+            f"- first total_ms: {_fmt_stats((c.get('first') or {}).get('total_ms'))}",
+            f"- revisit total_ms: {_fmt_stats((c.get('revisit') or {}).get('total_ms'))}",
+            f"- first target_first_build_latency_ms: {_fmt_stats((c.get('first') or {}).get('target_first_build_latency_ms'))}",
+            f"- revisit target_first_build_latency_ms: {_fmt_stats((c.get('revisit') or {}).get('target_first_build_latency_ms'))}",
+            "",
+            "## D. Same-tab reselect / scroll-to-top settle",
+            "",
+            f"- page: `{d.get('page')}` repeats=`{d.get('repeats')}`",
+            f"- total_ms: {_fmt_stats((d.get('transitions') or {}).get('total_ms'))}",
+            f"- scroll_command_ms: {_fmt_stats((d.get('transitions') or {}).get('scroll_command_ms'))}",
+            f"- scroll_animation_complete_ms: {_fmt_stats((d.get('transitions') or {}).get('scroll_animation_complete_ms'))}",
+            f"- scroll_us (DFS): {_fmt_stats((d.get('transitions') or {}).get('scroll_us'), 'us')}",
+            f"- note: {d.get('note')}",
+            "",
+            "## E. Page root mount / build counts (product keep:false)",
+            "",
+            f"- mounts: `{e.get('mounts')}`",
+            f"- builds: `{e.get('builds')}`",
+            f"- dashboard_hero_mounted: `{e.get('dashboard_hero_mounted')}`",
+            f"- dashboard_sheen_repeating: `{e.get('dashboard_sheen_repeating')}`",
+            f"- network_latency_timer: `{e.get('network_latency_timer')}`",
+            "",
+            "## P7 keep experiment (not a product change)",
+            "",
+            f"- ok: `{p7.get('ok')}`",
+            f"- offscreen mounts: `{(p7.get('offscreen_on_proxies') or {}).get('mounts')}`",
+            f"- offscreen dashboard_hero_mounted: `{(p7.get('offscreen_on_proxies') or {}).get('dashboard_hero_mounted')}`",
+            f"- offscreen sheen_repeating: `{(p7.get('offscreen_on_proxies') or {}).get('dashboard_sheen_repeating')}`",
+            f"- offscreen pulse_repeating: `{(p7.get('offscreen_on_proxies') or {}).get('dashboard_pulse_repeating')}`",
+            f"- offscreen latency_timer: `{(p7.get('offscreen_on_proxies') or {}).get('network_latency_timer')}`",
+            f"- offscreen latency_bar: `{(p7.get('offscreen_on_proxies') or {}).get('network_latency_bar')}`",
+            f"- keep:true PSS kb: `{(p7.get('memory_pss_kb') or {}).get('total_pss_kb')}`",
+            f"- keep:false PSS kb: `{(nav.get('keep_false_memory') or {}).get('total_pss_kb')}`",
+            f"- PSS delta kb (true - false): `{_pss_delta(p7, nav)}`",
+            f"- keep:true idle gfxinfo frames: `{(p7.get('idle_gfxinfo_on_proxies') or {}).get('total_frames')}`",
+            f"- keep:false idle gfxinfo frames: `{(nav.get('keep_false_idle_gfx') or {}).get('total_frames')}`",
+            "",
+            "Product keep:false FrameTiming is the slices above (A/B). Experimental keep:true:",
+            "",
+        ]
+    )
+    lines.extend(_frame_lines("P7 keep:true Proxy → Dashboard", p7.get("to_dashboard")))
+    lines.extend(_frame_lines("P7 keep:true Dashboard → Proxy", p7.get("to_proxy")))
+    lines.extend(
+        [
+            "Hero/overview: offscreen `dashboard_hero_mounted` true with keep:true means the Hero subtree was not disposed. Product keep:false drops that subtree when leaving Dashboard.",
+            "",
+            "## Measured ranking (do not start 4B.1 here)",
+            "",
+            "- Do **not** use `target_first_build_latency_ms` as Dashboard CPU cost.",
+            "- Use FrameTiming `build_*` vs `raster_*` to see whether jank is UI/layout or raster/compositing.",
+            "- Dashboard remount is proven by mount counts. That does **not** by itself prove remount is the largest CPU source.",
+            "- Element DFS remains ~0.4–0.8ms and is not a 4B.1 target.",
+            "- P7 keep:true is an experiment only. Product `keep` is unchanged.",
+            "",
+            "## Top transitions",
+            "",
+        ]
+    )
     for row in nav.get("hotspots") or []:
         lines.append(
             f"- {row.get('source')}→{row.get('target')} visit=`{row.get('visit')}` "
             f"keep_alive=`{row.get('keep_alive')}` total_ms=`{row.get('total_ms')}` "
-            f"first_build_ms=`{row.get('first_build_ms')}` "
+            f"target_first_build_latency_ms=`{row.get('target_first_build_latency_ms')}` "
+            f"build_p99_ms=`{row.get('build_p99_ms')}` raster_p99_ms=`{row.get('raster_p99_ms')}` "
             f"worst_frame_ms=`{row.get('worst_frame_ms')}` over_budget=`{row.get('over_budget')}` "
             f"scroll_us=`{row.get('scroll_us')}` elements=`{row.get('scroll_elements')}`"
         )

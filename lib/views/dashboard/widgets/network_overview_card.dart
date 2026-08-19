@@ -532,6 +532,9 @@ class _SurgeNetworkOverviewCardState
 
   @override
   void dispose() {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.networkLatencyTimerActive = false;
+    }
     _latencyRefreshTimer?.cancel();
     super.dispose();
   }
@@ -554,12 +557,18 @@ class _SurgeNetworkOverviewCardState
         _latencyRefreshTimer?.cancel();
         _latencyRefreshTimer = null;
       }
+      if (NavigationTrace.enabled) {
+        NavigationTrace.networkLatencyTimerActive = false;
+      }
       return;
     }
     if (_latencyRefreshTimer != null) return;
     _latencyRefreshTimer = Timer.periodic(_latencyRefreshInterval, (_) {
       unawaited(_testLatencies(force: true));
     });
+    if (NavigationTrace.enabled) {
+      NavigationTrace.networkLatencyTimerActive = true;
+    }
   }
 
   Future<int?> _measureLatency(_LatencyTarget target, {int? mixedPort}) async {
@@ -1639,6 +1648,9 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
     if (widget.active) {
       _controller.repeat();
     }
+    if (NavigationTrace.enabled) {
+      NavigationTrace.networkLatencyBarRepeating = _controller.isAnimating;
+    }
   }
 
   @override
@@ -1649,10 +1661,16 @@ class _FlowingLatencyBarState extends State<_FlowingLatencyBar>
     } else if (!widget.active && _controller.isAnimating) {
       _controller.stop();
     }
+    if (NavigationTrace.enabled) {
+      NavigationTrace.networkLatencyBarRepeating = _controller.isAnimating;
+    }
   }
 
   @override
   void dispose() {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.networkLatencyBarRepeating = false;
+    }
     _controller.dispose();
     super.dispose();
   }

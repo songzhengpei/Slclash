@@ -6,8 +6,9 @@ import 'package:flutter/services.dart';
 
 typedef Phase4Reselect = void Function();
 typedef Phase4ScrollBy = void Function(double dy);
+typedef Phase4KeepExperiment = void Function();
 
-/// ADB → non-exported BroadcastReceiver → this channel.
+/// ADB → MainActivity extras (profile/debug) → this channel.
 /// No-op unless [NavigationTrace.enabled].
 class Phase4PerfCommands {
   Phase4PerfCommands._();
@@ -16,6 +17,10 @@ class Phase4PerfCommands {
   static bool _attached = false;
   static Phase4Reselect? onReselect;
   static Phase4ScrollBy? onScrollBy;
+  static Phase4KeepExperiment? onKeepExperiment;
+
+  /// Profile/perf experiment only. `null` = product `NavigationItem.keep`.
+  static bool? dashboardKeepOverride;
 
   static void attach() {
     if (!NavigationTrace.enabled || _attached) {
@@ -41,11 +46,16 @@ class Phase4PerfCommands {
         onScrollBy?.call(dy);
         return 'ok';
       case 'dump_counts':
-        NavigationTrace.dumpCounts();
+        NavigationTrace.dumpCounts(
+          dashboardKeepOverride: dashboardKeepOverride,
+        );
         return {
           'mounts': NavigationTrace.mountCounts(),
           'builds': NavigationTrace.buildCounts(),
+          'dashboard_keep_override': dashboardKeepOverride,
         };
+      case 'keep_dashboard':
+        return _keepDashboard(args['keep'] ?? args['value']);
       default:
         return null;
     }
@@ -71,9 +81,24 @@ class Phase4PerfCommands {
       extras: {
         'current': current,
         'pages': pages.join(','),
+        'dashboard_keep_override': dashboardKeepOverride,
       },
     );
     return {'current': current, 'pages': pages};
+  }
+
+  static String _keepDashboard(String? raw) {
+    if (raw == 'clear' || raw == 'null') {
+      dashboardKeepOverride = null;
+    } else {
+      dashboardKeepOverride = raw == 'true' || raw == '1';
+    }
+    NavigationTrace.mark(
+      'nav_keep_dashboard',
+      extras: {'keep': dashboardKeepOverride},
+    );
+    onKeepExperiment?.call();
+    return '${dashboardKeepOverride ?? 'product'}';
   }
 
   static String _navigate(String? raw) {
