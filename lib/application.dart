@@ -301,7 +301,9 @@ class ApplicationState extends ConsumerState<Application> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       if (globalState.navigatorKey.currentContext != null) {
+        StartupTrace.mark('globalState.attach.begin');
         await globalState.attach();
+        StartupTrace.mark('globalState.attach');
       } else {
         exit(0);
       }

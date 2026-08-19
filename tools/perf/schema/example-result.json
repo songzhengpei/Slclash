@@ -1,0 +1,64 @@
+{
+  "ok": true,
+  "timestamp": "2026-08-19T00:00:00Z",
+  "commit": "b7e08b6ef84546e9b3d084a411c3a59e3e4df7c8",
+  "phase4_product_baseline": "b7e08b6ef84546e9b3d084a411c3a59e3e4df7c8",
+  "device": "Example Device",
+  "build": {
+    "package": "com.slclash.app.dev",
+    "version_name": "0.0.0-example",
+    "version_code": "1"
+  },
+  "env": {
+    "model": "Example Device",
+    "android_version": "15",
+    "package": "com.slclash.app.dev",
+    "flutter_pid": 1001,
+    "remote_pid": null,
+    "git_commit": "b7e08b6ef84546e9b3d084a411c3a59e3e4df7c8"
+  },
+  "errors": [],
+  "cold_start": {
+    "ok": true,
+    "warmup": 2,
+    "requested_runs": 10,
+    "measured_runs": 10,
+    "stats": {
+      "count": 10,
+      "min": 700,
+      "max": 1000,
+      "median": 812,
+      "p90": 940
+    }
+  },
+  "memory": {
+    "ok": true,
+    "total_pss_kb": {
+      "app": 180000,
+      "remote": null,
+      "combined": 180000
+    }
+  },
+  "jank": {
+    "ok": true,
+    "summary": {
+      "total_frames": 120,
+      "janky_frames": 6,
+      "janky_percent": 5.0
+    },
+    "unreliable": ["idle_only_no_ui_automation"]
+  },
+  "vpn": {
+    "ok": false,
+    "start_to_observable_ms": null,
+    "notes": [
+      "Example of a failed VPN start: success is false and no timing is invented."
+    ]
+  },
+  "background": {
+    "ok": true,
+    "vpn_active": false,
+    "unreliable": ["no_battery_mah"]
+  },
+  "compare": null
+}

@@ -60,7 +60,9 @@ class GlobalState {
     mihomoReleaseDate = const String.fromEnvironment('MIHOMO_RELEASE_DATE');
     coreBuildTime = const String.fromEnvironment('CORE_BUILD_TIME');
     isPre = const String.fromEnvironment('APP_ENV') != 'stable';
+    StartupTrace.mark('globalState.init.begin');
     await _initDynamicColor();
+    StartupTrace.mark('dynamic_color');
     return _initData(version);
   }
 
@@ -92,7 +94,9 @@ class GlobalState {
     );
     final appStateOverrides = buildAppStateOverrides(appState);
     packageInfo = await PackageInfo.fromPlatform();
+    StartupTrace.mark('package_info');
     final configMap = await preferences.getConfigMap();
+    StartupTrace.mark('preferences');
     final migratedConfig = await migration.migrationIfNeeded(
       configMap,
       sync: (data) async {
@@ -111,6 +115,7 @@ class GlobalState {
         return config;
       },
     );
+    StartupTrace.mark('migration');
 
     final config = migratedConfig.copyWith(
       themeProps: normalizeThemeProps(migratedConfig.themeProps),
@@ -124,11 +129,13 @@ class GlobalState {
       overrides: [...appStateOverrides, ...configOverrides],
     );
     final profiles = await database.profilesDao.query().get();
+    StartupTrace.mark('database_profiles');
     container.read(profilesProvider.notifier).setAndReorder(profiles);
     await AppLocalizations.load(
       utils.getLocaleForString(config.appSettingProps.locale) ??
           WidgetsBinding.instance.platformDispatcher.locale,
     );
+    StartupTrace.mark('localization');
     return container;
   }
 
@@ -389,8 +396,11 @@ class GlobalState {
     await container
         .read(proxiesActionProvider.notifier)
         .hydrateProxyGroupsSnapshot();
+    StartupTrace.mark('proxy_group_snapshot_hydration');
     await container.read(setupActionProvider.notifier).initStatus();
+    StartupTrace.mark('setupAction.initStatus');
     container.read(initProvider.notifier).value = true;
+    StartupTrace.finish('main_ready');
   }
 
   Future<void> _handleFailedPreference() async {

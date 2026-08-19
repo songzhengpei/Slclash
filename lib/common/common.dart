@@ -27,6 +27,7 @@ export 'network.dart';
 export 'num.dart';
 export 'package.dart';
 export 'path.dart';
+export 'perf_trace.dart';
 export 'picker.dart';
 export 'preferences.dart';
 export 'print.dart';

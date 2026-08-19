@@ -13,10 +13,19 @@ import 'common/common.dart';
 
 Future<void> main() async {
   try {
+    StartupTrace.beginProcess();
     WidgetsFlutterBinding.ensureInitialized();
     final version = await system.version;
+    StartupTrace.mark('system.version');
     final container = await globalState.init(version);
+    StartupTrace.mark('globalState.init');
     HttpOverrides.global = FlClashHttpOverrides();
+    unawaited(
+      WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) {
+        StartupTrace.mark('first_frame');
+      }),
+    );
+    StartupTrace.mark('runApp');
     runApp(
       UncontrolledProviderScope(
         container: container,

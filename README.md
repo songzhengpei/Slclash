@@ -92,6 +92,8 @@ SlClash 会长期以个人自用实现为主，不计划做通用多平台客户
 
 如果需要自行构建，请先阅读仓库内的 `AGENTS.md` 和 `dev-env.bat`。README 不再展开本地 SDK 路径和构建细节。
 
+Phase 4 启动审计与 ADB 性能测试：`docs/phase4-a0-startup-audit.md`、`tools/perf/README.md`。
+
 ## 致谢
 
 SlClash 基于 [FlClash](https://github.com/chen08209/FlClash) 的项目基础和 [Mihomo](https://github.com/MetaCubeX/mihomo) 内核生态继续裁剪与重设计。

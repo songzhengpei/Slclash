@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slclash.local/phase4-result.schema.json",
+  "title": "Phase 4 performance harness result",
+  "type": "object",
+  "required": [
+    "ok",
+    "timestamp",
+    "commit",
+    "device",
+    "build",
+    "cold_start",
+    "memory",
+    "jank",
+    "vpn",
+    "background"
+  ],
+  "properties": {
+    "ok": { "type": "boolean" },
+    "timestamp": { "type": "string" },
+    "commit": { "type": "string" },
+    "phase4_product_baseline": { "type": "string" },
+    "device": { "type": ["string", "null"] },
+    "build": {
+      "type": ["object", "null"],
+      "properties": {
+        "package": { "type": "string" },
+        "version_name": { "type": ["string", "null"] },
+        "version_code": { "type": ["string", "null"] }
+      }
+    },
+    "env": { "type": ["object", "null"] },
+    "errors": { "type": "array" },
+    "cold_start": { "type": ["object", "null"] },
+    "memory": { "type": ["object", "null"] },
+    "jank": { "type": ["object", "null"] },
+    "vpn": { "type": ["object", "null"] },
+    "background": { "type": ["object", "null"] },
+    "compare": { "type": ["object", "null"] }
+  }
+}
