@@ -31,6 +31,18 @@ class TempActivity : Activity(),
                     State.handleToggleAction()
                 }
             }
+
+            QuickAction.SMART_STOP.action -> {
+                launch {
+                    State.handleSmartStopAction()
+                }
+            }
+
+            QuickAction.SMART_RESUME.action -> {
+                launch {
+                    State.handleSmartResumeAction()
+                }
+            }
         }
         finish()
     }

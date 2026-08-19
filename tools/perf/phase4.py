@@ -25,6 +25,7 @@ from adbutil import Adb, HarnessError, resolve_adb, select_device  # noqa: E402
 from build_mode import parse_package_debuggable, resolve_build_mode, default_package_for_mode  # noqa: E402
 from parsers import (  # noqa: E402
     aggregate_startup_marks,
+    assess_running_reattach_round,
     assess_vpn_state,
     connectivity_has_vpn_network,
     jank_is_valid,
@@ -32,7 +33,7 @@ from parsers import (  # noqa: E402
     parse_gfxinfo,
     parse_meminfo,
     parse_phase4_logcat,
-    parse_phase4_session_fields,
+    parse_remote_session_presence,
     parse_pidof,
     parse_tun_from_proc_net_dev,
     parse_tun_from_sys_class_net,
@@ -593,6 +594,17 @@ class Runner:
             "notes": notes,
         }
 
+    def read_session_presence(self) -> dict:
+        """Prefer run-as files/remote_session_presence.txt over logcat session marks."""
+        proc = self.adb.shell(
+            f"run-as {self.package} cat files/remote_session_presence.txt",
+            timeout=10,
+        )
+        parsed = parse_remote_session_presence(proc.stdout + proc.stderr)
+        parsed["ok"] = proc.returncode == 0 and parsed.get("parse_ok") is True
+        parsed["returncode"] = proc.returncode
+        return parsed
+
     def running_reattach(self, warmup: int = WARMUP_RUNS, runs: int = MEASURE_RUNS) -> dict:
         """VPN/Core stay up; Flutter UI process dies and is reopened."""
         self.require_package()
@@ -624,6 +636,7 @@ class Runner:
         measure_traces = []
         notes = [
             "Kills Flutter UI pid only (run-as kill / am kill). Never am force-stop.",
+            "Session continuity comes from files/remote_session_presence.txt, not logcat marks.",
         ]
         unreliable = []
         continuity_ok = True
@@ -631,6 +644,7 @@ class Runner:
 
         for i in range(warmup + runs):
             vpn_pre = self._vpn_status()
+            session_pre = self.read_session_presence()
             flutter_pid = self.pid_of(self.package)
             if flutter_pid is None:
                 self.start_main()
@@ -640,57 +654,53 @@ class Runner:
                 notes.append(f"run {i} missing UI pid")
                 continuity_ok = False
                 continue
-            pre_log = self.adb.run(["logcat", "-d", "-t", "2000"], timeout=20)
-            session_pre = parse_phase4_session_fields(pre_log.stdout + pre_log.stderr)
             self.adb.shell("input keyevent KEYCODE_HOME")
             time.sleep(0.4)
             self.adb.run(["logcat", "-c"], timeout=15)
             killed = self.kill_ui_keep_remote(flutter_pid)
             vpn_mid = self._vpn_status()
             remote_mid = vpn_mid.get("remote_pid")
-            if remote_mid != remote_before:
-                continuity_ok = False
-                notes.append(
-                    f"run {i} remote pid changed {remote_before}->{remote_mid}"
-                )
-            elif vpn_mid.get("vpn_service_running") is not True:
-                notes.append(
-                    f"run {i} VpnService not visible after UI kill "
-                    f"(remote_pid={remote_mid}, vpn_ready={vpn_mid.get('vpn_ready')})"
-                )
             sample = self.start_main()
             time.sleep(8.0)
             logcat = self.adb.run(["logcat", "-d", "-t", "2000"], timeout=30)
             log_text = logcat.stdout + logcat.stderr
             marks = parse_phase4_logcat(log_text)
-            session = parse_phase4_session_fields(log_text)
+            session_post = self.read_session_presence()
             vpn_post = self._vpn_status()
+            round_ok, round_reason = assess_running_reattach_round(
+                remote_before=remote_before,
+                kill=killed,
+                ui_pid_before=flutter_pid,
+                remote_mid=remote_mid,
+                remote_post=vpn_post.get("remote_pid"),
+                session_before=session_pre,
+                session_post=session_post,
+                vpn_ready_before=vpn_pre.get("vpn_ready"),
+                vpn_ready_post=vpn_post.get("vpn_ready"),
+            )
+            if not round_ok:
+                continuity_ok = False
+                notes.append(f"run {i} {round_reason}")
             row = {
                 "index": i,
                 "kill": killed,
                 "am_start": sample,
                 "phase4_marks": marks or None,
-                "session": session,
+                "session": session_post,
                 "session_pre_kill": session_pre,
                 "remote_pid": vpn_post.get("remote_pid"),
                 "vpn_ready": vpn_post.get("vpn_ready"),
                 "tun_ifaces": vpn_post.get("tun_ifaces"),
+                "formal_ok": round_ok,
+                "formal_reason": round_reason,
             }
-            if vpn_post.get("remote_pid") != remote_before:
-                continuity_ok = False
-            if (
-                session_pre.get("session_id")
-                and session.get("session_id")
-                and session_pre.get("session_id") != session.get("session_id")
-            ):
-                continuity_ok = False
-                notes.append(
-                    f"run {i} sessionId changed "
-                    f"{session_pre.get('session_id')}->{session.get('session_id')}"
-                )
             target = warmup_traces if i < warmup else measure_traces
             target.append(row)
-            if sample.get("ok") and sample.get("total_time_ms") is not None:
+            if (
+                round_ok
+                and sample.get("ok")
+                and sample.get("total_time_ms") is not None
+            ):
                 if i < warmup:
                     warmup_samples.append(sample["total_time_ms"])
                 else:
@@ -703,7 +713,7 @@ class Runner:
             and before.get("vpn_ready") is True
         )
         if not continuity_ok:
-            unreliable.append("remote_or_vpn_not_continuous")
+            unreliable.append("running_reattach_gates_failed")
         return {
             "ok": ok,
             "scenario": "running_reattach",

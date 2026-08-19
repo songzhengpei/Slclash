@@ -86,6 +86,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <action android:name="${applicationId}.action.TOGGLE" />
             </intent-filter>
+            <intent-filter>
+                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="${applicationId}.action.SMART_STOP" />
+            </intent-filter>
+            <intent-filter>
+                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="${applicationId}.action.SMART_RESUME" />
+            </intent-filter>
         </activity>
 
         <service

@@ -156,7 +156,10 @@ def parse_phase4_logcat(output: str) -> dict[str, int]:
 
 
 def parse_phase4_session_fields(output: str) -> dict:
-    """Last session_snapshot extras from PHASE4 logcat (session_id / state)."""
+    """Last session_snapshot extras from PHASE4 logcat (session_id / state).
+
+    Timing-only. Do not use missing log marks to judge session continuity.
+    """
     session_id = None
     state = None
     for line in output.splitlines():
@@ -169,6 +172,88 @@ def parse_phase4_session_fields(output: str) -> dict:
         if st:
             state = st.group(1)
     return {"session_id": session_id, "state": state}
+
+
+def parse_remote_session_presence(text: str) -> dict:
+    """Parse `:remote` files/remote_session_presence.txt written by SessionPresence.encode."""
+    session_id = None
+    state = None
+    pid = None
+    started_at = None
+    smart_paused = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if key == "sessionId":
+            try:
+                session_id = int(value)
+            except ValueError:
+                session_id = None
+        elif key == "state":
+            state = value or None
+        elif key == "pid":
+            try:
+                pid = int(value)
+            except ValueError:
+                pid = None
+        elif key == "startedAt":
+            try:
+                started_at = int(value)
+            except ValueError:
+                started_at = None
+        elif key == "smartPaused":
+            lowered = value.lower()
+            if lowered in {"true", "false"}:
+                smart_paused = lowered == "true"
+    parse_ok = isinstance(session_id, int) and bool(state)
+    return {
+        "session_id": session_id,
+        "state": state,
+        "pid": pid,
+        "started_at": started_at,
+        "smart_paused": smart_paused,
+        "parse_ok": parse_ok,
+    }
+
+
+def assess_running_reattach_round(
+    *,
+    remote_before: int | None,
+    kill: dict,
+    ui_pid_before: int,
+    remote_mid: int | None,
+    remote_post: int | None,
+    session_before: dict,
+    session_post: dict,
+    vpn_ready_before,
+    vpn_ready_post,
+) -> tuple[bool, str | None]:
+    """Formal running-reattach gates. Any miss is not official data."""
+    if kill.get("ok") is not True:
+        return False, "kill_ui_keep_remote_failed"
+    if kill.get("ui_pid_after") == ui_pid_before:
+        return False, "old_ui_pid_still_alive"
+    if remote_before is None:
+        return False, "remote_pid_missing"
+    if remote_mid != remote_before or remote_post != remote_before:
+        return False, "remote_pid_changed"
+    sid_before = session_before.get("session_id")
+    sid_post = session_post.get("session_id")
+    if not isinstance(sid_before, int) or sid_before <= 0:
+        return False, "session_id_missing_before"
+    if not isinstance(sid_post, int) or sid_post <= 0:
+        return False, "session_id_missing_after"
+    if sid_before != sid_post:
+        return False, "session_id_changed"
+    if session_before.get("state") != "RUNNING" or session_post.get("state") != "RUNNING":
+        return False, "state_not_running"
+    if vpn_ready_before is not True or vpn_ready_post is not True:
+        return False, "vpn_ready_lost"
+    return True, None
 
 
 def ui_process_kill_commands(package: str, pid: int) -> list[str]:

@@ -53,6 +53,22 @@ object State {
         action?.invoke()
     }
 
+    suspend fun handleSmartStopAction() {
+        Service.bind()
+        Service.smartStop()
+        handleSyncState()
+    }
+
+    suspend fun handleSmartResumeAction() {
+        if (flutterEngine != null) {
+            tilePlugin?.handleSmartResume()
+            return
+        }
+        Service.bind()
+        Service.smartResume()
+        handleSyncState()
+    }
+
     suspend fun handleSyncState() {
         runLock.withLock {
             Service.bind()

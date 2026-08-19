@@ -19,6 +19,7 @@ from build_mode import (  # noqa: E402
 )
 from parsers import (  # noqa: E402
     aggregate_startup_marks,
+    assess_running_reattach_round,
     assess_vpn_state,
     connectivity_has_vpn_network,
     jank_is_valid,
@@ -27,6 +28,7 @@ from parsers import (  # noqa: E402
     parse_meminfo,
     parse_phase4_logcat,
     parse_phase4_session_fields,
+    parse_remote_session_presence,
     parse_pidof,
     parse_tun_from_proc_net_dev,
     parse_tun_from_sys_class_net,
@@ -245,11 +247,117 @@ class StartupMarkAggregationTests(unittest.TestCase):
         self.assertEqual(parsed["session_id"], 42)
         self.assertEqual(parsed["state"], "RUNNING")
 
+    def test_parse_remote_session_presence(self) -> None:
+        parsed = parse_remote_session_presence(
+            "\n".join(
+                [
+                    "v1",
+                    "pid=8094",
+                    "state=RUNNING",
+                    "sessionId=1787118002461",
+                    "startedAt=1787118003000",
+                    "smartPaused=false",
+                ]
+            )
+        )
+        self.assertTrue(parsed["parse_ok"])
+        self.assertEqual(parsed["pid"], 8094)
+        self.assertEqual(parsed["state"], "RUNNING")
+        self.assertEqual(parsed["session_id"], 1787118002461)
+        self.assertEqual(parsed["started_at"], 1787118003000)
+        self.assertFalse(parsed["smart_paused"])
+
+    def test_parse_remote_session_presence_rejects_partial(self) -> None:
+        parsed = parse_remote_session_presence("v1\npid=1\n")
+        self.assertFalse(parsed["parse_ok"])
+        self.assertIsNone(parsed["session_id"])
+
     def test_ui_kill_commands_never_force_stop(self) -> None:
         commands = ui_process_kill_commands("com.slclash.app.profile", 99)
         self.assertTrue(commands)
         for command in commands:
             self.assertNotIn("force-stop", command)
+
+
+class RunningReattachGateTests(unittest.TestCase):
+    def _ok_kwargs(self) -> dict:
+        return {
+            "remote_before": 8094,
+            "kill": {"ok": True, "ui_pid_after": None},
+            "ui_pid_before": 1001,
+            "remote_mid": 8094,
+            "remote_post": 8094,
+            "session_before": {"session_id": 42, "state": "RUNNING"},
+            "session_post": {"session_id": 42, "state": "RUNNING"},
+            "vpn_ready_before": True,
+            "vpn_ready_post": True,
+        }
+
+    def test_formal_round_passes_all_gates(self) -> None:
+        ok, reason = assess_running_reattach_round(**self._ok_kwargs())
+        self.assertTrue(ok)
+        self.assertIsNone(reason)
+
+    def test_kill_failure_is_not_formal(self) -> None:
+        kwargs = self._ok_kwargs()
+        kwargs["kill"] = {"ok": False, "ui_pid_after": 1001}
+        ok, reason = assess_running_reattach_round(**kwargs)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "kill_ui_keep_remote_failed")
+
+    def test_old_ui_pid_must_disappear(self) -> None:
+        kwargs = self._ok_kwargs()
+        kwargs["kill"] = {"ok": True, "ui_pid_after": 1001}
+        ok, reason = assess_running_reattach_round(**kwargs)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "old_ui_pid_still_alive")
+
+    def test_remote_pid_must_stay(self) -> None:
+        kwargs = self._ok_kwargs()
+        kwargs["remote_mid"] = 9000
+        ok, reason = assess_running_reattach_round(**kwargs)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "remote_pid_changed")
+
+    def test_session_id_must_exist_and_stay(self) -> None:
+        missing = self._ok_kwargs()
+        missing["session_before"] = {"session_id": 0, "state": "RUNNING"}
+        ok, reason = assess_running_reattach_round(**missing)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "session_id_missing_before")
+
+        changed = self._ok_kwargs()
+        changed["session_post"] = {"session_id": 43, "state": "RUNNING"}
+        ok, reason = assess_running_reattach_round(**changed)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "session_id_changed")
+
+        absent = self._ok_kwargs()
+        absent["session_post"] = {"session_id": None, "state": "RUNNING"}
+        ok, reason = assess_running_reattach_round(**absent)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "session_id_missing_after")
+
+    def test_state_and_vpn_ready_must_stay_running(self) -> None:
+        paused = self._ok_kwargs()
+        paused["session_post"] = {"session_id": 42, "state": "PAUSED"}
+        ok, reason = assess_running_reattach_round(**paused)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "state_not_running")
+
+        vpn = self._ok_kwargs()
+        vpn["vpn_ready_post"] = False
+        ok, reason = assess_running_reattach_round(**vpn)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "vpn_ready_lost")
+
+    def test_missing_logcat_session_mark_is_not_used(self) -> None:
+        parsed = parse_phase4_session_fields("I/flutter: [PHASE4] mark=main_ready elapsed_ms=200\n")
+        self.assertIsNone(parsed["session_id"])
+        self.assertIsNone(parsed["state"])
+        ok, reason = assess_running_reattach_round(**self._ok_kwargs())
+        self.assertTrue(ok)
+        self.assertIsNone(reason)
 
 
 class DeviceErrorTests(unittest.TestCase):

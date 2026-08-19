@@ -44,6 +44,12 @@ class _TileContainerState extends ConsumerState<TileManager> with TileListener {
   }
 
   @override
+  Future<void> onSmartResume() async {
+    await ref.read(smartAutoStopManagerProvider.notifier).resumeNow();
+    super.onSmartResume();
+  }
+
+  @override
   void initState() {
     super.initState();
     tile?.addListener(this);

@@ -58,7 +58,7 @@ Options: `--package`, `--serial` / `ANDROID_SERIAL`, `--adb`, `--build-mode`, `-
 | memory | `dumpsys meminfo` for app and `:remote` (PSS, Java/Native heap when present) |
 | jank | `dumpsys gfxinfo reset` then `gfxinfo`; idle frames only, no UI automation |
 | vpn | TempActivity START/STOP; `start_observable` vs confirmed `vpn_ready`; stop latency |
-| running-reattach | VPN stays up; kill Flutter UI pid only (`run-as kill` / `am kill`, never `force-stop`); reopen MainActivity. Continuity is remote pid + sessionId. |
+| running-reattach | VPN stays up; kill Flutter UI pid only (`run-as kill` / `am kill`, never `force-stop`); reopen MainActivity. Formal continuity requires `kill_ui_keep_remote.ok`, old UI pid gone, remote pid unchanged before/mid/post, presence-file `sessionId>0` identical, `state=RUNNING`, and `vpn_ready` before/post. Logcat is StartupTrace timing only. |
 | background | foreground vs HOME; CPU / PSS / focus; VPN active vs inactive |
 
 Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_missing`, VPN not ready) exit non-zero. Missing timings stay `null`.

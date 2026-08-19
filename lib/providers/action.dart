@@ -110,6 +110,19 @@ bool shouldRestoreSmartPaused(String? sessionState, {bool smartPaused = false}) 
   return sessionState == 'PAUSED' || smartPaused;
 }
 
+/// PAUSED reopen must bind/init Flutter Core without starting VPN or applyProfile.
+bool shouldAttachCoreWithoutVpnSetup(String? sessionState) {
+  return sessionState == 'PAUSED';
+}
+
+/// After native smartResume, startListener only when Core is already attached.
+bool shouldStartListenerAfterSmartResume({
+  required bool suspend,
+  required bool coreReady,
+}) {
+  return !suspend && coreReady;
+}
+
 bool shouldReconnectCoreOnResume({
   required bool isAndroid,
   required bool isRunning,
@@ -814,7 +827,21 @@ class SetupAction extends _$SetupAction {
     ref.read(runTimeProvider.notifier).value =
         nativeStartTime.millisecondsSinceEpoch;
     unawaited(_updateUiStats());
-    if (!ref.read(suspendProvider)) {
+    final suspend = ref.read(suspendProvider);
+    var coreReady = suspend;
+    if (!suspend) {
+      coreReady = await ref.read(coreActionProvider.notifier).ensureCoreReady();
+      if (!coreReady) {
+        commonPrint.log(
+          'smart-resume: core not ready, skip startListener',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
+    if (shouldStartListenerAfterSmartResume(
+      suspend: suspend,
+      coreReady: coreReady,
+    )) {
       await coreController.startListener();
     }
     _startUiStatsTimer();
@@ -866,13 +893,24 @@ class SetupAction extends _$SetupAction {
     } else {
       globalState.needInitStatus = false;
       ref.read(runTimeProvider.notifier).value = null;
-      ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       if (shouldRestoreSmartPaused(
         sessionState,
         smartPaused: _nativeSession['smartPaused'] == true,
       )) {
         ref.read(isSmartStoppedProvider.notifier).set(true);
         StartupTrace.mark('smart_paused_restored');
+      }
+      if (shouldAttachCoreWithoutVpnSetup(sessionState)) {
+        final coreAction = ref.read(coreActionProvider.notifier);
+        final connected = await coreAction.connectCore(minDelay: Duration.zero);
+        if (connected) {
+          await coreAction.ensureCoreReady();
+          StartupTrace.mark('paused_core_attached');
+        } else {
+          ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+        }
+      } else {
+        ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       }
       commonPrint.log('init status skip full setup');
       StartupTrace.mark('core_skipped');

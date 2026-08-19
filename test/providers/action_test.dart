@@ -108,6 +108,28 @@ void main() {
       expect(shouldDeferInitCoreGroups('PAUSED'), isFalse);
       expect(sessionRequiresFullSetup('PAUSED'), isFalse);
     });
+
+    test('PAUSED attaches Core without VPN setup or applyProfile', () {
+      expect(shouldAttachCoreWithoutVpnSetup('PAUSED'), isTrue);
+      expect(shouldAttachCoreWithoutVpnSetup('RUNNING'), isFalse);
+      expect(shouldAttachCoreWithoutVpnSetup('STOPPED'), isFalse);
+      expect(shouldAttachCoreWithoutVpnSetup(null), isFalse);
+    });
+
+    test('smart resume starts the listener only after Core is ready', () {
+      expect(
+        shouldStartListenerAfterSmartResume(suspend: false, coreReady: true),
+        isTrue,
+      );
+      expect(
+        shouldStartListenerAfterSmartResume(suspend: false, coreReady: false),
+        isFalse,
+      );
+      expect(
+        shouldStartListenerAfterSmartResume(suspend: true, coreReady: true),
+        isFalse,
+      );
+    });
   });
 
   group('shouldReconnectCoreOnResume', () {
