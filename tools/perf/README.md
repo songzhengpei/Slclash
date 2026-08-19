@@ -59,7 +59,7 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md` (aggregates only).
+Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`.
 
 ## App instrumentation
 
@@ -73,11 +73,13 @@ Enabled in debug/profile automatically. Release is off unless:
 --dart-define=PHASE4_PERF=true
 ```
 
-Marks: `process_main_begin`, `system.version`, `globalState.init`, `dynamic_color`, `package_info`, `preferences`, `migration`, `database_profiles`, `localization`, `runApp`, `first_frame`, `globalState.attach`, `proxy_group_snapshot_hydration`, `setupAction.initStatus`, `core_ready` / `core_skipped` / `core_connect_failed` / `core_init_failed`, `main_ready`.
+Marks: `process_main_begin`, `system.version`, `globalState.init`, `dynamic_color`, `package_info`, `preferences`, `migration`, `database_profiles`, `localization`, `runApp`, `first_frame`, `globalState.attach`, `proxy_group_snapshot_hydration`, `initStatus.begin`, `updateStartTime`, `setupAction.initStatus`, `core_ready` / `core_skipped` / `core_connect_failed` / `core_init_failed`, `main_ready`.
 
 Only a truly connected+initialized Core emits `core_ready`. Idle autoRun-off paths emit `core_skipped`.
 
 `first_frame` is rasterized first frame. `main_ready` is after `initStatus` and `initProvider=true`.
+
+Idle `dumpsys gfxinfo` with `total_frames <= 0` is marked `jank_invalid_no_frames` and excluded from `compare`. Results record `git_head`, `dirty`, and `worktree_fingerprint` so the source tree that produced the run is visible.
 
 ## VPN readiness rule
 

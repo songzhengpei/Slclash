@@ -20,6 +20,7 @@ from parsers import (  # noqa: E402
     aggregate_startup_marks,
     assess_vpn_state,
     connectivity_has_vpn_network,
+    jank_is_valid,
     parse_am_start_w,
     parse_gfxinfo,
     parse_meminfo,
@@ -28,6 +29,7 @@ from parsers import (  # noqa: E402
     parse_tun_interfaces,
     vpn_stop_cleared,
 )
+from provenance import provenance_from_git_outputs  # noqa: E402
 from report import compare_results, render_baseline_markdown, render_markdown  # noqa: E402
 from stats import summarize  # noqa: E402
 
@@ -274,7 +276,7 @@ class CompareAndSummaryTests(unittest.TestCase):
                 },
             },
             "memory": {"total_pss_kb": {"app": 100, "remote": 50, "combined": 150}},
-            "jank": {"summary": {"janky_percent": 5.0, "p90_ms": 12}},
+            "jank": {"summary": {"janky_percent": 5.0, "p90_ms": 12, "total_frames": 120, "parse_ok": True}},
             "vpn": {
                 "start_to_observable_ms": 1000,
                 "start_to_ready_ms": 1500,
@@ -293,7 +295,7 @@ class CompareAndSummaryTests(unittest.TestCase):
                 },
             },
             "memory": {"total_pss_kb": {"app": 110, "remote": 55, "combined": 165}},
-            "jank": {"summary": {"janky_percent": 6.0, "p90_ms": 14}},
+            "jank": {"summary": {"janky_percent": 6.0, "p90_ms": 14, "total_frames": 130, "parse_ok": True}},
             "vpn": {
                 "start_to_observable_ms": 1100,
                 "start_to_ready_ms": 1600,
@@ -311,6 +313,43 @@ class CompareAndSummaryTests(unittest.TestCase):
         self.assertEqual(delta["jank_janky_percent"]["delta"], 1.0)
         self.assertEqual(delta["vpn_start_to_ready_ms"]["delta"], 100)
         self.assertEqual(delta["vpn_stop_to_cleared_ms"]["delta"], 50)
+
+    def test_compare_skips_jank_when_no_frames(self) -> None:
+        baseline = {
+            "cold_start": {"stats": {}},
+            "memory": {"total_pss_kb": {}},
+            "jank": {
+                "valid": False,
+                "summary": {"total_frames": 0, "janky_percent": 0.0, "p90_ms": 4950, "parse_ok": True},
+            },
+            "vpn": {},
+        }
+        current = {
+            "cold_start": {"stats": {}},
+            "memory": {"total_pss_kb": {}},
+            "jank": {
+                "valid": False,
+                "summary": {"total_frames": 0, "janky_percent": 0.0, "p90_ms": 12, "parse_ok": True},
+            },
+            "vpn": {},
+        }
+        delta = compare_results(baseline, current)
+        self.assertIsNone(delta["jank_janky_percent"]["delta"])
+        self.assertEqual(delta["jank_janky_percent"]["skipped"], "jank_invalid_no_frames")
+        self.assertIsNone(delta["jank_p90_ms"]["delta"])
+
+    def test_jank_validity_requires_frames(self) -> None:
+        self.assertFalse(jank_is_valid({"total_frames": 0, "parse_ok": True}))
+        self.assertFalse(jank_is_valid({"total_frames": None, "parse_ok": True}))
+        self.assertTrue(jank_is_valid({"total_frames": 10, "parse_ok": True}))
+
+    def test_provenance_fingerprint_changes_when_dirty(self) -> None:
+        clean = provenance_from_git_outputs("abc", "", "", "")
+        dirty = provenance_from_git_outputs("abc", " M lib/foo.dart\n", "1\t0\tlib/foo.dart\n", "")
+        self.assertFalse(clean["dirty"])
+        self.assertTrue(dirty["dirty"])
+        self.assertNotEqual(clean["worktree_fingerprint"], dirty["worktree_fingerprint"])
+        self.assertEqual(clean["git_head"], "abc")
 
     def test_summary_markdown_includes_key_metrics(self) -> None:
         result = {

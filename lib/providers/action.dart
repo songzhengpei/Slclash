@@ -792,8 +792,10 @@ class SetupAction extends _$SetupAction {
       return;
     }
     commonPrint.log('init status');
+    StartupTrace.mark('initStatus.begin');
     if (system.isAndroid) {
       await _updateStartTime();
+      StartupTrace.mark('updateStartTime');
     }
     final shouldFullSetup = shouldFullSetupOnInit(
       isRunning: isStart,

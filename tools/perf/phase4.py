@@ -27,6 +27,7 @@ from parsers import (  # noqa: E402
     aggregate_startup_marks,
     assess_vpn_state,
     connectivity_has_vpn_network,
+    jank_is_valid,
     parse_am_start_w,
     parse_gfxinfo,
     parse_meminfo,
@@ -35,6 +36,7 @@ from parsers import (  # noqa: E402
     parse_tun_interfaces,
     vpn_stop_cleared,
 )
+from provenance import collect_git_provenance  # noqa: E402
 from report import (  # noqa: E402
     compare_results,
     render_baseline_markdown,
@@ -142,6 +144,7 @@ class Runner:
         self.build_info = build_info
         flutter_pid = self.pid_of(self.package)
         remote_pid = self.pid_of(f"{self.package}:remote")
+        provenance = collect_git_provenance(REPO)
         return {
             "adb_serial": self.adb.serial,
             "model": model or None,
@@ -152,7 +155,10 @@ class Runner:
             "version_code": pkg["version_code"],
             "flutter_pid": flutter_pid,
             "remote_pid": remote_pid,
-            "git_commit": git_commit(),
+            "git_commit": provenance.get("git_head") or git_commit(),
+            "git_head": provenance.get("git_head"),
+            "dirty": provenance.get("dirty"),
+            "worktree_fingerprint": provenance.get("worktree_fingerprint"),
             "build_mode": build_info["mode"],
             "build_role": build_info["role"],
             "formal_eligible": build_info["formal_eligible"],
@@ -321,8 +327,15 @@ class Runner:
         unreliable = ["idle_only_no_ui_automation"]
         if not parsed.get("parse_ok"):
             unreliable.append("gfxinfo_parse_incomplete")
+        valid = jank_is_valid(parsed)
+        if not valid:
+            unreliable.append("jank_invalid_no_frames")
+            notes.append(
+                "total_frames <= 0: idle jank is invalid and excluded from formal compare."
+            )
         return {
             "ok": bool(parsed.get("parse_ok")),
+            "valid": valid,
             "summary": parsed,
             "notes": notes,
             "unreliable": unreliable,
@@ -611,6 +624,9 @@ def main(argv: list[str] | None = None) -> int:
                 "debuggable": env.get("debuggable"),
                 "mode_detection": env.get("build_mode_detection"),
                 "mode_notes": env.get("build_mode_notes"),
+                "git_head": env.get("git_head"),
+                "dirty": env.get("dirty"),
+                "worktree_fingerprint": env.get("worktree_fingerprint"),
             },
             "env": env,
             "errors": [],

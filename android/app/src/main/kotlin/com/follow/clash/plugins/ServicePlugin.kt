@@ -3,6 +3,8 @@ package com.follow.clash.plugins
 import com.follow.clash.Service
 import com.follow.clash.State
 import com.follow.clash.common.Components
+import com.follow.clash.common.GlobalState
+import com.follow.clash.common.RunTimeProbe
 import com.follow.clash.invokeMethodOnMainThread
 import com.follow.clash.models.SharedState
 import com.google.gson.Gson
@@ -155,7 +157,16 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
     private fun handleGetRunTime(result: MethodChannel.Result) {
         launch {
-            State.handleSyncState()
+            val shouldBind =
+                RunTimeProbe.shouldBindForRunTime(
+                    remoteProcessAlive =
+                        RunTimeProbe.isRemoteProcessAlive(GlobalState.application),
+                    alreadyBound = Service.isBound(),
+                    cachedRunTime = State.runTime,
+                )
+            if (shouldBind) {
+                State.handleSyncState()
+            }
             result.success(State.runTime)
         }
     }

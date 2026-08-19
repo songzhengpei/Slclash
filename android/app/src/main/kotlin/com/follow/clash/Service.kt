@@ -41,6 +41,8 @@ object Service {
         delegate.bind()
     }
 
+    fun isBound(): Boolean = delegate.serviceState.value?.first != null
+
     fun unbind() {
         delegate.unbind()
     }

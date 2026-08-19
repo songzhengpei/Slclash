@@ -15,6 +15,8 @@ TIMING_MARKS = (
     "globalState.attach",
     "proxy_group_snapshot_hydration",
     "setupAction.initStatus",
+    "initStatus.begin",
+    "updateStartTime",
     "runApp",
 )
 
@@ -102,6 +104,17 @@ def parse_meminfo(output: str) -> dict:
         "total_pss_kb": total_pss,
         "parse_ok": total_pss is not None,
     }
+
+
+def jank_is_valid(summary: dict | None) -> bool:
+    """Idle gfxinfo is only comparable when at least one frame was rendered."""
+    if not summary:
+        return False
+    frames = summary.get("total_frames")
+    if not isinstance(frames, int) or frames <= 0:
+        return False
+    parse_ok = summary.get("parse_ok")
+    return parse_ok is not False
 
 
 def parse_gfxinfo(output: str) -> dict:

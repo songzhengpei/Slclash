@@ -8,6 +8,9 @@ const bool kPhase4PerfDefine = bool.fromEnvironment('PHASE4_PERF');
 
 /// Low-overhead startup marks for Phase 4A.
 ///
+/// Stage marks on the idle path include `initStatus.begin` and `updateStartTime`
+/// so the getRunTime probe can be timed independently of Core setup.
+///
 /// Core outcome marks are mutually exclusive:
 /// - `core_ready` — Core connected and initialized
 /// - `core_skipped` — initStatus skipped full setup (idle, autoRun off)

@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from parsers import jank_is_valid
+
 
 def write_reports(result: dict, out_dir: Path, latest_dir: Path | None) -> tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -26,6 +28,8 @@ def render_markdown(result: dict) -> str:
         "",
         f"- timestamp: `{result.get('timestamp')}`",
         f"- git commit: `{result.get('commit')}`",
+        f"- dirty: `{build.get('dirty', env.get('dirty'))}`",
+        f"- worktree_fingerprint: `{build.get('worktree_fingerprint') or env.get('worktree_fingerprint')}`",
         f"- product baseline: `{result.get('phase4_product_baseline')}`",
         f"- device: `{result.get('device') or env.get('model')}` / Android `{env.get('android_version')}`",
         f"- package: `{build.get('package') or env.get('package')}` "
@@ -137,6 +141,7 @@ def _jank_section(block: dict | None) -> list[str]:
         "## jank",
         "",
         f"- ok: `{block.get('ok')}`",
+        f"- valid: `{block.get('valid')}`",
         f"- total frames: `{summary.get('total_frames')}`",
         f"- janky frames: `{summary.get('janky_frames')}` "
         f"({summary.get('janky_percent')}%)",
@@ -233,8 +238,20 @@ def compare_results(baseline: dict, current: dict) -> dict:
 
     base_jank = (baseline.get("jank") or {}).get("summary") or {}
     cur_jank = (current.get("jank") or {}).get("summary") or {}
-    out["jank_janky_percent"] = _delta(base_jank.get("janky_percent"), cur_jank.get("janky_percent"))
-    out["jank_p90_ms"] = _delta(base_jank.get("p90_ms"), cur_jank.get("p90_ms"))
+    if jank_is_valid(base_jank) and jank_is_valid(cur_jank):
+        out["jank_janky_percent"] = _delta(
+            base_jank.get("janky_percent"), cur_jank.get("janky_percent")
+        )
+        out["jank_p90_ms"] = _delta(base_jank.get("p90_ms"), cur_jank.get("p90_ms"))
+    else:
+        skipped = {
+            "baseline": None,
+            "current": None,
+            "delta": None,
+            "skipped": "jank_invalid_no_frames",
+        }
+        out["jank_janky_percent"] = dict(skipped)
+        out["jank_p90_ms"] = dict(skipped)
 
     base_vpn = baseline.get("vpn") or {}
     cur_vpn = current.get("vpn") or {}
@@ -304,6 +321,9 @@ def render_baseline_markdown(result: dict) -> str:
         f"- build_role: `{build.get('role') or env.get('build_role')}` "
         f"(debug=diagnostic_only, profile=profiling, release=production)",
         f"- formal_eligible: `{build.get('formal_eligible', env.get('formal_eligible'))}`",
+        f"- git_head: `{build.get('git_head') or env.get('git_head') or result.get('commit')}`",
+        f"- dirty: `{build.get('dirty', env.get('dirty'))}`",
+        f"- worktree_fingerprint: `{build.get('worktree_fingerprint') or env.get('worktree_fingerprint')}`",
         "",
         "## Cold start",
         "",
@@ -332,6 +352,7 @@ def render_baseline_markdown(result: dict) -> str:
         "",
         "## Jank (idle)",
         "",
+        f"- valid: `{(result.get('jank') or {}).get('valid')}`",
         f"- frames: `{jank.get('total_frames')}`",
         f"- janky: `{jank.get('janky_frames')}` ({jank.get('janky_percent')}%)",
         f"- p90 frame ms: `{jank.get('p90_ms')}`",
