@@ -360,4 +360,27 @@ void main() {
       expect(layout.detectionBottomGap, 16);
     });
   });
+
+  group('heroOutboundFillActive', () {
+    test('keeps outbound fill on smart pause even when VPN is not running', () {
+      expect(
+        heroOutboundFillActive(isStart: false, isSmartStopped: true),
+        isTrue,
+      );
+    });
+
+    test('keeps outbound fill while connected', () {
+      expect(
+        heroOutboundFillActive(isStart: true, isSmartStopped: false),
+        isTrue,
+      );
+    });
+
+    test('clears outbound fill when idle', () {
+      expect(
+        heroOutboundFillActive(isStart: false, isSmartStopped: false),
+        isFalse,
+      );
+    });
+  });
 }

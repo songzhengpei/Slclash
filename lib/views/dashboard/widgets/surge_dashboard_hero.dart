@@ -14,6 +14,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 const _heroFillDuration = SurgeMotion.heroFill;
 const _statusLightPulseDuration = SurgeMotion.statusLightPulse;
 
+bool heroOutboundFillActive({
+  required bool isStart,
+  required bool isSmartStopped,
+}) {
+  return isStart || isSmartStopped;
+}
+
 class SurgeDashboardHero extends ConsumerStatefulWidget {
   const SurgeDashboardHero({
     super.key,
@@ -47,7 +54,12 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     _fillController = AnimationController(
       vsync: this,
       duration: _heroFillDuration,
-      value: (isStart || isSmartStopped) ? 1 : 0,
+      value: heroOutboundFillActive(
+            isStart: isStart,
+            isSmartStopped: isSmartStopped,
+          )
+          ? 1
+          : 0,
     );
     _fillAnimation = CurvedAnimation(
       parent: _fillController,
@@ -108,6 +120,20 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     ref.read(setupActionProvider.notifier).changeMode(mode);
   }
 
+  void _syncOutboundFill({
+    required bool isStart,
+    required bool isSmartStopped,
+  }) {
+    if (heroOutboundFillActive(
+      isStart: isStart,
+      isSmartStopped: isSmartStopped,
+    )) {
+      _fillController.forward();
+    } else {
+      _fillController.reverse();
+    }
+  }
+
   void _startConnectingAnimation() {
     _connectingTimer?.cancel();
     if (mounted) {
@@ -133,7 +159,9 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       patchClashConfigProvider.select((state) => state.mode),
     );
     final coreStatus = ref.watch(coreStatusProvider);
-    final connecting = coreStatus == CoreStatus.connecting || _showConnecting;
+    final connecting =
+        !isSmartStopped &&
+        (coreStatus == CoreStatus.connecting || _showConnecting);
     final transitionStart = _transitionKind == 'start';
     final transitionStop = _transitionKind == 'stop';
     final transitionPausing = _transitionKind == 'pausing';
@@ -168,14 +196,17 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         ? appLocalizations.connected
         : appLocalizations.disconnected;
     ref.listen(isStartProvider, (previous, next) {
-      if (next) {
-        _fillController.forward();
-      } else if (!ref.read(isSmartStoppedProvider)) {
-        _fillController.reverse();
-      }
+      _syncOutboundFill(
+        isStart: next,
+        isSmartStopped: ref.read(isSmartStoppedProvider),
+      );
     });
 
     ref.listen(isSmartStoppedProvider, (previous, next) {
+      _syncOutboundFill(
+        isStart: ref.read(isStartProvider),
+        isSmartStopped: next,
+      );
       // Auto smart-stop triggered during start transition → "暂停中"
       if (next && previous == false && _transitionKind == 'start') {
         _sheenController.repeat();
