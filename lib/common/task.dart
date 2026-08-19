@@ -220,6 +220,7 @@ Future<VM2<String, String>> _makeRealProfileTask(
       };
     applyOwnedDnsPatch(rawConfig, dnsPatch);
   }
+  alignDnsIpv6WithCore(rawConfig, coreIpv6: realPatchConfig.ipv6);
   if (appendSystemDns) {
     final List<String> nameserver = List<String>.from(
       rawConfig['dns']['nameserver'] ?? [],

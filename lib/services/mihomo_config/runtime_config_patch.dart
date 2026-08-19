@@ -102,3 +102,20 @@ MihomoConfigMap applyOwnedDnsPatch(
   config['dns'] = dns;
   return config;
 }
+
+/// When the TUN has no IPv6, Clash must not answer AAAA. Connect-style
+/// profiles set dns.ipv6: true while the Android VPN still installs
+/// `::/0 unreachable`, so apps wait on Happy Eyeballs before falling back
+/// to IPv4.
+MihomoConfigMap alignDnsIpv6WithCore(
+  MihomoConfigMap config, {
+  required bool coreIpv6,
+}) {
+  if (coreIpv6) return config;
+  final dns = config['dns'];
+  if (dns is! Map) return config;
+  final next = _asStringMap(dns);
+  next['ipv6'] = false;
+  config['dns'] = next;
+  return config;
+}

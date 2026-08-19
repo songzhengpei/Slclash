@@ -19,6 +19,7 @@ import com.follow.clash.service.models.VpnOptions
 import com.follow.clash.service.models.getIpv4RouteAddress
 import com.follow.clash.service.models.getIpv6RouteAddress
 import com.follow.clash.service.models.toCIDR
+import com.follow.clash.service.models.tunDnsHijackServers
 import com.follow.clash.service.modules.NetworkObserveModule
 import com.follow.clash.service.modules.NotificationModule
 import com.follow.clash.service.modules.SuspendModule
@@ -147,18 +148,7 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
         }
 
     val VpnOptions.dns
-        get(): String {
-            if (dnsHijacking) {
-                return NET_ANY
-            }
-            return buildString {
-                append(DNS)
-                if (ipv6) {
-                    append(",")
-                    append(DNS6)
-                }
-            }
-        }
+        get(): String = tunDnsHijackServers(ipv6)
 
 
     override fun onLowMemory() {
@@ -293,6 +283,7 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             establish()?.detachFd()
                 ?: throw NullPointerException("Establish VPN rejected by system")
         }
+        GlobalState.log("TUN dns hijack ${options.dns}")
         val started = Core.startTun(
             fd,
             protect = this::protect,

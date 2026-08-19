@@ -29,6 +29,24 @@ data class VpnOptions(
 
 data class CIDR(val address: InetAddress, val prefixLength: Int)
 
+const val TUN_DNS_V4 = "172.19.0.2"
+const val TUN_DNS_V6 = "fdfe:dcba:9876::2"
+const val TUN_DNS_ANY_V4 = "0.0.0.0"
+const val TUN_DNS_ANY_V6 = "::"
+
+/// Always hijack UDP/53 on TUN, not only the VPN DNS address.
+/// Xiaomi SmartDns and Private DNS ignore VpnService addDnsServer and query
+/// other resolvers through the tunnel; without 0.0.0.0:53 those lookups
+/// black-hole for several seconds after connect.
+fun tunDnsHijackServers(ipv6: Boolean): String {
+    val parts = mutableListOf(TUN_DNS_ANY_V4, TUN_DNS_V4)
+    if (ipv6) {
+        parts += TUN_DNS_ANY_V6
+        parts += TUN_DNS_V6
+    }
+    return parts.joinToString(",")
+}
+
 fun VpnOptions.getIpv4RouteAddress(): List<CIDR> {
     return routeAddress.filter {
         it.isIpv4()

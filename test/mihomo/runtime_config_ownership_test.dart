@@ -96,30 +96,32 @@ void main() {
       expect(output['tun']['future-option'], 'tun-future');
     });
 
-    test('applyOwnedTunPatch applies only owned keys and preserves siblings',
-        () {
-      final result = applyOwnedTunPatch(
-        {
-          'tun': {
-            'enable': false,
-            'mtu': 9000,
-            'strict-route': true,
-            'future-option': 'kept',
+    test(
+      'applyOwnedTunPatch applies only owned keys and preserves siblings',
+      () {
+        final result = applyOwnedTunPatch(
+          {
+            'tun': {
+              'enable': false,
+              'mtu': 9000,
+              'strict-route': true,
+              'future-option': 'kept',
+            },
           },
-        },
-        {
-          'enable': true,
-          'stack': 'system',
-          'mtu': 1400, // not owned: must be ignored
-        },
-      );
-      final tun = result['tun'] as Map;
-      expect(tun['enable'], isTrue);
-      expect(tun['stack'], 'system');
-      expect(tun['mtu'], 9000);
-      expect(tun['strict-route'], isTrue);
-      expect(tun['future-option'], 'kept');
-    });
+          {
+            'enable': true,
+            'stack': 'system',
+            'mtu': 1400, // not owned: must be ignored
+          },
+        );
+        final tun = result['tun'] as Map;
+        expect(tun['enable'], isTrue);
+        expect(tun['stack'], 'system');
+        expect(tun['mtu'], 9000);
+        expect(tun['strict-route'], isTrue);
+        expect(tun['future-option'], 'kept');
+      },
+    );
 
     test('applyOwnedTunPatch creates the tun map when missing', () {
       final result = applyOwnedTunPatch(
@@ -129,26 +131,32 @@ void main() {
       expect(result['tun'], {'enable': true, 'stack': 'system'});
     });
 
-    test('materialized tun_ownership fixture reparses for bundled validity',
-        () async {
-      // Empty nameserverPolicy keeps the validity fixture free of
-      // geosite:cn, which requires a local GeoSite.dat that CI-host
-      // config.Parse cannot load.
-      const validityPatch = PatchClashConfig(
-        dns: Dns(
-          nameserverPolicy: {},
-          fallbackFilter: FallbackFilter(geoip: false, geosite: []),
-        ),
-      );
-      final output = await _materialize(
-        _fixture('tun_ownership.yaml'),
-        patch: validityPatch,
-        writeTo: p.join('build', 'mihomo-runtime-fixtures', 'tun_ownership.yaml'),
-      );
-      expect(output['tun']['auto-detect-interface'], isTrue);
-      expect(output['tun']['mtu'], 9000);
-      expect(output['tun']['strict-route'], isTrue);
-    });
+    test(
+      'materialized tun_ownership fixture reparses for bundled validity',
+      () async {
+        // Empty nameserverPolicy keeps the validity fixture free of
+        // geosite:cn, which requires a local GeoSite.dat that CI-host
+        // config.Parse cannot load.
+        const validityPatch = PatchClashConfig(
+          dns: Dns(
+            nameserverPolicy: {},
+            fallbackFilter: FallbackFilter(geoip: false, geosite: []),
+          ),
+        );
+        final output = await _materialize(
+          _fixture('tun_ownership.yaml'),
+          patch: validityPatch,
+          writeTo: p.join(
+            'build',
+            'mihomo-runtime-fixtures',
+            'tun_ownership.yaml',
+          ),
+        );
+        expect(output['tun']['auto-detect-interface'], isTrue);
+        expect(output['tun']['mtu'], 9000);
+        expect(output['tun']['strict-route'], isTrue);
+      },
+    );
 
     test('ownership sets match the Tun model serialization keys', () {
       // Keeps the Slclash-owned contract in sync with the Tun model: adding a
@@ -181,7 +189,11 @@ void main() {
 
     test('overrideDns=true applies Slclash-owned DNS fields', () async {
       final input = _fixture('dns_ownership.yaml');
-      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final output = await _materialize(
+        input,
+        patch: ownedPatch,
+        overrideDns: true,
+      );
       final dns = output['dns'] as Map;
       expect(dns['enable'], isTrue);
       expect(dns['nameserver'], ['https://doh.pub/dns-query']);
@@ -189,23 +201,38 @@ void main() {
 
     test('overrideDns=true preserves real kernel-owned DNS fields', () async {
       final input = _fixture('dns_ownership.yaml');
-      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final output = await _materialize(
+        input,
+        patch: ownedPatch,
+        overrideDns: true,
+      );
       final dns = output['dns'] as Map;
       expect(dns['cache-algorithm'], 'arc');
       expect(dns['direct-nameserver'], ['223.5.5.5']);
       expect(dns['direct-nameserver-follow-policy'], isTrue);
     });
 
-    test('synthetic unknown DNS sibling survives the ownership patch', () async {
-      final input = _fixture('dns_ownership.yaml')
-        ..['dns']['future-option'] = 'dns-future';
-      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
-      expect((output['dns'] as Map)['future-option'], 'dns-future');
-    });
+    test(
+      'synthetic unknown DNS sibling survives the ownership patch',
+      () async {
+        final input = _fixture('dns_ownership.yaml')
+          ..['dns']['future-option'] = 'dns-future';
+        final output = await _materialize(
+          input,
+          patch: ownedPatch,
+          overrideDns: true,
+        );
+        expect((output['dns'] as Map)['future-option'], 'dns-future');
+      },
+    );
 
     test('fallback-filter owned subfields are overridden', () async {
       final input = _fixture('dns_ownership.yaml');
-      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final output = await _materialize(
+        input,
+        patch: ownedPatch,
+        overrideDns: true,
+      );
       final filter = output['dns']['fallback-filter'] as Map;
       expect(filter['geoip'], isTrue);
       expect(filter['geosite'], ['cn']);
@@ -214,7 +241,11 @@ void main() {
     test('fallback-filter synthetic unknown sibling is preserved', () async {
       final input = _fixture('dns_ownership.yaml')
         ..['dns']['fallback-filter']['future-field'] = 'filter-future';
-      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final output = await _materialize(
+        input,
+        patch: ownedPatch,
+        overrideDns: true,
+      );
       final filter = output['dns']['fallback-filter'] as Map;
       expect(filter['future-field'], 'filter-future');
       expect(filter['geoip'], isTrue);
@@ -223,34 +254,34 @@ void main() {
     test('nameserver-policy is replaced as an atomic Slclash map', () async {
       final input = _fixture('dns_ownership.yaml')
         ..['dns']['nameserver-policy'] = {'source.example': '1.1.1.1'};
-      final output = await _materialize(input, patch: ownedPatch, overrideDns: true);
+      final output = await _materialize(
+        input,
+        patch: ownedPatch,
+        overrideDns: true,
+      );
       final policy = output['dns']['nameserver-policy'] as Map;
       expect(policy, {'patched.example': '8.8.8.8'});
       expect(policy, isNot(contains('source.example')));
     });
 
-    test('source dns.enable=false keeps automatic Slclash DNS behavior',
-        () async {
-      final input = _fixture('dns_ownership.yaml')..['dns']['enable'] = false;
-      final output = await _materialize(input, patch: ownedPatch);
-      final dns = output['dns'] as Map;
-      expect(dns['enable'], isTrue);
-      expect(dns['nameserver'], [
-        'https://doh.pub/dns-query',
-        'system://',
-      ]);
-      expect(dns['cache-algorithm'], 'arc');
-    });
+    test(
+      'source dns.enable=false keeps automatic Slclash DNS behavior',
+      () async {
+        final input = _fixture('dns_ownership.yaml')..['dns']['enable'] = false;
+        final output = await _materialize(input, patch: ownedPatch);
+        final dns = output['dns'] as Map;
+        expect(dns['enable'], isTrue);
+        expect(dns['nameserver'], ['https://doh.pub/dns-query', 'system://']);
+        expect(dns['cache-algorithm'], 'arc');
+      },
+    );
 
     test('missing source dns keeps automatic Slclash DNS behavior', () async {
       final input = _fixture('dns_ownership.yaml')..remove('dns');
       final output = await _materialize(input, patch: ownedPatch);
       final dns = output['dns'] as Map;
       expect(dns['enable'], isTrue);
-      expect(dns['nameserver'], [
-        'https://doh.pub/dns-query',
-        'system://',
-      ]);
+      expect(dns['nameserver'], ['https://doh.pub/dns-query', 'system://']);
     });
 
     test('appendSystemDns adds exactly one system resolver', () async {
@@ -262,6 +293,28 @@ void main() {
       );
       final nameserver = output['dns']['nameserver'] as List;
       expect(nameserver.where((item) => item == 'system://'), hasLength(1));
+    });
+
+    test(
+      'core ipv6 off forces dns.ipv6 off without replacing nameservers',
+      () async {
+        final input = _fixture('dns_ownership.yaml')..['dns']['ipv6'] = true;
+        final output = await _materialize(input);
+        final dns = output['dns'] as Map;
+        expect(dns['ipv6'], isFalse);
+        expect(dns['nameserver'], ['1.1.1.1']);
+        expect(dns['direct-nameserver'], ['223.5.5.5']);
+      },
+    );
+
+    test('core ipv6 on leaves profile dns.ipv6 enabled', () async {
+      final input = _fixture('dns_ownership.yaml')..['dns']['ipv6'] = true;
+      final output = await _materialize(
+        input,
+        patch: const PatchClashConfig(ipv6: true),
+      );
+      expect((output['dns'] as Map)['ipv6'], isTrue);
+      expect((output['dns'] as Map)['nameserver'], ['1.1.1.1']);
     });
 
     test('appendSystemDns runs after the ownership patch', () async {
@@ -288,26 +341,32 @@ void main() {
       );
     });
 
-    test('materialized dns_ownership fixture reparses for bundled validity',
-        () async {
-      // Empty nameserverPolicy keeps the validity fixture free of
-      // geosite:cn, which requires a local GeoSite.dat that CI-host
-      // config.Parse cannot load.
-      const validityPatch = PatchClashConfig(
-        dns: Dns(
-          nameserverPolicy: {},
-          fallbackFilter: FallbackFilter(geoip: false, geosite: []),
-        ),
-      );
-      final output = await _materialize(
-        _fixture('dns_ownership.yaml'),
-        patch: validityPatch,
-        overrideDns: true,
-        writeTo: p.join('build', 'mihomo-runtime-fixtures', 'dns_ownership.yaml'),
-      );
-      final dns = output['dns'] as Map;
-      expect(dns['cache-algorithm'], 'arc');
-      expect(dns['direct-nameserver'], ['223.5.5.5']);
-    });
+    test(
+      'materialized dns_ownership fixture reparses for bundled validity',
+      () async {
+        // Empty nameserverPolicy keeps the validity fixture free of
+        // geosite:cn, which requires a local GeoSite.dat that CI-host
+        // config.Parse cannot load.
+        const validityPatch = PatchClashConfig(
+          dns: Dns(
+            nameserverPolicy: {},
+            fallbackFilter: FallbackFilter(geoip: false, geosite: []),
+          ),
+        );
+        final output = await _materialize(
+          _fixture('dns_ownership.yaml'),
+          patch: validityPatch,
+          overrideDns: true,
+          writeTo: p.join(
+            'build',
+            'mihomo-runtime-fixtures',
+            'dns_ownership.yaml',
+          ),
+        );
+        final dns = output['dns'] as Map;
+        expect(dns['cache-algorithm'], 'arc');
+        expect(dns['direct-nameserver'], ['223.5.5.5']);
+      },
+    );
   });
 }
