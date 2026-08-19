@@ -21,6 +21,17 @@ bool heroOutboundFillActive({
   return isStart || isSmartStopped;
 }
 
+/// Status-light pulse / connecting chrome. PAUSED must not pulse even if
+/// Core is attaching or a leftover connecting timer is still true.
+bool heroConnectingPulseActive({
+  required bool isSmartStopped,
+  required CoreStatus coreStatus,
+  required bool showConnecting,
+}) {
+  return !isSmartStopped &&
+      (coreStatus == CoreStatus.connecting || showConnecting);
+}
+
 class SurgeDashboardHero extends ConsumerStatefulWidget {
   const SurgeDashboardHero({
     super.key,
@@ -159,9 +170,11 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       patchClashConfigProvider.select((state) => state.mode),
     );
     final coreStatus = ref.watch(coreStatusProvider);
-    final connecting =
-        !isSmartStopped &&
-        (coreStatus == CoreStatus.connecting || _showConnecting);
+    final connecting = heroConnectingPulseActive(
+      isSmartStopped: isSmartStopped,
+      coreStatus: coreStatus,
+      showConnecting: _showConnecting,
+    );
     final transitionStart = _transitionKind == 'start';
     final transitionStop = _transitionKind == 'stop';
     final transitionPausing = _transitionKind == 'pausing';
@@ -196,10 +209,24 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         ? appLocalizations.connected
         : appLocalizations.disconnected;
     ref.listen(isStartProvider, (previous, next) {
+      final smartStopped = ref.read(isSmartStoppedProvider);
       _syncOutboundFill(
         isStart: next,
-        isSmartStopped: ref.read(isSmartStoppedProvider),
+        isSmartStopped: smartStopped,
       );
+      if (_transitionKind == 'start' && next) {
+        _sheenController.stop();
+        _connectingTimer?.cancel();
+        if (mounted) {
+          setState(() {
+            _showConnecting = false;
+            _transitionKind = null;
+          });
+        }
+      } else if (_transitionKind == 'stop' && !next && !smartStopped) {
+        _sheenController.stop();
+        if (mounted) setState(() => _transitionKind = null);
+      }
     });
 
     ref.listen(isSmartStoppedProvider, (previous, next) {
@@ -215,23 +242,6 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
       }
       // "暂停中" resolved → stop sheen
       if (_transitionKind == 'pausing' && isSmartPaused) {
-        _sheenController.stop();
-        if (mounted) setState(() => _transitionKind = null);
-      }
-    });
-
-    // Auto-clear transition when proxy state catches up.
-    ref.listen(isStartProvider, (previous, next) {
-      if (_transitionKind == 'start' && next) {
-        _sheenController.stop();
-        _connectingTimer?.cancel();
-        if (mounted) {
-          setState(() {
-            _showConnecting = false;
-            _transitionKind = null;
-          });
-        }
-      } else if (_transitionKind == 'stop' && !next && !isSmartStopped) {
         _sheenController.stop();
         if (mounted) setState(() => _transitionKind = null);
       }
@@ -346,8 +356,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
                 active: isStart,
                 isSmartPaused: isSmartPaused,
                 dynamicColor: dynamicColor,
-                connecting:
-                    _showConnecting || coreStatus == CoreStatus.connecting,
+                connecting: connecting,
                 failed: _showFailure,
                 statusLabel: statusLabel,
                 height: contentLayout.modeCardHeight,

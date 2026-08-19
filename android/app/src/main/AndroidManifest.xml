@@ -121,6 +121,11 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name="com.follow.clash.Phase4PerfReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

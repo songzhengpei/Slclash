@@ -8,6 +8,7 @@ object Components {
     const val APP_CHANNEL = "$METHOD_CHANNEL_PREFIX/app"
     const val SERVICE_CHANNEL = "$METHOD_CHANNEL_PREFIX/service"
     const val TILE_CHANNEL = "$METHOD_CHANNEL_PREFIX/tile"
+    const val PHASE4_CHANNEL = "$METHOD_CHANNEL_PREFIX/phase4_perf"
 
     val MAIN_ACTIVITY =
         ComponentName(GlobalState.packageName, "${PACKAGE_NAME}.MainActivity")

@@ -155,6 +155,67 @@ def parse_phase4_logcat(output: str) -> dict[str, int]:
     return marks
 
 
+_PHASE4_LINE = re.compile(r"\[PHASE4\] mark=([A-Za-z0-9_.]+) elapsed_ms=(\d+)(.*)$")
+_EXTRA = re.compile(r"([A-Za-z0-9_]+)=(\S+)")
+
+
+def _coerce_extra(raw: str):
+    if raw in {"true", "false"}:
+        return raw == "true"
+    if raw in {"null", "None"}:
+        return None
+    if re.fullmatch(r"-?\d+", raw):
+        return int(raw)
+    if re.fullmatch(r"-?\d+\.\d+", raw):
+        return float(raw)
+    return raw
+
+
+def parse_phase4_events(output: str) -> list[dict]:
+    """All PHASE4 marks with extras. Navigation emits many rows per mark name."""
+    events: list[dict] = []
+    for line in output.splitlines():
+        match = _PHASE4_LINE.search(line.rstrip("\r"))
+        if not match:
+            continue
+        extras = {}
+        for extra in _EXTRA.finditer(match.group(3) or ""):
+            extras[extra.group(1)] = _coerce_extra(extra.group(2))
+        events.append(
+            {
+                "mark": match.group(1),
+                "elapsed_ms": int(match.group(2)),
+                **extras,
+            }
+        )
+    return events
+
+
+def parse_display_refresh_hz(output: str) -> dict:
+    """Best-effort refresh rate from dumpsys display / SurfaceFlinger."""
+    candidates: list[float] = []
+    for pattern in (
+        r"renderFrameRate\s*=\s*([\d.]+)",
+        r"refreshRate\s*=\s*([\d.]+)",
+        r"fps=([\d.]+)",
+        r"Refresh rate:\s*([\d.]+)",
+    ):
+        for match in re.finditer(pattern, output, re.I):
+            try:
+                value = float(match.group(1))
+            except ValueError:
+                continue
+            if 20 <= value <= 240:
+                candidates.append(value)
+    hz = max(candidates) if candidates else None
+    budget_ms = (1000.0 / hz) if hz else None
+    return {
+        "refresh_hz": hz,
+        "budget_ms": budget_ms,
+        "samples": sorted(set(round(v, 3) for v in candidates), reverse=True)[:8],
+    }
+
+
 def parse_phase4_session_fields(output: str) -> dict:
     """Last session_snapshot extras from PHASE4 logcat (session_id / state).
 

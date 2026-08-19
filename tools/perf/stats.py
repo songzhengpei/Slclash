@@ -23,7 +23,9 @@ def summarize(values: list[float]) -> dict:
             "min": None,
             "max": None,
             "median": None,
+            "p50": None,
             "p90": None,
+            "p99": None,
         }
     nums = [float(v) for v in values]
     return {
@@ -31,5 +33,7 @@ def summarize(values: list[float]) -> dict:
         "min": min(nums),
         "max": max(nums),
         "median": float(median(nums)),
+        "p50": percentile(nums, 50),
         "p90": percentile(nums, 90),
+        "p99": percentile(nums, 99),
     }

@@ -4,6 +4,8 @@
 Usage:
     python tools/perf/phase4.py all
     python tools/perf/phase4.py env|cold-start|memory|jank|vpn|background
+    python tools/perf/phase4.py running-reattach
+    python tools/perf/phase4.py navigation
     python tools/perf/phase4.py compare --baseline a.json --current b.json
 """
 
@@ -23,6 +25,12 @@ sys.path.insert(0, str(ROOT))
 
 from adbutil import Adb, HarnessError, resolve_adb, select_device  # noqa: E402
 from build_mode import parse_package_debuggable, resolve_build_mode, default_package_for_mode  # noqa: E402
+from navigation import (  # noqa: E402
+    filter_transitions,
+    group_nav_transitions,
+    mount_hotspots,
+    summarize_nav,
+)
 from parsers import (  # noqa: E402
     aggregate_startup_marks,
     assess_running_reattach_round,
@@ -30,8 +38,10 @@ from parsers import (  # noqa: E402
     connectivity_has_vpn_network,
     jank_is_valid,
     parse_am_start_w,
+    parse_display_refresh_hz,
     parse_gfxinfo,
     parse_meminfo,
+    parse_phase4_events,
     parse_phase4_logcat,
     parse_remote_session_presence,
     parse_pidof,
@@ -45,6 +55,7 @@ from provenance import collect_git_provenance  # noqa: E402
 from report import (  # noqa: E402
     compare_results,
     render_baseline_markdown,
+    render_navigation_baseline_markdown,
     utc_now,
     write_reports,
 )
@@ -56,6 +67,10 @@ MAIN_ACTIVITY = "com.follow.clash.MainActivity"
 TEMP_ACTIVITY = "com.follow.clash.TempActivity"
 WARMUP_RUNS = 2
 MEASURE_RUNS = 10
+NAV_RECEIVER = "com.follow.clash.Phase4PerfReceiver"
+NAV_ROUND_TRIPS = 10
+NAV_CYCLES = 10
+DEFAULT_MOBILE_PAGES = ["dashboard", "proxies", "profiles", "tools"]
 
 
 def git_commit() -> str:
@@ -87,6 +102,7 @@ def fail_result(code: str, message: str, **extra) -> dict:
         "vpn": None,
         "background": None,
         "running_reattach": None,
+        "navigation": None,
     }
     result.update(extra)
     return result
@@ -736,12 +752,276 @@ class Runner:
             "notes": notes,
         }
 
+    def logcat_dump(self, lines: int = 8000) -> str:
+        """App-scoped logcat. Device-wide -t N on noisy OEMs drops Flutter lines."""
+        pid = self.pid_of(self.package)
+        args = ["logcat", "-d"]
+        if pid is not None:
+            args.extend(["--pid", str(pid)])
+        else:
+            args.extend(["-t", str(lines)])
+        proc = self.adb.run(args, timeout=30)
+        return proc.stdout + proc.stderr
+
+    def logcat_events(self) -> list[dict]:
+        return parse_phase4_events(self.logcat_dump())
+
+    def collect_display(self) -> dict:
+        raw = self.adb.shell("dumpsys display", timeout=20).stdout
+        parsed = parse_display_refresh_hz(raw)
+        parsed["source"] = "dumpsys display"
+        return parsed
+
+    def nav_broadcast(self, cmd: str, extras: dict[str, str] | None = None) -> None:
+        # Explicit MainActivity extras: OEM-safe, brings UI to foreground,
+        # and does not add a new exported intent action.
+        parts = [
+            f"am start -n {self.package}/{MAIN_ACTIVITY}",
+            f"--es phase4_cmd {cmd}",
+        ]
+        for key, value in (extras or {}).items():
+            parts.append(f"--es {key} {value}")
+        proc = self.adb.shell(" ".join(parts), timeout=20)
+        if proc.returncode != 0:
+            raise HarnessError(
+                "nav_broadcast_failed",
+                (proc.stderr or proc.stdout or cmd).strip() or cmd,
+            )
+
+    def _count_marks(self, mark: str) -> int:
+        return sum(1 for event in self.logcat_events() if event.get("mark") == mark)
+
+    def wait_mark_count(self, mark: str, minimum: int, timeout: float = 12.0) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self._count_marks(mark) >= minimum:
+                return True
+            time.sleep(0.2)
+        return False
+
+    def wait_nav_ready(self, timeout: float = 25.0) -> dict:
+        deadline = time.monotonic() + timeout
+        last = {}
+        while time.monotonic() < deadline:
+            last = parse_phase4_logcat(self.logcat_dump())
+            if "nav_listener_ready" in last and "main_ready" in last:
+                return last
+            time.sleep(0.4)
+        return last
+
+    def navigation(self) -> dict:
+        self.require_package()
+        notes = [
+            "FrameTiming from Flutter; idle dumpsys gfxinfo is not used as navigation jank.",
+            "Frame budget comes from the device refresh rate, not a hardcoded 16.67ms.",
+            "Does not change tab scroll-to-top product behavior.",
+        ]
+        unreliable: list[str] = []
+        display = self.collect_display()
+        self.force_stop()
+        time.sleep(0.8)
+        self.adb.run(["logcat", "-c"], timeout=15)
+        started = self.start_main()
+        time.sleep(2.0)
+        ready = self.wait_nav_ready()
+        if "nav_listener_ready" not in ready:
+            return {
+                "ok": False,
+                "scenario": "navigation",
+                "display": display,
+                "am_start": started,
+                "ready_marks": ready,
+                "unreliable": ["nav_listener_missing"],
+                "notes": notes
+                + [
+                    "Need a profile APK (or PHASE4_PERF=true). "
+                    "NavigationTrace is compile-time off in production release."
+                ],
+            }
+
+        ping_before = self._count_marks("nav_pong")
+        self.nav_broadcast("ping")
+        self.wait_mark_count("nav_pong", ping_before + 1, timeout=8)
+        pages = DEFAULT_MOBILE_PAGES
+        current = "dashboard"
+        for event in reversed(self.logcat_events()):
+            if event.get("mark") == "nav_pong":
+                raw_pages = str(event.get("pages") or "")
+                parsed = [item for item in raw_pages.split(",") if item]
+                if parsed:
+                    pages = parsed
+                current = str(event.get("current") or current)
+                break
+
+        completes_before = self._count_marks("nav_complete")
+
+        def current_max_seq() -> int:
+            seqs = [
+                int(event["seq"])
+                for event in self.logcat_events()
+                if isinstance(event.get("seq"), int)
+            ]
+            return max(seqs) if seqs else 0
+
+        def navigate(page: str) -> None:
+            nonlocal completes_before, current
+            # Same-tab toPage is a product no-op (listener requires prev != next).
+            # Do not wait for nav_complete; D measures reselect separately.
+            if page == current:
+                return
+            self.nav_broadcast("navigate", {"page": page})
+            ok_wait = self.wait_mark_count(
+                "nav_complete",
+                completes_before + 1,
+                timeout=12,
+            )
+            if not ok_wait:
+                unreliable.append(f"timeout_waiting_nav_complete:{page}")
+            else:
+                completes_before += 1
+                current = page
+            time.sleep(0.15)
+
+        # A warmup then measure dashboard <-> proxies
+        other = "proxies" if "proxies" in pages else (pages[1] if len(pages) > 1 else pages[0])
+        home = pages[0] if pages else "dashboard"
+        if current != home:
+            navigate(home)
+        for _ in range(2):
+            navigate(other)
+            navigate(home)
+        a_from_seq = current_max_seq()
+        for _ in range(NAV_ROUND_TRIPS):
+            navigate(other)
+            navigate(home)
+        a_to_seq = current_max_seq()
+
+        # B round-robin all visible tabs
+        for _ in range(2):
+            for page in pages:
+                navigate(page)
+        b_from_seq = current_max_seq()
+        for _ in range(NAV_CYCLES):
+            for page in pages:
+                navigate(page)
+        b_to_seq = current_max_seq()
+
+        # D same-tab reselect after scrolling a long page
+        if other in pages:
+            navigate(other)
+        scroll_before = self._count_marks("nav_scroll_by")
+        self.nav_broadcast("scroll_by", {"dy": "1400"})
+        self.wait_mark_count("nav_scroll_by", scroll_before + 1, timeout=6)
+        self.nav_broadcast("scroll_by", {"dy": "1400"})
+        self.wait_mark_count("nav_scroll_by", scroll_before + 2, timeout=6)
+        d_from_seq = current_max_seq()
+        self.nav_broadcast("reselect")
+        if self.wait_mark_count("nav_complete", completes_before + 1, timeout=8):
+            completes_before += 1
+        else:
+            unreliable.append("timeout_waiting_nav_complete:reselect")
+        d_to_seq = current_max_seq()
+
+        dump_before = self._count_marks("nav_page_counts")
+        self.nav_broadcast("dump_counts")
+        self.wait_mark_count("nav_page_counts", dump_before + 1, timeout=6)
+
+        events = self.logcat_events()
+        transitions = group_nav_transitions(events)
+        measured_a = [
+            row
+            for row in transitions
+            if a_from_seq < row["seq"] <= a_to_seq
+        ]
+        measured_b = [
+            row
+            for row in transitions
+            if b_from_seq < row["seq"] <= b_to_seq
+        ]
+        measured_d = [
+            row
+            for row in transitions
+            if d_from_seq < row["seq"] <= d_to_seq
+        ]
+
+        first = filter_transitions(transitions, visit="first")
+        revisit = filter_transitions(transitions, visit="revisit")
+        dash_proxy = filter_transitions(measured_a, pair=(home, other))
+        proxy_dash = filter_transitions(measured_a, pair=(other, home))
+
+        counts_event = next(
+            (event for event in reversed(events) if event.get("mark") == "nav_page_counts"),
+            {},
+        )
+
+        dart_refresh = None
+        dart_budget = None
+        for row in reversed(transitions):
+            complete = row.get("complete") or {}
+            if complete.get("refresh_hz") is not None:
+                dart_refresh = complete.get("refresh_hz")
+                dart_budget = complete.get("budget_ms")
+                break
+
+        ok = (
+            started.get("ok") is True
+            and "nav_listener_ready" in ready
+            and len(measured_a) >= NAV_ROUND_TRIPS
+            and len(measured_b) >= NAV_CYCLES
+            and not any(item.startswith("timeout_waiting_nav_complete") for item in unreliable)
+        )
+        if display.get("refresh_hz") is None and dart_refresh is None:
+            unreliable.append("refresh_rate_unparsed")
+            notes.append("Could not parse dumpsys display refresh rate; Dart FrameTiming budget still recorded.")
+
+        return {
+            "ok": ok,
+            "scenario": "navigation",
+            "am_start": started,
+            "ready_marks": ready,
+            "display": display,
+            "dart_refresh_hz": dart_refresh,
+            "dart_budget_ms": dart_budget,
+            "pages": pages,
+            "workloads": {
+                "A_dashboard_proxy": {
+                    "pair": [home, other],
+                    "round_trips": NAV_ROUND_TRIPS,
+                    "transitions": summarize_nav(measured_a),
+                    "to_proxy": summarize_nav(dash_proxy),
+                    "to_dashboard": summarize_nav(proxy_dash),
+                },
+                "B_round_robin": {
+                    "pages": pages,
+                    "cycles": NAV_CYCLES,
+                    "transitions": summarize_nav(measured_b),
+                },
+                "C_first_vs_revisit": {
+                    "first": summarize_nav(first),
+                    "revisit": summarize_nav(revisit),
+                },
+                "D_same_tab_reselect": {
+                    "page": other,
+                    "transitions": summarize_nav(measured_d),
+                    "note": "Measures current scroll-to-top behavior; UX was not changed.",
+                },
+                "E_page_counts": {
+                    "mounts": counts_event.get("mounts"),
+                    "builds": counts_event.get("builds"),
+                },
+            },
+            "hotspots": mount_hotspots(measured_a + measured_b + measured_d),
+            "transition_count": len(transitions),
+            "unreliable": unreliable,
+            "notes": notes,
+        }
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="SlClash Phase 4 performance harness")
     parser.add_argument(
         "command",
-        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "running-reattach", "compare"],
+        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "running-reattach", "navigation", "compare"],
     )
     parser.add_argument(
         "--package",
@@ -774,6 +1054,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Write aggregated formal baseline markdown. Rejects debug/diagnostic_only builds."
         ),
+    )
+    parser.add_argument(
+        "--write-nav-baseline-doc",
+        type=Path,
+        help="Write Phase 4B navigation baseline markdown. Rejects debug/diagnostic_only builds.",
     )
     return parser
 
@@ -838,6 +1123,7 @@ def main(argv: list[str] | None = None) -> int:
             "vpn": None,
             "background": None,
             "running_reattach": None,
+            "navigation": None,
         }
         if env.get("build_role") == "diagnostic_only":
             result["notes"].append(
@@ -852,6 +1138,7 @@ def main(argv: list[str] | None = None) -> int:
             "vpn": ["vpn"],
             "background": ["background"],
             "running-reattach": ["running_reattach"],
+            "navigation": ["navigation"],
             "all": ["cold_start", "memory", "jank", "vpn", "background"],
         }
         for name in mapping[args.command]:
@@ -897,6 +1184,22 @@ def main(argv: list[str] | None = None) -> int:
             render_baseline_markdown(result), encoding="utf-8"
         )
         print(f"wrote baseline doc {args.write_baseline_doc}", file=sys.stderr)
+    if args.write_nav_baseline_doc:
+        build = result.get("build") or {}
+        if not build.get("formal_eligible"):
+            print(
+                "refusing --write-nav-baseline-doc: formal baseline requires profile "
+                "(profiling) or release (production); debug is diagnostic_only only",
+                file=sys.stderr,
+            )
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            print(f"wrote {json_path} and {md_path}", file=sys.stderr)
+            return 2
+        args.write_nav_baseline_doc.parent.mkdir(parents=True, exist_ok=True)
+        args.write_nav_baseline_doc.write_text(
+            render_navigation_baseline_markdown(result), encoding="utf-8"
+        )
+        print(f"wrote nav baseline doc {args.write_nav_baseline_doc}", file=sys.stderr)
     print(json.dumps(result, indent=2, ensure_ascii=False))
     print(f"wrote {json_path} and {md_path}", file=sys.stderr)
     return 0 if result.get("ok") else 1

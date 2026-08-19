@@ -24,8 +24,10 @@ from parsers import (  # noqa: E402
     connectivity_has_vpn_network,
     jank_is_valid,
     parse_am_start_w,
+    parse_display_refresh_hz,
     parse_gfxinfo,
     parse_meminfo,
+    parse_phase4_events,
     parse_phase4_logcat,
     parse_phase4_session_fields,
     parse_remote_session_presence,
@@ -37,7 +39,13 @@ from parsers import (  # noqa: E402
     vpn_stop_cleared,
 )
 from provenance import provenance_from_git_outputs  # noqa: E402
-from report import compare_results, render_baseline_markdown, render_markdown  # noqa: E402
+from report import (  # noqa: E402
+    compare_results,
+    render_baseline_markdown,
+    render_markdown,
+    render_navigation_baseline_markdown,
+)
+from navigation import group_nav_transitions, summarize_nav  # noqa: E402
 from stats import summarize  # noqa: E402
 
 
@@ -148,6 +156,39 @@ Janky frames: 6 (5.00%)
         self.assertEqual(parsed["janky_percent"], 5.0)
         self.assertEqual(parsed["p90_ms"], 12)
         self.assertTrue(parsed["parse_ok"])
+
+    def test_phase4_events_keep_repeat_nav_marks(self) -> None:
+        raw = (
+            "I/flutter: [PHASE4] mark=nav_begin elapsed_ms=10 seq=1 source=dashboard target=proxies kind=tab\n"
+            "I/flutter: [PHASE4] mark=nav_scroll_to_top elapsed_ms=12 seq=1 page=dashboard elements=180 positions=2 duration_us=900\n"
+            "I/flutter: [PHASE4] mark=nav_complete elapsed_ms=40 seq=1 source=dashboard target=proxies total_ms=312 "
+            "worst_frame_ms=18.5 over_budget=2 budget_ms=8.333 refresh_hz=120.00 visit=first keep_alive=true\n"
+            "I/flutter: [PHASE4] mark=nav_complete elapsed_ms=80 seq=2 source=proxies target=dashboard total_ms=410 visit=revisit\n"
+        )
+        events = parse_phase4_events(raw)
+        self.assertEqual(len(events), 4)
+        self.assertEqual(events[0]["seq"], 1)
+        self.assertEqual(events[2]["total_ms"], 312)
+        self.assertEqual(events[2]["keep_alive"], True)
+        self.assertAlmostEqual(events[2]["budget_ms"], 8.333)
+        nullish = parse_phase4_events(
+            "I/flutter: [PHASE4] mark=nav_complete elapsed_ms=40 seq=3 "
+            "first_build_ms=null keep_alive=false visit=unknown\n"
+        )
+        self.assertIsNone(nullish[0]["first_build_ms"])
+        self.assertFalse(nullish[0]["keep_alive"])
+        grouped = group_nav_transitions(events)
+        self.assertEqual(len(grouped), 2)
+        stats = summarize_nav(grouped)
+        self.assertEqual(stats["count"], 2)
+        self.assertEqual(stats["total_ms"]["min"], 312)
+
+    def test_display_refresh_hz(self) -> None:
+        parsed = parse_display_refresh_hz(
+            "DisplayDeviceInfo{..., refreshRate=120.00001, renderFrameRate=120.0, fps=60.0}"
+        )
+        self.assertEqual(parsed["refresh_hz"], 120.00001)
+        self.assertAlmostEqual(parsed["budget_ms"], 1000.0 / 120.00001, places=4)
 
     def test_phase4_logcat_and_pidof(self) -> None:
         marks = parse_phase4_logcat(
@@ -652,6 +693,56 @@ class SchemaTests(unittest.TestCase):
         self.assertIn("startup_marks", example["cold_start"])
         self.assertIn("vpn_ready", example["vpn"])
         self.assertIn("stop_success", example["vpn"])
+
+
+class NavigationReportTests(unittest.TestCase):
+    def test_nav_baseline_doc_uses_frame_timing_not_idle_gfxinfo(self) -> None:
+        md = render_navigation_baseline_markdown(
+            {
+                "timestamp": "2026-08-19T00:00:00Z",
+                "commit": "abc",
+                "phase4_product_baseline": "b7e08b6e",
+                "device": "Phone",
+                "build": {
+                    "package": "com.slclash.app.profile",
+                    "mode": "profile",
+                    "role": "profiling",
+                    "formal_eligible": True,
+                    "git_head": "3cca318b",
+                },
+                "env": {"android_version": "16", "sdk": 36, "model": "Phone"},
+                "navigation": {
+                    "ok": True,
+                    "pages": ["dashboard", "proxies", "profiles", "tools"],
+                    "dart_refresh_hz": 120.0,
+                    "dart_budget_ms": 8.333,
+                    "display": {"refresh_hz": 120.0, "budget_ms": 8.333},
+                    "workloads": {
+                        "A_dashboard_proxy": {
+                            "pair": ["dashboard", "proxies"],
+                            "round_trips": 10,
+                            "transitions": {
+                                "total_ms": {"median": 320, "p90": 400, "count": 20}
+                            },
+                        }
+                    },
+                    "hotspots": [
+                        {
+                            "source": "dashboard",
+                            "target": "proxies",
+                            "visit": "first",
+                            "total_ms": 480,
+                        }
+                    ],
+                    "unreliable": [],
+                },
+            }
+        )
+        self.assertIn("Phase 4B.0 navigation baseline", md)
+        self.assertIn("Idle gfxinfo is not this baseline", md)
+        self.assertIn("Measured ranking", md)
+        self.assertIn("8.333", md)
+        self.assertIn("dashboard→proxies", md)
 
 
 if __name__ == "__main__":

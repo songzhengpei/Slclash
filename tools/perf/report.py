@@ -59,6 +59,7 @@ def render_markdown(result: dict) -> str:
     lines.extend(_jank_section(result.get("jank")))
     lines.extend(_vpn_section(result.get("vpn")))
     lines.extend(_background_section(result.get("background")))
+    lines.extend(_navigation_section(result.get("navigation")))
 
     compare = result.get("compare")
     if compare:
@@ -199,6 +200,61 @@ def _background_section(block: dict | None) -> list[str]:
             f"pss_kb=`{mem}` "
             f"vpn_ready=`{(snap.get('vpn_state') or {}).get('vpn_ready')}`"
         )
+    if block.get("unreliable"):
+        lines.append(f"- unreliable: {', '.join(block['unreliable'])}")
+    for note in block.get("notes") or []:
+        lines.append(f"- note: {note}")
+    lines.append("")
+    return lines
+
+
+def _fmt_stats(stats: dict | None, unit: str = "ms") -> str:
+    stats = stats or {}
+    return (
+        f"median=`{stats.get('median')}` p90=`{stats.get('p90')}` "
+        f"p99=`{stats.get('p99')}` min=`{stats.get('min')}` max=`{stats.get('max')}` "
+        f"(n=`{stats.get('count')}` {unit})"
+    )
+
+
+def _navigation_section(block: dict | None) -> list[str]:
+    if not block:
+        return []
+    display = block.get("display") or {}
+    workloads = block.get("workloads") or {}
+    a = workloads.get("A_dashboard_proxy") or {}
+    b = workloads.get("B_round_robin") or {}
+    c = workloads.get("C_first_vs_revisit") or {}
+    d = workloads.get("D_same_tab_reselect") or {}
+    e = workloads.get("E_page_counts") or {}
+    lines = [
+        "## navigation",
+        "",
+        f"- ok: `{block.get('ok')}`",
+        f"- pages: `{block.get('pages')}`",
+        f"- dumpsys refresh_hz: `{display.get('refresh_hz')}` budget_ms=`{display.get('budget_ms')}`",
+        f"- dart refresh_hz: `{block.get('dart_refresh_hz')}` budget_ms=`{block.get('dart_budget_ms')}`",
+        f"- A dashboard↔proxy total: {_fmt_stats((a.get('transitions') or {}).get('total_ms'))}",
+        f"- A to_proxy: {_fmt_stats((a.get('to_proxy') or {}).get('total_ms'))}",
+        f"- A to_dashboard: {_fmt_stats((a.get('to_dashboard') or {}).get('total_ms'))}",
+        f"- A scroll_us: {_fmt_stats((a.get('transitions') or {}).get('scroll_us'), 'us')}",
+        f"- B round-robin total: {_fmt_stats((b.get('transitions') or {}).get('total_ms'))}",
+        f"- C first-mount total: {_fmt_stats((c.get('first') or {}).get('total_ms'))}",
+        f"- C revisit total: {_fmt_stats((c.get('revisit') or {}).get('total_ms'))}",
+        f"- D reselect total: {_fmt_stats((d.get('transitions') or {}).get('total_ms'))}",
+        f"- E mounts: `{e.get('mounts')}`",
+        f"- E builds: `{e.get('builds')}`",
+    ]
+    hotspots = block.get("hotspots") or []
+    if hotspots:
+        lines.append("- top transitions:")
+        for row in hotspots[:8]:
+            lines.append(
+                f"  - {row.get('source')}→{row.get('target')} visit=`{row.get('visit')}` "
+                f"total_ms=`{row.get('total_ms')}` worst_frame_ms=`{row.get('worst_frame_ms')}` "
+                f"over_budget=`{row.get('over_budget')}` scroll_us=`{row.get('scroll_us')}` "
+                f"keep_alive=`{row.get('keep_alive')}`"
+            )
     if block.get("unreliable"):
         lines.append(f"- unreliable: {', '.join(block['unreliable'])}")
     for note in block.get("notes") or []:
@@ -373,6 +429,109 @@ def render_baseline_markdown(result: dict) -> str:
         "## Unreliable",
         "",
     ]
+    if unreliable:
+        for item in unreliable:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- (none)")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_navigation_baseline_markdown(result: dict) -> str:
+    """Formal 4B.0 navigation BEFORE baseline. Idle gfxinfo is not this baseline."""
+    env = result.get("env") or {}
+    build = result.get("build") or {}
+    nav = result.get("navigation") or {}
+    display = nav.get("display") or {}
+    workloads = nav.get("workloads") or {}
+    a = workloads.get("A_dashboard_proxy") or {}
+    b = workloads.get("B_round_robin") or {}
+    c = workloads.get("C_first_vs_revisit") or {}
+    d = workloads.get("D_same_tab_reselect") or {}
+    e = workloads.get("E_page_counts") or {}
+    unreliable = list(nav.get("unreliable") or [])
+    lines = [
+        "# Phase 4B.0 navigation baseline",
+        "",
+        "> Navigation/Page Mount FrameTiming only. Idle gfxinfo is not this baseline.",
+        "",
+        f"- captured_at: `{result.get('timestamp')}`",
+        f"- harness_commit: `{result.get('commit')}`",
+        f"- product_baseline_sha: `{result.get('phase4_product_baseline')}`",
+        f"- 4B navigation BEFORE sha: `{build.get('git_head') or result.get('commit')}`",
+        f"- device: `{result.get('device') or env.get('model')}`",
+        f"- android: `{env.get('android_version')}` (sdk `{env.get('sdk')}`)",
+        f"- build: `{build.get('package') or env.get('package')}` "
+        f"{build.get('version_name') or env.get('version_name')} "
+        f"(code {build.get('version_code') or env.get('version_code')})",
+        f"- build_mode: `{build.get('mode') or env.get('build_mode')}`",
+        f"- build_role: `{build.get('role') or env.get('build_role')}`",
+        f"- formal_eligible: `{build.get('formal_eligible', env.get('formal_eligible'))}`",
+        f"- dumpsys refresh_hz: `{display.get('refresh_hz')}` budget_ms=`{display.get('budget_ms')}`",
+        f"- dart refresh_hz: `{nav.get('dart_refresh_hz')}` budget_ms=`{nav.get('dart_budget_ms')}`",
+        f"- pages: `{nav.get('pages')}`",
+        f"- ok: `{nav.get('ok')}`",
+        "",
+        "## A. Dashboard ↔ Proxy",
+        "",
+        f"- pair: `{a.get('pair')}` round_trips=`{a.get('round_trips')}`",
+        f"- total_ms: {_fmt_stats((a.get('transitions') or {}).get('total_ms'))}",
+        f"- to_proxy total_ms: {_fmt_stats((a.get('to_proxy') or {}).get('total_ms'))}",
+        f"- to_dashboard total_ms: {_fmt_stats((a.get('to_dashboard') or {}).get('total_ms'))}",
+        f"- first_build_ms: {_fmt_stats((a.get('transitions') or {}).get('first_build_ms'))}",
+        f"- worst_frame_ms: {_fmt_stats((a.get('transitions') or {}).get('worst_frame_ms'))}",
+        f"- over_budget frames: {_fmt_stats((a.get('transitions') or {}).get('over_budget'), 'frames')}",
+        f"- scroll_to_top us: {_fmt_stats((a.get('transitions') or {}).get('scroll_us'), 'us')}",
+        f"- scroll elements: {_fmt_stats((a.get('transitions') or {}).get('scroll_elements'), 'elements')}",
+        "",
+        "## B. Bottom navigation round-robin",
+        "",
+        f"- pages: `{b.get('pages')}` cycles=`{b.get('cycles')}`",
+        f"- total_ms: {_fmt_stats((b.get('transitions') or {}).get('total_ms'))}",
+        f"- worst_frame_ms: {_fmt_stats((b.get('transitions') or {}).get('worst_frame_ms'))}",
+        f"- over_budget frames: {_fmt_stats((b.get('transitions') or {}).get('over_budget'), 'frames')}",
+        "",
+        "## C. First mount vs revisit",
+        "",
+        f"- first total_ms: {_fmt_stats((c.get('first') or {}).get('total_ms'))}",
+        f"- revisit total_ms: {_fmt_stats((c.get('revisit') or {}).get('total_ms'))}",
+        f"- first first_build_ms: {_fmt_stats((c.get('first') or {}).get('first_build_ms'))}",
+        f"- revisit first_build_ms: {_fmt_stats((c.get('revisit') or {}).get('first_build_ms'))}",
+        "",
+        "## D. Same-tab reselect / scroll-to-top",
+        "",
+        f"- page: `{d.get('page')}`",
+        f"- total_ms: {_fmt_stats((d.get('transitions') or {}).get('total_ms'))}",
+        f"- scroll_us: {_fmt_stats((d.get('transitions') or {}).get('scroll_us'), 'us')}",
+        f"- note: {d.get('note')}",
+        "",
+        "## E. Page root mount / build counts",
+        "",
+        f"- mounts: `{e.get('mounts')}`",
+        f"- builds: `{e.get('builds')}`",
+        "",
+        "## Measured ranking (do not start 4B.1 here)",
+        "",
+        "- Tab `total_ms` is dominated by `SurgeMotion.pageEnter` (280ms). That duration is a product choice (P4), not a traversal bug.",
+        "- Dashboard `keep:false` remounts on every return (workload E). Keep-alive tabs mount once. This is the largest extra CPU/jank source that is not the 280ms animation floor. Changing keep-alive is also P7.",
+        "- `visitChildElements` scroll-to-top is **not** the hotspot: ~0.4–0.8ms for ~1000–2000 elements and 1 `ScrollPosition`. Do not replace it in 4B.1 without a new regression.",
+        "- Over-budget frames (budget = 1000/refreshHz, here ~8.33ms at 120Hz) happen *during* the PageView animation. Worst frames ~12–24ms.",
+        "",
+        "## Top transitions",
+        "",
+    ]
+    for row in nav.get("hotspots") or []:
+        lines.append(
+            f"- {row.get('source')}→{row.get('target')} visit=`{row.get('visit')}` "
+            f"keep_alive=`{row.get('keep_alive')}` total_ms=`{row.get('total_ms')}` "
+            f"first_build_ms=`{row.get('first_build_ms')}` "
+            f"worst_frame_ms=`{row.get('worst_frame_ms')}` over_budget=`{row.get('over_budget')}` "
+            f"scroll_us=`{row.get('scroll_us')}` elements=`{row.get('scroll_elements')}`"
+        )
+    if not nav.get("hotspots"):
+        lines.append("- (none)")
+    lines.extend(["", "## Unreliable", ""])
     if unreliable:
         for item in unreliable:
             lines.append(f"- {item}")

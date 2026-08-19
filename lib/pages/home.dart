@@ -1,6 +1,8 @@
+import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/manager/app_manager.dart';
 import 'package:fl_clash/models/common.dart';
+import 'package:fl_clash/plugins/phase4_perf.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
@@ -114,16 +116,22 @@ class HomePage extends StatelessWidget {
                   pageBuilder: (_, index) {
                     final navigationItem = navigationItems[index];
                     final navigationView = navigationItem.builder(context);
-                    final view = KeepScope(
+                    final page = isMobile
+                        ? navigationView
+                        : Navigator(
+                            pages: [MaterialPage(child: navigationView)],
+                            onDidRemovePage: (_) {},
+                          );
+                    return KeepScope(
                       keep: navigationItem.keep,
-                      child: isMobile
-                          ? navigationView
-                          : Navigator(
-                              pages: [MaterialPage(child: navigationView)],
-                              onDidRemovePage: (_) {},
-                            ),
+                      child: NavigationTrace.enabled
+                          ? NavigationMountProbe(
+                              page: navigationItem.label.name,
+                              keepAlive: navigationItem.keep,
+                              child: page,
+                            )
+                          : page,
                     );
-                    return view;
                   },
                 );
               },
@@ -156,8 +164,17 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _pageIndex);
+    Phase4PerfCommands.onReselect = () {
+      scrollPageToTop(ref.read(currentPageLabelProvider));
+    };
+    Phase4PerfCommands.onScrollBy = scrollCurrentPageBy;
     ref.listenManual(currentPageLabelProvider, (prev, next) {
       if (prev != next) {
+        NavigationTrace.begin(
+          source: prev?.name ?? 'none',
+          target: next.name,
+          kind: 'tab',
+        );
         if (prev != null) {
           scrollPageToTop(prev, animate: false);
         }
@@ -194,7 +211,12 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
     }
     final isAnimateToPage = ref.read(appSettingProvider).isAnimateToPage;
     final isMobile = ref.read(isMobileViewProvider);
-    if (isAnimateToPage && isMobile && !ignoreAnimateTo) {
+    final shouldAnimate = isAnimateToPage && isMobile && !ignoreAnimateTo;
+    NavigationTrace.markAnimateStart(
+      mode: shouldAnimate ? 'animate' : 'jump',
+      durationMs: shouldAnimate ? SurgeMotion.pageEnter.inMilliseconds : 0,
+    );
+    if (shouldAnimate) {
       await _pageController.animateToPage(
         index,
         duration: SurgeMotion.pageEnter,
@@ -203,33 +225,59 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
     } else {
       _pageController.jumpToPage(index);
     }
+    NavigationTrace.markAnimationComplete();
     scrollPageToTop(pageLabel);
+    NavigationTrace.scheduleComplete();
+  }
+
+  void scrollCurrentPageBy(double dy) {
+    final pageLabel = ref.read(currentPageLabelProvider);
+    final pageContext = GlobalObjectKey(pageLabel).currentContext;
+    if (pageContext is! Element) {
+      return;
+    }
+    final visit = collectVerticalScrollPositions(pageContext);
+    for (final position in visit.positions) {
+      final target = (position.pixels + dy).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      if ((position.pixels - target).abs() < 0.5) {
+        continue;
+      }
+      position.jumpTo(target);
+    }
+    NavigationTrace.markScrollBy(page: pageLabel.name, dy: dy, visit: visit);
   }
 
   void scrollPageToTop(PageLabel pageLabel, {bool animate = true}) {
+    if (NavigationTrace.enabled &&
+        NavigationTrace.activeSeq == null &&
+        animate) {
+      NavigationTrace.begin(
+        source: pageLabel.name,
+        target: pageLabel.name,
+        kind: 'reselect',
+      );
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pageContext = GlobalObjectKey(pageLabel).currentContext;
       if (!mounted || pageContext is! Element) {
+        if (NavigationTrace.enabled &&
+            NavigationTrace.activeSeq != null &&
+            animate) {
+          NavigationTrace.scheduleComplete(reason: 'no_scrollables');
+        }
         return;
       }
-      final positions = <ScrollPosition>{};
-      void collect(Element element) {
-        if (element is StatefulElement && element.state is ScrollableState) {
-          final position = (element.state as ScrollableState).position;
-          if (position.axis == Axis.vertical &&
-              position.hasPixels &&
-              position.hasContentDimensions) {
-            positions.add(position);
-          }
-        }
-        element.visitChildElements(collect);
-      }
-
-      pageContext.visitChildElements(collect);
-      for (final position in positions) {
-        final target = position.axisDirection == AxisDirection.up
-            ? position.maxScrollExtent
-            : position.minScrollExtent;
+      final visit = collectVerticalScrollPositions(pageContext);
+      NavigationTrace.markScrollToTop(
+        page: pageLabel.name,
+        animate: animate,
+        visit: visit,
+      );
+      for (final position in visit.positions) {
+        final target = scrollToTopTarget(position);
         if ((position.pixels - target).abs() < 0.5) {
           continue;
         }
@@ -243,6 +291,11 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
           position.jumpTo(target);
         }
       }
+      if (NavigationTrace.enabled &&
+          NavigationTrace.activeSeq != null &&
+          animate) {
+        NavigationTrace.scheduleComplete();
+      }
     });
   }
 
@@ -253,6 +306,8 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
 
   @override
   void dispose() {
+    Phase4PerfCommands.onReselect = null;
+    Phase4PerfCommands.onScrollBy = null;
     _pageController.dispose();
     super.dispose();
   }

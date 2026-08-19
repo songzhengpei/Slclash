@@ -1,3 +1,4 @@
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/views/dashboard/dashboard.dart';
 import 'package:fl_clash/views/dashboard/dashboard_layout.dart';
 import 'package:fl_clash/views/dashboard/widgets/network_overview_card.dart';
@@ -379,6 +380,63 @@ void main() {
     test('clears outbound fill when idle', () {
       expect(
         heroOutboundFillActive(isStart: false, isSmartStopped: false),
+        isFalse,
+      );
+    });
+  });
+
+  group('heroConnectingPulseActive', () {
+    test('suppresses pulse on smart-pause even if Core is connecting', () {
+      expect(
+        heroConnectingPulseActive(
+          isSmartStopped: true,
+          coreStatus: CoreStatus.connecting,
+          showConnecting: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('suppresses leftover connecting timer on paused reopen', () {
+      expect(
+        heroConnectingPulseActive(
+          isSmartStopped: true,
+          coreStatus: CoreStatus.disconnected,
+          showConnecting: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('pulses while a real start is connecting', () {
+      expect(
+        heroConnectingPulseActive(
+          isSmartStopped: false,
+          coreStatus: CoreStatus.connecting,
+          showConnecting: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('pulses while the start timer is still showing connecting', () {
+      expect(
+        heroConnectingPulseActive(
+          isSmartStopped: false,
+          coreStatus: CoreStatus.disconnected,
+          showConnecting: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('idle disconnected does not pulse', () {
+      expect(
+        heroConnectingPulseActive(
+          isSmartStopped: false,
+          coreStatus: CoreStatus.disconnected,
+          showConnecting: false,
+        ),
         isFalse,
       );
     });

@@ -36,6 +36,8 @@
     "jank": { "type": ["object", "null"] },
     "vpn": { "type": ["object", "null"] },
     "background": { "type": ["object", "null"] },
+    "running_reattach": { "type": ["object", "null"] },
+    "navigation": { "type": ["object", "null"] },
     "compare": { "type": ["object", "null"] }
   }
 }
