@@ -22,7 +22,7 @@ REPO = ROOT.parents[1]
 sys.path.insert(0, str(ROOT))
 
 from adbutil import Adb, HarnessError, resolve_adb, select_device  # noqa: E402
-from build_mode import parse_package_debuggable, resolve_build_mode  # noqa: E402
+from build_mode import parse_package_debuggable, resolve_build_mode, default_package_for_mode  # noqa: E402
 from parsers import (  # noqa: E402
     aggregate_startup_marks,
     assess_vpn_state,
@@ -555,7 +555,14 @@ def build_parser() -> argparse.ArgumentParser:
         "command",
         choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "compare"],
     )
-    parser.add_argument("--package", default=os.environ.get("SLCLASH_PACKAGE", DEFAULT_PACKAGE))
+    parser.add_argument(
+        "--package",
+        default=None,
+        help=(
+            "Installed applicationId. Defaults: debug=.dev, profile=.profile, "
+            "release=com.slclash.app. Override with SLCLASH_PACKAGE."
+        ),
+    )
     parser.add_argument("--serial")
     parser.add_argument("--adb")
     parser.add_argument("--baseline", type=Path)
@@ -594,6 +601,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(compare_results(baseline, current), indent=2))
         return 0
 
+    package = (
+        args.package
+        or os.environ.get("SLCLASH_PACKAGE")
+        or default_package_for_mode(args.build_mode)
+    )
+
     captures = REPO / ".perf-captures" / "phase4"
     stamp = utc_now().replace(":", "").replace("-", "")
     out_dir = args.out or (captures / stamp)
@@ -604,7 +617,7 @@ def main(argv: list[str] | None = None) -> int:
         serial = select_device(adb_path, args.serial)
         runner = Runner(
             Adb(adb_path, serial),
-            args.package,
+            package,
             build_mode=args.build_mode,
         )
         env = runner.collect_env()

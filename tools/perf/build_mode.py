@@ -9,7 +9,20 @@ ROLE_BY_MODE = {
     "release": "production",
 }
 
+PACKAGE_BY_MODE = {
+    "debug": "com.slclash.app.dev",
+    "profile": "com.slclash.app.profile",
+    "release": "com.slclash.app",
+}
+
 FORMAL_ROLES = frozenset({"profiling", "production"})
+
+
+def default_package_for_mode(mode: str | None) -> str:
+    """Sideload package for a Flutter build mode. Profile never shares production id."""
+    if mode in PACKAGE_BY_MODE:
+        return PACKAGE_BY_MODE[mode]
+    return PACKAGE_BY_MODE["debug"]
 
 
 def role_for_mode(mode: str) -> str:

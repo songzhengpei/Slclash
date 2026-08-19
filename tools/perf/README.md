@@ -15,16 +15,23 @@ Product baseline SHA: `b7e08b6ef84546e9b3d084a411c3a59e3e4df7c8`
 `--write-baseline-doc` refuses `diagnostic_only` / debug builds.
 
 ```powershell
-# Profile (marks + jank / profiling)
+# Profile (marks + jank / profiling) — package com.slclash.app.profile, overlay-install OK
 flutter build apk --profile --target-platform android-arm64 --dart-define=PHASE4_PERF=true
-python tools/perf/phase4.py all --build-mode profile --write-baseline-doc docs/phase4-a0-baseline.md
+adb install -r build\app\outputs\flutter-apk\app-profile.apk
+python tools/perf/phase4.py all --build-mode profile
 
-# Release / beta production acceptance (no PHASE4_PERF by default)
-flutter build apk --release --split-per-abi --target-platform android-arm64
+# Production acceptance: measure the CI beta/main APK already on the phone.
+# Do not locally assembleRelease for every Phase 4 iteration.
 python tools/perf/phase4.py all --package com.slclash.app --build-mode release
 ```
 
-Pass `--build-mode profile` explicitly for profiling APKs (non-debuggable packages otherwise default to `release`).
+Pass `--build-mode profile` explicitly for profiling APKs. `--package` defaults by mode:
+
+| `--build-mode` | Default package |
+|---|---|
+| `debug` / omitted | `com.slclash.app.dev` |
+| `profile` | `com.slclash.app.profile` |
+| `release` | `com.slclash.app` |
 
 ## Command
 

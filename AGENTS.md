@@ -44,9 +44,10 @@ D:\Code\Tools\Android\Sdk\platform-tools\adb.exe install -r build\app\outputs\fl
 - Do not edit generated files in `lib/providers/generated/` or `lib/models/generated/`; edit their sources.
 - `flutter analyze` may include existing info-level deprecations. New errors or warnings block completion.
 - Focused checks: `flutter test test\views\profiles\media_check_test.dart`; in `core/`, `go test ./...`.
-- Phase 4 perf harness (read-only baseline, no product behavior change): `python tools/perf/phase4.py all`. Usage: `tools/perf/README.md`.
-  - Debug APK = `diagnostic_only` (instrumentation checks only; never formal baseline / improvement %).
-  - Profile = `profiling` formal data (StartupTrace / jank / CPU); release = `production` formal UX metrics.
+- Phase 4 perf harness: `python tools/perf/phase4.py all`. Usage: `tools/perf/README.md`.
+  - Debug APK = `com.slclash.app.dev` / `diagnostic_only` (instrumentation only).
+  - Profile APK = `com.slclash.app.profile` / `profiling`. Overlay-install with `adb install -r`; never replaces daily `com.slclash.app`.
+  - Release/production UX metrics: measure the CI beta/main APK already on the device (`com.slclash.app`). Do not locally `assembleRelease` for every Phase 4 iteration.
   - `--write-baseline-doc` rejects debug builds.
 - If Go core dependencies change, run `go mod tidy` in `core/`.
 - If Go submodule is missing, run `git submodule update --init --recursive`.

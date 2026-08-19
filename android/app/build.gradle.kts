@@ -78,6 +78,14 @@ android {
             manifestPlaceholders["debugAppLabel"] = debugAppLabel
         }
 
+        getByName("profile") {
+            applicationIdSuffix = ".profile"
+            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
+            manifestPlaceholders["profileAppLabel"] = "SlClash Profile"
+        }
+
         release {
             isMinifyEnabled = true
             isShrinkResources = true

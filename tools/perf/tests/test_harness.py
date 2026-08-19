@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 from adbutil import HarnessError, select_device  # noqa: E402
 from build_mode import (  # noqa: E402
+    default_package_for_mode,
     is_formal_eligible,
     parse_package_debuggable,
     resolve_build_mode,
@@ -42,6 +43,12 @@ class BuildModeTests(unittest.TestCase):
         self.assertFalse(is_formal_eligible(mode="debug"))
         self.assertTrue(is_formal_eligible(mode="profile"))
         self.assertTrue(is_formal_eligible(mode="release"))
+
+    def test_default_package_by_mode(self) -> None:
+        self.assertEqual(default_package_for_mode("debug"), "com.slclash.app.dev")
+        self.assertEqual(default_package_for_mode("profile"), "com.slclash.app.profile")
+        self.assertEqual(default_package_for_mode("release"), "com.slclash.app")
+        self.assertEqual(default_package_for_mode(None), "com.slclash.app.dev")
 
     def test_debuggable_detection(self) -> None:
         self.assertTrue(
