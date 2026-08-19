@@ -26,8 +26,12 @@ from parsers import (  # noqa: E402
     parse_gfxinfo,
     parse_meminfo,
     parse_phase4_logcat,
+    parse_phase4_session_fields,
     parse_pidof,
+    parse_tun_from_proc_net_dev,
+    parse_tun_from_sys_class_net,
     parse_tun_interfaces,
+    ui_process_kill_commands,
     vpn_stop_cleared,
 )
 from provenance import provenance_from_git_outputs  # noqa: E402
@@ -204,6 +208,13 @@ class TunAndVpnAssessmentTests(unittest.TestCase):
         )
         self.assertFalse(vpn_stop_cleared(not_cleared))
 
+    def test_proc_net_dev_tun_ignores_tunl0(self) -> None:
+        found = parse_tun_from_proc_net_dev(
+            "  tunl0: 0 0\n  tun0: 100 2\n  wlan0: 1 1\n"
+        )
+        self.assertEqual(found, ["tun0"])
+        self.assertEqual(parse_tun_from_sys_class_net("lo tun0 tunl0 wlan0"), ["tun0"])
+
     def test_connectivity_vpn_requires_typed_signal(self) -> None:
         self.assertFalse(connectivity_has_vpn_network("some app named vpnhelper"))
         self.assertTrue(
@@ -226,6 +237,19 @@ class StartupMarkAggregationTests(unittest.TestCase):
         self.assertEqual(agg["core_outcome_counts"]["core_skipped"], 2)
         self.assertEqual(agg["core_outcome_counts"]["core_ready"], 1)
         self.assertNotIn("core_skipped", agg["stats"])
+
+    def test_session_snapshot_extras(self) -> None:
+        parsed = parse_phase4_session_fields(
+            "I/flutter: [PHASE4] mark=session_snapshot elapsed_ms=120 session_id=42 state=RUNNING\n"
+        )
+        self.assertEqual(parsed["session_id"], 42)
+        self.assertEqual(parsed["state"], "RUNNING")
+
+    def test_ui_kill_commands_never_force_stop(self) -> None:
+        commands = ui_process_kill_commands("com.slclash.app.profile", 99)
+        self.assertTrue(commands)
+        for command in commands:
+            self.assertNotIn("force-stop", command)
 
 
 class DeviceErrorTests(unittest.TestCase):

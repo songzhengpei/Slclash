@@ -80,6 +80,36 @@ void main() {
     });
   });
 
+  group('running session reattach helpers', () {
+    test('RUNNING and STARTING require full setup', () {
+      expect(sessionRequiresFullSetup('RUNNING'), isTrue);
+      expect(sessionRequiresFullSetup('STARTING'), isTrue);
+      expect(sessionRequiresFullSetup('STOPPING'), isFalse);
+      expect(sessionRequiresFullSetup('PAUSED'), isFalse);
+      expect(sessionRequiresFullSetup('STOPPED'), isFalse);
+    });
+
+    test('only RUNNING skips the connect min delay', () {
+      expect(shouldSkipConnectMinDelay('RUNNING'), isTrue);
+      expect(shouldSkipConnectMinDelay('STARTING'), isFalse);
+      expect(shouldSkipConnectMinDelay('STOPPED'), isFalse);
+    });
+
+    test('only RUNNING defers initCore group work to applyProfile', () {
+      expect(shouldDeferInitCoreGroups('RUNNING'), isTrue);
+      expect(shouldDeferInitCoreGroups('STARTING'), isFalse);
+    });
+
+    test('PAUSED restores smart-stop UI without the RUNNING fast path', () {
+      expect(shouldRestoreSmartPaused('PAUSED'), isTrue);
+      expect(shouldRestoreSmartPaused('STOPPED', smartPaused: true), isTrue);
+      expect(shouldRestoreSmartPaused('RUNNING'), isFalse);
+      expect(shouldSkipConnectMinDelay('PAUSED'), isFalse);
+      expect(shouldDeferInitCoreGroups('PAUSED'), isFalse);
+      expect(sessionRequiresFullSetup('PAUSED'), isFalse);
+    });
+  });
+
   group('shouldReconnectCoreOnResume', () {
     test(
       'does not reconnect core on Android when VPN is stopped and groups exist',

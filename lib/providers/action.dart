@@ -94,6 +94,22 @@ bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
   return isRunning || autoRun;
 }
 
+bool sessionRequiresFullSetup(String? sessionState) {
+  return sessionState == 'RUNNING' || sessionState == 'STARTING';
+}
+
+bool shouldSkipConnectMinDelay(String? sessionState) {
+  return sessionState == 'RUNNING';
+}
+
+bool shouldDeferInitCoreGroups(String? sessionState) {
+  return sessionState == 'RUNNING';
+}
+
+bool shouldRestoreSmartPaused(String? sessionState, {bool smartPaused = false}) {
+  return sessionState == 'PAUSED' || smartPaused;
+}
+
 bool shouldReconnectCoreOnResume({
   required bool isAndroid,
   required bool isRunning,
@@ -635,6 +651,7 @@ class SetupAction extends _$SetupAction {
   Future<bool> _handleStart() async {
     if (!ref.read(suspendProvider)) {
       final started = await coreController.startListener();
+      StartupTrace.mark('startListener');
       if (!started) {
         startTime = null;
         ref.read(runTimeProvider.notifier).value = null;
@@ -749,6 +766,23 @@ class SetupAction extends _$SetupAction {
 
   Future _updateStartTime() async {
     startTime = await service?.getRunTime();
+    if (StartupTrace.enabled || system.isAndroid) {
+      _nativeSession = await service?.getSessionSnapshot() ?? const {};
+      StartupTrace.mark(
+        'session_snapshot',
+        extras: {
+          'session_id': _nativeSession['sessionId'] ?? 0,
+          'state': _nativeSession['state'] ?? 'UNKNOWN',
+        },
+      );
+    }
+  }
+
+  Map<String, dynamic> _nativeSession = const {};
+
+  String? get _sessionState {
+    final value = _nativeSession['state'];
+    return value is String ? value : null;
   }
 
   Future handleStop() async {
@@ -797,20 +831,30 @@ class SetupAction extends _$SetupAction {
       await _updateStartTime();
       StartupTrace.mark('updateStartTime');
     }
+    final sessionState = _sessionState;
     final shouldFullSetup = shouldFullSetupOnInit(
-      isRunning: isStart,
+      isRunning:
+          isStart || sessionRequiresFullSetup(sessionState),
       autoRun: ref.read(appSettingProvider).autoRun,
     );
     if (shouldFullSetup) {
       final coreAction = ref.read(coreActionProvider.notifier);
-      final connected = await coreAction.connectCore();
+      final connected = await coreAction.connectCore(
+        minDelay: shouldSkipConnectMinDelay(sessionState)
+            ? Duration.zero
+            : const Duration(milliseconds: 300),
+      );
+      StartupTrace.mark('connectCore');
       if (!connected) {
         startTime = null;
         ref.read(runTimeProvider.notifier).value = null;
         StartupTrace.mark('core_connect_failed');
         return;
       }
-      await coreAction.initCore();
+      await coreAction.initCore(
+        deferGroupSetup: shouldDeferInitCoreGroups(sessionState),
+      );
+      StartupTrace.mark('initCore');
       final coreReady =
           coreController.isCompleted && await coreController.isInit;
       if (coreReady) {
@@ -823,6 +867,13 @@ class SetupAction extends _$SetupAction {
       globalState.needInitStatus = false;
       ref.read(runTimeProvider.notifier).value = null;
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+      if (shouldRestoreSmartPaused(
+        sessionState,
+        smartPaused: _nativeSession['smartPaused'] == true,
+      )) {
+        ref.read(isSmartStoppedProvider.notifier).set(true);
+        StartupTrace.mark('smart_paused_restored');
+      }
       commonPrint.log('init status skip full setup');
       StartupTrace.mark('core_skipped');
     }
@@ -953,8 +1004,10 @@ class SetupAction extends _$SetupAction {
       onUpdated: () async {
         final proxiesAction = ref.read(proxiesActionProvider.notifier);
         await proxiesAction.updateGroups();
+        StartupTrace.mark('applyProfile.groups');
         unawaited(proxiesAction.preheatComputedGroups());
         await ref.read(providersProvider.notifier).syncProviders();
+        StartupTrace.mark('syncProviders');
       },
     );
   }
@@ -1177,6 +1230,7 @@ class SetupAction extends _$SetupAction {
       setupState: setupState,
       patchConfig: realPatchConfig,
     );
+    StartupTrace.mark('getProfile');
     final yamlString = vm2.a;
     final yamlMd5 = vm2.b;
     if (yamlMd5 == globalState.lastConfigMd5 && force == false) return true;
@@ -1190,6 +1244,7 @@ class SetupAction extends _$SetupAction {
           params: _setupParams,
           preloadInvoke: preloadInvoke,
         );
+        StartupTrace.mark('setupConfig');
 
         if (message.isNotEmpty) {
           commonPrint.log(
@@ -1210,6 +1265,7 @@ class SetupAction extends _$SetupAction {
         ref.read(checkIpNumProvider.notifier).add();
         await onUpdated?.call();
         success = true;
+        StartupTrace.mark('applyProfile');
       },
       silence: true,
       tag: !silence ? LoadingTag.proxies : null,
@@ -1421,10 +1477,14 @@ class CoreAction extends _$CoreAction {
   @override
   void build() {}
 
-  Future<void> initCore() async {
+  Future<void> initCore({bool deferGroupSetup = false}) async {
     final wasInitialized = await coreController.isInit;
     final ready = await ensureCoreReady();
+    StartupTrace.mark('ensureCoreReady');
     if (!ready) return;
+    if (deferGroupSetup) {
+      return;
+    }
     if (!wasInitialized) {
       final profileId = ref.read(currentProfileIdProvider);
       if (profileId != null) {
@@ -1448,17 +1508,20 @@ class CoreAction extends _$CoreAction {
         );
       } else {
         await ref.read(proxiesActionProvider.notifier).updateGroups();
+        StartupTrace.mark('initCore.groups');
       }
     }
   }
 
-  Future<bool> connectCore() async {
+  Future<bool> connectCore({
+    Duration minDelay = const Duration(milliseconds: 300),
+  }) async {
     final running = _connectCoreFuture;
     if (running != null) {
       commonPrint.log('core-connect:reuse');
       return running;
     }
-    final future = _connectCore();
+    final future = _connectCore(minDelay: minDelay);
     _connectCoreFuture = future;
     try {
       return await future;
@@ -1507,15 +1570,23 @@ class CoreAction extends _$CoreAction {
     return initialized;
   }
 
-  Future<bool> _connectCore() async {
+  Future<bool> _connectCore({
+    Duration minDelay = const Duration(milliseconds: 300),
+  }) async {
     final watch = Stopwatch()..start();
     commonPrint.log('core-connect:start');
     ref.read(coreStatusProvider.notifier).value = CoreStatus.connecting;
-    final result = await Future.wait([
-      coreController.preload(),
-      Future.delayed(const Duration(milliseconds: 300)),
-    ]);
-    final String message = result[0];
+    late final String message;
+    final preload = coreController.preload().then((value) {
+      message = value;
+      StartupTrace.mark('preload');
+      return value;
+    });
+    if (minDelay <= Duration.zero) {
+      await preload;
+    } else {
+      await Future.wait([preload, Future.delayed(minDelay)]);
+    }
     if (message.isNotEmpty) {
       ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
       globalState.showNotifier(message);

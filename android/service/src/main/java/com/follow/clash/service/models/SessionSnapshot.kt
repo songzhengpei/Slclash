@@ -9,6 +9,10 @@ object SessionState {
     const val RUNNING = "RUNNING"
     const val PAUSED = "PAUSED"
     const val STOPPING = "STOPPING"
+
+    fun keepsRemoteService(state: String): Boolean {
+        return state != STOPPED
+    }
 }
 
 @Parcelize

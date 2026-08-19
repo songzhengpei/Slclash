@@ -41,16 +41,20 @@ class StartupTrace {
     mark('process_main_begin');
   }
 
-  static void mark(String name) {
+  static void mark(String name, {Map<String, Object?> extras = const {}}) {
     if (!enabled) {
       return;
     }
     final ms = elapsedMs;
-    developer.Timeline.instantSync(name, arguments: {'elapsed_ms': ms});
-    _task?.instant(name, arguments: {'elapsed_ms': ms});
+    final arguments = <String, Object?>{'elapsed_ms': ms, ...extras};
+    developer.Timeline.instantSync(name, arguments: arguments);
+    _task?.instant(name, arguments: arguments);
+    final extra = extras.entries
+        .map((entry) => ' ${entry.key}=${entry.value}')
+        .join();
     // Prefer print for ADB logcat reliability; gated by [enabled] above.
     // ignore: avoid_print
-    print('[PHASE4] mark=$name elapsed_ms=$ms');
+    print('[PHASE4] mark=$name elapsed_ms=$ms$extra');
   }
 
   static void finish(String name) {

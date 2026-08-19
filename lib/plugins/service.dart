@@ -93,6 +93,14 @@ class Service {
     return DateTime.fromMillisecondsSinceEpoch(ms);
   }
 
+  Future<Map<String, dynamic>> getSessionSnapshot() async {
+    final raw = await methodChannel.invokeMethod<dynamic>('getSessionSnapshot');
+    if (raw is Map) {
+      return raw.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return const {};
+  }
+
   Future<List<String>> getLocalIpAddresses() async {
     final result = await methodChannel.invokeMethod<List>('getLocalIpAddresses');
     return result?.cast<String>() ?? [];

@@ -40,7 +40,7 @@ $env:Path = "D:\Code\Tools\Android\Sdk\platform-tools;$env:Path"
 python tools/perf/phase4.py all --build-mode profile
 ```
 
-Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `compare`.
+Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `running-reattach`, `compare`.
 
 ```powershell
 python tools/perf/phase4.py compare --baseline .perf-captures/phase4/old/result.json --current .perf-captures/phase4/latest.json
@@ -58,6 +58,7 @@ Options: `--package`, `--serial` / `ANDROID_SERIAL`, `--adb`, `--build-mode`, `-
 | memory | `dumpsys meminfo` for app and `:remote` (PSS, Java/Native heap when present) |
 | jank | `dumpsys gfxinfo reset` then `gfxinfo`; idle frames only, no UI automation |
 | vpn | TempActivity START/STOP; `start_observable` vs confirmed `vpn_ready`; stop latency |
+| running-reattach | VPN stays up; kill Flutter UI pid only (`run-as kill` / `am kill`, never `force-stop`); reopen MainActivity. Continuity is remote pid + sessionId. |
 | background | foreground vs HOME; CPU / PSS / focus; VPN active vs inactive |
 
 Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_missing`, VPN not ready) exit non-zero. Missing timings stay `null`.
@@ -66,7 +67,7 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`.
+Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`.
 
 ## App instrumentation
 
@@ -80,7 +81,7 @@ Enabled in debug/profile automatically. Release is off unless:
 --dart-define=PHASE4_PERF=true
 ```
 
-Marks: `process_main_begin`, `system.version`, `globalState.init`, `dynamic_color`, `package_info`, `preferences`, `migration`, `database_profiles`, `localization`, `runApp`, `first_frame`, `globalState.attach`, `proxy_group_snapshot_hydration`, `initStatus.begin`, `updateStartTime`, `setupAction.initStatus`, `core_ready` / `core_skipped` / `core_connect_failed` / `core_init_failed`, `main_ready`.
+Marks: `process_main_begin`, `system.version`, `globalState.init`, `dynamic_color`, `package_info`, `preferences`, `migration`, `database_profiles`, `localization`, `runApp`, `first_frame`, `globalState.attach`, `proxy_group_snapshot_hydration`, `initStatus.begin`, `updateStartTime`, `session_snapshot`, `connectCore`, `preload`, `ensureCoreReady`, `initCore`, `setupAction.initStatus`, `core_ready` / `core_skipped` / `core_connect_failed` / `core_init_failed`, `getProfile`, `setupConfig`, `startListener`, `applyProfile`, `applyProfile.groups`, `syncProviders`, `main_ready`.
 
 Only a truly connected+initialized Core emits `core_ready`. Idle autoRun-off paths emit `core_skipped`.
 

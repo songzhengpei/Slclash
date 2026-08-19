@@ -7,6 +7,9 @@ import com.follow.clash.common.GlobalState
 import com.follow.clash.common.RunTimeProbe
 import com.follow.clash.invokeMethodOnMainThread
 import com.follow.clash.models.SharedState
+import com.follow.clash.common.SessionPresence
+import com.follow.clash.service.models.SessionSnapshot
+import com.follow.clash.service.models.SessionState
 import com.google.gson.Gson
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
@@ -50,6 +53,10 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
         "getRunTime" -> {
             handleGetRunTime(result)
+        }
+
+        "getSessionSnapshot" -> {
+            handleGetSessionSnapshot(result)
         }
 
         "syncState" -> {
@@ -157,10 +164,26 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
     private fun handleGetRunTime(result: MethodChannel.Result) {
         launch {
+            val app = GlobalState.application
+            val presence = SessionPresence.readValid(
+                app,
+                "${app.packageName}:remote",
+            )
+            if (presence != null) {
+                State.sessionSnapshot = SessionSnapshot(
+                    sessionId = presence.sessionId,
+                    state = presence.state,
+                    startedAt = presence.startedAt,
+                    smartPaused = presence.smartPaused,
+                )
+                State.runTime =
+                    if (presence.state == SessionState.RUNNING) presence.startedAt else 0L
+            }
+            val remoteAlive =
+                presence != null || RunTimeProbe.isRemoteProcessAlive(app)
             val shouldBind =
                 RunTimeProbe.shouldBindForRunTime(
-                    remoteProcessAlive =
-                        RunTimeProbe.isRemoteProcessAlive(GlobalState.application),
+                    remoteProcessAlive = remoteAlive,
                     alreadyBound = Service.isBound(),
                     cachedRunTime = State.runTime,
                 )
@@ -169,6 +192,18 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             }
             result.success(State.runTime)
         }
+    }
+
+    private fun handleGetSessionSnapshot(result: MethodChannel.Result) {
+        val snapshot = State.sessionSnapshot
+        result.success(
+            mapOf(
+                "sessionId" to snapshot.sessionId,
+                "state" to snapshot.state,
+                "startedAt" to snapshot.startedAt,
+                "smartPaused" to snapshot.smartPaused,
+            )
+        )
     }
 
     private fun handleGetLocalIpAddresses(result: MethodChannel.Result) {

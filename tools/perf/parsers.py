@@ -17,6 +17,18 @@ TIMING_MARKS = (
     "setupAction.initStatus",
     "initStatus.begin",
     "updateStartTime",
+    "session_snapshot",
+    "preload",
+    "connectCore",
+    "ensureCoreReady",
+    "initCore",
+    "initCore.groups",
+    "getProfile",
+    "setupConfig",
+    "applyProfile",
+    "applyProfile.groups",
+    "syncProviders",
+    "startListener",
     "runApp",
 )
 
@@ -143,6 +155,30 @@ def parse_phase4_logcat(output: str) -> dict[str, int]:
     return marks
 
 
+def parse_phase4_session_fields(output: str) -> dict:
+    """Last session_snapshot extras from PHASE4 logcat (session_id / state)."""
+    session_id = None
+    state = None
+    for line in output.splitlines():
+        if "mark=session_snapshot" not in line:
+            continue
+        sid = re.search(r"session_id=([0-9]+)", line)
+        st = re.search(r"\bstate=([A-Za-z_]+)", line)
+        if sid:
+            session_id = int(sid.group(1))
+        if st:
+            state = st.group(1)
+    return {"session_id": session_id, "state": state}
+
+
+def ui_process_kill_commands(package: str, pid: int) -> list[str]:
+    """Commands that may kill the Flutter UI pid. Never force-stop the package."""
+    return [
+        f"run-as {package} kill -9 {pid}",
+        f"am kill {package}",
+    ]
+
+
 def parse_pidof(output: str) -> int | None:
     text = output.strip().split()
     if not text:
@@ -160,6 +196,30 @@ def parse_tun_interfaces(ip_link_output: str) -> list[str]:
         match = _TUN_IFACE.match(line.strip())
         if match:
             found.append(match.group(1))
+    return found
+
+
+_PROC_TUN = re.compile(r"^\s*(tun\d+)\s*:")
+_SYS_TUN = re.compile(r"^tun\d+$")
+
+
+def parse_tun_from_proc_net_dev(output: str) -> list[str]:
+    """Parse `tunN` names from `/proc/net/dev`. Does not match `tunl0`."""
+    found: list[str] = []
+    for line in output.splitlines():
+        match = _PROC_TUN.match(line)
+        if match:
+            found.append(match.group(1))
+    return found
+
+
+def parse_tun_from_sys_class_net(output: str) -> list[str]:
+    """Parse `tunN` names from `ls /sys/class/net`."""
+    found: list[str] = []
+    for line in output.split():
+        name = line.strip()
+        if _SYS_TUN.match(name):
+            found.append(name)
     return found
 
 

@@ -30,4 +30,13 @@ class SessionTransitionsTest {
         assertEquals(SessionState.STOPPING, stopping.state)
         assertEquals(7L, stopping.sessionId)
     }
+
+    @Test
+    fun activeStatesKeepRemoteServiceAfterUiUnbind() {
+        assertTrue(SessionState.keepsRemoteService(SessionState.RUNNING))
+        assertTrue(SessionState.keepsRemoteService(SessionState.PAUSED))
+        assertTrue(SessionState.keepsRemoteService(SessionState.STARTING))
+        assertTrue(SessionState.keepsRemoteService(SessionState.STOPPING))
+        assertFalse(SessionState.keepsRemoteService(SessionState.STOPPED))
+    }
 }

@@ -32,8 +32,12 @@ from parsers import (  # noqa: E402
     parse_gfxinfo,
     parse_meminfo,
     parse_phase4_logcat,
+    parse_phase4_session_fields,
     parse_pidof,
+    parse_tun_from_proc_net_dev,
+    parse_tun_from_sys_class_net,
     parse_tun_interfaces,
+    ui_process_kill_commands,
     vpn_stop_cleared,
 )
 from provenance import collect_git_provenance  # noqa: E402
@@ -81,6 +85,7 @@ def fail_result(code: str, message: str, **extra) -> dict:
         "jank": None,
         "vpn": None,
         "background": None,
+        "running_reattach": None,
     }
     result.update(extra)
     return result
@@ -341,9 +346,18 @@ class Runner:
             "unreliable": unreliable,
         }
 
+    def _tun_ifaces(self) -> list[str]:
+        tun = parse_tun_interfaces(self.adb.shell("ip -o link show").stdout)
+        if tun:
+            return tun
+        tun = parse_tun_from_proc_net_dev(self.adb.shell("cat /proc/net/dev").stdout)
+        if tun:
+            return tun
+        return parse_tun_from_sys_class_net(self.adb.shell("ls /sys/class/net").stdout)
+
     def _vpn_status(self) -> dict:
-        tun_ifaces = parse_tun_interfaces(self.adb.shell("ip -o link show").stdout)
-        services = self.adb.shell("dumpsys activity services").stdout
+        tun_ifaces = self._tun_ifaces()
+        services = self.adb.shell(f"dumpsys activity services {self.package}").stdout
         vpn_service = "com.follow.clash.service.VpnService" in services
         remote_pid = self.pid_of(f"{self.package}:remote")
         connectivity_vpn = connectivity_has_vpn_network(
@@ -548,12 +562,176 @@ class Runner:
                 hits.append(line.strip())
         return {"ok": bool(hits), "lines": hits[:8]}
 
+    def kill_ui_keep_remote(self, flutter_pid: int) -> dict:
+        """Kill only the Flutter UI process. Never `am force-stop`."""
+        notes = []
+        used = None
+        remote_pid = self.pid_of(f"{self.package}:remote")
+        if remote_pid is not None and flutter_pid == remote_pid:
+            return {
+                "ok": False,
+                "used": None,
+                "ui_pid_before": flutter_pid,
+                "ui_pid_after": flutter_pid,
+                "notes": ["refusing to kill :remote pid masquerading as UI"],
+            }
+        for command in ui_process_kill_commands(self.package, flutter_pid):
+            if "force-stop" in command:
+                raise HarnessError("unsafe_kill", "force-stop is forbidden for UI reattach")
+            proc = self.adb.shell(command, timeout=15)
+            used = {"command": command, "returncode": proc.returncode}
+            if proc.returncode == 0:
+                break
+            notes.append(f"{command} failed rc={proc.returncode}")
+        time.sleep(0.6)
+        still = self.pid_of(self.package)
+        return {
+            "ok": still != flutter_pid,
+            "used": used,
+            "ui_pid_before": flutter_pid,
+            "ui_pid_after": still,
+            "notes": notes,
+        }
+
+    def running_reattach(self, warmup: int = WARMUP_RUNS, runs: int = MEASURE_RUNS) -> dict:
+        """VPN/Core stay up; Flutter UI process dies and is reopened."""
+        self.require_package()
+        before = self._vpn_status()
+        if before.get("vpn_ready") is not True:
+            return {
+                "ok": False,
+                "scenario": "running_reattach",
+                "before": before,
+                "unreliable": ["vpn_not_confirmed_running"],
+                "notes": [
+                    "Start VPN in the profile app first (VpnService + tunN). "
+                    "Do not use am force-stop; that would tear down :remote."
+                ],
+            }
+        remote_before = before.get("remote_pid")
+        if remote_before is None:
+            return {
+                "ok": False,
+                "scenario": "running_reattach",
+                "before": before,
+                "unreliable": ["remote_not_running"],
+                "notes": [":remote must stay alive across UI restarts."],
+            }
+
+        warmup_samples = []
+        measure_samples = []
+        warmup_traces = []
+        measure_traces = []
+        notes = [
+            "Kills Flutter UI pid only (run-as kill / am kill). Never am force-stop.",
+        ]
+        unreliable = []
+        continuity_ok = True
+        ping = self._network_probe()
+
+        for i in range(warmup + runs):
+            vpn_pre = self._vpn_status()
+            flutter_pid = self.pid_of(self.package)
+            if flutter_pid is None:
+                self.start_main()
+                time.sleep(1.0)
+                flutter_pid = self.pid_of(self.package)
+            if flutter_pid is None:
+                notes.append(f"run {i} missing UI pid")
+                continuity_ok = False
+                continue
+            pre_log = self.adb.run(["logcat", "-d", "-t", "2000"], timeout=20)
+            session_pre = parse_phase4_session_fields(pre_log.stdout + pre_log.stderr)
+            self.adb.shell("input keyevent KEYCODE_HOME")
+            time.sleep(0.4)
+            self.adb.run(["logcat", "-c"], timeout=15)
+            killed = self.kill_ui_keep_remote(flutter_pid)
+            vpn_mid = self._vpn_status()
+            remote_mid = vpn_mid.get("remote_pid")
+            if remote_mid != remote_before:
+                continuity_ok = False
+                notes.append(
+                    f"run {i} remote pid changed {remote_before}->{remote_mid}"
+                )
+            elif vpn_mid.get("vpn_service_running") is not True:
+                notes.append(
+                    f"run {i} VpnService not visible after UI kill "
+                    f"(remote_pid={remote_mid}, vpn_ready={vpn_mid.get('vpn_ready')})"
+                )
+            sample = self.start_main()
+            time.sleep(8.0)
+            logcat = self.adb.run(["logcat", "-d", "-t", "2000"], timeout=30)
+            log_text = logcat.stdout + logcat.stderr
+            marks = parse_phase4_logcat(log_text)
+            session = parse_phase4_session_fields(log_text)
+            vpn_post = self._vpn_status()
+            row = {
+                "index": i,
+                "kill": killed,
+                "am_start": sample,
+                "phase4_marks": marks or None,
+                "session": session,
+                "session_pre_kill": session_pre,
+                "remote_pid": vpn_post.get("remote_pid"),
+                "vpn_ready": vpn_post.get("vpn_ready"),
+                "tun_ifaces": vpn_post.get("tun_ifaces"),
+            }
+            if vpn_post.get("remote_pid") != remote_before:
+                continuity_ok = False
+            if (
+                session_pre.get("session_id")
+                and session.get("session_id")
+                and session_pre.get("session_id") != session.get("session_id")
+            ):
+                continuity_ok = False
+                notes.append(
+                    f"run {i} sessionId changed "
+                    f"{session_pre.get('session_id')}->{session.get('session_id')}"
+                )
+            target = warmup_traces if i < warmup else measure_traces
+            target.append(row)
+            if sample.get("ok") and sample.get("total_time_ms") is not None:
+                if i < warmup:
+                    warmup_samples.append(sample["total_time_ms"])
+                else:
+                    measure_samples.append(sample["total_time_ms"])
+
+        startup_marks = aggregate_startup_marks(measure_traces)
+        ok = (
+            continuity_ok
+            and len(measure_samples) == runs
+            and before.get("vpn_ready") is True
+        )
+        if not continuity_ok:
+            unreliable.append("remote_or_vpn_not_continuous")
+        return {
+            "ok": ok,
+            "scenario": "running_reattach",
+            "warmup": warmup,
+            "requested_runs": runs,
+            "measured_runs": len(measure_samples),
+            "stats": summarize(measure_samples),
+            "warmup_samples_ms": warmup_samples,
+            "samples_ms": measure_samples,
+            "startup_marks": startup_marks,
+            "remote_pid": remote_before,
+            "session_continuity": continuity_ok,
+            "network_probe": ping,
+            "before": before,
+            "traces": {
+                "warmup_tail": warmup_traces[-1:],
+                "measure_tail": measure_traces[-1:],
+            },
+            "unreliable": unreliable,
+            "notes": notes,
+        }
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="SlClash Phase 4 performance harness")
     parser.add_argument(
         "command",
-        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "compare"],
+        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "running-reattach", "compare"],
     )
     parser.add_argument(
         "--package",
@@ -649,6 +827,7 @@ def main(argv: list[str] | None = None) -> int:
             "jank": None,
             "vpn": None,
             "background": None,
+            "running_reattach": None,
         }
         if env.get("build_role") == "diagnostic_only":
             result["notes"].append(
@@ -662,6 +841,7 @@ def main(argv: list[str] | None = None) -> int:
             "jank": ["jank"],
             "vpn": ["vpn"],
             "background": ["background"],
+            "running-reattach": ["running_reattach"],
             "all": ["cold_start", "memory", "jank", "vpn", "background"],
         }
         for name in mapping[args.command]:
