@@ -119,13 +119,19 @@ class CoreController {
     return _interface.updateConfig(updateParams);
   }
 
+  /// Establish TUN / startListener only after native setupConfig succeeds.
+  @visibleForTesting
+  static bool shouldPreloadVpnAfterSetup(String message) => message.isEmpty;
+
   Future<String> setupConfig({
     required SetupParams params,
     required SetupState setupState,
     FutureOr<void> Function()? preloadInvoke,
   }) async {
     final message = await _interface.setupConfig(params);
-    await preloadInvoke?.call();
+    if (shouldPreloadVpnAfterSetup(message)) {
+      await preloadInvoke?.call();
+    }
     return message;
   }
 
@@ -170,9 +176,7 @@ class CoreController {
     );
   }
 
-  Future<List<Map<String, dynamic>>> normalizeProviderContent(
-    List<int> bytes,
-  ) {
+  Future<List<Map<String, dynamic>>> normalizeProviderContent(List<int> bytes) {
     return _interface.normalizeProviderContent(bytes);
   }
 

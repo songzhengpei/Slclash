@@ -106,7 +106,10 @@ bool shouldDeferInitCoreGroups(String? sessionState) {
   return sessionState == 'RUNNING';
 }
 
-bool shouldRestoreSmartPaused(String? sessionState, {bool smartPaused = false}) {
+bool shouldRestoreSmartPaused(
+  String? sessionState, {
+  bool smartPaused = false,
+}) {
   return sessionState == 'PAUSED' || smartPaused;
 }
 
@@ -121,6 +124,14 @@ bool shouldStartListenerAfterSmartResume({
   required bool coreReady,
 }) {
   return !suspend && coreReady;
+}
+
+/// User-tap start uses the same applyProfile → TUN order as init.
+/// Differences: silence loading, stop VPN if apply/start fails, and do not seed runTime at 0.
+({bool silence, bool stopOnFailure, bool seedRunTimeAtZero}) vpnStartPolicy({
+  required bool isInit,
+}) {
+  return (silence: !isInit, stopOnFailure: !isInit, seedRunTimeAtZero: isInit);
 }
 
 bool shouldReconnectCoreOnResume({
@@ -860,8 +871,7 @@ class SetupAction extends _$SetupAction {
     }
     final sessionState = _sessionState;
     final shouldFullSetup = shouldFullSetupOnInit(
-      isRunning:
-          isStart || sessionRequiresFullSetup(sessionState),
+      isRunning: isStart || sessionRequiresFullSetup(sessionState),
       autoRun: ref.read(appSettingProvider).autoRun,
     );
     if (shouldFullSetup) {
@@ -925,45 +935,39 @@ class SetupAction extends _$SetupAction {
             .tryStartCore(true);
         if (res) return;
         if (!ref.read(initProvider)) return;
+      } else {
+        globalState.needInitStatus = false;
+      }
 
-        final started = await _handleStart();
-        if (!started) return;
+      final policy = vpnStartPolicy(isInit: isInit);
+      try {
+        var started = true;
+        final applied = await applyProfile(
+          force: true,
+          silence: policy.silence,
+          preloadInvoke: () async {
+            started = await _handleStart();
+          },
+        );
 
-        final applied = await applyProfile(force: true, silence: true);
-        if (!applied) {
-          await handleStop();
+        if (!started || !applied) {
+          if (policy.stopOnFailure) {
+            await handleStop();
+          }
           startTime = null;
           ref.read(runTimeProvider.notifier).value = null;
           return;
         }
 
         startTime ??= DateTime.now();
-        ref.read(commonActionProvider.notifier).updateRunTime();
-      } else {
-        globalState.needInitStatus = false;
-        try {
-          var started = true;
-
-          final applied = await applyProfile(
-            force: true,
-            preloadInvoke: () async {
-              started = await _handleStart();
-            },
-          );
-
-          if (!started || !applied) {
-            startTime = null;
-            ref.read(runTimeProvider.notifier).value = null;
-            return;
-          }
-
-          startTime ??= DateTime.now();
+        if (policy.seedRunTimeAtZero) {
           ref.read(runTimeProvider.notifier).value = 0;
-          ref.read(commonActionProvider.notifier).updateRunTime();
-        } catch (_) {
-          startTime = null;
-          ref.read(runTimeProvider.notifier).value = null;
         }
+        ref.read(commonActionProvider.notifier).updateRunTime();
+      } catch (_) {
+        if (!isInit) rethrow;
+        startTime = null;
+        ref.read(runTimeProvider.notifier).value = null;
       }
     } else {
       // Clear smart auto stop manual override when user stops proxy.
@@ -1140,10 +1144,9 @@ class SetupAction extends _$SetupAction {
               ? await handleEvaluate(scriptContent!, configMap)
               : configMap;
         },
-        evaluateScript: (scriptInput) async =>
-            scriptContent?.isNotEmpty == true
-                ? await handleEvaluate(scriptContent!, scriptInput)
-                : scriptInput,
+        evaluateScript: (scriptInput) async => scriptContent?.isNotEmpty == true
+            ? await handleEvaluate(scriptContent!, scriptInput)
+            : scriptInput,
         onPreservationFailure: (error, _) {
           commonPrint.log(
             'script source preservation failed for profileId=$profileId: '

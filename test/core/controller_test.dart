@@ -115,9 +115,9 @@ void main() {
       // fakes as Result.success({}). The controller must treat that as a
       // normalization failure so snapshot preservation falls back instead
       // of overlaying an empty normalized config.
-      when(() => mock.getConfig(any())).thenAnswer(
-        (_) async => Result.success({}),
-      );
+      when(
+        () => mock.getConfig(any()),
+      ).thenAnswer((_) async => Result.success({}));
       await expectLater(
         controller.getConfigAtPath('/snapshot.yaml'),
         throwsA(isA<StateError>()),
@@ -125,13 +125,75 @@ void main() {
     });
 
     test('getConfigAtPath throws the Core error message on failure', () async {
-      when(() => mock.getConfig(any())).thenAnswer(
-        (_) async => Result.error('parse failed'),
-      );
+      when(
+        () => mock.getConfig(any()),
+      ).thenAnswer((_) async => Result.error('parse failed'));
       await expectLater(
         controller.getConfigAtPath('/snapshot.yaml'),
         throwsA('parse failed'),
       );
+    });
+
+    test(
+      'setupConfig preloads TUN only after an empty success message',
+      () async {
+        const params = SetupParams(selectedMap: {}, testUrl: 'http://x.com');
+        const setupState = SetupState(
+          profileId: null,
+          profileLastUpdateDate: null,
+          overwriteType: OverwriteType.standard,
+          rules: [],
+          proxyGroups: [],
+          addedRules: [],
+          script: null,
+          overrideDns: false,
+          dns: Dns(),
+        );
+        when(() => mock.setupConfig(params)).thenAnswer((_) async => '');
+        var preloaded = false;
+        final message = await controller.setupConfig(
+          params: params,
+          setupState: setupState,
+          preloadInvoke: () async {
+            preloaded = true;
+          },
+        );
+        expect(message, isEmpty);
+        expect(preloaded, isTrue);
+      },
+    );
+
+    test('setupConfig skips TUN preload when setupConfig fails', () async {
+      const params = SetupParams(selectedMap: {}, testUrl: 'http://x.com');
+      const setupState = SetupState(
+        profileId: null,
+        profileLastUpdateDate: null,
+        overwriteType: OverwriteType.standard,
+        rules: [],
+        proxyGroups: [],
+        addedRules: [],
+        script: null,
+        overrideDns: false,
+        dns: Dns(),
+      );
+      when(
+        () => mock.setupConfig(params),
+      ).thenAnswer((_) async => 'invalid config');
+      var preloaded = false;
+      final message = await controller.setupConfig(
+        params: params,
+        setupState: setupState,
+        preloadInvoke: () async {
+          preloaded = true;
+        },
+      );
+      expect(message, 'invalid config');
+      expect(preloaded, isFalse);
+    });
+
+    test('shouldPreloadVpnAfterSetup is true only for empty messages', () {
+      expect(CoreController.shouldPreloadVpnAfterSetup(''), isTrue);
+      expect(CoreController.shouldPreloadVpnAfterSetup('is empty'), isFalse);
     });
 
     test('updateConfig delegates to interface', () async {

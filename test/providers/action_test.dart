@@ -132,6 +132,25 @@ void main() {
     });
   });
 
+  group('vpnStartPolicy', () {
+    test('user tap silences loading and stops VPN if apply or TUN fails', () {
+      final policy = vpnStartPolicy(isInit: false);
+      expect(policy.silence, isTrue);
+      expect(policy.stopOnFailure, isTrue);
+      expect(policy.seedRunTimeAtZero, isFalse);
+    });
+
+    test(
+      'init shows loading, does not stop VPN on failure, and seeds runTime',
+      () {
+        final policy = vpnStartPolicy(isInit: true);
+        expect(policy.silence, isFalse);
+        expect(policy.stopOnFailure, isFalse);
+        expect(policy.seedRunTimeAtZero, isTrue);
+      },
+    );
+  });
+
   group('shouldReconnectCoreOnResume', () {
     test(
       'does not reconnect core on Android when VPN is stopped and groups exist',
