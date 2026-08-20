@@ -3,7 +3,7 @@ import 'package:fl_clash/views/dashboard/dashboard.dart';
 import 'package:fl_clash/views/dashboard/dashboard_layout.dart';
 import 'package:fl_clash/views/dashboard/widgets/network_overview_card.dart';
 import 'package:fl_clash/views/dashboard/widgets/surge_dashboard_hero.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 DashboardResponsiveLayout _layout(
@@ -381,6 +381,35 @@ void main() {
       expect(
         heroOutboundFillActive(isStart: false, isSmartStopped: false),
         isFalse,
+      );
+    });
+  });
+
+  group('heroActiveFillShouldAnimate', () {
+    test('skips the first-mount no-op ticker when begin equals end', () {
+      expect(
+        heroActiveFillShouldAnimate(
+          previous: null,
+          next: const Color(0xFF1565C0),
+        ),
+        isFalse,
+      );
+      expect(
+        heroActiveFillShouldAnimate(
+          previous: const Color(0xFF1565C0),
+          next: const Color(0xFF1565C0),
+        ),
+        isFalse,
+      );
+    });
+
+    test('keeps active to paused color animation', () {
+      expect(
+        heroActiveFillShouldAnimate(
+          previous: const Color(0xFF1565C0),
+          next: const Color(0xFFFFC107),
+        ),
+        isTrue,
       );
     });
   });

@@ -112,6 +112,38 @@ def summarize_nav(transitions: list[dict]) -> dict:
         "scroll_us": summarize(_nums(transitions, "scroll_us")),
         "scroll_elements": summarize(_nums(transitions, "scroll_elements")),
         "scroll_positions": summarize(_nums(transitions, "scroll_positions")),
+        "hotspots": summarize_hotspots(transitions),
+    }
+
+
+def parse_count_csv(text: object) -> dict[str, int]:
+    if not isinstance(text, str) or not text or text == "-":
+        return {}
+    out: dict[str, int] = {}
+    for part in text.split(","):
+        if ":" not in part:
+            continue
+        key, _, raw = part.partition(":")
+        try:
+            out[key] = int(raw)
+        except ValueError:
+            continue
+    return out
+
+
+def summarize_hotspots(transitions: list[dict]) -> dict:
+    builds: dict[str, int] = {}
+    events: dict[str, int] = {}
+    for transition in transitions:
+        complete = _complete(transition)
+        for key, value in parse_count_csv(complete.get("hotspot_builds")).items():
+            builds[key] = builds.get(key, 0) + value
+        for key, value in parse_count_csv(complete.get("hotspot_events")).items():
+            events[key] = events.get(key, 0) + value
+    return {
+        "builds": builds,
+        "events": events,
+        "transition_count": len(transitions),
     }
 
 

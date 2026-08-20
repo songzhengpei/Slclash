@@ -45,6 +45,7 @@ Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `runnin
 ```powershell
 python tools/perf/phase4.py compare --baseline .perf-captures/phase4/old/result.json --current .perf-captures/phase4/latest.json
 python tools/perf/phase4.py navigation --build-mode profile --write-nav-baseline-doc docs/phase4-b0-navigation-baseline.md
+python tools/perf/phase4.py navigation --build-mode profile --nav-session running
 python -m unittest tools/perf/tests/test_harness.py
 ```
 
@@ -60,7 +61,7 @@ Options: `--package`, `--serial` / `ANDROID_SERIAL`, `--adb`, `--build-mode`, `-
 | jank | `dumpsys gfxinfo reset` then `gfxinfo`; idle frames only, no UI automation |
 | vpn | TempActivity START/STOP; `start_observable` vs confirmed `vpn_ready`; stop latency |
 | running-reattach | VPN stays up; kill Flutter UI pid only (`run-as kill` / `am kill`, never `force-stop`); reopen MainActivity. Formal continuity requires `kill_ui_keep_remote.ok`, old UI pid gone, remote pid unchanged before/mid/post, presence-file `sessionId>0` identical, `state=RUNNING`, and `vpn_ready` before/post. Logcat is StartupTrace timing only. |
-| navigation | Profile APK only. ADB sends `phase4_cmd` extras to already-exported `MainActivity` (`singleTop` / `onNewIntent`). Dart no-ops unless NavigationTrace is enabled. Records Flutter FrameTiming per tab transition. Frame budget uses the device refresh rate. Idle `dumpsys gfxinfo` is **not** this metric. `all` does not include navigation. |
+| navigation | Profile APK only. ADB sends `phase4_cmd` extras to already-exported `MainActivity` (`singleTop` / `onNewIntent`). Dart no-ops unless NavigationTrace is enabled. Records Flutter FrameTiming per tab transition. Frame budget uses the device refresh rate. Idle `dumpsys gfxinfo` is **not** this metric. `all` does not include navigation. Default `--nav-session idle` force-stops the package (VPN OFF). `--nav-session running` never force-stops: it requires VpnService + tun + `:remote` + presence `state=RUNNING` + `sessionId>0` + `vpn_ready`, and sets `ok=false` if remote pid / sessionId / tun / vpn_ready change. |
 | background | foreground vs HOME; CPU / PSS / focus; VPN active vs inactive |
 
 Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_missing`, VPN not ready) exit non-zero. Missing timings stay `null`.
@@ -69,7 +70,7 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`.
+Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`.
 
 ## App instrumentation
 
@@ -89,7 +90,7 @@ Only a truly connected+initialized Core emits `core_ready`. Idle autoRun-off pat
 
 `first_frame` is rasterized first frame. `main_ready` is after `initStatus` and `initProvider=true`.
 
-Phase 4B navigation marks (same enablement, FrameTiming only while a transition is active): `nav_listener_ready`, `nav_begin`, `nav_animate_start`, `nav_target_first_build`, `nav_target_first_frame`, `nav_animation_complete`, `nav_scroll_to_top`, `nav_scroll_command`, `nav_scroll_animation_complete`, `nav_scroll_by`, `nav_complete`, `nav_page_counts`. `target_first_build_latency_ms` is wait until target root `build()` is called, not build CPU. Production release without `PHASE4_PERF` does not register the timings callback. Ordinary production Release does not register `Phase4PerfPlugin` / `Phase4PerfReceiver`.
+Phase 4B navigation marks (same enablement, FrameTiming only while a transition is active): `nav_listener_ready`, `nav_begin`, `nav_animate_start`, `nav_target_first_build`, `nav_target_first_frame`, `nav_animation_complete`, `nav_scroll_to_top`, `nav_scroll_command`, `nav_scroll_animation_complete`, `nav_scroll_by`, `nav_complete`, `nav_page_counts`. `nav_complete` may include compact `hotspot_builds` / `hotspot_events` (Dashboard / chart counters during the active transition only). `target_first_build_latency_ms` is wait until target root `build()` is called, not build CPU. Production release without `PHASE4_PERF` does not register the timings callback. Ordinary production Release does not register `Phase4PerfPlugin` / `Phase4PerfReceiver`.
 
 Idle `dumpsys gfxinfo` with `total_frames <= 0` is marked `jank_invalid_no_frames` and excluded from `compare`. Results record `git_head`, `dirty`, and `worktree_fingerprint` so the source tree that produced the run is visible.
 

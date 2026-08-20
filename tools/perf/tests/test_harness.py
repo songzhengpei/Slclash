@@ -20,6 +20,8 @@ from build_mode import (  # noqa: E402
 from parsers import (  # noqa: E402
     aggregate_startup_marks,
     assess_running_reattach_round,
+    assess_running_navigation_continuity,
+    assess_running_navigation_preconditions,
     assess_vpn_state,
     connectivity_has_vpn_network,
     jank_is_valid,
@@ -45,7 +47,7 @@ from report import (  # noqa: E402
     render_markdown,
     render_navigation_baseline_markdown,
 )
-from navigation import group_nav_transitions, summarize_nav  # noqa: E402
+from navigation import group_nav_transitions, summarize_hotspots, summarize_nav, parse_count_csv  # noqa: E402
 from stats import summarize  # noqa: E402
 
 
@@ -404,6 +406,89 @@ class RunningReattachGateTests(unittest.TestCase):
         ok, reason = assess_running_reattach_round(**self._ok_kwargs())
         self.assertTrue(ok)
         self.assertIsNone(reason)
+
+
+class RunningNavigationGateTests(unittest.TestCase):
+    def _vpn(self, **overrides) -> dict:
+        base = {
+            "vpn_service_running": True,
+            "tun_ifaces": ["tun0"],
+            "remote_pid": 8094,
+            "vpn_ready": True,
+        }
+        base.update(overrides)
+        return base
+
+    def _session(self, **overrides) -> dict:
+        base = {"session_id": 42, "state": "RUNNING"}
+        base.update(overrides)
+        return base
+
+    def test_preconditions_require_live_vpn(self) -> None:
+        ok, reasons = assess_running_navigation_preconditions(
+            vpn=self._vpn(),
+            session=self._session(),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(reasons, [])
+        ok, reasons = assess_running_navigation_preconditions(
+            vpn=self._vpn(vpn_ready=False),
+            session=self._session(),
+        )
+        self.assertFalse(ok)
+        self.assertIn("vpn_ready_false", reasons)
+
+    def test_continuity_fails_when_session_or_tun_changes(self) -> None:
+        ok, reasons = assess_running_navigation_continuity(
+            before_vpn=self._vpn(),
+            after_vpn=self._vpn(),
+            before_session=self._session(),
+            after_session=self._session(),
+        )
+        self.assertTrue(ok)
+        ok, reasons = assess_running_navigation_continuity(
+            before_vpn=self._vpn(),
+            after_vpn=self._vpn(remote_pid=9001),
+            before_session=self._session(),
+            after_session=self._session(),
+        )
+        self.assertFalse(ok)
+        self.assertIn("remote_pid_changed", reasons)
+        ok, reasons = assess_running_navigation_continuity(
+            before_vpn=self._vpn(),
+            after_vpn=self._vpn(tun_ifaces=["tun1"]),
+            before_session=self._session(),
+            after_session=self._session(),
+        )
+        self.assertFalse(ok)
+        self.assertIn("tun_interrupted", reasons)
+
+    def test_hotspot_csv_aggregates_across_transitions(self) -> None:
+        self.assertEqual(
+            parse_count_csv("dashboard_view:1,network_overview:2"),
+            {"dashboard_view": 1, "network_overview": 2},
+        )
+        summary = summarize_hotspots(
+            [
+                {
+                    "seq": 1,
+                    "complete": {
+                        "hotspot_builds": "dashboard_view:1,dashboard_hero:1",
+                        "hotspot_events": "traffic_history_update:2",
+                    },
+                },
+                {
+                    "seq": 2,
+                    "complete": {
+                        "hotspot_builds": "dashboard_view:1",
+                        "hotspot_events": "traffic_history_update:1,latency_setState:3",
+                    },
+                },
+            ]
+        )
+        self.assertEqual(summary["builds"]["dashboard_view"], 2)
+        self.assertEqual(summary["events"]["traffic_history_update"], 3)
+        self.assertEqual(summary["events"]["latency_setState"], 3)
 
 
 class DeviceErrorTests(unittest.TestCase):

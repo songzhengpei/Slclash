@@ -21,6 +21,15 @@ bool heroOutboundFillActive({
   return isStart || isSmartStopped;
 }
 
+/// True only when the active-fill color actually changed. First mount with
+/// begin == end is a visual no-op and must not start the 1500ms ticker.
+bool heroActiveFillShouldAnimate({
+  required Color? previous,
+  required Color next,
+}) {
+  return previous != null && previous != next;
+}
+
 /// Status-light pulse / connecting chrome. PAUSED must not pulse even if
 /// Core is attaching or a leftover connecting timer is still true.
 bool heroConnectingPulseActive({
@@ -65,7 +74,8 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
     _fillController = AnimationController(
       vsync: this,
       duration: _heroFillDuration,
-      value: heroOutboundFillActive(
+      value:
+          heroOutboundFillActive(
             isStart: isStart,
             isSmartStopped: isSmartStopped,
           )
@@ -164,6 +174,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
   @override
   Widget build(BuildContext context) {
     if (NavigationTrace.enabled) {
+      NavigationTrace.noteHotspotBuild('dashboard_hero');
       NavigationTrace.dashboardHeroMounted = true;
       NavigationTrace.dashboardSheenRepeating = _sheenController.isAnimating;
     }
@@ -218,10 +229,7 @@ class _SurgeDashboardHeroState extends ConsumerState<SurgeDashboardHero>
         : appLocalizations.disconnected;
     ref.listen(isStartProvider, (previous, next) {
       final smartStopped = ref.read(isSmartStoppedProvider);
-      _syncOutboundFill(
-        isStart: next,
-        isSmartStopped: smartStopped,
-      );
+      _syncOutboundFill(isStart: next, isSmartStopped: smartStopped);
       if (_transitionKind == 'start' && next) {
         _sheenController.stop();
         _connectingTimer?.cancel();
@@ -477,15 +485,12 @@ class _HeroModeCardSurface extends StatelessWidget {
     final secondaryColor = foregroundColor.withValues(alpha: secondaryAlpha);
     final onBlue = progress > 0.5;
 
-    return TweenAnimationBuilder<Color?>(
-      tween: ColorTween(begin: activeFill, end: activeFill),
-      duration: _heroFillDuration,
-      curve: Curves.easeInOutCubic,
+    return _HeroActiveFill(
+      activeFill: activeFill,
       builder: (context, animatedActiveFill, child) {
-        final smoothFill = animatedActiveFill ?? activeFill;
         final fillColor = Color.lerp(
           surge.semantic.dashboardInactive,
-          smoothFill,
+          animatedActiveFill,
           progress,
         )!;
         return Container(
@@ -589,6 +594,60 @@ class _HeroModeCardSurface extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _HeroActiveFill extends StatefulWidget {
+  const _HeroActiveFill({
+    required this.activeFill,
+    required this.builder,
+    required this.child,
+  });
+
+  final Color activeFill;
+  final Widget Function(BuildContext context, Color fill, Widget? child)
+  builder;
+  final Widget child;
+
+  @override
+  State<_HeroActiveFill> createState() => _HeroActiveFillState();
+}
+
+class _HeroActiveFillState extends State<_HeroActiveFill> {
+  Color? _previous;
+  bool _animate = false;
+
+  @override
+  void didUpdateWidget(covariant _HeroActiveFill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (heroActiveFillShouldAnimate(
+      previous: oldWidget.activeFill,
+      next: widget.activeFill,
+    )) {
+      _previous = oldWidget.activeFill;
+      _animate = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_animate) {
+      return widget.builder(context, widget.activeFill, widget.child);
+    }
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(begin: _previous, end: widget.activeFill),
+      duration: _heroFillDuration,
+      curve: Curves.easeInOutCubic,
+      builder: (context, value, child) {
+        return widget.builder(context, value ?? widget.activeFill, child);
+      },
+      onEnd: () {
+        if (mounted) {
+          setState(() => _animate = false);
+        }
+      },
+      child: widget.child,
     );
   }
 }

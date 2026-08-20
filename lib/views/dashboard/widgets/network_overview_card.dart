@@ -230,7 +230,24 @@ class NetworkOverviewCardLayoutCalculator {
   }
 }
 
-class SurgeNetworkOverviewCard extends ConsumerStatefulWidget {
+List<Point> _trafficSeries(
+  List<Traffic> traffics,
+  num Function(Traffic traffic) valueOf,
+  List<double> placeholder,
+) {
+  final values = traffics
+      .map((traffic) => valueOf(traffic).toDouble())
+      .toList();
+  final hasRealData = values.any((value) => value > 0);
+  final source = hasRealData ? values : placeholder;
+  return source
+      .asMap()
+      .entries
+      .map((entry) => Point(entry.key.toDouble(), entry.value))
+      .toList();
+}
+
+class SurgeNetworkOverviewCard extends StatelessWidget {
   const SurgeNetworkOverviewCard({
     super.key,
     required this.layout,
@@ -241,12 +258,381 @@ class SurgeNetworkOverviewCard extends ConsumerStatefulWidget {
   final double contentExpansionFraction;
 
   @override
-  ConsumerState<SurgeNetworkOverviewCard> createState() =>
-      _SurgeNetworkOverviewCardState();
+  Widget build(BuildContext context) {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.noteHotspotBuild('network_overview');
+    }
+    final surge = SurgeTheme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        layout.cardHorizontalPadding,
+        layout.legacy(16),
+        layout.cardHorizontalPadding,
+        0,
+      ),
+      decoration: BoxDecoration(
+        color: surge.card,
+        borderRadius: BorderRadius.circular(layout.cardRadius),
+        border: Border.all(
+          color: surge.separator,
+          width: surge.spacing.hairline,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardLayout = NetworkOverviewCardLayoutCalculator.layoutFor(
+            availableOuterHeight: constraints.maxHeight.isFinite
+                ? constraints.maxHeight + layout.legacy(16)
+                : NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
+                    layout,
+                  ),
+            responsiveLayout: layout,
+            contentExpansionFraction: contentExpansionFraction,
+          );
+          final trafficSection = layout.requiresReflow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _OverviewTrafficTotals(
+                      layout: layout,
+                      cardLayout: cardLayout,
+                    ),
+                    SizedBox(height: layout.geometry(12)),
+                    _OverviewLatencyHost(
+                      layout: layout,
+                      cardLayout: cardLayout,
+                    ),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: layout.geometry(112),
+                      child: _OverviewTrafficTotals(
+                        layout: layout,
+                        cardLayout: cardLayout,
+                      ),
+                    ),
+                    Expanded(
+                      child: _OverviewLatencyHost(
+                        layout: layout,
+                        cardLayout: cardLayout,
+                      ),
+                    ),
+                  ],
+                );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _OverviewHeader(layout: layout, cardLayout: cardLayout),
+              SizedBox(height: cardLayout.headerToChartGap),
+              _OverviewSpeedCharts(layout: layout, cardLayout: cardLayout),
+              SizedBox(height: cardLayout.chartToDividerGap),
+              Container(height: 1, color: surge.separator),
+              SizedBox(height: cardLayout.dividerToTrafficGap),
+              trafficSection,
+              SizedBox(height: cardLayout.afterTrafficGap),
+              Container(height: 1, color: surge.separator),
+              SizedBox(height: cardLayout.detectionTopGap),
+              _OverviewDetectionHost(layout: layout),
+              SizedBox(height: cardLayout.detectionBottomGap),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _SurgeNetworkOverviewCardState
-    extends ConsumerState<SurgeNetworkOverviewCard> {
+class _OverviewHeader extends ConsumerWidget {
+  const _OverviewHeader({required this.layout, required this.cardLayout});
+
+  final DashboardResponsiveLayout layout;
+  final NetworkOverviewCardLayout cardLayout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final surge = SurgeTheme.of(context);
+    final isStart = ref.watch(isStartProvider);
+    final overviewLabels = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: layout.textIcon(18),
+          height: cardLayout.headerHeight,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Icon(
+              SurgeIcons.network,
+              color: isStart ? surge.primary : surge.inactive,
+              size: layout.textIcon(18),
+            ),
+          ),
+        ),
+        SizedBox(width: layout.geometry(8)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.appLocalizations.networkOverview,
+                style: context.typography.cardTitle.copyWith(
+                  color: surge.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    final semantic = surge.semantic;
+    final uploadColor = isStart
+        ? semantic.dashboardDynamicActive
+        : semantic.dashboardInactive;
+    final downloadColor = isStart
+        ? semantic.dashboardActiveGreen
+        : semantic.dashboardInactiveVariant;
+    final liveSpeed = ValueListenableBuilder<Traffic>(
+      valueListenable: currentSpeedNotifier,
+      builder: (_, speed, _) => _LiveSpeedBadge(
+        up: speed.up,
+        down: speed.down,
+        upColor: uploadColor,
+        downColor: downloadColor,
+        layout: layout,
+        reflow: layout.requiresReflow,
+      ),
+    );
+    if (layout.requiresReflow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          overviewLabels,
+          SizedBox(height: layout.geometry(8)),
+          Align(alignment: Alignment.centerRight, child: liveSpeed),
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: overviewLabels),
+        SizedBox(width: layout.geometry(12)),
+        liveSpeed,
+      ],
+    );
+  }
+}
+
+class _OverviewSpeedCharts extends ConsumerWidget {
+  const _OverviewSpeedCharts({required this.layout, required this.cardLayout});
+
+  final DashboardResponsiveLayout layout;
+  final NetworkOverviewCardLayout cardLayout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.noteHotspotEvent('traffic_history_update');
+    }
+    final surge = SurgeTheme.of(context);
+    final semantic = surge.semantic;
+    final traffics = ref.watch(trafficsProvider).list;
+    final isStart = ref.watch(isStartProvider);
+    final hasLiveTraffic = traffics.any(
+      (traffic) => traffic.up > 0 || traffic.down > 0,
+    );
+    final uploadPoints = _trafficSeries(
+      traffics,
+      (traffic) => traffic.up,
+      const [0.13, 0.13, 0.13, 0.13, 0.13, 0.13, 0.13, 0.13],
+    );
+    final downloadPoints = _trafficSeries(
+      traffics,
+      (traffic) => traffic.down,
+      const [0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077],
+    );
+    final uploadColor = isStart
+        ? semantic.dashboardDynamicActive
+        : semantic.dashboardInactive;
+    final downloadColor = isStart
+        ? semantic.dashboardActiveGreen
+        : semantic.dashboardInactiveVariant;
+    final lineFillStartAlpha = isStart ? 0.16 : 1.0;
+    final lineFillEndAlpha = isStart ? 0.03 : 0.08;
+    return SizedBox(
+      height: cardLayout.chartHeight,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: LineChart(
+              points: uploadPoints,
+              color: uploadColor,
+              gradient: true,
+              gradientStartAlpha: lineFillStartAlpha,
+              gradientEndAlpha: lineFillEndAlpha,
+              duration: commonDuration,
+              minY: hasLiveTraffic ? null : 0,
+              maxY: hasLiveTraffic ? null : 0.2,
+            ),
+          ),
+          Positioned.fill(
+            child: LineChart(
+              points: downloadPoints,
+              color: downloadColor,
+              gradient: true,
+              gradientStartAlpha: lineFillStartAlpha,
+              gradientEndAlpha: lineFillEndAlpha,
+              duration: commonDuration,
+              minY: hasLiveTraffic ? null : 0,
+              maxY: hasLiveTraffic ? null : 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewTrafficTotals extends ConsumerWidget {
+  const _OverviewTrafficTotals({
+    required this.layout,
+    required this.cardLayout,
+  });
+
+  final DashboardResponsiveLayout layout;
+  final NetworkOverviewCardLayout cardLayout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.noteHotspotEvent('total_traffic_update');
+    }
+    final surge = SurgeTheme.of(context);
+    final semantic = surge.semantic;
+    final totalTraffic = ref.watch(totalTrafficProvider);
+    final isStart = ref.watch(isStartProvider);
+    final uploadColor = isStart
+        ? semantic.dashboardDynamicActive
+        : semantic.dashboardInactive;
+    final downloadColor = isStart
+        ? semantic.dashboardActiveGreen
+        : semantic.dashboardInactiveVariant;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: layout.textIcon(18),
+              height: cardLayout.headerHeight,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Icon(
+                  SurgeIcons.traffic,
+                  size: layout.textIcon(18),
+                  color: surge.textSecondary,
+                ),
+              ),
+            ),
+            SizedBox(width: layout.geometry(8)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.appLocalizations.trafficUsage,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.typography.cardTitle.copyWith(
+                      color: surge.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: cardLayout.trafficTitleToChartGap),
+        Padding(
+          padding: EdgeInsets.only(left: layout.geometry(2)),
+          child: SizedBox(
+            width: layout.legacy(78),
+            height: layout.legacy(78),
+            child: DonutChart(
+              data: [
+                DonutChartData(
+                  value: totalTraffic.up.toDouble(),
+                  color: uploadColor,
+                ),
+                DonutChartData(
+                  value: totalTraffic.down.toDouble(),
+                  color: downloadColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OverviewDetectionHost extends ConsumerWidget {
+  const _OverviewDetectionHost({required this.layout});
+
+  final DashboardResponsiveLayout layout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.noteHotspotEvent('network_detection_update');
+    }
+    final surge = SurgeTheme.of(context);
+    final networkIpInfo = ref.watch(
+      networkDetectionProvider.select((s) => s.ipInfo),
+    );
+    final networkIsLoading = ref.watch(
+      networkDetectionProvider.select((s) => s.isLoading),
+    );
+    final networkHasChecked = ref.watch(
+      networkDetectionProvider.select((s) => s.hasChecked),
+    );
+    final isForeground = ref.watch(appForegroundProvider);
+    final isDashboardActive = ref.watch(
+      currentPageLabelProvider.select((l) => l == PageLabel.dashboard),
+    );
+    return _NetworkDetectionBar(
+      ipInfo: networkIpInfo,
+      isLoading: networkIsLoading,
+      hasChecked: networkHasChecked,
+      shouldAnimate: isForeground && isDashboardActive && networkIsLoading,
+      primaryColor: surge.primary,
+      textColor: surge.textPrimary,
+      secondaryTextColor: surge.textSecondary,
+      fillColor: surge.fill,
+      dangerColor: surge.red,
+      label: context.appLocalizations.networkDetection,
+      layout: layout,
+    );
+  }
+}
+
+class _OverviewLatencyHost extends ConsumerStatefulWidget {
+  const _OverviewLatencyHost({required this.layout, required this.cardLayout});
+
+  final DashboardResponsiveLayout layout;
+  final NetworkOverviewCardLayout cardLayout;
+
+  @override
+  ConsumerState<_OverviewLatencyHost> createState() =>
+      _OverviewLatencyHostState();
+}
+
+class _OverviewLatencyHostState extends ConsumerState<_OverviewLatencyHost> {
   static const _latencyRefreshInterval = Duration(seconds: 60);
   static const _pageLabel = PageLabel.dashboard;
   static const _latencyTargets = [
@@ -272,27 +658,6 @@ class _SurgeNetworkOverviewCardState
   final Map<String, _LatencyResult> _latencyResults = {};
   Timer? _latencyRefreshTimer;
   bool _isTestingLatencies = false;
-
-  String _overviewTitle(BuildContext context) {
-    return context.appLocalizations.networkOverview;
-  }
-
-  List<Point> _buildSeries(
-    List<Traffic> traffics,
-    num Function(Traffic traffic) valueOf,
-    List<double> placeholder,
-  ) {
-    final values = traffics
-        .map((traffic) => valueOf(traffic).toDouble())
-        .toList();
-    final hasRealData = values.any((value) => value > 0);
-    final source = hasRealData ? values : placeholder;
-    return source
-        .asMap()
-        .entries
-        .map((entry) => Point(entry.key.toDouble(), entry.value))
-        .toList();
-  }
 
   String? _extractCountryFromProxyName(String proxyName) {
     final flag = _extractEmbeddedFlag(proxyName);
@@ -628,7 +993,7 @@ class _SurgeNetworkOverviewCardState
         .ipInfo
         ?.countryCode;
 
-    setState(() {
+    _latencySetState(() {
       _isTestingLatencies = true;
       for (final target in _latencyTargets) {
         _latencyResults[target.name] = const _LatencyResult.pending();
@@ -646,336 +1011,93 @@ class _SurgeNetworkOverviewCardState
           fallbackCountryCode: fallbackCountryCode,
         );
         if (!mounted) return;
-        setState(() {
+        _latencySetState(() {
           _latencyResults[target.name] = result;
         });
       }),
     );
 
     if (!mounted) return;
-    setState(() {
+    _latencySetState(() {
       _isTestingLatencies = false;
     });
+  }
+
+  void _latencySetState(VoidCallback fn) {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.noteHotspotEvent('latency_setState');
+    }
+    setState(fn);
   }
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final semantic = surge.semantic;
-    final appLocalizations = context.appLocalizations;
-    final traffics = ref.watch(trafficsProvider).list;
-    final totalTraffic = ref.watch(totalTrafficProvider);
-    final countryCode = ref.watch(
-      networkDetectionProvider.select((s) => s.ipInfo?.countryCode),
-    );
-    final networkIpInfo = ref.watch(
-      networkDetectionProvider.select((s) => s.ipInfo),
-    );
-    final networkIsLoading = ref.watch(
-      networkDetectionProvider.select((s) => s.isLoading),
-    );
-    final networkHasChecked = ref.watch(
-      networkDetectionProvider.select((s) => s.hasChecked),
-    );
     final isForeground = ref.watch(appForegroundProvider);
     final isDashboardActive = ref.watch(
       currentPageLabelProvider.select((l) => l == PageLabel.dashboard),
     );
-    final shouldAnimateLoading =
-        isForeground && isDashboardActive && networkIsLoading;
     final hasPendingLatency = _latencyResults.values.any((r) => r.pending);
     final shouldAnimatePending =
         isForeground && isDashboardActive && hasPendingLatency;
-    final isStart = ref.watch(isStartProvider);
-    final hasLiveTraffic = traffics.any(
-      (traffic) => traffic.up > 0 || traffic.down > 0,
-    );
-    final uploadPoints = _buildSeries(traffics, (traffic) => traffic.up, const [
-      0.13,
-      0.13,
-      0.13,
-      0.13,
-      0.13,
-      0.13,
-      0.13,
-      0.13,
-    ]);
-    final downloadPoints = _buildSeries(
-      traffics,
-      (traffic) => traffic.down,
-      const [0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077],
-    );
-    final uploadColor = isStart
-        ? semantic.dashboardDynamicActive
-        : semantic.dashboardInactive;
-    final downloadColor = isStart
-        ? semantic.dashboardActiveGreen
-        : semantic.dashboardInactiveVariant;
-    final lineFillStartAlpha = isStart ? 0.16 : 1.0;
-    final lineFillEndAlpha = isStart ? 0.03 : 0.08;
+    final cardLayout = widget.cardLayout;
     final responsiveLayout = widget.layout;
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        responsiveLayout.cardHorizontalPadding,
-        responsiveLayout.legacy(16),
-        responsiveLayout.cardHorizontalPadding,
-        0,
-      ),
-      decoration: BoxDecoration(
-        color: surge.card,
-        borderRadius: BorderRadius.circular(responsiveLayout.cardRadius),
-        border: Border.all(
-          color: surge.separator,
-          width: surge.spacing.hairline,
+    return Column(
+      children: [
+        SizedBox(
+          height: cardLayout.headerHeight,
+          child: Row(
+            children: [
+              const Spacer(),
+              _OverviewTotalTrafficBadge(layout: responsiveLayout),
+            ],
+          ),
         ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final layout = NetworkOverviewCardLayoutCalculator.layoutFor(
-            availableOuterHeight: constraints.maxHeight.isFinite
-                ? constraints.maxHeight + responsiveLayout.legacy(16)
-                : NetworkOverviewCardLayoutCalculator.naturalOuterHeightFor(
-                    responsiveLayout,
-                  ),
-            responsiveLayout: responsiveLayout,
-            contentExpansionFraction: widget.contentExpansionFraction,
-          );
-          final overviewLabels = Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: responsiveLayout.textIcon(18),
-                height: layout.headerHeight,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Icon(
-                    SurgeIcons.network,
-                    color: isStart ? surge.primary : surge.inactive,
-                    size: responsiveLayout.textIcon(18),
-                  ),
-                ),
-              ),
-              SizedBox(width: responsiveLayout.geometry(8)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _overviewTitle(context),
-                      style: context.typography.cardTitle.copyWith(
-                        color: surge.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-          final liveSpeed = ValueListenableBuilder<Traffic>(
-            valueListenable: currentSpeedNotifier,
-            builder: (_, speed, _) => _LiveSpeedBadge(
-              up: speed.up,
-              down: speed.down,
-              upColor: uploadColor,
-              downColor: downloadColor,
-              layout: responsiveLayout,
-              reflow: responsiveLayout.requiresReflow,
-            ),
-          );
-          final overviewHeader = responsiveLayout.requiresReflow
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    overviewLabels,
-                    SizedBox(height: responsiveLayout.geometry(8)),
-                    Align(alignment: Alignment.centerRight, child: liveSpeed),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(child: overviewLabels),
-                    SizedBox(width: responsiveLayout.geometry(12)),
-                    liveSpeed,
-                  ],
-                );
-          final trafficSummary = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: responsiveLayout.textIcon(18),
-                    height: layout.headerHeight,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Icon(
-                        SurgeIcons.traffic,
-                        size: responsiveLayout.textIcon(18),
-                        color: surge.textSecondary,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: responsiveLayout.geometry(8)),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          appLocalizations.trafficUsage,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.typography.cardTitle.copyWith(
-                            color: surge.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: layout.trafficTitleToChartGap),
-              Padding(
-                padding: EdgeInsets.only(left: responsiveLayout.geometry(2)),
-                child: SizedBox(
-                  width: responsiveLayout.legacy(78),
-                  height: responsiveLayout.legacy(78),
-                  child: DonutChart(
-                    data: [
-                      DonutChartData(
-                        value: totalTraffic.up.toDouble(),
-                        color: uploadColor,
-                      ),
-                      DonutChartData(
-                        value: totalTraffic.down.toDouble(),
-                        color: downloadColor,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-          final latencyPanel = Column(
-            children: [
-              SizedBox(
-                height: layout.headerHeight,
-                child: Row(
-                  children: [
-                    const Spacer(),
-                    _TotalTrafficBadge(
-                      up: totalTraffic.up,
-                      down: totalTraffic.down,
-                      upColor: uploadColor,
-                      downColor: downloadColor,
-                      layout: responsiveLayout,
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: layout.latencyHeaderToRowsGap),
-              _PlatformLatencyPanel(
-                targets: _latencyTargets,
-                results: _latencyResults,
-                fallbackCountryCode: countryCode,
-                activeColor: semantic.dashboardDynamicActive,
-                fillColor: surge.fill,
-                textColor: surge.textPrimary,
-                secondaryTextColor: surge.textSecondary,
-                dangerColor: surge.red,
-                latencyGood: semantic.latencyGood,
-                latencyMedium: semantic.latencyMedium,
-                latencyBad: semantic.latencyBad,
-                onRetest: () => unawaited(_testLatencies(force: true)),
-                shouldAnimatePending: shouldAnimatePending,
-                rowGap: layout.latencyRowGap,
-                layout: responsiveLayout,
-              ),
-            ],
-          );
-          final trafficSection = responsiveLayout.requiresReflow
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    trafficSummary,
-                    SizedBox(height: responsiveLayout.geometry(12)),
-                    latencyPanel,
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: responsiveLayout.geometry(112),
-                      child: trafficSummary,
-                    ),
-                    Expanded(child: latencyPanel),
-                  ],
-                );
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              overviewHeader,
-              SizedBox(height: layout.headerToChartGap),
-              SizedBox(
-                height: layout.chartHeight,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: LineChart(
-                        points: uploadPoints,
-                        color: uploadColor,
-                        gradient: true,
-                        gradientStartAlpha: lineFillStartAlpha,
-                        gradientEndAlpha: lineFillEndAlpha,
-                        duration: commonDuration,
-                        minY: hasLiveTraffic ? null : 0,
-                        maxY: hasLiveTraffic ? null : 0.2,
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: LineChart(
-                        points: downloadPoints,
-                        color: downloadColor,
-                        gradient: true,
-                        gradientStartAlpha: lineFillStartAlpha,
-                        gradientEndAlpha: lineFillEndAlpha,
-                        duration: commonDuration,
-                        minY: hasLiveTraffic ? null : 0,
-                        maxY: hasLiveTraffic ? null : 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: layout.chartToDividerGap),
-              Container(height: 1, color: surge.separator),
-              SizedBox(height: layout.dividerToTrafficGap),
-              trafficSection,
-              SizedBox(height: layout.afterTrafficGap),
-              Container(height: 1, color: surge.separator),
-              SizedBox(height: layout.detectionTopGap),
-              _NetworkDetectionBar(
-                ipInfo: networkIpInfo,
-                isLoading: networkIsLoading,
-                hasChecked: networkHasChecked,
-                shouldAnimate: shouldAnimateLoading,
-                primaryColor: surge.primary,
-                textColor: surge.textPrimary,
-                secondaryTextColor: surge.textSecondary,
-                fillColor: surge.fill,
-                dangerColor: surge.red,
-                label: appLocalizations.networkDetection,
-                layout: responsiveLayout,
-              ),
-              SizedBox(height: layout.detectionBottomGap),
-            ],
-          );
-        },
-      ),
+        SizedBox(height: cardLayout.latencyHeaderToRowsGap),
+        _PlatformLatencyPanel(
+          targets: _latencyTargets,
+          results: _latencyResults,
+          fallbackCountryCode: null,
+          activeColor: semantic.dashboardDynamicActive,
+          fillColor: surge.fill,
+          textColor: surge.textPrimary,
+          secondaryTextColor: surge.textSecondary,
+          dangerColor: surge.red,
+          latencyGood: semantic.latencyGood,
+          latencyMedium: semantic.latencyMedium,
+          latencyBad: semantic.latencyBad,
+          onRetest: () => unawaited(_testLatencies(force: true)),
+          shouldAnimatePending: shouldAnimatePending,
+          rowGap: cardLayout.latencyRowGap,
+          layout: responsiveLayout,
+        ),
+      ],
+    );
+  }
+}
+
+class _OverviewTotalTrafficBadge extends ConsumerWidget {
+  const _OverviewTotalTrafficBadge({required this.layout});
+
+  final DashboardResponsiveLayout layout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final surge = SurgeTheme.of(context);
+    final semantic = surge.semantic;
+    final totalTraffic = ref.watch(totalTrafficProvider);
+    final isStart = ref.watch(isStartProvider);
+    return _TotalTrafficBadge(
+      up: totalTraffic.up,
+      down: totalTraffic.down,
+      upColor: isStart
+          ? semantic.dashboardDynamicActive
+          : semantic.dashboardInactive,
+      downColor: isStart
+          ? semantic.dashboardActiveGreen
+          : semantic.dashboardInactiveVariant,
+      layout: layout,
     );
   }
 }

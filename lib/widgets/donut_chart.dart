@@ -64,9 +64,15 @@ class _DonutChartState extends State<DonutChart>
   void didUpdateWidget(DonutChart oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
+      if (NavigationTrace.enabled) {
+        NavigationTrace.noteHotspotEvent('donut_chart_update');
+      }
       _oldData = oldWidget.data;
       if (!_hasAnimatedOnce ||
           _isSignificantChange(oldWidget.data, widget.data)) {
+        if (NavigationTrace.enabled) {
+          NavigationTrace.noteHotspotEvent('donut_chart_animation_start');
+        }
         _animationController.forward(from: 0);
         _hasAnimatedOnce = true;
       } else {

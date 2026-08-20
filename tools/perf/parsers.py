@@ -317,6 +317,49 @@ def assess_running_reattach_round(
     return True, None
 
 
+def assess_running_navigation_preconditions(*, vpn: dict, session: dict) -> tuple[bool, list[str]]:
+    """RUNNING navigation may start only with a live VPN session. Never force-stop."""
+    reasons: list[str] = []
+    if vpn.get("vpn_service_running") is not True:
+        reasons.append("vpn_service_not_running")
+    if not vpn.get("tun_ifaces"):
+        reasons.append("tun_missing")
+    if vpn.get("remote_pid") is None:
+        reasons.append("remote_not_running")
+    if vpn.get("vpn_ready") is not True:
+        reasons.append("vpn_ready_false")
+    sid = session.get("session_id")
+    if not isinstance(sid, int) or sid <= 0:
+        reasons.append("session_id_invalid")
+    if session.get("state") != "RUNNING":
+        reasons.append("session_not_running")
+    return not reasons, reasons
+
+
+def assess_running_navigation_continuity(
+    *,
+    before_vpn: dict,
+    after_vpn: dict,
+    before_session: dict,
+    after_session: dict,
+) -> tuple[bool, list[str]]:
+    """RUNNING navigation fails if the VPN session is restarted or reconfigured."""
+    reasons: list[str] = []
+    if before_vpn.get("remote_pid") != after_vpn.get("remote_pid"):
+        reasons.append("remote_pid_changed")
+    if before_session.get("session_id") != after_session.get("session_id"):
+        reasons.append("session_id_changed")
+    if after_vpn.get("vpn_ready") is not True:
+        reasons.append("vpn_ready_lost")
+    if after_session.get("state") != "RUNNING":
+        reasons.append("session_not_running_after")
+    before_tun = set(before_vpn.get("tun_ifaces") or [])
+    after_tun = set(after_vpn.get("tun_ifaces") or [])
+    if before_tun != after_tun:
+        reasons.append("tun_interrupted")
+    return not reasons, reasons
+
+
 def ui_process_kill_commands(package: str, pid: int) -> list[str]:
     """Commands that may kill the Flutter UI pid. Never force-stop the package."""
     return [

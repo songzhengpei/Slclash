@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:fl_clash/common/common.dart';
 import 'package:flutter/material.dart';
 
 class Point {
@@ -59,10 +60,16 @@ class _LineChartState extends State<LineChart>
     if (widget.points != _points ||
         widget.minY != oldWidget.minY ||
         widget.maxY != oldWidget.maxY) {
+      if (NavigationTrace.enabled) {
+        NavigationTrace.noteHotspotEvent('line_chart_update');
+      }
       _points = widget.points;
       _prevRenderPoints = _currentRenderPoints;
       _currentRenderPoints = _getRenderPoints(_points);
       if (!_hasAnimatedOnce || _isSignificantChange(oldWidget)) {
+        if (NavigationTrace.enabled) {
+          NavigationTrace.noteHotspotEvent('line_chart_animation_start');
+        }
         _controller.forward(from: 0);
         _hasAnimatedOnce = true;
       } else {

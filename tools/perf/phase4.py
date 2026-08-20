@@ -29,6 +29,7 @@ from navigation import (  # noqa: E402
     filter_transitions,
     group_nav_transitions,
     mount_hotspots,
+    summarize_hotspots,
     summarize_nav,
 )
 from parsers import (  # noqa: E402
@@ -50,6 +51,8 @@ from parsers import (  # noqa: E402
     parse_tun_interfaces,
     ui_process_kill_commands,
     vpn_stop_cleared,
+    assess_running_navigation_continuity,
+    assess_running_navigation_preconditions,
 )
 from provenance import collect_git_provenance  # noqa: E402
 from report import (  # noqa: E402
@@ -884,8 +887,11 @@ class Runner:
             "to_proxy": summarize_nav(to_proxy),
         }
 
-    def navigation(self) -> dict:
+    def navigation(self, session: str = "idle") -> dict:
         self.require_package()
+        session = (session or "idle").lower()
+        if session not in {"idle", "running"}:
+            raise HarnessError("bad_nav_session", f"nav session must be idle or running, got {session}")
         notes = [
             "FrameTiming from Flutter; idle dumpsys gfxinfo is not used as navigation jank.",
             "Frame budget comes from the device refresh rate, not a hardcoded 16.67ms.",
@@ -893,30 +899,85 @@ class Runner:
         ]
         unreliable: list[str] = []
         display = self.collect_display()
-        self.force_stop()
-        time.sleep(0.8)
-        self.adb.run(["logcat", "-c"], timeout=15)
-        started = self.start_main()
-        time.sleep(2.0)
-        ready = self.wait_nav_ready()
-        if "nav_listener_ready" not in ready:
-            return {
-                "ok": False,
-                "scenario": "navigation",
-                "display": display,
-                "am_start": started,
-                "ready_marks": ready,
-                "unreliable": ["nav_listener_missing"],
-                "notes": notes
-                + [
-                    "Need a profile APK (or PHASE4_PERF=true). "
-                    "NavigationTrace is compile-time off in production release."
-                ],
-            }
+        vpn_before = None
+        session_before = None
+        started: dict
+        ready: dict
+        if session == "running":
+            notes.append(
+                "RUNNING workload: never am force-stop. VPN/Core session must stay up."
+            )
+            vpn_before = self._vpn_status()
+            session_before = self.read_session_presence()
+            pre_ok, pre_reasons = assess_running_navigation_preconditions(
+                vpn=vpn_before,
+                session=session_before,
+            )
+            if not pre_ok:
+                return {
+                    "ok": False,
+                    "scenario": "navigation",
+                    "session": session,
+                    "display": display,
+                    "vpn_before": vpn_before,
+                    "session_before": session_before,
+                    "unreliable": pre_reasons,
+                    "notes": notes
+                    + [
+                        "Start VPN in the profile app first (VpnService + tunN + :remote RUNNING). "
+                        "Do not use am force-stop."
+                    ],
+                }
+            started = self.start_main()
+            time.sleep(1.0)
+            self.adb.run(["logcat", "-c"], timeout=15)
+            ping_probe = self._count_marks("nav_pong")
+            self.nav_broadcast("ping")
+            pong_ok = self.wait_mark_count("nav_pong", ping_probe + 1, timeout=8)
+            ready = {"nav_pong": pong_ok}
+            if not pong_ok:
+                return {
+                    "ok": False,
+                    "scenario": "navigation",
+                    "session": session,
+                    "display": display,
+                    "am_start": started,
+                    "ready_marks": ready,
+                    "vpn_before": vpn_before,
+                    "session_before": session_before,
+                    "unreliable": ["nav_pong_missing"],
+                    "notes": notes
+                    + [
+                        "Need a profile APK (or PHASE4_PERF=true). "
+                        "RUNNING navigation pings the existing UI; it does not force-stop."
+                    ],
+                }
+        else:
+            self.force_stop()
+            time.sleep(0.8)
+            self.adb.run(["logcat", "-c"], timeout=15)
+            started = self.start_main()
+            time.sleep(2.0)
+            ready = self.wait_nav_ready()
+            if "nav_listener_ready" not in ready:
+                return {
+                    "ok": False,
+                    "scenario": "navigation",
+                    "session": session,
+                    "display": display,
+                    "am_start": started,
+                    "ready_marks": ready,
+                    "unreliable": ["nav_listener_missing"],
+                    "notes": notes
+                    + [
+                        "Need a profile APK (or PHASE4_PERF=true). "
+                        "NavigationTrace is compile-time off in production release."
+                    ],
+                }
 
-        ping_before = self._count_marks("nav_pong")
-        self.nav_broadcast("ping")
-        self.wait_mark_count("nav_pong", ping_before + 1, timeout=8)
+            ping_before = self._count_marks("nav_pong")
+            self.nav_broadcast("ping")
+            self.wait_mark_count("nav_pong", ping_before + 1, timeout=8)
         pages = DEFAULT_MOBILE_PAGES
         current = "dashboard"
         for event in reversed(self.logcat_events()):
@@ -981,38 +1042,59 @@ class Runner:
                 navigate(page)
         b_to_seq = current_max_seq()
 
-        # D same-tab reselect after scrolling a long page (>=10)
-        if other in pages:
-            navigate(other)
         d_from_seq = current_max_seq()
-        for _ in range(NAV_RESELECTS):
-            scroll_before = self._count_marks("nav_scroll_by")
-            self.nav_broadcast("scroll_by", {"dy": "1400"})
-            self.wait_mark_count("nav_scroll_by", scroll_before + 1, timeout=6)
-            self.nav_broadcast("scroll_by", {"dy": "1400"})
-            self.wait_mark_count("nav_scroll_by", scroll_before + 2, timeout=6)
-            self.nav_broadcast("reselect")
-            if self.wait_mark_count("nav_complete", completes_before + 1, timeout=8):
-                completes_before += 1
-            else:
-                unreliable.append("timeout_waiting_nav_complete:reselect")
-        d_to_seq = current_max_seq()
-
-        dump_before = self._count_marks("nav_page_counts")
-        self.nav_broadcast("dump_counts")
-        self.wait_mark_count("nav_page_counts", dump_before + 1, timeout=6)
-        keep_false_counts = next(
-            (event for event in reversed(self.logcat_events()) if event.get("mark") == "nav_page_counts"),
-            {},
-        )
+        d_to_seq = d_from_seq
+        keep_false_counts = {}
         keep_false_mem = self._mem_snapshot()
-        keep_false_idle = self._idle_gfxinfo(2.0)
+        keep_false_idle = {}
+        keep_experiment: dict | None = {
+            "ok": None,
+            "skipped": "running_workload_skips_p7",
+        }
+        if session != "running":
+            # D same-tab reselect after scrolling a long page (>=10)
+            if other in pages:
+                navigate(other)
+            d_from_seq = current_max_seq()
+            for _ in range(NAV_RESELECTS):
+                scroll_before = self._count_marks("nav_scroll_by")
+                self.nav_broadcast("scroll_by", {"dy": "1400"})
+                self.wait_mark_count("nav_scroll_by", scroll_before + 1, timeout=6)
+                self.nav_broadcast("scroll_by", {"dy": "1400"})
+                self.wait_mark_count("nav_scroll_by", scroll_before + 2, timeout=6)
+                self.nav_broadcast("reselect")
+                if self.wait_mark_count("nav_complete", completes_before + 1, timeout=8):
+                    completes_before += 1
+                else:
+                    unreliable.append("timeout_waiting_nav_complete:reselect")
+            d_to_seq = current_max_seq()
 
-        keep_experiment = self._dashboard_keep_experiment(
-            navigate=navigate,
-            home=home,
-            other=other,
-        )
+            dump_before = self._count_marks("nav_page_counts")
+            self.nav_broadcast("dump_counts")
+            self.wait_mark_count("nav_page_counts", dump_before + 1, timeout=6)
+            keep_false_counts = next(
+                (event for event in reversed(self.logcat_events()) if event.get("mark") == "nav_page_counts"),
+                {},
+            )
+            keep_false_mem = self._mem_snapshot()
+            keep_false_idle = self._idle_gfxinfo(2.0)
+
+            keep_experiment = self._dashboard_keep_experiment(
+                navigate=navigate,
+                home=home,
+                other=other,
+            )
+        else:
+            dump_before = self._count_marks("nav_page_counts")
+            self.nav_broadcast("dump_counts")
+            self.wait_mark_count("nav_page_counts", dump_before + 1, timeout=6)
+            keep_false_counts = next(
+                (event for event in reversed(self.logcat_events()) if event.get("mark") == "nav_page_counts"),
+                {},
+            )
+            notes.append(
+                "RUNNING skips D same-tab reselect and P7 keep experiment. A/B only."
+            )
 
         events = self.logcat_events()
         transitions = group_nav_transitions(events)
@@ -1051,12 +1133,29 @@ class Runner:
 
         ok = (
             started.get("ok") is True
-            and "nav_listener_ready" in ready
+            and (session == "running" or "nav_listener_ready" in ready)
             and len(measured_a) >= NAV_ROUND_TRIPS
             and len(measured_b) >= NAV_CYCLES
-            and len(measured_d) >= NAV_RESELECTS
+            and (session == "running" or len(measured_d) >= NAV_RESELECTS)
             and not any(item.startswith("timeout_waiting_nav_complete") for item in unreliable)
         )
+        vpn_after = None
+        session_after = None
+        if session == "running":
+            vpn_after = self._vpn_status()
+            session_after = self.read_session_presence()
+            cont_ok, cont_reasons = assess_running_navigation_continuity(
+                before_vpn=vpn_before or {},
+                after_vpn=vpn_after,
+                before_session=session_before or {},
+                after_session=session_after,
+            )
+            if not cont_ok:
+                ok = False
+                unreliable.extend(cont_reasons)
+                notes.append(
+                    "RUNNING navigation result ok=false: VPN session changed during the workload."
+                )
         if display.get("refresh_hz") is None and dart_refresh is None:
             unreliable.append("refresh_rate_unparsed")
             notes.append("Could not parse dumpsys display refresh rate; Dart FrameTiming budget still recorded.")
@@ -1071,12 +1170,17 @@ class Runner:
         return {
             "ok": ok,
             "scenario": "navigation",
+            "session": session,
             "am_start": started,
             "ready_marks": ready,
             "display": display,
             "dart_refresh_hz": dart_refresh,
             "dart_budget_ms": dart_budget,
             "pages": pages,
+            "vpn_before": vpn_before,
+            "vpn_after": vpn_after,
+            "session_before": session_before,
+            "session_after": session_after,
             "workloads": {
                 "A_dashboard_proxy": {
                     "pair": [home, other],
@@ -1120,6 +1224,12 @@ class Runner:
                 "proxy_to_dashboard": summarize_nav(proxy_dash),
                 "tools_to_dashboard": summarize_nav(tools_dash),
                 "round_robin": summarize_nav(measured_b),
+            },
+            "rebuilds": {
+                "dashboard_to_proxy": summarize_hotspots(dash_proxy),
+                "proxy_to_dashboard": summarize_hotspots(proxy_dash),
+                "tools_to_dashboard": summarize_hotspots(tools_dash),
+                "round_robin": summarize_hotspots(measured_b),
             },
             "hotspots": mount_hotspots(measured_a + measured_b + measured_d),
             "transition_count": len(transitions),
@@ -1172,6 +1282,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--write-nav-baseline-doc",
         type=Path,
         help="Write Phase 4B navigation baseline markdown. Rejects debug/diagnostic_only builds.",
+    )
+    parser.add_argument(
+        "--nav-session",
+        choices=["idle", "running"],
+        default="idle",
+        help="navigation workload: idle force-stops; running never force-stops a live VPN session.",
     )
     return parser
 
@@ -1256,7 +1372,10 @@ def main(argv: list[str] | None = None) -> int:
             "all": ["cold_start", "memory", "jank", "vpn", "background"],
         }
         for name in mapping[args.command]:
-            block = getattr(runner, name)()
+            if name == "navigation":
+                block = runner.navigation(session=args.nav_session)
+            else:
+                block = getattr(runner, name)()
             result[name] = block
             if not block.get("ok"):
                 result["ok"] = False

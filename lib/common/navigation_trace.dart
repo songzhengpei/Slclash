@@ -63,6 +63,30 @@ class NavigationTrace {
   static bool networkLatencyTimerActive = false;
   static bool networkLatencyBarRepeating = false;
 
+  /// Dashboard / chart hotspot counters. Incremented only while a transition
+  /// is active. Production release without PHASE4_PERF is a no-op.
+  static void noteHotspotBuild(String name) {
+    if (!enabled) {
+      return;
+    }
+    final active = _active;
+    if (active == null) {
+      return;
+    }
+    active.hotspotBuilds[name] = (active.hotspotBuilds[name] ?? 0) + 1;
+  }
+
+  static void noteHotspotEvent(String name) {
+    if (!enabled) {
+      return;
+    }
+    final active = _active;
+    if (active == null) {
+      return;
+    }
+    active.hotspotEvents[name] = (active.hotspotEvents[name] ?? 0) + 1;
+  }
+
   static void begin({
     required String source,
     required String target,
@@ -112,11 +136,7 @@ class NavigationTrace {
     active.animateStartMs = active.watch.elapsedMilliseconds;
     mark(
       'nav_animate_start',
-      extras: {
-        'seq': active.seq,
-        'mode': mode,
-        'duration_ms': durationMs,
-      },
+      extras: {'seq': active.seq, 'mode': mode, 'duration_ms': durationMs},
     );
   }
 
@@ -128,10 +148,7 @@ class NavigationTrace {
     active.animationCompleteMs = active.watch.elapsedMilliseconds;
     mark(
       'nav_animation_complete',
-      extras: {
-        'seq': active.seq,
-        'total_ms': active.animationCompleteMs,
-      },
+      extras: {'seq': active.seq, 'total_ms': active.animationCompleteMs},
     );
   }
 
@@ -218,10 +235,7 @@ class NavigationTrace {
     mark('nav_scroll_to_top', extras: extras);
     mark(
       'nav_scroll_command',
-      extras: {
-        ...extras,
-        'command_ms': active?.scrollCommandMs,
-      },
+      extras: {...extras, 'command_ms': active?.scrollCommandMs},
     );
   }
 
@@ -324,13 +338,13 @@ class NavigationTrace {
       'budget_ms': active.budgetMs.toStringAsFixed(3),
       'refresh_hz': active.refreshHz.toStringAsFixed(2),
       'scroll_visits': active.scrollVisits.length,
-      'scroll_elements': _maxInt(
-        active.scrollVisits.map((e) => e['elements']),
-      ),
+      'scroll_elements': _maxInt(active.scrollVisits.map((e) => e['elements'])),
       'scroll_positions': _maxInt(
         active.scrollVisits.map((e) => e['positions']),
       ),
       'scroll_us': _sumInt(active.scrollVisits.map((e) => e['duration_us'])),
+      'hotspot_builds': _formatCounts(active.hotspotBuilds),
+      'hotspot_events': _formatCounts(active.hotspotEvents),
     };
     lastCompleteExtras = extras;
     mark('nav_complete', extras: extras);
@@ -386,13 +400,11 @@ class NavigationTrace {
         return;
       }
       for (final timing in timings) {
-        active.frames.add(
-          (
-            buildMs: timing.buildDuration.inMicroseconds / 1000.0,
-            rasterMs: timing.rasterDuration.inMicroseconds / 1000.0,
-            totalMs: timing.totalSpan.inMicroseconds / 1000.0,
-          ),
-        );
+        active.frames.add((
+          buildMs: timing.buildDuration.inMicroseconds / 1000.0,
+          rasterMs: timing.rasterDuration.inMicroseconds / 1000.0,
+          totalMs: timing.totalSpan.inMicroseconds / 1000.0,
+        ));
       }
     }
 
@@ -471,6 +483,8 @@ class _ActiveNav {
   final Stopwatch watch = Stopwatch()..start();
   final List<({double buildMs, double rasterMs, double totalMs})> frames = [];
   final List<Map<String, Object?>> scrollVisits = [];
+  final Map<String, int> hotspotBuilds = <String, int>{};
+  final Map<String, int> hotspotEvents = <String, int>{};
   String? animateMode;
   int animateDurationMs = 0;
   int? animateStartMs;

@@ -12,6 +12,9 @@ class DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (NavigationTrace.enabled) {
+      NavigationTrace.noteHotspotBuild('dashboard_view');
+    }
     final mediaQuery = MediaQuery.of(context);
     final pageBackground = SurgeTheme.of(context).background;
     final bottomPadding = SurgeBottomNavLayout.mainPageBottomPadding(context);
@@ -71,9 +74,7 @@ class DashboardView extends StatelessWidget {
                               : null,
                         ),
                         SizedBox(height: layout.cardGap),
-                        SurgeNetworkOverviewCard(
-                          layout: layout,
-                        ),
+                        SurgeNetworkOverviewCard(layout: layout),
                       ],
                     ),
                   ),

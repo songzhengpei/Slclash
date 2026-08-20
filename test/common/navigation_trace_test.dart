@@ -37,4 +37,29 @@ void main() {
     expect(extras['first_build_ms'], extras['target_first_build_latency_ms']);
     expect(extras['budget_ms'], isNot(equals('16.67')));
   });
+
+  testWidgets('hotspot counters only increment while a transition is active', (
+    tester,
+  ) async {
+    StartupTrace.beginProcess();
+    await tester.pumpWidget(const SizedBox());
+    NavigationTrace.noteHotspotBuild('dashboard_view');
+    NavigationTrace.begin(source: 'proxies', target: 'dashboard', kind: 'tab');
+    NavigationTrace.noteHotspotBuild('dashboard_view');
+    NavigationTrace.noteHotspotBuild('dashboard_hero');
+    NavigationTrace.noteHotspotBuild('network_overview');
+    NavigationTrace.noteHotspotEvent('traffic_history_update');
+    NavigationTrace.noteHotspotEvent('latency_setState');
+    NavigationTrace.complete(reason: 'settled');
+
+    final extras = NavigationTrace.lastCompleteExtras!;
+    expect(
+      extras['hotspot_builds'],
+      'dashboard_hero:1,dashboard_view:1,network_overview:1',
+    );
+    expect(
+      extras['hotspot_events'],
+      'latency_setState:1,traffic_history_update:1',
+    );
+  });
 }
