@@ -95,5 +95,6 @@ Follow-up on `0a428528` (not a revert):
 - `_groupsEqual` / `groupsListsEqual` includes `fixed`.
 - Dashboard picker uses `applyProxyGroupMemberTap` (same pin/unfix/LoadBalance ignore).
 - Debounce tag is `(FunctionTag.changeProxy, groupName)`; duration still 600ms.
+- In-flight Core success with a newer optimistic intent advances the session baseline to the committed value instead of `complete()` (`73cc5e09` follow-up).
 
 Device / RUNNING still deferred to 4C.1B.

@@ -84,6 +84,20 @@ class ProxySelectionSession {
     _baseline.remove(groupName);
   }
 
+  /// After a successful Core write. If the UI already moved on, keep the
+  /// session and advance the rollback target to [committedValue].
+  void commitWithNewerIntent({
+    required String groupName,
+    required String committedValue,
+    required String? currentIntent,
+  }) {
+    if (currentIntent == committedValue) {
+      complete(groupName);
+      return;
+    }
+    _baseline[groupName] = committedValue;
+  }
+
   /// Drop baseline only when this request still owns the optimistic intent.
   void completeUnlessNewerIntent({
     required String groupName,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fake_async/fake_async.dart';
 import 'package:fl_clash/common/function.dart';
 import 'package:fl_clash/common/proxy_group_selection.dart';
@@ -196,6 +198,63 @@ void main() {
       });
     });
 
+    test('in-flight B success then C fail rolls back to B', () {
+      fakeAsync((async) {
+        final h = _SelectionHarness()..map['g'] = 'A';
+        final bCore = Completer<String>();
+        final debouncer = Debouncer();
+        void tap(String name, Future<String> core) {
+          h.optimisticTap('g', name);
+          debouncer.call(proxySelectionDebounceTag('g'), () {
+            h.dispatchSelectAsync('g', name, core);
+          });
+        }
+
+        tap('B', bCore.future);
+        async.elapse(const Duration(milliseconds: 600));
+        expect(h.coreCalls, ['select:g:B']);
+        tap('C', Future.value('proxy not exist'));
+        bCore.complete('');
+        async.flushMicrotasks();
+        expect(h.map['g'], 'C');
+        expect(h.session.peek('g'), 'B');
+        expect(h.close, 1);
+        expect(h.checkIp, 1);
+        async.elapse(const Duration(milliseconds: 600));
+        expect(h.coreCalls, ['select:g:B', 'select:g:C']);
+        expect(h.map['g'], 'B');
+        expect(h.session.peek('g'), isNull);
+        expect(h.close, 1);
+        expect(h.reset, 0);
+        expect(h.checkIp, 1);
+      });
+    });
+
+    test('in-flight unfix success then B fail rolls back to empty', () {
+      fakeAsync((async) {
+        final h = _SelectionHarness()..map['g'] = 'A';
+        final unfixCore = Completer<String>();
+        final debouncer = Debouncer();
+        h.optimisticUnfix('g');
+        debouncer.call(proxySelectionDebounceTag('g'), () {
+          h.dispatchUnfixAsync('g', unfixCore.future);
+        });
+        async.elapse(const Duration(milliseconds: 600));
+        h.optimisticTap('g', 'B');
+        debouncer.call(proxySelectionDebounceTag('g'), () {
+          h.dispatchSelectAsync('g', 'B', Future.value('proxy not exist'));
+        });
+        unfixCore.complete('');
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 600));
+        expect(h.coreCalls, ['unfix:g', 'select:g:B']);
+        expect(h.map['g'], '');
+        expect(h.session.peek('g'), isNull);
+        expect(h.close, 1);
+        expect(h.checkIp, 1);
+      });
+    });
+
     test('two groups within 600ms both write Core', () {
       fakeAsync((async) {
         final h = _SelectionHarness()
@@ -235,12 +294,61 @@ class _SelectionHarness {
     map[group] = name;
   }
 
+  void optimisticUnfix(String group) {
+    session.captureBaseline(group, map[group]);
+    map[group] = '';
+  }
+
   void dispatchSelect(String group, String name) {
-    final previous = session.peek(group);
-    final result = coreSelect(group, name);
     coreCalls.add('select:$group:$name');
+    _finish(
+      group: group,
+      submitted: name,
+      previous: session.peek(group),
+      result: coreSelect(group, name),
+    );
+  }
+
+  Future<void> dispatchSelectAsync(
+    String group,
+    String name,
+    Future<String> core,
+  ) async {
+    coreCalls.add('select:$group:$name');
+    final previous = session.peek(group);
+    final result = await core;
+    _finish(
+      group: group,
+      submitted: name,
+      previous: previous,
+      result: result,
+    );
+  }
+
+  Future<void> dispatchUnfixAsync(String group, Future<String> core) async {
+    coreCalls.add('unfix:$group');
+    final previous = session.peek(group);
+    final result = await core;
+    _finish(
+      group: group,
+      submitted: '',
+      previous: previous,
+      result: result,
+    );
+  }
+
+  void _finish({
+    required String group,
+    required String submitted,
+    required String? previous,
+    required String result,
+  }) {
     if (isCoreSelectionSuccess(result)) {
-      session.complete(group);
+      session.commitWithNewerIntent(
+        groupName: group,
+        committedValue: submitted,
+        currentIntent: map[group],
+      );
       close++;
       checkIp++;
       return;
@@ -248,7 +356,7 @@ class _SelectionHarness {
     final current = map[group];
     final rollback = shouldRollbackOptimisticIntent(
       currentIntent: current,
-      failedIntent: name,
+      failedIntent: submitted,
     );
     if (rollback) {
       if (previous == null) {
@@ -259,7 +367,7 @@ class _SelectionHarness {
     }
     session.completeUnlessNewerIntent(
       groupName: group,
-      newerIntentPending: !rollback && current != name,
+      newerIntentPending: !rollback && current != submitted,
     );
   }
 }

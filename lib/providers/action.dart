@@ -2543,7 +2543,14 @@ class ProxiesAction extends _$ProxiesAction {
     required String result,
   }) async {
     if (isCoreSelectionSuccess(result)) {
-      _selectionTxn.complete(groupName);
+      final currentIntent = ref
+          .read(currentProfileProvider)
+          ?.selectedMap[groupName];
+      _selectionTxn.commitWithNewerIntent(
+        groupName: groupName,
+        committedValue: failedIntent,
+        currentIntent: currentIntent,
+      );
       if (ref.read(appSettingProvider).closeConnections) {
         await coreController.closeConnections();
       } else {
