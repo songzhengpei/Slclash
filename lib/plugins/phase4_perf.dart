@@ -144,15 +144,8 @@ class Phase4PerfCommands {
     final b = group.all[1].name;
     final c = group.all[2].name;
     final seq = pattern == 'aba' ? [a, b, a] : [a, b, c];
-    final container = globalState.container;
     for (final name in seq) {
-      ProxyTrace.noteSelectIntent(group: group.name, proxy: name);
-      container
-          .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap(group.name, name);
-      container
-          .read(proxiesActionProvider.notifier)
-          .changeProxyDebounce(group.name, name);
+      applyProxyGroupMemberTap(group: group, tappedName: name);
     }
     StartupTrace.mark(
       'proxy_select_race_issued',

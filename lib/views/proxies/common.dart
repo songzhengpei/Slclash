@@ -55,6 +55,45 @@ void updateCurrentUnfoldSet(Set<String> value) {
       .updateCurrentUnfoldSet(value);
 }
 
+/// Shared Proxy + Dashboard tap path. Returns false when the group is not selectable.
+bool applyProxyGroupMemberTap({
+  required Group group,
+  required String tappedName,
+}) {
+  final decision = resolveProxyGroupTap(
+    type: group.type,
+    fixed: group.fixed,
+    tappedName: tappedName,
+  );
+  if (decision.kind == ProxyGroupTapKind.ignore) {
+    globalState.showNotifier(currentAppLocalizations.notSelectedTip);
+    return false;
+  }
+  final container = globalState.container;
+  container.read(proxiesActionProvider.notifier).captureSelectionBaseline(
+    group.name,
+  );
+  if (decision.kind == ProxyGroupTapKind.unfix) {
+    ProxyTrace.noteSelectIntent(group: group.name, proxy: '');
+    container.read(profilesActionProvider.notifier).updateCurrentSelectedMap(
+      group.name,
+      '',
+    );
+    container.read(proxiesActionProvider.notifier).unfixProxyDebounce(group.name);
+    return true;
+  }
+  ProxyTrace.noteSelectIntent(group: group.name, proxy: decision.proxyName);
+  container.read(profilesActionProvider.notifier).updateCurrentSelectedMap(
+    group.name,
+    decision.proxyName,
+  );
+  container.read(proxiesActionProvider.notifier).changeProxyDebounce(
+    group.name,
+    decision.proxyName,
+  );
+  return true;
+}
+
 Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
   final ref = globalState.container;
   final groups = getGroups();

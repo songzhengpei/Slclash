@@ -66,3 +66,59 @@ String? selectedNameForGroup(Group group, {required String? selectedMapValue, St
     cachedComputedNow: cachedComputedNow,
   );
 }
+
+/// Per-group optimistic selection baseline for one debounce burst.
+///
+/// First tap records the committed [selectedMap] value. Later taps in the
+/// same burst keep that baseline so A→B→C failure restores A, not B.
+class ProxySelectionSession {
+  final Map<String, String?> _baseline = {};
+
+  void captureBaseline(String groupName, String? committed) {
+    _baseline.putIfAbsent(groupName, () => committed);
+  }
+
+  String? peek(String groupName) => _baseline[groupName];
+
+  void complete(String groupName) {
+    _baseline.remove(groupName);
+  }
+
+  /// Drop baseline only when this request still owns the optimistic intent.
+  void completeUnlessNewerIntent({
+    required String groupName,
+    required bool newerIntentPending,
+  }) {
+    if (!newerIntentPending) {
+      complete(groupName);
+    }
+  }
+}
+
+bool groupsListsEqual(List<Group> a, List<Group> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    final ga = a[i];
+    final gb = b[i];
+    if (ga.name != gb.name ||
+        ga.type != gb.type ||
+        ga.now != gb.now ||
+        ga.fixed != gb.fixed ||
+        ga.hidden != gb.hidden ||
+        ga.testUrl != gb.testUrl ||
+        ga.icon != gb.icon ||
+        ga.all.length != gb.all.length) {
+      return false;
+    }
+    for (var j = 0; j < ga.all.length; j++) {
+      if (ga.all[j].name != gb.all[j].name ||
+          ga.all[j].type != gb.all[j].type) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+Object proxySelectionDebounceTag(String groupName) =>
+    (FunctionTag.changeProxy, groupName);

@@ -2,7 +2,6 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
-import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/proxies/common.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -35,33 +34,11 @@ class ProxyCard extends StatelessWidget {
     proxyDelayTest(proxy, testUrl);
   }
 
-  Future<void> _changeProxy(WidgetRef ref) async {
-    final group = ref.read(groupsProvider).getGroup(groupName);
-    final decision = resolveProxyGroupTap(
-      type: groupType,
-      fixed: group?.fixed,
-      tappedName: proxy.name,
-    );
-    if (decision.kind == ProxyGroupTapKind.ignore) {
-      globalState.showNotifier(currentAppLocalizations.notSelectedTip);
-      return;
-    }
-    if (decision.kind == ProxyGroupTapKind.unfix) {
-      ProxyTrace.noteSelectIntent(group: groupName, proxy: '');
-      ref.read(profilesActionProvider.notifier).updateCurrentSelectedMap(
-        groupName,
-        '',
-      );
-      ref.read(proxiesActionProvider.notifier).unfixProxyDebounce(groupName);
-      return;
-    }
-    ProxyTrace.noteSelectIntent(group: groupName, proxy: decision.proxyName);
-    ref
-        .read(profilesActionProvider.notifier)
-        .updateCurrentSelectedMap(groupName, decision.proxyName);
-    ref
-        .read(proxiesActionProvider.notifier)
-        .changeProxyDebounce(groupName, decision.proxyName);
+  void _changeProxy(WidgetRef ref) {
+    final group =
+        ref.read(groupsProvider).getGroup(groupName) ??
+        Group(name: groupName, type: groupType);
+    applyProxyGroupMemberTap(group: group, tappedName: proxy.name);
   }
 
   @override

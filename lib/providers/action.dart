@@ -1849,6 +1849,7 @@ class ThemeAction extends _$ThemeAction {
 @Riverpod(keepAlive: true)
 class ProxiesAction extends _$ProxiesAction {
   final Map<int, Future<void>> _runningUpdateGroups = {};
+  final ProxySelectionSession _selectionTxn = ProxySelectionSession();
 
   late final ProviderReadinessService<ExternalProvider, Group>
   _providerReadiness = ProviderReadinessService(
@@ -1995,28 +1996,13 @@ class ProxiesAction extends _$ProxiesAction {
     }
   }
 
-  bool _groupsEqual(List<Group> a, List<Group> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final ga = a[i];
-      final gb = b[i];
-      if (ga.name != gb.name ||
-          ga.type != gb.type ||
-          ga.now != gb.now ||
-          ga.hidden != gb.hidden ||
-          ga.testUrl != gb.testUrl ||
-          ga.icon != gb.icon ||
-          ga.all.length != gb.all.length) {
-        return false;
-      }
-      for (var j = 0; j < ga.all.length; j++) {
-        if (ga.all[j].name != gb.all[j].name ||
-            ga.all[j].type != gb.all[j].type) {
-          return false;
-        }
-      }
-    }
-    return true;
+  bool _groupsEqual(List<Group> a, List<Group> b) => groupsListsEqual(a, b);
+
+  void captureSelectionBaseline(String groupName) {
+    _selectionTxn.captureBaseline(
+      groupName,
+      ref.read(currentProfileProvider)?.selectedMap[groupName],
+    );
   }
 
   void _syncComputedSelectedMap(List<Group> groups) {
@@ -2034,22 +2020,27 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   void changeProxyDebounce(String groupName, String proxyName) {
-    debouncer.call(FunctionTag.changeProxy, (
-      String groupName,
-      String proxyName,
-      bool unfix,
-    ) async {
-      if (unfix) {
-        await unfixProxy(groupName: groupName);
-      } else {
-        await changeProxy(groupName: groupName, proxyName: proxyName);
-      }
-      updateGroupsDebounce();
-    }, args: [groupName, proxyName, false]);
+    _scheduleSelectionDebounce(
+      groupName: groupName,
+      proxyName: proxyName,
+      unfix: false,
+    );
   }
 
   void unfixProxyDebounce(String groupName) {
-    debouncer.call(FunctionTag.changeProxy, (
+    _scheduleSelectionDebounce(
+      groupName: groupName,
+      proxyName: '',
+      unfix: true,
+    );
+  }
+
+  void _scheduleSelectionDebounce({
+    required String groupName,
+    required String proxyName,
+    required bool unfix,
+  }) {
+    debouncer.call(proxySelectionDebounceTag(groupName), (
       String groupName,
       String proxyName,
       bool unfix,
@@ -2060,7 +2051,7 @@ class ProxiesAction extends _$ProxiesAction {
         await changeProxy(groupName: groupName, proxyName: proxyName);
       }
       updateGroupsDebounce();
-    }, args: [groupName, '', true]);
+    }, args: [groupName, proxyName, unfix]);
   }
 
   Future<String?> _computeProfileFingerprint(Profile? profile) async {
@@ -2518,7 +2509,7 @@ class ProxiesAction extends _$ProxiesAction {
     required String groupName,
     required String proxyName,
   }) async {
-    final previous = ref.read(currentProfileProvider)?.selectedMap[groupName];
+    final previous = _selectionTxn.peek(groupName);
     final result = await coreController.changeProxy(
       ChangeProxyParams(groupName: groupName, proxyName: proxyName),
     );
@@ -2532,7 +2523,7 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   Future<void> unfixProxy({required String groupName}) async {
-    final previous = ref.read(currentProfileProvider)?.selectedMap[groupName];
+    final previous = _selectionTxn.peek(groupName);
     final result = await coreController.unfixProxy(
       UnfixProxyParams(groupName: groupName),
     );
@@ -2552,6 +2543,7 @@ class ProxiesAction extends _$ProxiesAction {
     required String result,
   }) async {
     if (isCoreSelectionSuccess(result)) {
+      _selectionTxn.complete(groupName);
       if (ref.read(appSettingProvider).closeConnections) {
         await coreController.closeConnections();
       } else {
@@ -2563,14 +2555,19 @@ class ProxiesAction extends _$ProxiesAction {
     final currentIntent = ref
         .read(currentProfileProvider)
         ?.selectedMap[groupName];
-    if (shouldRollbackOptimisticIntent(
+    final rollback = shouldRollbackOptimisticIntent(
       currentIntent: currentIntent,
       failedIntent: failedIntent,
-    )) {
+    );
+    if (rollback) {
       ref
           .read(profilesActionProvider.notifier)
           .restoreSelectedMapEntry(groupName, previousIntent);
     }
+    _selectionTxn.completeUnlessNewerIntent(
+      groupName: groupName,
+      newerIntentPending: !rollback && currentIntent != failedIntent,
+    );
     updateGroupsDebounce();
     globalState.showNotifier(result);
   }

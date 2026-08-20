@@ -1651,8 +1651,12 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
                         group: widget.group,
                         isSelected: proxy.name == widget.currentProxyName,
                         onTap: () {
-                          _changeProxy(ref, proxy.name);
-                          Navigator.of(context).pop();
+                          if (proxy_common.applyProxyGroupMemberTap(
+                            group: widget.group,
+                            tappedName: proxy.name,
+                          )) {
+                            Navigator.of(context).pop();
+                          }
                         },
                       );
                     },
@@ -1661,25 +1665,6 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
         ],
       ),
     );
-  }
-
-  void _changeProxy(WidgetRef ref, String proxyName) {
-    final groupName = widget.group.name;
-    final isComputedSelected = widget.group.type.isComputedSelected;
-    final isSelector = widget.group.type == GroupType.Selector;
-    if (isComputedSelected || isSelector) {
-      final nextName = isComputedSelected
-          ? (ref.read(proxyNameProvider(groupName)) == proxyName
-                ? ''
-                : proxyName)
-          : proxyName;
-      ref
-          .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap(groupName, nextName);
-      ref
-          .read(proxiesActionProvider.notifier)
-          .changeProxyDebounce(groupName, nextName);
-    }
   }
 }
 

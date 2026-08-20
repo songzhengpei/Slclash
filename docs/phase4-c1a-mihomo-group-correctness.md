@@ -84,7 +84,16 @@ RUNNING smoke: **deferred to 4C.1B** (profile package still not VPN RUNNING; not
 - eager proxy list → 4C.1C
 - header rebuild → 4C.1C
 - selection trace generation / 300/500 / RUNNING perf → 4C.1B
-- Dashboard group picker still uses old `isComputedSelected` toggle (not edited; 4B hold)
 - Relay enum leftover (explicitly not cleaned)
 
-4C.1A STOP. Wait for human audit. Do not start 4C.1B/1C/4D.
+## 11. 4C.1A.1 Selection Transaction Cleanup
+
+Follow-up on `0a428528` (not a revert):
+
+- Optimistic rollback uses per-group `ProxySelectionSession` baseline captured **before** `selectedMap` write, so Core error restores A not B.
+- Same-group A→B→C debounce burst keeps baseline A.
+- `_groupsEqual` / `groupsListsEqual` includes `fixed`.
+- Dashboard picker uses `applyProxyGroupMemberTap` (same pin/unfix/LoadBalance ignore).
+- Debounce tag is `(FunctionTag.changeProxy, groupName)`; duration still 600ms.
+
+Device / RUNNING still deferred to 4C.1B.
