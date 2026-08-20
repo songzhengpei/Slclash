@@ -1,0 +1,312 @@
+{
+  "timestamp": "2026-08-20T11:44:13Z",
+  "commit": "047d4a8c34b9973c408e5f2d27e3bb27142077dc",
+  "git_head": "047d4a8c34b9973c408e5f2d27e3bb27142077dc",
+  "device": "25042PN24C",
+  "session": "running",
+  "ok": true,
+  "peak_inflight": 22,
+  "pages": {
+    "dashboard": {
+      "page": "dashboard",
+      "total": 134,
+      "dispatch_count": 137,
+      "peak_inflight": 14,
+      "result_class": {
+        "success": 134
+      },
+      "overlap": {
+        "asyncTestDelay": 99,
+        "getConnections": 5
+      },
+      "methods": {
+        "getTrafficSnapshot": {
+          "count": 20,
+          "overlap_count": 0,
+          "peak_same_method_inflight": 1,
+          "p50_ms": 7.0,
+          "p90_ms": 12.200000000000003,
+          "p99_ms": 15.619999999999997,
+          "max_ms": 16
+        },
+        "asyncTestDelay": {
+          "count": 108,
+          "overlap_count": 99,
+          "peak_same_method_inflight": 10,
+          "p50_ms": 290.5,
+          "p90_ms": 1397.6999999999998,
+          "p99_ms": 5022.72,
+          "max_ms": 5025
+        },
+        "getConnections": {
+          "count": 6,
+          "overlap_count": 5,
+          "peak_same_method_inflight": 3,
+          "p50_ms": 18.5,
+          "p90_ms": 25.5,
+          "p99_ms": 26.85,
+          "max_ms": 27
+        }
+      },
+      "transport_null_or_timeout": 0,
+      "core_not_ready": 0,
+      "core_error": 0,
+      "success": 134,
+      "window_s": 18.0,
+      "per_min": {
+        "getTrafficSnapshot": 66.67,
+        "asyncTestDelay": 360.0,
+        "getConnections": 20.0
+      }
+    },
+    "proxies": {
+      "page": "proxies",
+      "total": 16,
+      "dispatch_count": 6,
+      "peak_inflight": 4,
+      "result_class": {
+        "success": 16
+      },
+      "overlap": {
+        "asyncTestDelay": 3
+      },
+      "methods": {
+        "asyncTestDelay": {
+          "count": 14,
+          "overlap_count": 3,
+          "peak_same_method_inflight": 10,
+          "p50_ms": 873.5,
+          "p90_ms": 3238.7,
+          "p99_ms": 3240.74,
+          "max_ms": 3241
+        },
+        "getIsInit": {
+          "count": 1,
+          "overlap_count": 0,
+          "peak_same_method_inflight": 1,
+          "p50_ms": 5.0,
+          "p90_ms": 5.0,
+          "p99_ms": 5.0,
+          "max_ms": 5
+        },
+        "getProxies": {
+          "count": 1,
+          "overlap_count": 0,
+          "peak_same_method_inflight": 1,
+          "p50_ms": 57.0,
+          "p90_ms": 57.0,
+          "p99_ms": 57.0,
+          "max_ms": 57
+        }
+      },
+      "transport_null_or_timeout": 0,
+      "core_not_ready": 0,
+      "core_error": 0,
+      "success": 16,
+      "window_s": 16.0,
+      "per_min": {
+        "asyncTestDelay": 52.5,
+        "getIsInit": 3.75,
+        "getProxies": 3.75
+      }
+    },
+    "profiles": {
+      "page": "profiles",
+      "total": 0,
+      "dispatch_count": 0,
+      "peak_inflight": 0,
+      "result_class": {},
+      "overlap": {},
+      "methods": {},
+      "transport_null_or_timeout": 0,
+      "core_not_ready": 0,
+      "core_error": 0,
+      "success": 0,
+      "window_s": 12.0,
+      "per_min": {}
+    },
+    "tools": {
+      "page": "tools",
+      "total": 0,
+      "dispatch_count": 0,
+      "peak_inflight": 0,
+      "result_class": {},
+      "overlap": {},
+      "methods": {},
+      "transport_null_or_timeout": 0,
+      "core_not_ready": 0,
+      "core_error": 0,
+      "success": 0,
+      "window_s": 12.0,
+      "per_min": {}
+    }
+  },
+  "delay_interference": {
+    "page": "delay",
+    "total": 45,
+    "dispatch_count": 45,
+    "peak_inflight": 22,
+    "result_class": {
+      "success": 45
+    },
+    "overlap": {
+      "asyncTestDelay": 19,
+      "getConnections": 5
+    },
+    "methods": {
+      "getTrafficSnapshot": {
+        "count": 5,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 7.0,
+        "p90_ms": 9.0,
+        "p99_ms": 9.0,
+        "max_ms": 9
+      },
+      "getConnections": {
+        "count": 20,
+        "overlap_count": 5,
+        "peak_same_method_inflight": 3,
+        "p50_ms": 6.0,
+        "p90_ms": 12.200000000000003,
+        "p99_ms": 14.809999999999999,
+        "max_ms": 15
+      },
+      "asyncTestDelay": {
+        "count": 20,
+        "overlap_count": 19,
+        "peak_same_method_inflight": 20,
+        "p50_ms": 270.5,
+        "p90_ms": 329.50000000000006,
+        "p99_ms": 605.6199999999997,
+        "max_ms": 663
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 45,
+    "delay_size": 20,
+    "delay": {
+      "started": 40,
+      "finished": 39,
+      "failed": 0,
+      "peak_inflight": 20,
+      "after_map_started": 20,
+      "batch_limits_start": false
+    }
+  },
+  "background": {
+    "page": "background",
+    "total": 27,
+    "dispatch_count": 30,
+    "peak_inflight": 4,
+    "result_class": {
+      "success": 27
+    },
+    "overlap": {
+      "getConnections": 7
+    },
+    "methods": {
+      "getTrafficSnapshot": {
+        "count": 4,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 4.5,
+        "p90_ms": 6.0,
+        "p99_ms": 6.0,
+        "max_ms": 6
+      },
+      "getConnections": {
+        "count": 22,
+        "overlap_count": 7,
+        "peak_same_method_inflight": 3,
+        "p50_ms": 5.5,
+        "p90_ms": 10.0,
+        "p99_ms": 12.369999999999997,
+        "max_ms": 13
+      },
+      "forceGc": {
+        "count": 1,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 27.0,
+        "p90_ms": 27.0,
+        "p99_ms": 27.0,
+        "max_ms": 27
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 27
+  },
+  "resume": {
+    "page": "resume",
+    "total": 29,
+    "dispatch_count": 29,
+    "peak_inflight": 4,
+    "result_class": {
+      "success": 29
+    },
+    "overlap": {
+      "getConnections": 5
+    },
+    "methods": {
+      "getTrafficSnapshot": {
+        "count": 10,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 6.0,
+        "p90_ms": 13.1,
+        "p99_ms": 13.91,
+        "max_ms": 14
+      },
+      "getConnections": {
+        "count": 19,
+        "overlap_count": 5,
+        "peak_same_method_inflight": 3,
+        "p50_ms": 7.0,
+        "p90_ms": 13.999999999999993,
+        "p99_ms": 23.64,
+        "max_ms": 24
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 29
+  },
+  "continuity_ok": true,
+  "vpn_before": {
+    "tun_ifaces": [
+      "tun0"
+    ],
+    "vpn_service_running": true,
+    "remote_pid": 24601,
+    "vpn_ready": true
+  },
+  "vpn_after": {
+    "tun_ifaces": [
+      "tun0"
+    ],
+    "vpn_service_running": true,
+    "remote_pid": 24601,
+    "vpn_ready": true
+  },
+  "session_before": {
+    "session_id": 1787226145295,
+    "state": "RUNNING",
+    "pid": 24601
+  },
+  "session_after": {
+    "session_id": 1787226145295,
+    "state": "RUNNING",
+    "pid": 24601
+  },
+  "notes": [
+    "4D.0 IPC audit never uses am force-stop.",
+    "Does not change poll intervals, invoke timeouts, or null fallbacks.",
+    "result_class transport_null_or_timeout is not a proven timeout."
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "idle": {
+    "page": "delay",
+    "total": 20,
+    "dispatch_count": 20,
+    "peak_inflight": 20,
+    "result_class": {
+      "success": 20
+    },
+    "overlap": {
+      "asyncTestDelay": 19
+    },
+    "methods": {
+      "asyncTestDelay": {
+        "count": 20,
+        "overlap_count": 19,
+        "peak_same_method_inflight": 20,
+        "p50_ms": 182.0,
+        "p90_ms": 308.90000000000003,
+        "p99_ms": 626.6899999999996,
+        "max_ms": 693
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 20,
+    "delay_size": 20,
+    "delay": {
+      "started": 20,
+      "finished": 19,
+      "failed": 0,
+      "peak_inflight": 20,
+      "after_map_started": 20,
+      "batch_limits_start": false
+    }
+  },
+  "running": {
+    "page": "delay",
+    "total": 45,
+    "dispatch_count": 45,
+    "peak_inflight": 22,
+    "result_class": {
+      "success": 45
+    },
+    "overlap": {
+      "asyncTestDelay": 19,
+      "getConnections": 5
+    },
+    "methods": {
+      "getTrafficSnapshot": {
+        "count": 5,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 7.0,
+        "p90_ms": 9.0,
+        "p99_ms": 9.0,
+        "max_ms": 9
+      },
+      "getConnections": {
+        "count": 20,
+        "overlap_count": 5,
+        "peak_same_method_inflight": 3,
+        "p50_ms": 6.0,
+        "p90_ms": 12.200000000000003,
+        "p99_ms": 14.809999999999999,
+        "max_ms": 15
+      },
+      "asyncTestDelay": {
+        "count": 20,
+        "overlap_count": 19,
+        "peak_same_method_inflight": 20,
+        "p50_ms": 270.5,
+        "p90_ms": 329.50000000000006,
+        "p99_ms": 605.6199999999997,
+        "max_ms": 663
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 45,
+    "delay_size": 20,
+    "delay": {
+      "started": 40,
+      "finished": 39,
+      "failed": 0,
+      "peak_inflight": 20,
+      "after_map_started": 20,
+      "batch_limits_start": false
+    }
+  },
+  "dashboard_traffic_baseline": {
+    "count": 20,
+    "overlap_count": 0,
+    "peak_same_method_inflight": 1,
+    "p50_ms": 7.0,
+    "p90_ms": 12.200000000000003,
+    "p99_ms": 15.619999999999997,
+    "max_ms": 16
+  }
+}

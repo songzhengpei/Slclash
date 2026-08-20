@@ -1,0 +1,83 @@
+{
+  "background": {
+    "page": "background",
+    "total": 27,
+    "dispatch_count": 30,
+    "peak_inflight": 4,
+    "result_class": {
+      "success": 27
+    },
+    "overlap": {
+      "getConnections": 7
+    },
+    "methods": {
+      "getTrafficSnapshot": {
+        "count": 4,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 4.5,
+        "p90_ms": 6.0,
+        "p99_ms": 6.0,
+        "max_ms": 6
+      },
+      "getConnections": {
+        "count": 22,
+        "overlap_count": 7,
+        "peak_same_method_inflight": 3,
+        "p50_ms": 5.5,
+        "p90_ms": 10.0,
+        "p99_ms": 12.369999999999997,
+        "max_ms": 13
+      },
+      "forceGc": {
+        "count": 1,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 27.0,
+        "p90_ms": 27.0,
+        "p99_ms": 27.0,
+        "max_ms": 27
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 27
+  },
+  "resume": {
+    "page": "resume",
+    "total": 29,
+    "dispatch_count": 29,
+    "peak_inflight": 4,
+    "result_class": {
+      "success": 29
+    },
+    "overlap": {
+      "getConnections": 5
+    },
+    "methods": {
+      "getTrafficSnapshot": {
+        "count": 10,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 6.0,
+        "p90_ms": 13.1,
+        "p99_ms": 13.91,
+        "max_ms": 14
+      },
+      "getConnections": {
+        "count": 19,
+        "overlap_count": 5,
+        "peak_same_method_inflight": 3,
+        "p50_ms": 7.0,
+        "p90_ms": 13.999999999999993,
+        "p99_ms": 23.64,
+        "max_ms": 24
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 29
+  }
+}

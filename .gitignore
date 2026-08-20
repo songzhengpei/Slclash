@@ -66,6 +66,7 @@ docs/*
 !docs/phase4-c1a-mihomo-group-correctness.md
 !docs/phase4-c1b-proxy-performance-evidence.md
 !docs/phase4-c-final-closeout.md
+!docs/phase4-d0-runtime-polling-ipc-baseline.md
 !docs/images/
 docs/images/*
 !docs/images/readme/

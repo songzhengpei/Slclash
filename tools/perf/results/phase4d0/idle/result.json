@@ -1,0 +1,173 @@
+{
+  "timestamp": "2026-08-20T11:42:04Z",
+  "commit": "047d4a8c34b9973c408e5f2d27e3bb27142077dc",
+  "git_head": "047d4a8c34b9973c408e5f2d27e3bb27142077dc",
+  "device": "25042PN24C",
+  "session": "idle",
+  "ok": true,
+  "peak_inflight": 20,
+  "pages": {
+    "dashboard": {
+      "page": "dashboard",
+      "total": 0,
+      "dispatch_count": 0,
+      "peak_inflight": 0,
+      "result_class": {},
+      "overlap": {},
+      "methods": {},
+      "transport_null_or_timeout": 0,
+      "core_not_ready": 0,
+      "core_error": 0,
+      "success": 0,
+      "window_s": 18.0,
+      "per_min": {}
+    },
+    "proxies": {
+      "page": "proxies",
+      "total": 0,
+      "dispatch_count": 0,
+      "peak_inflight": 0,
+      "result_class": {},
+      "overlap": {},
+      "methods": {},
+      "transport_null_or_timeout": 0,
+      "core_not_ready": 0,
+      "core_error": 0,
+      "success": 0,
+      "window_s": 16.0,
+      "per_min": {}
+    },
+    "profiles": {
+      "page": "profiles",
+      "total": 0,
+      "dispatch_count": 0,
+      "peak_inflight": 0,
+      "result_class": {},
+      "overlap": {},
+      "methods": {},
+      "transport_null_or_timeout": 0,
+      "core_not_ready": 0,
+      "core_error": 0,
+      "success": 0,
+      "window_s": 12.0,
+      "per_min": {}
+    },
+    "tools": {
+      "page": "tools",
+      "total": 0,
+      "dispatch_count": 0,
+      "peak_inflight": 0,
+      "result_class": {},
+      "overlap": {},
+      "methods": {},
+      "transport_null_or_timeout": 0,
+      "core_not_ready": 0,
+      "core_error": 0,
+      "success": 0,
+      "window_s": 12.0,
+      "per_min": {}
+    }
+  },
+  "delay_interference": {
+    "page": "delay",
+    "total": 20,
+    "dispatch_count": 20,
+    "peak_inflight": 20,
+    "result_class": {
+      "success": 20
+    },
+    "overlap": {
+      "asyncTestDelay": 19
+    },
+    "methods": {
+      "asyncTestDelay": {
+        "count": 20,
+        "overlap_count": 19,
+        "peak_same_method_inflight": 20,
+        "p50_ms": 182.0,
+        "p90_ms": 308.90000000000003,
+        "p99_ms": 626.6899999999996,
+        "max_ms": 693
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 20,
+    "delay_size": 20,
+    "delay": {
+      "started": 20,
+      "finished": 19,
+      "failed": 0,
+      "peak_inflight": 20,
+      "after_map_started": 20,
+      "batch_limits_start": false
+    }
+  },
+  "background": {
+    "page": "background",
+    "total": 1,
+    "dispatch_count": 1,
+    "peak_inflight": 1,
+    "result_class": {
+      "success": 1
+    },
+    "overlap": {},
+    "methods": {
+      "forceGc": {
+        "count": 1,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 41.0,
+        "p90_ms": 41.0,
+        "p99_ms": 41.0,
+        "max_ms": 41
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 1
+  },
+  "resume": {
+    "page": "resume",
+    "total": 0,
+    "dispatch_count": 0,
+    "peak_inflight": 0,
+    "result_class": {},
+    "overlap": {},
+    "methods": {},
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 0
+  },
+  "continuity_ok": null,
+  "vpn_before": {
+    "tun_ifaces": [],
+    "vpn_service_running": false,
+    "remote_pid": null,
+    "vpn_ready": false
+  },
+  "vpn_after": {
+    "tun_ifaces": [],
+    "vpn_service_running": false,
+    "remote_pid": 24601,
+    "vpn_ready": null
+  },
+  "session_before": {
+    "session_id": null,
+    "state": null,
+    "pid": null
+  },
+  "session_after": {
+    "session_id": null,
+    "state": null,
+    "pid": null
+  },
+  "notes": [
+    "4D.0 IPC audit never uses am force-stop.",
+    "Does not change poll intervals, invoke timeouts, or null fallbacks.",
+    "result_class transport_null_or_timeout is not a proven timeout."
+  ]
+}

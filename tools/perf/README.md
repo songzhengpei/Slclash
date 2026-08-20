@@ -73,17 +73,19 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`, `docs/phase4-c0-proxy-group-baseline.md`, `docs/phase4-c1a-mihomo-group-correctness.md`, `docs/phase4-c1b-proxy-performance-evidence.md`, `docs/phase4-c-final-closeout.md`.
+Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`, `docs/phase4-c0-proxy-group-baseline.md`, `docs/phase4-c1a-mihomo-group-correctness.md`, `docs/phase4-c1b-proxy-performance-evidence.md`, `docs/phase4-c-final-closeout.md`, `docs/phase4-d0-runtime-polling-ipc-baseline.md`.
 
 Phase status:
 
 - Phase 4A (Startup): **CLOSED**
 - Phase 4B (Navigation / Page Mounting): **CLOSED** — `docs/phase4-b-final-closeout.md`
 - Phase 4C (Proxy / Group UX): **CLOSED** — `docs/phase4-c-final-closeout.md`
-- Phase 4D (Runtime Polling / Core IPC): **NEXT**
+- Phase 4D (Runtime Polling / Core IPC): **CURRENT** — 4D.0 baseline `docs/phase4-d0-runtime-polling-ipc-baseline.md`
 - Phase 4E (VPN Lifecycle): **FUTURE**
 - Phase 4F (Background / Power): **FUTURE**
 - Phase 4G (Animation polish): **FUTURE**
+
+Phase 4D.0 IPC: `python tools/perf/phase4.py ipc --ipc-session idle|running`. Never force-stops. `all` does not include `ipc`.
 
 Phase 4C.0 audit: `python tools/perf/phase4.py proxy`. Never force-stops. `all` does not include `proxy`. See `docs/phase4-c0-proxy-group-baseline.md`.
 
