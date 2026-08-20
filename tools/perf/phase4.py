@@ -6,7 +6,8 @@ Usage:
     python tools/perf/phase4.py env|cold-start|memory|jank|vpn|background
     python tools/perf/phase4.py running-reattach
     python tools/perf/phase4.py navigation
-    python tools/perf/phase4.py proxy --proxy-session idle
+    python tools/perf/phase4.py ipc --ipc-session idle
+    python tools/perf/phase4.py ipc --ipc-session running
     python tools/perf/phase4.py compare --baseline a.json --current b.json
 """
 
@@ -57,6 +58,7 @@ from parsers import (  # noqa: E402
     assess_running_navigation_preconditions,
     summarize_delay_events,
     summarize_select_events,
+    summarize_ipc_events,
 )
 from provenance import collect_git_provenance  # noqa: E402
 from report import (  # noqa: E402
@@ -1436,12 +1438,147 @@ class Runner:
         time.sleep(0.3)
         return []
 
+    def _ipc_rate(self, summary: dict, window_s: float) -> dict:
+        if window_s <= 0:
+            return {}
+        rates = {}
+        for method, info in (summary.get("methods") or {}).items():
+            rates[method] = round((info.get("count") or 0) * 60.0 / window_s, 2)
+        return rates
+
+    def _ipc_page_window(self, page: str, seconds: float) -> dict:
+        self.nav_broadcast("navigate", {"page": page})
+        time.sleep(0.8)
+        self.nav_broadcast("ipc_window", {"value": "start", "page": page})
+        time.sleep(seconds)
+        self.nav_broadcast("ipc_dump", {"reason": page})
+        self.nav_broadcast("ipc_window", {"value": "end", "page": page})
+        time.sleep(0.3)
+        summary = summarize_ipc_events(self.logcat_events(), page=page)
+        summary["window_s"] = seconds
+        summary["per_min"] = self._ipc_rate(summary, seconds)
+        return summary
+
+    def ipc(
+        self,
+        session: str = "idle",
+        delay_max: int = 20,
+    ) -> dict:
+        """Phase 4D.0 Core IPC baseline. Never force-stops. No cadence changes."""
+        self.require_package()
+        session = (session or "idle").lower()
+        notes = [
+            "4D.0 IPC audit never uses am force-stop.",
+            "Does not change poll intervals, invoke timeouts, or null fallbacks.",
+            "result_class transport_null_or_timeout is not a proven timeout.",
+        ]
+        unreliable: list[str] = []
+        vpn_before = self._vpn_status()
+        session_before = self.read_session_presence()
+        if session == "running":
+            pre_ok, pre_reasons = assess_running_navigation_preconditions(
+                vpn=vpn_before,
+                session=session_before,
+            )
+            if not pre_ok:
+                return {
+                    "ok": False,
+                    "session": session,
+                    "unreliable": pre_reasons,
+                    "notes": notes + ["RUNNING preconditions failed; not constructing a fake session."],
+                    "vpn_before": vpn_before,
+                    "session_before": session_before,
+                    "blocked": "4D.0 BLOCKED: real RUNNING evidence unavailable",
+                }
+        self.nav_broadcast("ping")
+        self.wait_nav_ready(timeout=25.0)
+        pages = {
+            "dashboard": self._ipc_page_window("dashboard", 18.0),
+            "proxies": self._ipc_page_window("proxies", 16.0),
+            "profiles": self._ipc_page_window("profiles", 12.0),
+            "tools": self._ipc_page_window("tools", 12.0),
+        }
+        self.nav_broadcast("navigate", {"page": "dashboard"})
+        time.sleep(0.6)
+        delay_size = 20 if session == "running" else max(delay_max, 20)
+        self.nav_broadcast("ipc_window", {"value": "start", "page": "delay"})
+        self.nav_broadcast("delay_test", {"max": str(delay_size)})
+        deadline = time.monotonic() + 90.0
+        while time.monotonic() < deadline:
+            events = self.logcat_events()
+            if any(e.get("mark") == "delay_test_end" for e in events):
+                break
+            time.sleep(0.4)
+        time.sleep(2.0)
+        self.nav_broadcast("ipc_dump", {"reason": "delay"})
+        self.nav_broadcast("ipc_window", {"value": "end", "page": "delay"})
+        delay_summary = summarize_ipc_events(self.logcat_events(), page="delay")
+        delay_summary["delay_size"] = delay_size
+        delay_summary["delay"] = summarize_delay_events(self.logcat_events())
+
+        self.nav_broadcast("ipc_window", {"value": "start", "page": "background"})
+        self.adb.shell("input keyevent KEYCODE_HOME", timeout=10)
+        time.sleep(10.0)
+        self.adb.shell(
+            f"am start -n {self.package}/{MAIN_ACTIVITY}",
+            timeout=20,
+        )
+        time.sleep(1.0)
+        self.nav_broadcast("ipc_window", {"value": "end", "page": "background"})
+        time.sleep(0.4)
+        background = summarize_ipc_events(self.logcat_events(), page="background")
+        self.nav_broadcast("ipc_window", {"value": "start", "page": "resume"})
+        time.sleep(8.0)
+        self.nav_broadcast("ipc_dump", {"reason": "resume"})
+        self.nav_broadcast("ipc_window", {"value": "end", "page": "resume"})
+        time.sleep(0.3)
+        resume = summarize_ipc_events(self.logcat_events(), page="resume")
+
+        vpn_after = self._vpn_status()
+        session_after = self.read_session_presence()
+        cont_ok = True
+        cont_reasons: list[str] = []
+        if session == "running":
+            cont_ok, cont_reasons = assess_running_navigation_continuity(
+                before_vpn=vpn_before,
+                after_vpn=vpn_after,
+                before_session=session_before,
+                after_session=session_after,
+            )
+            if not cont_ok:
+                unreliable.extend(cont_reasons)
+
+        peak = max(
+            [block.get("peak_inflight") or 0 for block in pages.values()]
+            + [
+                delay_summary.get("peak_inflight") or 0,
+                background.get("peak_inflight") or 0,
+                resume.get("peak_inflight") or 0,
+            ]
+        )
+        return {
+            "ok": True if session != "running" else bool(cont_ok),
+            "session": session,
+            "pages": pages,
+            "delay_interference": delay_summary,
+            "background": background,
+            "resume": resume,
+            "peak_inflight": peak,
+            "vpn_before": vpn_before,
+            "vpn_after": vpn_after,
+            "session_before": session_before,
+            "session_after": session_after,
+            "continuity_ok": cont_ok if session == "running" else None,
+            "unreliable": unreliable,
+            "notes": notes,
+        }
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="SlClash Phase 4 performance harness")
     parser.add_argument(
         "command",
-        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "running-reattach", "navigation", "proxy", "compare"],
+        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "running-reattach", "navigation", "proxy", "ipc", "compare"],
     )
     parser.add_argument(
         "--package",
@@ -1491,6 +1628,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["idle", "running"],
         default="idle",
         help="4C.0 proxy workload: never force-stops. running requires live VPN continuity.",
+    )
+    parser.add_argument(
+        "--ipc-session",
+        choices=["idle", "running"],
+        default="idle",
+        help="4D.0 IPC workload: never force-stops. running requires live VPN continuity.",
     )
     parser.add_argument(
         "--delay-max",
@@ -1575,6 +1718,7 @@ def main(argv: list[str] | None = None) -> int:
             "running_reattach": None,
             "navigation": None,
             "proxy": None,
+            "ipc": None,
         }
         if env.get("build_role") == "diagnostic_only":
             result["notes"].append(
@@ -1591,6 +1735,7 @@ def main(argv: list[str] | None = None) -> int:
             "running-reattach": ["running_reattach"],
             "navigation": ["navigation"],
             "proxy": ["proxy"],
+            "ipc": ["ipc"],
             "all": ["cold_start", "memory", "jank", "vpn", "background"],
         }
         for name in mapping[args.command]:
@@ -1607,6 +1752,11 @@ def main(argv: list[str] | None = None) -> int:
                     delay_max=args.delay_max,
                     delay_sizes=sizes or None,
                     evidence=getattr(args, "proxy_evidence", True),
+                )
+            elif name == "ipc":
+                block = runner.ipc(
+                    session=args.ipc_session,
+                    delay_max=args.delay_max,
                 )
             else:
                 block = getattr(runner, name)()

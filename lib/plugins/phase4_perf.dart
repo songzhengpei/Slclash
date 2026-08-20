@@ -82,6 +82,10 @@ class Phase4PerfCommands {
         return _refreshGroups();
       case 'sort_bump':
         return _sortBump();
+      case 'ipc_window':
+        return _ipcWindow(args['value'] ?? args['state'], args['page']);
+      case 'ipc_dump':
+        return _ipcDump(args['reason'] ?? args['event']);
       default:
         return null;
     }
@@ -358,6 +362,20 @@ class Phase4PerfCommands {
     globalState.container.read(sortNumProvider.notifier).add();
     StartupTrace.mark('proxy_sort_bump');
     return 'ok';
+  }
+
+  static String _ipcWindow(String? raw, String? page) {
+    final on = raw == 'start' || raw == 'on' || raw == '1' || raw == 'true';
+    if (on) {
+      CoreIpcTrace.beginWindow(page: page ?? '');
+      return 'start';
+    }
+    CoreIpcTrace.endWindow();
+    return 'end';
+  }
+
+  static Map<String, Object?> _ipcDump(String? reason) {
+    return CoreIpcTrace.dump(reason: reason ?? 'dump');
   }
 
   static String _keepDashboard(String? raw) {

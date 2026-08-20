@@ -245,6 +245,120 @@ def summarize_select_events(events: list[dict]) -> dict:
     }
 
 
+def _ipc_percentile(values: list[int], p: float) -> float | None:
+    if not values:
+        return None
+    xs = sorted(values)
+    if len(xs) == 1:
+        return float(xs[0])
+    rank = (len(xs) - 1) * p
+    lo = int(rank)
+    hi = min(lo + 1, len(xs) - 1)
+    frac = rank - lo
+    return xs[lo] + (xs[hi] - xs[lo]) * frac
+
+
+def summarize_ipc_events(events: list[dict], page: str | None = None) -> dict:
+    """Core IPC complete/dispatch marks. Timeout vs other nulls are not split."""
+    scoped = events
+    if page:
+        start_ms = None
+        end_ms = None
+        for row in events:
+            mark = row.get("mark")
+            if mark == "ipc_window_begin" and str(row.get("page") or "") == page:
+                start_ms = row.get("elapsed_ms")
+                end_ms = None
+            elif (
+                mark == "ipc_window_end"
+                and start_ms is not None
+                and str(row.get("page") or page) == page
+            ):
+                end_ms = row.get("elapsed_ms")
+        if start_ms is not None:
+            scoped = [
+                row
+                for row in events
+                if isinstance(row.get("elapsed_ms"), int)
+                and row["elapsed_ms"] >= start_ms
+                and (end_ms is None or row["elapsed_ms"] <= end_ms)
+            ]
+
+    completes = [e for e in scoped if e.get("mark") == "core_ipc_complete"]
+    dispatches = [e for e in scoped if e.get("mark") == "core_ipc_dispatch"]
+    result_class: dict[str, int] = defaultdict(int)
+    overlap: dict[str, int] = defaultdict(int)
+    method_peak: dict[str, int] = defaultdict(int)
+    durations: dict[str, list[int]] = defaultdict(list)
+    peak_inflight = 0
+    for row in dispatches:
+        method = str(row.get("method") or "unknown")
+        same = row.get("same_method_inflight")
+        inf = row.get("inflight")
+        if isinstance(same, int):
+            method_peak[method] = max(method_peak[method], same)
+            if same > 1:
+                overlap[method] += 1
+        if isinstance(inf, int):
+            peak_inflight = max(peak_inflight, inf)
+    for row in completes:
+        method = str(row.get("method") or "unknown")
+        result_class[str(row.get("result_class") or "unknown")] += 1
+        dur = row.get("duration")
+        if isinstance(dur, int):
+            durations[method].append(dur)
+        elif isinstance(dur, float):
+            durations[method].append(int(dur))
+        same = row.get("same_method_inflight")
+        inf = row.get("inflight")
+        if isinstance(same, int):
+            method_peak[method] = max(method_peak[method], same)
+        if isinstance(inf, int):
+            peak_inflight = max(peak_inflight, inf)
+
+    methods = {}
+    for method, samples in durations.items():
+        methods[method] = {
+            "count": len(samples),
+            "overlap_count": overlap.get(method, 0),
+            "peak_same_method_inflight": method_peak.get(method, 0),
+            "p50_ms": _ipc_percentile(samples, 0.50),
+            "p90_ms": _ipc_percentile(samples, 0.90),
+            "p99_ms": _ipc_percentile(samples, 0.99),
+            "max_ms": max(samples) if samples else None,
+        }
+    for method, count in overlap.items():
+        methods.setdefault(
+            method,
+            {
+                "count": 0,
+                "overlap_count": 0,
+                "peak_same_method_inflight": method_peak.get(method, 0),
+                "p50_ms": None,
+                "p90_ms": None,
+                "p99_ms": None,
+                "max_ms": None,
+            },
+        )
+        methods[method]["overlap_count"] = count
+        methods[method]["peak_same_method_inflight"] = method_peak.get(method, 0)
+
+    return {
+        "page": page,
+        "total": len(completes),
+        "dispatch_count": len(dispatches),
+        "peak_inflight": peak_inflight,
+        "result_class": dict(result_class),
+        "overlap": dict(overlap),
+        "methods": methods,
+        "transport_null_or_timeout": result_class.get("transport_null_or_timeout", 0),
+        "core_not_ready": result_class.get("core_not_ready", 0),
+        "core_error": result_class.get("core_error", 0),
+        "success": result_class.get("success", 0),
+    }
+
+
+
 def parse_display_refresh_hz(output: str) -> dict:
     """Collect dumpsys refresh-rate *candidates*. Max is not actual presentation Hz.
 

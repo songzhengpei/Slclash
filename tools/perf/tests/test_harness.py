@@ -40,6 +40,7 @@ from parsers import (  # noqa: E402
     parse_tun_interfaces,
     summarize_delay_events,
     summarize_select_events,
+    summarize_ipc_events,
     ui_process_kill_commands,
     vpn_stop_cleared,
 )
@@ -913,6 +914,75 @@ class NavigationReportTests(unittest.TestCase):
             }
         )
         self.assertIn("UNRELIABLE", dirty_md)
+
+
+class IpcTraceTests(unittest.TestCase):
+    def test_summarize_ipc_overlap_and_null_class(self):
+        events = [
+            {"mark": "ipc_window_begin", "elapsed_ms": 10, "page": "dashboard"},
+            {
+                "mark": "core_ipc_dispatch",
+                "elapsed_ms": 11,
+                "method": "getTrafficSnapshot",
+                "inflight": 1,
+                "same_method_inflight": 1,
+            },
+            {
+                "mark": "core_ipc_dispatch",
+                "elapsed_ms": 12,
+                "method": "getTrafficSnapshot",
+                "inflight": 2,
+                "same_method_inflight": 2,
+            },
+            {
+                "mark": "core_ipc_complete",
+                "elapsed_ms": 20,
+                "method": "getTrafficSnapshot",
+                "duration": 8,
+                "inflight": 1,
+                "same_method_inflight": 2,
+                "result_class": "success",
+            },
+            {
+                "mark": "core_ipc_complete",
+                "elapsed_ms": 21,
+                "method": "changeProxy",
+                "duration": 12,
+                "inflight": 0,
+                "same_method_inflight": 1,
+                "result_class": "transport_null_or_timeout",
+            },
+            {"mark": "ipc_window_end", "elapsed_ms": 30, "page": "dashboard"},
+            {
+                "mark": "core_ipc_complete",
+                "elapsed_ms": 40,
+                "method": "getMemory",
+                "duration": 99,
+                "result_class": "success",
+            },
+        ]
+        summary = summarize_ipc_events(events, page="dashboard")
+        self.assertEqual(summary["total"], 2)
+        self.assertEqual(summary["peak_inflight"], 2)
+        self.assertEqual(summary["overlap"]["getTrafficSnapshot"], 1)
+        self.assertEqual(summary["transport_null_or_timeout"], 1)
+        self.assertEqual(summary["success"], 1)
+        self.assertNotIn("getMemory", summary["methods"])
+        self.assertEqual(summary["methods"]["getTrafficSnapshot"]["p50_ms"], 8)
+
+    def test_timeout_is_not_invented_from_null_class_name(self):
+        events = [
+            {
+                "mark": "core_ipc_complete",
+                "elapsed_ms": 1,
+                "method": "changeProxy",
+                "duration": 5,
+                "result_class": "transport_null_or_timeout",
+            }
+        ]
+        summary = summarize_ipc_events(events)
+        self.assertEqual(summary["transport_null_or_timeout"], 1)
+        self.assertNotIn("timeout", summary["result_class"])
 
 
 if __name__ == "__main__":

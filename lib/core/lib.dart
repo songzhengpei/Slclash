@@ -82,13 +82,30 @@ class CoreLib extends CoreHandlerInterface {
     Duration? timeout,
   }) async {
     final id = '${method.name}#${utils.id}';
-    final result = await service
-        ?.invokeAction(Action(id: id, method: method, data: data))
-        .withTimeout(onTimeout: () => null);
-    if (result == null) {
-      return null;
-    }
-    return parasResult<T>(result);
+    return CoreIpcTrace.run<T>(
+      id: id,
+      method: method.name,
+      body: () async {
+        final result = await service
+            ?.invokeAction(Action(id: id, method: method, data: data))
+            .withTimeout(onTimeout: () => null);
+        if (result == null) {
+          CoreIpcTrace.classify(id, 'transport_null_or_timeout');
+          return null;
+        }
+        if (result.code == ResultType.error) {
+          CoreIpcTrace.classify(id, 'core_error');
+        } else {
+          CoreIpcTrace.classify(id, 'success');
+        }
+        try {
+          return await parasResult<T>(result);
+        } catch (_) {
+          CoreIpcTrace.classify(id, 'parse_error');
+          rethrow;
+        }
+      },
+    );
   }
 
   @override

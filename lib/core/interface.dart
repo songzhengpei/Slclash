@@ -124,6 +124,7 @@ abstract class CoreHandlerInterface with CoreInterface {
         'Invoke pre ${method.name} timeout $e',
         logLevel: LogLevel.error,
       );
+      CoreIpcTrace.noteNotReady(method.name);
       return null;
     }
     final shouldLog = _shouldLogInvoke(method);
