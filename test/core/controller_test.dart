@@ -38,9 +38,9 @@ void main() {
         unifiedDelay: false,
       ),
     );
-    registerFallbackValue(
-      const ChangeProxyParams(groupName: 'G', proxyName: 'P'),
-    );
+      registerFallbackValue(
+        const UnfixProxyParams(groupName: 'G'),
+      );
     registerFallbackValue(
       const UpdateGeoDataParams(geoType: 't', geoName: 'n'),
     );
@@ -216,11 +216,12 @@ void main() {
   });
 
   group('proxy methods', () {
-    test('changeProxy delegates to interface', () async {
-      const params = ChangeProxyParams(groupName: 'G1', proxyName: 'P1');
-      when(() => mock.changeProxy(params)).thenAnswer((_) async => 'ok');
-      final result = await controller.changeProxy(params);
-      expect(result, 'ok');
+    test('unfixProxy delegates to interface', () async {
+      const params = UnfixProxyParams(groupName: 'G1');
+      when(() => mock.unfixProxy(params)).thenAnswer((_) async => '');
+      final result = await controller.unfixProxy(params);
+      expect(result, '');
+      verify(() => mock.unfixProxy(params)).called(1);
     });
   });
 

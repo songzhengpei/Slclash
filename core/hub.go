@@ -13,6 +13,7 @@ import (
 	"github.com/metacubex/mihomo/common/observable"
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/component/mmdb"
+	"github.com/metacubex/mihomo/component/profile/cachefile"
 	"github.com/metacubex/mihomo/component/resolver"
 	"github.com/metacubex/mihomo/component/updater"
 	"github.com/metacubex/mihomo/config"
@@ -263,14 +264,15 @@ func handleChangeProxy(data string, fn func(string string)) {
 			return
 		}
 		if proxyName == "" {
-			selector.ForceSet(proxyName)
-		} else {
-			err = selector.Set(proxyName)
+			fn("empty proxy name not allowed")
+			return
 		}
+		err = selector.Set(proxyName)
 		if err != nil {
 			fn(err.Error())
 			return
 		}
+		cachefile.Cache().SetSelected(groupName, proxyName)
 		invalidateProxiesCacheLocked()
 
 		fn("")

@@ -79,6 +79,16 @@ abstract class ChangeProxyParams with _$ChangeProxyParams {
 }
 
 @freezed
+abstract class UnfixProxyParams with _$UnfixProxyParams {
+  const factory UnfixProxyParams({
+    @JsonKey(name: 'group-name') required String groupName,
+  }) = _UnfixProxyParams;
+
+  factory UnfixProxyParams.fromJson(Map<String, Object?> json) =>
+      _$UnfixProxyParamsFromJson(json);
+}
+
+@freezed
 abstract class UpdateGeoDataParams with _$UpdateGeoDataParams {
   const factory UpdateGeoDataParams({
     @JsonKey(name: 'geo-type') required String geoType,

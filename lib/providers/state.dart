@@ -401,8 +401,9 @@ String? selectedProxyName(Ref ref, String groupName) {
   final cachedNow = ref.watch(
     computedSelectedMapProvider.select((state) => state[groupName]),
   );
-  return group.getCurrentSelectedName(
-    proxyName ?? '',
+  return selectedNameForGroup(
+    group,
+    selectedMapValue: proxyName,
     cachedComputedNow: cachedNow,
   );
 }

@@ -36,24 +36,32 @@ class ProxyCard extends StatelessWidget {
   }
 
   Future<void> _changeProxy(WidgetRef ref) async {
-    final isComputedSelected = groupType.isComputedSelected;
-    final isSelector = groupType == GroupType.Selector;
-    if (isComputedSelected || isSelector) {
-      final currentProxyName = ref.read(proxyNameProvider(groupName));
-      final nextProxyName = switch (isComputedSelected) {
-        true => currentProxyName == proxy.name ? '' : proxy.name,
-        false => proxy.name,
-      };
-      ProxyTrace.noteSelectIntent(group: groupName, proxy: nextProxyName);
-      ref
-          .read(profilesActionProvider.notifier)
-          .updateCurrentSelectedMap(groupName, nextProxyName);
-      ref
-          .read(proxiesActionProvider.notifier)
-          .changeProxyDebounce(groupName, nextProxyName);
+    final group = ref.read(groupsProvider).getGroup(groupName);
+    final decision = resolveProxyGroupTap(
+      type: groupType,
+      fixed: group?.fixed,
+      tappedName: proxy.name,
+    );
+    if (decision.kind == ProxyGroupTapKind.ignore) {
+      globalState.showNotifier(currentAppLocalizations.notSelectedTip);
       return;
     }
-    globalState.showNotifier(currentAppLocalizations.notSelectedTip);
+    if (decision.kind == ProxyGroupTapKind.unfix) {
+      ProxyTrace.noteSelectIntent(group: groupName, proxy: '');
+      ref.read(profilesActionProvider.notifier).updateCurrentSelectedMap(
+        groupName,
+        '',
+      );
+      ref.read(proxiesActionProvider.notifier).unfixProxyDebounce(groupName);
+      return;
+    }
+    ProxyTrace.noteSelectIntent(group: groupName, proxy: decision.proxyName);
+    ref
+        .read(profilesActionProvider.notifier)
+        .updateCurrentSelectedMap(groupName, decision.proxyName);
+    ref
+        .read(proxiesActionProvider.notifier)
+        .changeProxyDebounce(groupName, decision.proxyName);
   }
 
   @override
@@ -86,7 +94,7 @@ class ProxyCard extends StatelessWidget {
                 Expanded(
                   child: _ProxyTextBlock(proxy: proxy, type: type),
                 ),
-                if (groupType.isComputedSelected) ...[
+                if (groupType.supportsFixedSelection) ...[
                   const SizedBox(width: 8),
                   _ProxyComputedMark(groupName: groupName, proxy: proxy),
                 ],
@@ -155,8 +163,14 @@ class _ProxyComputedMark extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final surge = SurgeTheme.of(context);
-    final proxyName = ref.watch(proxyNameProvider(groupName));
-    if (proxyName != proxy.name) {
+    final group = ref.watch(
+      groupsProvider.select((state) => state.getGroup(groupName)),
+    );
+    if (!groupShowsFixedMark(
+      type: group?.type ?? GroupType.Selector,
+      fixed: group?.fixed,
+      proxyName: proxy.name,
+    )) {
       return const SizedBox();
     }
     return Container(

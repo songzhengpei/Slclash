@@ -192,6 +192,10 @@ class CoreController {
     return await _interface.changeProxy(changeProxyParams);
   }
 
+  FutureOr<String> unfixProxy(UnfixProxyParams unfixProxyParams) async {
+    return await _interface.unfixProxy(unfixProxyParams);
+  }
+
   Future<List<TrackerInfo>> getConnections() async {
     final res = await _interface.getConnections();
     final connectionsData = json.decode(res) as Map;

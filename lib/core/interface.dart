@@ -48,6 +48,8 @@ mixin CoreInterface {
 
   Future<String> changeProxy(ChangeProxyParams changeProxyParams);
 
+  Future<String> unfixProxy(UnfixProxyParams unfixProxyParams);
+
   Future<bool> startListener();
 
   Future<bool> stopListener();
@@ -266,6 +268,15 @@ abstract class CoreHandlerInterface with CoreInterface {
     return await _invoke<String>(
           method: ActionMethod.changeProxy,
           data: json.encode(changeProxyParams),
+        ) ??
+        '';
+  }
+
+  @override
+  Future<String> unfixProxy(UnfixProxyParams unfixProxyParams) async {
+    return await _invoke<String>(
+          method: ActionMethod.unfixProxy,
+          data: json.encode(unfixProxyParams),
         ) ??
         '';
   }

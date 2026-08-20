@@ -134,6 +134,12 @@ Map<String, dynamic> _$ChangeProxyParamsToJson(_ChangeProxyParams instance) =>
       'proxy-name': instance.proxyName,
     };
 
+_UnfixProxyParams _$UnfixProxyParamsFromJson(Map<String, dynamic> json) =>
+    _UnfixProxyParams(groupName: json['group-name'] as String);
+
+Map<String, dynamic> _$UnfixProxyParamsToJson(_UnfixProxyParams instance) =>
+    <String, dynamic>{'group-name': instance.groupName};
+
 _UpdateGeoDataParams _$UpdateGeoDataParamsFromJson(Map<String, dynamic> json) =>
     _UpdateGeoDataParams(
       geoType: json['geo-type'] as String,
@@ -270,6 +276,7 @@ const _$ActionMethodEnumMap = {
   ActionMethod.materializeProfileSnapshot: 'materializeProfileSnapshot',
   ActionMethod.normalizeProviderContent: 'normalizeProviderContent',
   ActionMethod.changeProxy: 'changeProxy',
+  ActionMethod.unfixProxy: 'unfixProxy',
   ActionMethod.getTraffic: 'getTraffic',
   ActionMethod.getTotalTraffic: 'getTotalTraffic',
   ActionMethod.getTrafficSnapshot: 'getTrafficSnapshot',

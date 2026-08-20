@@ -63,6 +63,7 @@ docs/*
 !docs/phase4-b1-active-navigation.md
 !docs/phase4-b-final-closeout.md
 !docs/phase4-c0-proxy-group-baseline.md
+!docs/phase4-c1a-mihomo-group-correctness.md
 !docs/images/
 docs/images/*
 !docs/images/readme/

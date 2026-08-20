@@ -293,6 +293,8 @@ abstract class Group with _$Group {
     @JsonKey(fromJson: GroupType.parse) required GroupType type,
     @Default([]) List<Proxy> all,
     String? now,
+    /// Mihomo `fixed`. null = type does not expose it; '' = automatic; name = pin.
+    String? fixed,
     bool? hidden,
     String? testUrl,
     @Default('') String icon,
@@ -323,15 +325,21 @@ extension GroupExt on Group {
 
   /// Returns the effective selected proxy name for this group.
   ///
-  /// For computed groups (URL-test / Fallback / LoadBalance):
+  /// For URL-test / Fallback:
   /// - Returns [realNow] if it is non-empty and not a fallback placeholder.
   /// - Otherwise, if [cachedComputedNow] is provided and still exists in
   ///   [all], returns the cached value as a UI-only fallback.
   /// - Falls back to [realNow] or [proxyName].
   ///
+  /// LoadBalance has no single `now`; never use [proxyName] or cache as a
+  /// fake current member.
+  ///
   /// For Selector groups: returns [proxyName] if non-empty, otherwise [realNow].
   String getCurrentSelectedName(String proxyName,
       {String? cachedComputedNow}) {
+    if (type == GroupType.LoadBalance) {
+      return realNow;
+    }
     if (type.isComputedSelected) {
       final current = realNow;
       if (current.isNotEmpty) {

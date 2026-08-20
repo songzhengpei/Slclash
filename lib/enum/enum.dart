@@ -75,6 +75,18 @@ extension GroupTypeExtension on GroupType {
         .contains(this);
   }
 
+  /// Mihomo SelectAble groups that accept PUT /proxies/{name}.
+  bool get supportsManualSelection {
+    return this == GroupType.Selector ||
+        this == GroupType.URLTest ||
+        this == GroupType.Fallback;
+  }
+
+  /// Mihomo groups that expose JSON `fixed` and DELETE unfix.
+  bool get supportsFixedSelection {
+    return this == GroupType.URLTest || this == GroupType.Fallback;
+  }
+
   static GroupType? getGroupType(String value) {
     final index = GroupTypeExtension.valueList.indexOf(value);
     if (index == -1) return null;
@@ -217,6 +229,7 @@ enum ActionMethod {
   materializeProfileSnapshot,
   normalizeProviderContent,
   changeProxy,
+  unfixProxy,
   getTraffic,
   getTotalTraffic,
   getTrafficSnapshot,

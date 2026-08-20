@@ -101,6 +101,12 @@ func handleAction(action *Action, result ActionResult) {
 			result.success(value)
 		})
 		return
+	case unfixProxyMethod:
+		data := action.Data.(string)
+		handleUnfixProxy(data, func(value string) {
+			result.success(value)
+		})
+		return
 	case getTrafficMethod:
 		data := action.Data.(bool)
 		result.success(handleGetTraffic(data))

@@ -409,6 +409,18 @@ void main() {
   });
 
   group('Group.getCurrentSelectedName', () {
+    test('LoadBalance does not use selectedMap or cache as current node', () {
+      const group = Group(
+        name: 'lb',
+        type: GroupType.LoadBalance,
+        now: '',
+        all: [Proxy(name: 'n1', type: 'ss')],
+      );
+      expect(
+        group.getCurrentSelectedName('n1', cachedComputedNow: 'n1'),
+        '',
+      );
+    });
     test('URLTest group returns realNow when non-empty', () {
       const group = Group(
         name: 'auto',

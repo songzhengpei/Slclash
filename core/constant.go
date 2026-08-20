@@ -50,6 +50,10 @@ type ChangeProxyParams struct {
 	ProxyName *string `json:"proxy-name"`
 }
 
+type UnfixProxyParams struct {
+	GroupName *string `json:"group-name"`
+}
+
 type TestDelayParams struct {
 	ProxyName string `json:"proxy-name"`
 	TestUrl   string `json:"test-url"`
@@ -91,6 +95,7 @@ const (
 	materializeProfileSnapshotMethod Method = "materializeProfileSnapshot"
 	normalizeProviderContentMethod Method = "normalizeProviderContent"
 	changeProxyMethod              Method = "changeProxy"
+	unfixProxyMethod               Method = "unfixProxy"
 	getTrafficMethod               Method = "getTraffic"
 	getTotalTrafficMethod          Method = "getTotalTraffic"
 	getTrafficSnapshotMethod       Method = "getTrafficSnapshot"

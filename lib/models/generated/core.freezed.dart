@@ -1445,6 +1445,269 @@ as String,
 
 
 /// @nodoc
+mixin _$UnfixProxyParams {
+
+@JsonKey(name: 'group-name') String get groupName;
+/// Create a copy of UnfixProxyParams
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$UnfixProxyParamsCopyWith<UnfixProxyParams> get copyWith => _$UnfixProxyParamsCopyWithImpl<UnfixProxyParams>(this as UnfixProxyParams, _$identity);
+
+  /// Serializes this UnfixProxyParams to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UnfixProxyParams&&(identical(other.groupName, groupName) || other.groupName == groupName));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,groupName);
+
+@override
+String toString() {
+  return 'UnfixProxyParams(groupName: $groupName)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $UnfixProxyParamsCopyWith<$Res>  {
+  factory $UnfixProxyParamsCopyWith(UnfixProxyParams value, $Res Function(UnfixProxyParams) _then) = _$UnfixProxyParamsCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'group-name') String groupName
+});
+
+
+
+
+}
+/// @nodoc
+class _$UnfixProxyParamsCopyWithImpl<$Res>
+    implements $UnfixProxyParamsCopyWith<$Res> {
+  _$UnfixProxyParamsCopyWithImpl(this._self, this._then);
+
+  final UnfixProxyParams _self;
+  final $Res Function(UnfixProxyParams) _then;
+
+/// Create a copy of UnfixProxyParams
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? groupName = null,}) {
+  return _then(_self.copyWith(
+groupName: null == groupName ? _self.groupName : groupName // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [UnfixProxyParams].
+extension UnfixProxyParamsPatterns on UnfixProxyParams {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _UnfixProxyParams value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _UnfixProxyParams() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _UnfixProxyParams value)  $default,){
+final _that = this;
+switch (_that) {
+case _UnfixProxyParams():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _UnfixProxyParams value)?  $default,){
+final _that = this;
+switch (_that) {
+case _UnfixProxyParams() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'group-name')  String groupName)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _UnfixProxyParams() when $default != null:
+return $default(_that.groupName);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'group-name')  String groupName)  $default,) {final _that = this;
+switch (_that) {
+case _UnfixProxyParams():
+return $default(_that.groupName);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'group-name')  String groupName)?  $default,) {final _that = this;
+switch (_that) {
+case _UnfixProxyParams() when $default != null:
+return $default(_that.groupName);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _UnfixProxyParams implements UnfixProxyParams {
+  const _UnfixProxyParams({@JsonKey(name: 'group-name') required this.groupName});
+  factory _UnfixProxyParams.fromJson(Map<String, dynamic> json) => _$UnfixProxyParamsFromJson(json);
+
+@override@JsonKey(name: 'group-name') final  String groupName;
+
+/// Create a copy of UnfixProxyParams
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$UnfixProxyParamsCopyWith<_UnfixProxyParams> get copyWith => __$UnfixProxyParamsCopyWithImpl<_UnfixProxyParams>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$UnfixProxyParamsToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UnfixProxyParams&&(identical(other.groupName, groupName) || other.groupName == groupName));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,groupName);
+
+@override
+String toString() {
+  return 'UnfixProxyParams(groupName: $groupName)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$UnfixProxyParamsCopyWith<$Res> implements $UnfixProxyParamsCopyWith<$Res> {
+  factory _$UnfixProxyParamsCopyWith(_UnfixProxyParams value, $Res Function(_UnfixProxyParams) _then) = __$UnfixProxyParamsCopyWithImpl;
+@override @useResult
+$Res call({
+@JsonKey(name: 'group-name') String groupName
+});
+
+
+
+
+}
+/// @nodoc
+class __$UnfixProxyParamsCopyWithImpl<$Res>
+    implements _$UnfixProxyParamsCopyWith<$Res> {
+  __$UnfixProxyParamsCopyWithImpl(this._self, this._then);
+
+  final _UnfixProxyParams _self;
+  final $Res Function(_UnfixProxyParams) _then;
+
+/// Create a copy of UnfixProxyParams
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? groupName = null,}) {
+  return _then(_UnfixProxyParams(
+groupName: null == groupName ? _self.groupName : groupName // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$UpdateGeoDataParams {
 
 @JsonKey(name: 'geo-type') String get geoType;@JsonKey(name: 'geo-name') String get geoName;

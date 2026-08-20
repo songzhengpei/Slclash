@@ -59,8 +59,11 @@ class ComputedSelectedCache extends Notifier<Map<String, String>> {
     if (groups.isEmpty) return Map<String, String>.from(base ?? state);
 
     final cache = Map<String, String>.from(base ?? state);
-    final computedGroups =
-        groups.where((g) => g.type.isComputedSelected).toList();
+    final computedGroups = groups
+        .where(
+          (g) => g.type.isComputedSelected && g.type.supportsManualSelection,
+        )
+        .toList();
     final computedGroupNames = computedGroups.map((g) => g.name).toSet();
 
     // Evict groups that no longer exist or whose cached node is gone

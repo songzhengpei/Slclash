@@ -35,6 +35,7 @@ export 'preferences.dart';
 export 'print.dart';
 export 'profile_proxy_resolver.dart';
 export 'proxy.dart';
+export 'proxy_group_selection.dart';
 export 'proxy_trace.dart';
 export 'render.dart';
 export 'request.dart';

@@ -2037,10 +2037,30 @@ class ProxiesAction extends _$ProxiesAction {
     debouncer.call(FunctionTag.changeProxy, (
       String groupName,
       String proxyName,
+      bool unfix,
     ) async {
-      await changeProxy(groupName: groupName, proxyName: proxyName);
+      if (unfix) {
+        await unfixProxy(groupName: groupName);
+      } else {
+        await changeProxy(groupName: groupName, proxyName: proxyName);
+      }
       updateGroupsDebounce();
-    }, args: [groupName, proxyName]);
+    }, args: [groupName, proxyName, false]);
+  }
+
+  void unfixProxyDebounce(String groupName) {
+    debouncer.call(FunctionTag.changeProxy, (
+      String groupName,
+      String proxyName,
+      bool unfix,
+    ) async {
+      if (unfix) {
+        await unfixProxy(groupName: groupName);
+      } else {
+        await changeProxy(groupName: groupName, proxyName: proxyName);
+      }
+      updateGroupsDebounce();
+    }, args: [groupName, '', true]);
   }
 
   Future<String?> _computeProfileFingerprint(Profile? profile) async {
@@ -2498,16 +2518,61 @@ class ProxiesAction extends _$ProxiesAction {
     required String groupName,
     required String proxyName,
   }) async {
+    final previous = ref.read(currentProfileProvider)?.selectedMap[groupName];
     final result = await coreController.changeProxy(
       ChangeProxyParams(groupName: groupName, proxyName: proxyName),
     );
     ProxyTrace.noteSelectCoreAck(gen: ProxyTrace.selectionGen, result: result);
-    if (ref.read(appSettingProvider).closeConnections) {
-      await coreController.closeConnections();
-    } else {
-      await coreController.resetConnections();
+    await _finishSelection(
+      groupName: groupName,
+      failedIntent: proxyName,
+      previousIntent: previous,
+      result: result,
+    );
+  }
+
+  Future<void> unfixProxy({required String groupName}) async {
+    final previous = ref.read(currentProfileProvider)?.selectedMap[groupName];
+    final result = await coreController.unfixProxy(
+      UnfixProxyParams(groupName: groupName),
+    );
+    ProxyTrace.noteSelectCoreAck(gen: ProxyTrace.selectionGen, result: result);
+    await _finishSelection(
+      groupName: groupName,
+      failedIntent: '',
+      previousIntent: previous,
+      result: result,
+    );
+  }
+
+  Future<void> _finishSelection({
+    required String groupName,
+    required String failedIntent,
+    required String? previousIntent,
+    required String result,
+  }) async {
+    if (isCoreSelectionSuccess(result)) {
+      if (ref.read(appSettingProvider).closeConnections) {
+        await coreController.closeConnections();
+      } else {
+        await coreController.resetConnections();
+      }
+      ref.read(checkIpNumProvider.notifier).add();
+      return;
     }
-    ref.read(checkIpNumProvider.notifier).add();
+    final currentIntent = ref
+        .read(currentProfileProvider)
+        ?.selectedMap[groupName];
+    if (shouldRollbackOptimisticIntent(
+      currentIntent: currentIntent,
+      failedIntent: failedIntent,
+    )) {
+      ref
+          .read(profilesActionProvider.notifier)
+          .restoreSelectedMapEntry(groupName, previousIntent);
+    }
+    updateGroupsDebounce();
+    globalState.showNotifier(result);
   }
 
   Future<String> updateProvider(
@@ -2548,6 +2613,21 @@ class ProfilesAction extends _$ProfilesAction {
           .read(profilesProvider.notifier)
           .put(currentProfile.copyWith(selectedMap: selectedMap));
     }
+  }
+
+  /// Restores [groupName] after a failed Core write. Null [value] removes the key.
+  void restoreSelectedMapEntry(String groupName, String? value) {
+    final currentProfile = ref.read(currentProfileProvider);
+    if (currentProfile == null) return;
+    final selectedMap = Map<String, String>.from(currentProfile.selectedMap);
+    if (value == null) {
+      selectedMap.remove(groupName);
+    } else {
+      selectedMap[groupName] = value;
+    }
+    ref
+        .read(profilesProvider.notifier)
+        .put(currentProfile.copyWith(selectedMap: selectedMap));
   }
 
   void updateCurrentComputedSelectedMap(
