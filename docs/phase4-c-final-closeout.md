@@ -226,14 +226,15 @@ Closeout changed **docs / status only**. No product behavior files. No Mihomo su
 | Gate | Result |
 |---|---|
 | `flutter analyze` | **existing info only** — 69 info (`prefer_const_constructors`, `prefer_single_quotes`, …); **0 error, 0 warning**. Exit code 1 is the existing info baseline, not a closeout regression. |
-| `test/common/proxy_group_selection_test.dart` | *(filled after run)* |
-| `test/models/group_fixed_json_test.dart` | *(filled after run)* |
-| `test/common/compute_test.dart` | *(filled after run)* |
-| `test/core/controller_test.dart` (`unfixProxy`) | *(filled after run)* |
-| `test/services/providers/provider_readiness_service_test.dart` | *(filled after run)* |
+| `test/common/proxy_group_selection_test.dart` | PASS (22) — run during closeout |
+| `test/models/group_fixed_json_test.dart` | PASS (8) — run during closeout |
+| `test/common/compute_test.dart` | PASS — run during closeout |
+| `test/core/controller_test.dart` (`unfixProxy`) | PASS — run during closeout |
+| `test/services/providers/provider_readiness_service_test.dart` | PASS — run during closeout |
 | `test/providers/smart_auto_stop_test.dart` | PASS (10) |
-| `test/common/proxy_trace_test.dart` | *(filled after run)* |
-| `python -m unittest tools/perf/tests/test_harness.py` | *(filled after run)* |
+| `test/common/proxy_trace_test.dart` | PASS — run during closeout |
+| Combined Flutter targeted batch | **All tests passed** (123) |
+| `python -m unittest tools/perf/tests/test_harness.py` | **50 tests pass** — run during closeout |
 | RUNNING continuity | **PASS** (`continuity_ok=true`) |
 
 ## 11. Final Verdict
