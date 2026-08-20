@@ -70,7 +70,9 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`.
+Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`.
+
+Phase 4B (Navigation / Page Mounting): **PASS / CLOSED**. See `docs/phase4-b-final-closeout.md`. Next is Phase 4C (Proxy / Group UX); do not start it from the harness README.
 
 ## App instrumentation
 
