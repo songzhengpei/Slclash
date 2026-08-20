@@ -192,7 +192,12 @@ def parse_phase4_events(output: str) -> list[dict]:
 
 
 def parse_display_refresh_hz(output: str) -> dict:
-    """Best-effort refresh rate from dumpsys display / SurfaceFlinger."""
+    """Collect dumpsys refresh-rate *candidates*. Max is not actual presentation Hz.
+
+    Devices often report a 120 Hz physical/supported mode alongside a 60 Hz
+    render/presentation hint. `system_max_refresh_hz` is the highest number
+    seen. It is not the FrameTiming budget source.
+    """
     candidates: list[float] = []
     for pattern in (
         r"renderFrameRate\s*=\s*([\d.]+)",
@@ -207,12 +212,46 @@ def parse_display_refresh_hz(output: str) -> dict:
                 continue
             if 20 <= value <= 240:
                 candidates.append(value)
-    hz = max(candidates) if candidates else None
-    budget_ms = (1000.0 / hz) if hz else None
+    unique = sorted(set(round(v, 3) for v in candidates), reverse=True)[:8]
+    system_max = max(candidates) if candidates else None
     return {
-        "refresh_hz": hz,
-        "budget_ms": budget_ms,
-        "samples": sorted(set(round(v, 3) for v in candidates), reverse=True)[:8],
+        "system_refresh_candidates": unique,
+        "system_max_refresh_hz": system_max,
+        # Legacy alias of the max reported candidate. Not actual presentation Hz.
+        "refresh_hz": system_max,
+        "actual_presentation_hz": None,
+        "budget_ms": None,
+        "samples": unique,
+    }
+
+
+def assess_refresh_rate_provenance(
+    *,
+    flutter_refresh_hz: float | None,
+    system_max_refresh_hz: float | None,
+    tolerance_hz: float = 1.0,
+) -> dict:
+    """Compare Flutter display.refreshRate with dumpsys max. Do not invent a rate."""
+    mismatch = False
+    if flutter_refresh_hz is not None and system_max_refresh_hz is not None:
+        mismatch = abs(float(flutter_refresh_hz) - float(system_max_refresh_hz)) > tolerance_hz
+    effective = None
+    if flutter_refresh_hz:
+        try:
+            hz = float(flutter_refresh_hz)
+            if hz > 0:
+                effective = 1000.0 / hz
+        except (TypeError, ValueError):
+            effective = None
+    return {
+        "flutter_refresh_hz": flutter_refresh_hz,
+        "system_max_refresh_hz": system_max_refresh_hz,
+        "frame_budget_source": (
+            "flutter_display_refresh_rate" if flutter_refresh_hz else None
+        ),
+        "effective_budget_ms": effective,
+        "refresh_rate_mismatch": mismatch,
+        "over_budget_comparable": bool(flutter_refresh_hz) and not mismatch,
     }
 
 

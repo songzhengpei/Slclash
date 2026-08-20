@@ -27,6 +27,7 @@ from parsers import (  # noqa: E402
     jank_is_valid,
     parse_am_start_w,
     parse_display_refresh_hz,
+    assess_refresh_rate_provenance,
     parse_gfxinfo,
     parse_meminfo,
     parse_phase4_events,
@@ -194,8 +195,27 @@ Janky frames: 6 (5.00%)
         parsed = parse_display_refresh_hz(
             "DisplayDeviceInfo{..., refreshRate=120.00001, renderFrameRate=120.0, fps=60.0}"
         )
-        self.assertEqual(parsed["refresh_hz"], 120.00001)
-        self.assertAlmostEqual(parsed["budget_ms"], 1000.0 / 120.00001, places=4)
+        self.assertIn(120.0, parsed["system_refresh_candidates"])
+        self.assertIn(60.0, parsed["system_refresh_candidates"])
+        self.assertAlmostEqual(parsed["system_max_refresh_hz"], 120.00001, places=4)
+        self.assertIsNone(parsed["actual_presentation_hz"])
+        self.assertIsNone(parsed["budget_ms"])
+        self.assertNotEqual(parsed["system_refresh_candidates"], [parsed["system_max_refresh_hz"]])
+
+    def test_refresh_rate_mismatch_marks_over_budget_incomparable(self) -> None:
+        mismatch = assess_refresh_rate_provenance(
+            flutter_refresh_hz=60.0,
+            system_max_refresh_hz=120.0,
+        )
+        self.assertTrue(mismatch["refresh_rate_mismatch"])
+        self.assertFalse(mismatch["over_budget_comparable"])
+        self.assertEqual(mismatch["frame_budget_source"], "flutter_display_refresh_rate")
+        aligned = assess_refresh_rate_provenance(
+            flutter_refresh_hz=120.0,
+            system_max_refresh_hz=120.0,
+        )
+        self.assertFalse(aligned["refresh_rate_mismatch"])
+        self.assertTrue(aligned["over_budget_comparable"])
 
     def test_phase4_logcat_and_pidof(self) -> None:
         marks = parse_phase4_logcat(

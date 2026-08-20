@@ -40,6 +40,7 @@ from parsers import (  # noqa: E402
     jank_is_valid,
     parse_am_start_w,
     parse_display_refresh_hz,
+    assess_refresh_rate_provenance,
     parse_gfxinfo,
     parse_meminfo,
     parse_phase4_events,
@@ -894,7 +895,7 @@ class Runner:
             raise HarnessError("bad_nav_session", f"nav session must be idle or running, got {session}")
         notes = [
             "FrameTiming from Flutter; idle dumpsys gfxinfo is not used as navigation jank.",
-            "Frame budget comes from the device refresh rate, not a hardcoded 16.67ms.",
+            "FrameTiming from Flutter. over_budget uses Flutter display.refreshRate; dumpsys max Hz is not actual presentation rate.",
             "Does not change tab scroll-to-top product behavior.",
         ]
         unreliable: list[str] = []
@@ -1131,6 +1132,19 @@ class Runner:
                 dart_budget = complete.get("budget_ms")
                 break
 
+        refresh_provenance = assess_refresh_rate_provenance(
+            flutter_refresh_hz=dart_refresh,
+            system_max_refresh_hz=display.get("system_max_refresh_hz")
+            if display.get("system_max_refresh_hz") is not None
+            else display.get("refresh_hz"),
+        )
+        if refresh_provenance.get("refresh_rate_mismatch"):
+            notes.append(
+                "refresh_rate_mismatch: Flutter display.refreshRate differs from "
+                "dumpsys system_max_refresh_hz. over_budget is not comparable "
+                "across captures. build/raster/totalSpan/worst_frame remain valid."
+            )
+
         ok = (
             started.get("ok") is True
             and (session == "running" or "nav_listener_ready" in ready)
@@ -1176,6 +1190,7 @@ class Runner:
             "display": display,
             "dart_refresh_hz": dart_refresh,
             "dart_budget_ms": dart_budget,
+            "refresh_rate": refresh_provenance,
             "pages": pages,
             "vpn_before": vpn_before,
             "vpn_after": vpn_after,

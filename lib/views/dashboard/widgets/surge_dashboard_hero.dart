@@ -485,7 +485,7 @@ class _HeroModeCardSurface extends StatelessWidget {
     final secondaryColor = foregroundColor.withValues(alpha: secondaryAlpha);
     final onBlue = progress > 0.5;
 
-    return _HeroActiveFill(
+    return HeroActiveFill(
       activeFill: activeFill,
       builder: (context, animatedActiveFill, child) {
         final fillColor = Color.lerp(
@@ -598,8 +598,9 @@ class _HeroModeCardSurface extends StatelessWidget {
   }
 }
 
-class _HeroActiveFill extends StatefulWidget {
-  const _HeroActiveFill({
+class HeroActiveFill extends StatefulWidget {
+  const HeroActiveFill({
+    super.key,
     required this.activeFill,
     required this.builder,
     required this.child,
@@ -611,41 +612,90 @@ class _HeroActiveFill extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_HeroActiveFill> createState() => _HeroActiveFillState();
+  State<HeroActiveFill> createState() => HeroActiveFillState();
 }
 
-class _HeroActiveFillState extends State<_HeroActiveFill> {
-  Color? _previous;
-  bool _animate = false;
+class HeroActiveFillState extends State<HeroActiveFill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _curve;
+  ColorTween? _tween;
+  late Color _displayed;
+
+  /// True only while a real activeFill color transition is ticking.
+  @visibleForTesting
+  bool get debugIsAnimating => _controller.isAnimating;
 
   @override
-  void didUpdateWidget(covariant _HeroActiveFill oldWidget) {
+  void initState() {
+    super.initState();
+    _displayed = widget.activeFill;
+    _controller = AnimationController(
+      vsync: this,
+      duration: _heroFillDuration,
+    );
+    _curve = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    );
+    _controller.addStatusListener(_onStatus);
+  }
+
+  void _onStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed) {
+      return;
+    }
+    _displayed = widget.activeFill;
+    _tween = null;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Color _currentVisualColor() {
+    final tween = _tween;
+    if (tween == null || !_controller.isAnimating) {
+      return _displayed;
+    }
+    return tween.evaluate(_curve) ?? _displayed;
+  }
+
+  @override
+  void didUpdateWidget(covariant HeroActiveFill oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (heroActiveFillShouldAnimate(
+    if (!heroActiveFillShouldAnimate(
       previous: oldWidget.activeFill,
       next: widget.activeFill,
     )) {
-      _previous = oldWidget.activeFill;
-      _animate = true;
+      return;
     }
+    final from = _currentVisualColor();
+    _displayed = from;
+    _tween = ColorTween(begin: from, end: widget.activeFill);
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeStatusListener(_onStatus);
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_animate) {
+    final tween = _tween;
+    if (tween == null || !_controller.isAnimating) {
       return widget.builder(context, widget.activeFill, widget.child);
     }
-    return TweenAnimationBuilder<Color?>(
-      tween: ColorTween(begin: _previous, end: widget.activeFill),
-      duration: _heroFillDuration,
-      curve: Curves.easeInOutCubic,
-      builder: (context, value, child) {
-        return widget.builder(context, value ?? widget.activeFill, child);
-      },
-      onEnd: () {
-        if (mounted) {
-          setState(() => _animate = false);
-        }
+    return AnimatedBuilder(
+      animation: _curve,
+      builder: (context, child) {
+        return widget.builder(
+          context,
+          tween.evaluate(_curve) ?? widget.activeFill,
+          child,
+        );
       },
       child: widget.child,
     );

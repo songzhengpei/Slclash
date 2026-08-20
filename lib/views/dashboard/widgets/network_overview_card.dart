@@ -254,6 +254,11 @@ class SurgeNetworkOverviewCard extends StatelessWidget {
     this.contentExpansionFraction = 0,
   });
 
+  /// Keeps latency results/timer across Row ↔ Column reflow.
+  static final GlobalKey _overviewLatencyHostKey = GlobalKey(
+    debugLabel: 'overviewLatencyHost',
+  );
+
   final DashboardResponsiveLayout layout;
   final double contentExpansionFraction;
 
@@ -300,6 +305,7 @@ class SurgeNetworkOverviewCard extends StatelessWidget {
                     ),
                     SizedBox(height: layout.geometry(12)),
                     _OverviewLatencyHost(
+                      key: _overviewLatencyHostKey,
                       layout: layout,
                       cardLayout: cardLayout,
                     ),
@@ -317,6 +323,7 @@ class SurgeNetworkOverviewCard extends StatelessWidget {
                     ),
                     Expanded(
                       child: _OverviewLatencyHost(
+                        key: _overviewLatencyHostKey,
                         layout: layout,
                         cardLayout: cardLayout,
                       ),
@@ -621,8 +628,26 @@ class _OverviewDetectionHost extends ConsumerWidget {
   }
 }
 
+/// Test-only mount/dispose counters. Production never reads these.
+@visibleForTesting
+class OverviewLatencyHostLifecycle {
+  OverviewLatencyHostLifecycle._();
+
+  static int mounts = 0;
+  static int disposes = 0;
+
+  static void reset() {
+    mounts = 0;
+    disposes = 0;
+  }
+}
+
 class _OverviewLatencyHost extends ConsumerStatefulWidget {
-  const _OverviewLatencyHost({required this.layout, required this.cardLayout});
+  const _OverviewLatencyHost({
+    super.key,
+    required this.layout,
+    required this.cardLayout,
+  });
 
   final DashboardResponsiveLayout layout;
   final NetworkOverviewCardLayout cardLayout;
@@ -870,6 +895,7 @@ class _OverviewLatencyHostState extends ConsumerState<_OverviewLatencyHost> {
   @override
   void initState() {
     super.initState();
+    OverviewLatencyHostLifecycle.mounts++;
 
     // Listen to foreground changes — sync timer, refresh on return-to-foreground
     ref.listenManual(appForegroundProvider, (prev, next) {
@@ -897,6 +923,7 @@ class _OverviewLatencyHostState extends ConsumerState<_OverviewLatencyHost> {
 
   @override
   void dispose() {
+    OverviewLatencyHostLifecycle.disposes++;
     if (NavigationTrace.enabled) {
       NavigationTrace.networkLatencyTimerActive = false;
     }

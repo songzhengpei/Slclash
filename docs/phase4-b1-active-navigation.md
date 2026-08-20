@@ -224,6 +224,60 @@ PAUSED reopen/resume was **not** re-measured this round (session under test was 
 
 ---
 
-## 10. Stop
+## Phase 4B.1.1 Verification & Cleanup
 
-4B.1 is done. Do **not** automatically start 4B.2 or 4C.
+Date: 2026-08-20  
+Branch: `beta`  
+Scope: harness provenance + Hero fill lifecycle + LatencyHost reflow check. No 4B.2 / 4C. No Dashboard `keep:false` / `pageEnter` 280 ms / SMART_STOP / Mihomo changes.
+
+### Refresh rate
+
+4B.1 AFTER captures showed Flutter `display.refreshRate` **60 Hz** while dumpsys listed a **120 Hz** candidate. That mismatch was real; neither number is “the wrong one.”
+
+Harness changes:
+
+- `system_refresh_candidates` / `system_max_refresh_hz` are dumpsys **reported** values.
+- `system_max_refresh_hz` is **not** actual presentation Hz and is **not** the FrameTiming budget source.
+- Budget uses Flutter `display.refreshRate` (`frame_budget_source=flutter_display_refresh_rate`, `effective_budget_ms`).
+- If Flutter Hz and system max Hz disagree, `refresh_rate_mismatch=true` and `over_budget_comparable=false`.
+- Do **not** compare `over_budget` across captures when mismatch is true.
+- `build` / `raster` / `totalSpan` percentiles and `worst_frame_ms` remain valid.
+
+### Hero `_HeroActiveFill` / `HeroActiveFill`
+
+4B.1 already skipped the first-mount no-op 1500 ms ticker.
+
+4B.1.1 completes the lifecycle:
+
+- First mount and unchanged `activeFill` render the current color with no fill animation.
+- Real active ↔ paused still uses `SurgeMotion.heroFill` (1500 ms) and `Curves.easeInOutCubic`.
+- Mid-flight color changes retarget from the current visual color on a single `AnimationController` (no overlapping tickers).
+- When the transition completes, animation state exits (`_tween = null`); later same-color rebuilds stay static.
+- Product visual tokens are unchanged.
+
+### Responsive latency
+
+Verification: crossing `requiresReflow` (384 → 225 → 384) **did remount** `_OverviewLatencyHost` when it lived as a Row vs Column child (different parent/slot).
+
+Minimal fix: a card-scoped `GlobalKey` so the same State moves with the layout. Latency probe / timer / result semantics are unchanged. Layout chrome is still Row vs Column.
+
+```text
+state remount detected + minimal GlobalKey identity fix
+```
+
+Test-only `OverviewLatencyHostLifecycle` mount/dispose counters; production does not read them.
+
+### Regression (4B.1.1)
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | No new errors/warnings in this diff. Existing project infos/deprecations only |
+| Flutter tests | Hero fill widget tests, LatencyHost reflow test, dashboard layout, NavigationTrace, Phase 1–3 Mihomo, smart_auto_stop, media-check: pass |
+| Python harness | `python -m unittest tools/perf/tests/test_harness.py` pass (48) |
+| Device smoke | Profile APK overlay-installed on `25042PN24C`. IDLE: Dashboard visible (Hero Connect, Network Overview, GitHub/YouTube/ChatGPT). Dashboard → Proxy → Dashboard; pid `8785` unchanged; no AndroidRuntime/flutter fatal. RUNNING VPN smoke **not run** (profile package had no VpnService/tun this session) |
+
+### Stop
+
+4B.1.1 is done. Do **not** automatically start 4B.2, chart animation suppression, Dashboard KeepAlive, or 4C.
+
+

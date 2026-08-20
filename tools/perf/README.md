@@ -94,6 +94,8 @@ Phase 4B navigation marks (same enablement, FrameTiming only while a transition 
 
 Idle `dumpsys gfxinfo` with `total_frames <= 0` is marked `jank_invalid_no_frames` and excluded from `compare`. Results record `git_head`, `dirty`, and `worktree_fingerprint` so the source tree that produced the run is visible.
 
+Refresh-rate provenance: dumpsys may list both a physical/supported mode (e.g. 120 Hz) and a render hint (e.g. 60 Hz). `system_max_refresh_hz` is the highest candidate, **not** actual presentation Hz. FrameTiming `over_budget` uses Flutter `display.refreshRate` as `effective_budget_ms`. If Flutter Hz and system max Hz disagree, `refresh_rate_mismatch=true` and `over_budget_comparable=false`. Percentiles and `worst_frame_ms` remain valid.
+
 ## VPN readiness rule
 
 - `start_observable`: VpnService **or** real `tunN` iface **or** `:remote` pid (weak).
