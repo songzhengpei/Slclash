@@ -2019,19 +2019,25 @@ class ProxiesAction extends _$ProxiesAction {
     debouncer.call(FunctionTag.updateGroups, updateGroups, duration: duration);
   }
 
-  void changeProxyDebounce(String groupName, String proxyName) {
+  void changeProxyDebounce(
+    String groupName,
+    String proxyName, {
+    int gen = 0,
+  }) {
     _scheduleSelectionDebounce(
       groupName: groupName,
       proxyName: proxyName,
       unfix: false,
+      gen: gen,
     );
   }
 
-  void unfixProxyDebounce(String groupName) {
+  void unfixProxyDebounce(String groupName, {int gen = 0}) {
     _scheduleSelectionDebounce(
       groupName: groupName,
       proxyName: '',
       unfix: true,
+      gen: gen,
     );
   }
 
@@ -2039,19 +2045,30 @@ class ProxiesAction extends _$ProxiesAction {
     required String groupName,
     required String proxyName,
     required bool unfix,
+    int gen = 0,
   }) {
     debouncer.call(proxySelectionDebounceTag(groupName), (
       String groupName,
       String proxyName,
       bool unfix,
+      int gen,
     ) async {
+      ProxyTrace.noteSelectDispatch(
+        gen: gen,
+        group: groupName,
+        proxy: proxyName,
+      );
       if (unfix) {
-        await unfixProxy(groupName: groupName);
+        await unfixProxy(groupName: groupName, gen: gen);
       } else {
-        await changeProxy(groupName: groupName, proxyName: proxyName);
+        await changeProxy(
+          groupName: groupName,
+          proxyName: proxyName,
+          gen: gen,
+        );
       }
       updateGroupsDebounce();
-    }, args: [groupName, proxyName, unfix]);
+    }, args: [groupName, proxyName, unfix, gen]);
   }
 
   Future<String?> _computeProfileFingerprint(Profile? profile) async {
@@ -2221,6 +2238,10 @@ class ProxiesAction extends _$ProxiesAction {
             ownerProfileId == profileId && oldGroups.isNotEmpty;
 
         if (hasSameProfileOldGroups) {
+          StartupTrace.mark(
+            'proxy_groups_core_unavailable',
+            extras: {'path': 'same_profile_old', 'profileId': profileId},
+          );
           ref
               .read(proxyGroupsSnapshotProvider.notifier)
               .failed('connectCore failed');
@@ -2233,6 +2254,10 @@ class ProxiesAction extends _$ProxiesAction {
         );
 
         if (hydrated) {
+          StartupTrace.mark(
+            'proxy_groups_core_unavailable',
+            extras: {'path': 'stale_snapshot', 'profileId': profileId},
+          );
           commonPrint.log(
             'updateGroups connectCore failed, fallback to stale snapshot: profileId=$profileId',
             logLevel: LogLevel.warning,
@@ -2248,6 +2273,10 @@ class ProxiesAction extends _$ProxiesAction {
           'reason=connectCore failed, ownerProfileId=$ownerProfileId, '
           'oldGroups=${oldGroups.length}',
           logLevel: LogLevel.warning,
+        );
+        StartupTrace.mark(
+          'proxy_groups_core_unavailable',
+          extras: {'path': 'empty', 'profileId': profileId},
         );
 
         ref
@@ -2328,7 +2357,16 @@ class ProxiesAction extends _$ProxiesAction {
       }
 
       // profileId guard: user may have switched profile during async refresh
-      if (ref.read(currentProfileProvider)?.id != profileId) return;
+      if (ref.read(currentProfileProvider)?.id != profileId) {
+        StartupTrace.mark(
+          'proxy_groups_owner_guard',
+          extras: {
+            'requested': profileId,
+            'current': ref.read(currentProfileProvider)?.id,
+          },
+        );
+        return;
+      }
 
       // Equality check: skip UI rebuild + snapshot save if groups unchanged
       final oldGroups = ref.read(groupsProvider);
@@ -2337,6 +2375,7 @@ class ProxiesAction extends _$ProxiesAction {
         ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
         ref.read(proxyGroupsSnapshotProvider.notifier).fresh();
         _syncComputedSelectedMap(groups);
+        ProxyTrace.noteGroupsConsistent(groups);
         return;
       }
 
@@ -2352,6 +2391,7 @@ class ProxiesAction extends _$ProxiesAction {
       }
 
       _syncComputedSelectedMap(groups);
+      ProxyTrace.noteGroupsConsistent(groups);
     } catch (e) {
       commonPrint.log(
         'update-groups:error profileId=$profileId '
@@ -2508,12 +2548,17 @@ class ProxiesAction extends _$ProxiesAction {
   Future<void> changeProxy({
     required String groupName,
     required String proxyName,
+    int gen = 0,
   }) async {
     final previous = _selectionTxn.peek(groupName);
     final result = await coreController.changeProxy(
       ChangeProxyParams(groupName: groupName, proxyName: proxyName),
     );
-    ProxyTrace.noteSelectCoreAck(gen: ProxyTrace.selectionGen, result: result);
+    ProxyTrace.noteSelectCoreAck(
+      gen: gen,
+      group: groupName,
+      result: result,
+    );
     await _finishSelection(
       groupName: groupName,
       failedIntent: proxyName,
@@ -2522,12 +2567,16 @@ class ProxiesAction extends _$ProxiesAction {
     );
   }
 
-  Future<void> unfixProxy({required String groupName}) async {
+  Future<void> unfixProxy({required String groupName, int gen = 0}) async {
     final previous = _selectionTxn.peek(groupName);
     final result = await coreController.unfixProxy(
       UnfixProxyParams(groupName: groupName),
     );
-    ProxyTrace.noteSelectCoreAck(gen: ProxyTrace.selectionGen, result: result);
+    ProxyTrace.noteSelectCoreAck(
+      gen: gen,
+      group: groupName,
+      result: result,
+    );
     await _finishSelection(
       groupName: groupName,
       failedIntent: '',

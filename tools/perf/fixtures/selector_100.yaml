@@ -1,0 +1,208 @@
+# Phase 4C.1B synthetic Selector fixture (100 leaves). Perf/profile only.
+proxies:
+  - name: n0001
+    type: direct
+  - name: n0002
+    type: direct
+  - name: n0003
+    type: direct
+  - name: n0004
+    type: direct
+  - name: n0005
+    type: direct
+  - name: n0006
+    type: direct
+  - name: n0007
+    type: direct
+  - name: n0008
+    type: direct
+  - name: n0009
+    type: direct
+  - name: n0010
+    type: direct
+  - name: n0011
+    type: direct
+  - name: n0012
+    type: direct
+  - name: n0013
+    type: direct
+  - name: n0014
+    type: direct
+  - name: n0015
+    type: direct
+  - name: n0016
+    type: direct
+  - name: n0017
+    type: direct
+  - name: n0018
+    type: direct
+  - name: n0019
+    type: direct
+  - name: n0020
+    type: direct
+  - name: n0021
+    type: direct
+  - name: n0022
+    type: direct
+  - name: n0023
+    type: direct
+  - name: n0024
+    type: direct
+  - name: n0025
+    type: direct
+  - name: n0026
+    type: direct
+  - name: n0027
+    type: direct
+  - name: n0028
+    type: direct
+  - name: n0029
+    type: direct
+  - name: n0030
+    type: direct
+  - name: n0031
+    type: direct
+  - name: n0032
+    type: direct
+  - name: n0033
+    type: direct
+  - name: n0034
+    type: direct
+  - name: n0035
+    type: direct
+  - name: n0036
+    type: direct
+  - name: n0037
+    type: direct
+  - name: n0038
+    type: direct
+  - name: n0039
+    type: direct
+  - name: n0040
+    type: direct
+  - name: n0041
+    type: direct
+  - name: n0042
+    type: direct
+  - name: n0043
+    type: direct
+  - name: n0044
+    type: direct
+  - name: n0045
+    type: direct
+  - name: n0046
+    type: direct
+  - name: n0047
+    type: direct
+  - name: n0048
+    type: direct
+  - name: n0049
+    type: direct
+  - name: n0050
+    type: direct
+  - name: n0051
+    type: direct
+  - name: n0052
+    type: direct
+  - name: n0053
+    type: direct
+  - name: n0054
+    type: direct
+  - name: n0055
+    type: direct
+  - name: n0056
+    type: direct
+  - name: n0057
+    type: direct
+  - name: n0058
+    type: direct
+  - name: n0059
+    type: direct
+  - name: n0060
+    type: direct
+  - name: n0061
+    type: direct
+  - name: n0062
+    type: direct
+  - name: n0063
+    type: direct
+  - name: n0064
+    type: direct
+  - name: n0065
+    type: direct
+  - name: n0066
+    type: direct
+  - name: n0067
+    type: direct
+  - name: n0068
+    type: direct
+  - name: n0069
+    type: direct
+  - name: n0070
+    type: direct
+  - name: n0071
+    type: direct
+  - name: n0072
+    type: direct
+  - name: n0073
+    type: direct
+  - name: n0074
+    type: direct
+  - name: n0075
+    type: direct
+  - name: n0076
+    type: direct
+  - name: n0077
+    type: direct
+  - name: n0078
+    type: direct
+  - name: n0079
+    type: direct
+  - name: n0080
+    type: direct
+  - name: n0081
+    type: direct
+  - name: n0082
+    type: direct
+  - name: n0083
+    type: direct
+  - name: n0084
+    type: direct
+  - name: n0085
+    type: direct
+  - name: n0086
+    type: direct
+  - name: n0087
+    type: direct
+  - name: n0088
+    type: direct
+  - name: n0089
+    type: direct
+  - name: n0090
+    type: direct
+  - name: n0091
+    type: direct
+  - name: n0092
+    type: direct
+  - name: n0093
+    type: direct
+  - name: n0094
+    type: direct
+  - name: n0095
+    type: direct
+  - name: n0096
+    type: direct
+  - name: n0097
+    type: direct
+  - name: n0098
+    type: direct
+  - name: n0099
+    type: direct
+  - name: n0100
+    type: direct
+proxy-groups:
+  - name: PERF
+    type: select
+    proxies: [n0001, n0002, n0003, n0004, n0005, n0006, n0007, n0008, n0009, n0010, n0011, n0012, n0013, n0014, n0015, n0016, n0017, n0018, n0019, n0020, n0021, n0022, n0023, n0024, n0025, n0026, n0027, n0028, n0029, n0030, n0031, n0032, n0033, n0034, n0035, n0036, n0037, n0038, n0039, n0040, n0041, n0042, n0043, n0044, n0045, n0046, n0047, n0048, n0049, n0050, n0051, n0052, n0053, n0054, n0055, n0056, n0057, n0058, n0059, n0060, n0061, n0062, n0063, n0064, n0065, n0066, n0067, n0068, n0069, n0070, n0071, n0072, n0073, n0074, n0075, n0076, n0077, n0078, n0079, n0080, n0081, n0082, n0083, n0084, n0085, n0086, n0087, n0088, n0089, n0090, n0091, n0092, n0093, n0094, n0095, n0096, n0097, n0098, n0099, n0100]
+rules:
+  - MATCH,PERF

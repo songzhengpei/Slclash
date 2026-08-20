@@ -74,22 +74,40 @@ bool applyProxyGroupMemberTap({
     group.name,
   );
   if (decision.kind == ProxyGroupTapKind.unfix) {
-    ProxyTrace.noteSelectIntent(group: group.name, proxy: '');
+    final gen = ProxyTrace.noteSelectIntent(
+      group: group.name,
+      proxy: '',
+      action: 'unfix',
+    );
     container.read(profilesActionProvider.notifier).updateCurrentSelectedMap(
       group.name,
       '',
     );
-    container.read(proxiesActionProvider.notifier).unfixProxyDebounce(group.name);
+    ProxyTrace.noteSelectVisual(gen: gen, group: group.name, proxy: '');
+    container.read(proxiesActionProvider.notifier).unfixProxyDebounce(
+      group.name,
+      gen: gen,
+    );
     return true;
   }
-  ProxyTrace.noteSelectIntent(group: group.name, proxy: decision.proxyName);
+  final gen = ProxyTrace.noteSelectIntent(
+    group: group.name,
+    proxy: decision.proxyName,
+    action: 'select',
+  );
   container.read(profilesActionProvider.notifier).updateCurrentSelectedMap(
     group.name,
     decision.proxyName,
   );
+  ProxyTrace.noteSelectVisual(
+    gen: gen,
+    group: group.name,
+    proxy: decision.proxyName,
+  );
   container.read(proxiesActionProvider.notifier).changeProxyDebounce(
     group.name,
     decision.proxyName,
+    gen: gen,
   );
   return true;
 }

@@ -212,6 +212,39 @@ def summarize_delay_events(events: list[dict]) -> dict:
     }
 
 
+def summarize_select_events(events: list[dict]) -> dict:
+    """Bind Core ACK extras to the request generation, not the latest intent."""
+    intents = [e for e in events if e.get("mark") == "proxy_select_intent"]
+    superseded = [e for e in events if e.get("mark") == "proxy_select_superseded"]
+    dispatch = [e for e in events if e.get("mark") == "proxy_select_dispatch"]
+    acks = [e for e in events if e.get("mark") == "proxy_select_core_ack"]
+    visual = [e for e in events if e.get("mark") == "proxy_select_visual"]
+    consistent = [e for e in events if e.get("mark") == "proxy_select_groups_consistent"]
+    intent_gens = [e.get("gen") for e in intents if e.get("gen") is not None]
+    ack_gens = [e.get("gen") for e in acks if e.get("gen") is not None]
+    latest = intent_gens[-1] if intent_gens else None
+    ack_bound_to_latest_only = bool(ack_gens) and all(g == latest for g in ack_gens)
+    visuals = [e.get("elapsed_from_intent_ms") for e in visual if isinstance(e.get("elapsed_from_intent_ms"), (int, float))]
+    acks_from_intent = [
+        e.get("elapsed_from_intent_ms")
+        for e in acks
+        if isinstance(e.get("elapsed_from_intent_ms"), (int, float))
+    ]
+    return {
+        "intent_count": len(intents),
+        "superseded_count": len(superseded),
+        "dispatch_count": len(dispatch),
+        "ack_count": len(acks),
+        "visual_count": len(visual),
+        "groups_consistent_count": len(consistent),
+        "intent_gens": intent_gens,
+        "ack_gens": ack_gens,
+        "ack_bound_to_latest_only": ack_bound_to_latest_only,
+        "tap_to_visual_ms": visuals,
+        "tap_to_core_ack_ms": acks_from_intent,
+    }
+
+
 def parse_display_refresh_hz(output: str) -> dict:
     """Collect dumpsys refresh-rate *candidates*. Max is not actual presentation Hz.
 

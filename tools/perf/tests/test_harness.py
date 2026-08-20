@@ -39,6 +39,7 @@ from parsers import (  # noqa: E402
     parse_tun_from_sys_class_net,
     parse_tun_interfaces,
     summarize_delay_events,
+    summarize_select_events,
     ui_process_kill_commands,
     vpn_stop_cleared,
 )
@@ -240,6 +241,21 @@ Janky frames: 6 (5.00%)
         self.assertEqual(summary["started"], 1)
         self.assertEqual(summary["peak_inflight"], 20)
         self.assertFalse(summary["batch_limits_start"])
+
+    def test_select_ack_gen_is_not_forced_to_latest_intent(self) -> None:
+        events = parse_phase4_events(
+            "I/flutter: [PHASE4] mark=proxy_select_intent elapsed_ms=10 gen=1 group=g proxy=A action=select\n"
+            "I/flutter: [PHASE4] mark=proxy_select_intent elapsed_ms=11 gen=2 group=g proxy=B action=select\n"
+            "I/flutter: [PHASE4] mark=proxy_select_superseded elapsed_ms=11 gen=1 group=g by_gen=2\n"
+            "I/flutter: [PHASE4] mark=proxy_select_dispatch elapsed_ms=611 gen=2 group=g proxy=B\n"
+            "I/flutter: [PHASE4] mark=proxy_select_core_ack elapsed_ms=640 gen=2 group=g result=ok elapsed_from_intent_ms=629 elapsed_from_dispatch_ms=29\n"
+        )
+        summary = summarize_select_events(events)
+        self.assertEqual(summary["intent_count"], 2)
+        self.assertEqual(summary["superseded_count"], 1)
+        self.assertEqual(summary["ack_gens"], [2])
+        self.assertFalse(summary["ack_bound_to_latest_only"] and summary["ack_gens"] == [1])
+        self.assertEqual(summary["ack_gens"][0], 2)
 
 
 class TunAndVpnAssessmentTests(unittest.TestCase):

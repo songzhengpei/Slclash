@@ -113,6 +113,23 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       final expired =
           lastRefresh == null ||
           DateTime.now().difference(lastRefresh) > const Duration(seconds: 30);
+      final plan = ProxyPageEntryPlan(
+        ownerProfileId: ownerProfileId,
+        currentProfileId: currentProfileId,
+        groupsIsEmpty: ref.read(groupsProvider).isEmpty,
+        expired: expired,
+        snapshotHydrated: ref.read(groupsProvider).isNotEmpty,
+      );
+      StartupTrace.mark(
+        'proxy_page_entry',
+        extras: {
+          'scenario': plan.scenarioId,
+          'ensure_ready': plan.ensureReady,
+          'force_apply': plan.forceApply,
+          'expired': expired,
+          'groups_empty': groupsEmpty,
+        },
+      );
 
       if (groupsEmpty || expired) {
         unawaited(

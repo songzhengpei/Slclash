@@ -79,6 +79,8 @@ Phase 4B (Navigation / Page Mounting): **PASS / CLOSED**. See `docs/phase4-b-fin
 
 Phase 4C.0 (Proxy / Group UX audit): `python tools/perf/phase4.py proxy`. Never force-stops. `all` does not include `proxy`. See `docs/phase4-c0-proxy-group-baseline.md`.
 
+Phase 4C.1B (Proxy performance evidence): same `proxy` command. Extra event-scoped dumps and selection traces are on by default (`--proxy-evidence`). `--delay-sizes 20,100` for IDLE; RUNNING should stay at 20 (then 100 only if the session is stable). See `docs/phase4-c1b-proxy-performance-evidence.md`.
+
 ## App instrumentation
 
 `lib/common/perf_trace.dart` emits `dart:developer` Timeline marks and logcat lines:

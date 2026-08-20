@@ -330,6 +330,9 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         final snapshotState = ref.watch(proxyGroupsSnapshotProvider);
         ref.watch(themeSettingProvider.select((state) => state.textScale));
         final hasGroups = state.groups.isNotEmpty;
+        if (hasGroups) {
+          ProxyTrace.noteFirstGroupVisible();
+        }
         final freshness = snapshotState.freshness;
         if (!hasGroups) {
           final isFailed = freshness == ProxyGroupsFreshnessState.failed;

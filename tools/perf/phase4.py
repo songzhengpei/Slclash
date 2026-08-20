@@ -56,6 +56,7 @@ from parsers import (  # noqa: E402
     assess_running_navigation_continuity,
     assess_running_navigation_preconditions,
     summarize_delay_events,
+    summarize_select_events,
 )
 from provenance import collect_git_provenance  # noqa: E402
 from report import (  # noqa: E402
@@ -1257,14 +1258,22 @@ class Runner:
         }
 
 
-    def proxy(self, session: str = "idle", delay_max: int = 20) -> dict:
-        """Phase 4C.0 Proxy UX baseline. Never force-stops. Does not change product UX."""
+    def proxy(
+        self,
+        session: str = "idle",
+        delay_max: int = 20,
+        delay_sizes: list[int] | None = None,
+        evidence: bool = True,
+    ) -> dict:
+        """Phase 4C Proxy UX evidence. Never force-stops. Does not change product UX."""
         self.require_package()
         session = (session or "idle").lower()
+        sizes = delay_sizes or ([delay_max] if delay_max > 0 else [])
         notes = [
-            "4C.0 proxy workload never uses am force-stop.",
+            "4C.1B proxy evidence never uses am force-stop.",
             "delay batch(100) is await grouping only; futures start at map().toList().",
             "Does not change changeProxy / closeConnections / delay semantics.",
+            "Selection ACK gen is the request gen, not the latest intent.",
         ]
         unreliable: list[str] = []
         vpn_before = self._vpn_status()
@@ -1282,6 +1291,7 @@ class Runner:
                     "notes": notes + ["RUNNING preconditions failed; not constructing a fake session."],
                     "vpn_before": vpn_before,
                     "session_before": session_before,
+                    "blocked": "4C.1B BLOCKED: real RUNNING evidence unavailable",
                 }
         self.nav_broadcast("ping")
         ready = self.wait_nav_ready(timeout=25.0)
@@ -1293,18 +1303,40 @@ class Runner:
         self.nav_broadcast("navigate", {"page": "proxies"})
         self.wait_mark_count("nav_complete", completes_before + 1, timeout=12)
         time.sleep(2.5)
-        if delay_max > 0:
-            self.nav_broadcast("delay_test", {"max": str(delay_max)})
-            deadline = time.monotonic() + 90.0
+        event_dumps: list[dict] = []
+        delay_runs: list[dict] = []
+        for size in sizes:
+            if size <= 0:
+                continue
+            self.nav_broadcast("counts", {"op": "reset", "event": f"delay_{size}"})
+            self.nav_broadcast("delay_test", {"max": str(size)})
+            deadline = time.monotonic() + 120.0
             while time.monotonic() < deadline:
                 events = self.logcat_events()
                 if any(e.get("mark") == "delay_test_end" for e in events):
                     break
                 time.sleep(0.4)
+            self.nav_broadcast("counts", {"op": "dump", "event": f"delay_{size}"})
+            time.sleep(0.3)
+            delay_runs.append({"requested": size})
+        if evidence:
+            event_dumps.extend(self._proxy_event_matrix())
+            self.nav_broadcast("select_named", {})
+            time.sleep(0.2)
+            for _ in range(9):
+                self.nav_broadcast("select_named", {})
+                time.sleep(0.85)
+            self.nav_broadcast("select_fixed", {"action": "pin"})
+            time.sleep(0.85)
+            self.nav_broadcast("select_fixed", {"action": "unfix"})
+            time.sleep(0.85)
         self.nav_broadcast("select_race", {"pattern": "abc"})
         time.sleep(1.3)
         self.nav_broadcast("select_race", {"pattern": "aba"})
         time.sleep(1.3)
+        if evidence:
+            self.nav_broadcast("select_cross", {})
+            time.sleep(1.3)
         completes_mid = self._count_marks("nav_complete")
         self.nav_broadcast("navigate", {"page": "dashboard"})
         self.wait_mark_count("nav_complete", completes_mid + 1, timeout=12)
@@ -1317,9 +1349,14 @@ class Runner:
         dash_proxy = filter_transitions(transitions, pair=("dashboard", "proxies"))
         proxy_dash = filter_transitions(transitions, pair=("proxies", "dashboard"))
         delay = summarize_delay_events(events)
+        select = summarize_select_events(events)
         eager = [e for e in events if e.get("mark") == "proxy_eager_list"]
-        select_intent = [e for e in events if e.get("mark") == "proxy_select_intent"]
-        select_ack = [e for e in events if e.get("mark") == "proxy_select_core_ack"]
+        entry = [e for e in events if e.get("mark") == "proxy_page_entry"]
+        first_visible = [e for e in events if e.get("mark") == "proxy_first_group_visible"]
+        dumps = [e for e in events if e.get("mark") == "proxy_event_dump"]
+        unfold = [e for e in events if e.get("mark") == "proxy_unfold"]
+        core_unavail = [e for e in events if e.get("mark") == "proxy_groups_core_unavailable"]
+        owner_guard = [e for e in events if e.get("mark") == "proxy_groups_owner_guard"]
         select_race = [e for e in events if e.get("mark") in ("proxy_select_race_issued", "proxy_select_race_skip")]
         session_end = next(
             (e for e in reversed(events) if e.get("mark") == "proxy_session_end"),
@@ -1342,15 +1379,25 @@ class Runner:
             "ok": ok,
             "session": session,
             "delay_max": delay_max,
+            "delay_sizes": sizes,
             "delay": delay,
+            "delay_runs": delay_runs,
+            "select": select,
             "eager_list": eager[-1] if eager else None,
+            "eager_history": eager,
+            "page_entry": entry,
+            "first_group_visible": first_visible[-1] if first_visible else None,
+            "event_dumps": dumps,
+            "unfold": unfold,
+            "core_unavailable": core_unavail,
+            "owner_guard": owner_guard,
             "session_end": session_end,
             "frame_timing": {
                 "dashboard_to_proxy": summarize_nav(dash_proxy),
                 "proxy_to_dashboard": summarize_nav(proxy_dash),
             },
-            "select_intent_count": len(select_intent),
-            "select_ack_count": len(select_ack),
+            "select_intent_count": select.get("intent_count"),
+            "select_ack_count": select.get("ack_count"),
             "select_race": select_race,
             "vpn_before": vpn_before,
             "vpn_after": vpn_after,
@@ -1360,6 +1407,34 @@ class Runner:
             "unreliable": unreliable,
             "notes": notes,
         }
+
+    def _proxy_event_matrix(self) -> list[dict]:
+        steps = [
+            ("E1", lambda: self.nav_broadcast("select_named", {})),
+            ("E2", lambda: self.nav_broadcast("delay_one", {})),
+            ("E3", lambda: self.nav_broadcast("sort_bump", {})),
+            ("E4", lambda: self.nav_broadcast("unfold", {"expand": "1"})),
+            ("E5", lambda: self.nav_broadcast("unfold", {"expand": "collapse"})),
+            ("E6", lambda: self.nav_broadcast("refresh_groups", {})),
+            ("E7", lambda: self.nav_broadcast("select_fixed", {"action": "pin"})),
+        ]
+        for event, action in steps:
+            self.nav_broadcast("counts", {"op": "reset", "event": event})
+            action()
+            time.sleep(0.9)
+            self.nav_broadcast("counts", {"op": "dump", "event": event})
+            time.sleep(0.2)
+        self.nav_broadcast("scroll_by", {"dy": "1200"})
+        time.sleep(0.4)
+        self.nav_broadcast("scroll_by", {"dy": "2400"})
+        time.sleep(0.4)
+        self.nav_broadcast("unfold", {"expand": "1"})
+        time.sleep(0.4)
+        self.nav_broadcast("unfold", {"expand": "collapse"})
+        time.sleep(0.3)
+        self.nav_broadcast("unfold", {"expand": "1"})
+        time.sleep(0.3)
+        return []
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1421,7 +1496,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--delay-max",
         type=int,
         default=20,
-        help="4C.0 delay_test node cap. 0 skips delay_test.",
+        help="4C delay_test node cap. 0 skips delay_test unless --delay-sizes is set.",
+    )
+    parser.add_argument(
+        "--delay-sizes",
+        default="",
+        help="Comma-separated delay_test sizes, e.g. 20,100. Overrides repeating --delay-max.",
+    )
+    parser.add_argument(
+        "--proxy-evidence",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="4C.1B extra event-scope / selection / unfold matrix. Default on.",
     )
     return parser
 
@@ -1511,7 +1597,17 @@ def main(argv: list[str] | None = None) -> int:
             if name == "navigation":
                 block = runner.navigation(session=args.nav_session)
             elif name == "proxy":
-                block = runner.proxy(session=args.proxy_session, delay_max=args.delay_max)
+                sizes = [
+                    int(part)
+                    for part in str(getattr(args, "delay_sizes", "") or "").split(",")
+                    if part.strip()
+                ]
+                block = runner.proxy(
+                    session=args.proxy_session,
+                    delay_max=args.delay_max,
+                    delay_sizes=sizes or None,
+                    evidence=getattr(args, "proxy_evidence", True),
+                )
             else:
                 block = getattr(runner, name)()
             result[name] = block

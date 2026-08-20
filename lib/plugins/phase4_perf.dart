@@ -64,8 +64,24 @@ class Phase4PerfCommands {
         return _proxySession(args['value'] ?? args['state']);
       case 'delay_test':
         return _delayTest(args['max']);
+      case 'delay_one':
+        return _delayOne(args['name']);
       case 'select_race':
         return _selectRace(args['pattern']);
+      case 'select_named':
+        return _selectNamed(args['group'], args['proxy']);
+      case 'select_cross':
+        return _selectCross();
+      case 'select_fixed':
+        return _selectFixed(args['action']);
+      case 'unfold':
+        return _unfold(args['group'], args['expand'] ?? args['value']);
+      case 'counts':
+        return _counts(args['op'] ?? args['value'], args['event']);
+      case 'refresh_groups':
+        return _refreshGroups();
+      case 'sort_bump':
+        return _sortBump();
       default:
         return null;
     }
@@ -156,6 +172,192 @@ class Phase4PerfCommands {
       },
     );
     return '${group.name}:${seq.join(',')}';
+  }
+
+  static String _selectNamed(String? groupName, String? proxyName) {
+    final groups = getCurrentGroups();
+    Group? group;
+    if (groupName != null && groupName.isNotEmpty) {
+      group = groups.getGroup(groupName);
+    }
+    if (group == null) {
+      for (final candidate in groups) {
+        if (candidate.type.supportsManualSelection &&
+            candidate.all.isNotEmpty) {
+          group = candidate;
+          break;
+        }
+      }
+    }
+    if (group == null || group.all.isEmpty) {
+      StartupTrace.mark(
+        'proxy_select_named_skip',
+        extras: {'reason': 'no_group'},
+      );
+      return 'no_group';
+    }
+    Proxy proxy = group.all.length > 1 ? group.all[1] : group.all.first;
+    if (proxyName != null && proxyName.isNotEmpty) {
+      for (final item in group.all) {
+        if (item.name == proxyName) {
+          proxy = item;
+          break;
+        }
+      }
+    }
+    final applied = applyProxyGroupMemberTap(
+      group: group,
+      tappedName: proxy.name,
+    );
+    StartupTrace.mark(
+      'proxy_select_named',
+      extras: {
+        'group': group.name,
+        'proxy': proxy.name,
+        'applied': applied,
+      },
+    );
+    return applied ? '${group.name}:${proxy.name}' : 'ignored';
+  }
+
+  static String _selectCross() {
+    final groups = getCurrentGroups()
+        .where(
+          (group) =>
+              group.type.supportsManualSelection && group.all.length >= 2,
+        )
+        .toList();
+    if (groups.length < 2) {
+      StartupTrace.mark(
+        'proxy_select_cross_skip',
+        extras: {'reason': 'need_two_groups'},
+      );
+      return 'need_two_groups';
+    }
+    final a = groups[0];
+    final b = groups[1];
+    applyProxyGroupMemberTap(group: a, tappedName: a.all[1].name);
+    applyProxyGroupMemberTap(group: b, tappedName: b.all[1].name);
+    StartupTrace.mark(
+      'proxy_select_cross_issued',
+      extras: {
+        'g1': a.name,
+        'g2': b.name,
+        'p1': a.all[1].name,
+        'p2': b.all[1].name,
+      },
+    );
+    return '${a.name},${b.name}';
+  }
+
+  static String _selectFixed(String? action) {
+    final groups = getCurrentGroups();
+    Group? group;
+    for (final candidate in groups) {
+      if (candidate.type.supportsFixedSelection && candidate.all.isNotEmpty) {
+        group = candidate;
+        break;
+      }
+    }
+    if (group == null) {
+      StartupTrace.mark(
+        'proxy_select_fixed_skip',
+        extras: {'reason': 'no_urltest'},
+      );
+      return 'no_urltest';
+    }
+    final target = action == 'unfix'
+        ? (group.fixed != null && group.fixed!.isNotEmpty
+              ? group.fixed!
+              : group.all.first.name)
+        : group.all.first.name;
+    final applied = applyProxyGroupMemberTap(
+      group: group,
+      tappedName: target,
+    );
+    StartupTrace.mark(
+      'proxy_select_fixed',
+      extras: {
+        'group': group.name,
+        'proxy': target,
+        'action': action ?? 'pin',
+        'fixed': group.fixed ?? 'null',
+        'applied': applied,
+      },
+    );
+    return applied ? '${group.name}:$target' : 'ignored';
+  }
+
+  static String _unfold(String? groupName, String? expandRaw) {
+    final groups = getCurrentGroups();
+    final name = (groupName != null && groupName.isNotEmpty)
+        ? groupName
+        : (groups.isNotEmpty ? groups.first.name : '');
+    if (name.isEmpty) {
+      return 'no_group';
+    }
+    final expand =
+        expandRaw != '0' &&
+        expandRaw != 'false' &&
+        expandRaw != 'collapse';
+    final profile = globalState.container.read(currentProfileProvider);
+    final current = Set<String>.from(profile?.unfoldSet ?? <String>{});
+    if (expand) {
+      current.add(name);
+    } else {
+      current.remove(name);
+    }
+    updateCurrentUnfoldSet(current);
+    StartupTrace.mark(
+      'proxy_unfold',
+      extras: {'group': name, 'expand': expand},
+    );
+    return '$name:${expand ? 'expand' : 'collapse'}';
+  }
+
+  static Map<String, Object?> _counts(String? opRaw, String? eventRaw) {
+    final op = opRaw ?? 'dump';
+    final event = eventRaw ?? '';
+    if (op == 'reset') {
+      ProxyTrace.resetEventScope(event: event);
+      return {'op': 'reset', 'event': event};
+    }
+    return ProxyTrace.dumpEventScope(event: event);
+  }
+
+  static String _delayOne(String? name) {
+    final groups = getCurrentGroups();
+    Proxy? proxy;
+    if (name != null && name.isNotEmpty) {
+      for (final group in groups) {
+        for (final item in group.all) {
+          if (item.name == name) {
+            proxy = item;
+            break;
+          }
+        }
+      }
+    }
+    proxy ??= groups.isNotEmpty && groups.first.all.isNotEmpty
+        ? groups.first.all.first
+        : null;
+    if (proxy == null) {
+      return 'no_proxy';
+    }
+    unawaited(proxyDelayTest(proxy));
+    return proxy.name;
+  }
+
+  static String _refreshGroups() {
+    globalState.container.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+    StartupTrace.mark('proxy_refresh_groups');
+    return 'ok';
+  }
+
+  static String _sortBump() {
+    globalState.container.read(sortNumProvider.notifier).add();
+    StartupTrace.mark('proxy_sort_bump');
+    return 'ok';
   }
 
   static String _keepDashboard(String? raw) {

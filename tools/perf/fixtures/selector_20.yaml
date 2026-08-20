@@ -1,0 +1,48 @@
+# Phase 4C.1B synthetic Selector fixture (20 leaves). Perf/profile only.
+proxies:
+  - name: n0001
+    type: direct
+  - name: n0002
+    type: direct
+  - name: n0003
+    type: direct
+  - name: n0004
+    type: direct
+  - name: n0005
+    type: direct
+  - name: n0006
+    type: direct
+  - name: n0007
+    type: direct
+  - name: n0008
+    type: direct
+  - name: n0009
+    type: direct
+  - name: n0010
+    type: direct
+  - name: n0011
+    type: direct
+  - name: n0012
+    type: direct
+  - name: n0013
+    type: direct
+  - name: n0014
+    type: direct
+  - name: n0015
+    type: direct
+  - name: n0016
+    type: direct
+  - name: n0017
+    type: direct
+  - name: n0018
+    type: direct
+  - name: n0019
+    type: direct
+  - name: n0020
+    type: direct
+proxy-groups:
+  - name: PERF
+    type: select
+    proxies: [n0001, n0002, n0003, n0004, n0005, n0006, n0007, n0008, n0009, n0010, n0011, n0012, n0013, n0014, n0015, n0016, n0017, n0018, n0019, n0020]
+rules:
+  - MATCH,PERF
