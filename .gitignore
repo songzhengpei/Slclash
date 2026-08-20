@@ -65,6 +65,7 @@ docs/*
 !docs/phase4-c0-proxy-group-baseline.md
 !docs/phase4-c1a-mihomo-group-correctness.md
 !docs/phase4-c1b-proxy-performance-evidence.md
+!docs/phase4-c-final-closeout.md
 !docs/images/
 docs/images/*
 !docs/images/readme/

@@ -73,13 +73,21 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`, `docs/phase4-c0-proxy-group-baseline.md`.
+Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`, `docs/phase4-c0-proxy-group-baseline.md`, `docs/phase4-c1a-mihomo-group-correctness.md`, `docs/phase4-c1b-proxy-performance-evidence.md`, `docs/phase4-c-final-closeout.md`.
 
-Phase 4B (Navigation / Page Mounting): **PASS / CLOSED**. See `docs/phase4-b-final-closeout.md`.
+Phase status:
 
-Phase 4C.0 (Proxy / Group UX audit): `python tools/perf/phase4.py proxy`. Never force-stops. `all` does not include `proxy`. See `docs/phase4-c0-proxy-group-baseline.md`.
+- Phase 4A (Startup): **CLOSED**
+- Phase 4B (Navigation / Page Mounting): **CLOSED** — `docs/phase4-b-final-closeout.md`
+- Phase 4C (Proxy / Group UX): **CLOSED** — `docs/phase4-c-final-closeout.md`
+- Phase 4D (Runtime Polling / Core IPC): **NEXT**
+- Phase 4E (VPN Lifecycle): **FUTURE**
+- Phase 4F (Background / Power): **FUTURE**
+- Phase 4G (Animation polish): **FUTURE**
 
-Phase 4C.1B (Proxy performance evidence): same `proxy` command. Extra event-scoped dumps and selection traces are on by default (`--proxy-evidence`). `--delay-sizes 20,100` for IDLE; RUNNING should stay at 20 (then 100 only if the session is stable). See `docs/phase4-c1b-proxy-performance-evidence.md`.
+Phase 4C.0 audit: `python tools/perf/phase4.py proxy`. Never force-stops. `all` does not include `proxy`. See `docs/phase4-c0-proxy-group-baseline.md`.
+
+Phase 4C.1B evidence: same `proxy` command. Extra event-scoped dumps and selection traces are on by default (`--proxy-evidence`). `--delay-sizes 20,100` for IDLE; RUNNING should stay at 20. See `docs/phase4-c1b-proxy-performance-evidence.md`. These commands remain as retained diagnostic infrastructure.
 
 ## App instrumentation
 
