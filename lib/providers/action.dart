@@ -2498,9 +2498,10 @@ class ProxiesAction extends _$ProxiesAction {
     required String groupName,
     required String proxyName,
   }) async {
-    await coreController.changeProxy(
+    final result = await coreController.changeProxy(
       ChangeProxyParams(groupName: groupName, proxyName: proxyName),
     );
+    ProxyTrace.noteSelectCoreAck(gen: ProxyTrace.selectionGen, result: result);
     if (ref.read(appSettingProvider).closeConnections) {
       await coreController.closeConnections();
     } else {

@@ -40,12 +40,14 @@ $env:Path = "D:\Code\Tools\Android\Sdk\platform-tools;$env:Path"
 python tools/perf/phase4.py all --build-mode profile
 ```
 
-Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `running-reattach`, `navigation`, `compare`.
+Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `running-reattach`, `navigation`, `proxy`, `compare`.
 
 ```powershell
 python tools/perf/phase4.py compare --baseline .perf-captures/phase4/old/result.json --current .perf-captures/phase4/latest.json
 python tools/perf/phase4.py navigation --build-mode profile --write-nav-baseline-doc docs/phase4-b0-navigation-baseline.md
 python tools/perf/phase4.py navigation --build-mode profile --nav-session running
+python tools/perf/phase4.py proxy --build-mode profile --proxy-session idle --delay-max 20
+python tools/perf/phase4.py proxy --build-mode profile --proxy-session running --delay-max 20
 python -m unittest tools/perf/tests/test_harness.py
 ```
 
@@ -62,6 +64,7 @@ Options: `--package`, `--serial` / `ANDROID_SERIAL`, `--adb`, `--build-mode`, `-
 | vpn | TempActivity START/STOP; `start_observable` vs confirmed `vpn_ready`; stop latency |
 | running-reattach | VPN stays up; kill Flutter UI pid only (`run-as kill` / `am kill`, never `force-stop`); reopen MainActivity. Formal continuity requires `kill_ui_keep_remote.ok`, old UI pid gone, remote pid unchanged before/mid/post, presence-file `sessionId>0` identical, `state=RUNNING`, and `vpn_ready` before/post. Logcat is StartupTrace timing only. |
 | navigation | Profile APK only. ADB sends `phase4_cmd` extras to already-exported `MainActivity` (`singleTop` / `onNewIntent`). Dart no-ops unless NavigationTrace is enabled. Records Flutter FrameTiming per tab transition. Frame budget uses the device refresh rate. Idle `dumpsys gfxinfo` is **not** this metric. `all` does not include navigation. Default `--nav-session idle` force-stops the package (VPN OFF). `--nav-session running` never force-stops: it requires VpnService + tun + `:remote` + presence `state=RUNNING` + `sessionId>0` + `vpn_ready`, and sets `ok=false` if remote pid / sessionId / tun / vpn_ready change. |
+| proxy | Phase 4C.0. Never force-stops. Navigates Dashboard → Proxy, runs capped `delayTest` (product `map`+`batch(100)`), then Proxy → Dashboard → Proxy. Records delay peak_inflight, eager `_buildItems` counts, FrameTiming for those tab pairs, VPN continuity when `--proxy-session running`. `all` does not include proxy. |
 | background | foreground vs HOME; CPU / PSS / focus; VPN active vs inactive |
 
 Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_missing`, VPN not ready) exit non-zero. Missing timings stay `null`.
@@ -70,9 +73,11 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`.
+Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`, `docs/phase4-c0-proxy-group-baseline.md`.
 
-Phase 4B (Navigation / Page Mounting): **PASS / CLOSED**. See `docs/phase4-b-final-closeout.md`. Next is Phase 4C (Proxy / Group UX); do not start it from the harness README.
+Phase 4B (Navigation / Page Mounting): **PASS / CLOSED**. See `docs/phase4-b-final-closeout.md`.
+
+Phase 4C.0 (Proxy / Group UX audit): `python tools/perf/phase4.py proxy`. Never force-stops. `all` does not include `proxy`. See `docs/phase4-c0-proxy-group-baseline.md`.
 
 ## App instrumentation
 

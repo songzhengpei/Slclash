@@ -76,6 +76,7 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
   if (state.proxyName.isEmpty) {
     return;
   }
+  ProxyTrace.delayStart(name: state.proxyName);
   ref
       .read(proxiesActionProvider.notifier)
       .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: 0));
@@ -85,23 +86,47 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
         .setDelay(
           await coreController.getDelay(currentTestUrl, state.proxyName),
         );
+    ProxyTrace.delayFinish(name: state.proxyName, ok: true);
   } catch (e) {
     commonPrint.log('proxyDelayTest failed for ${state.proxyName}: $e');
     ref
         .read(proxiesActionProvider.notifier)
         .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: -1));
+    ProxyTrace.delayFinish(name: state.proxyName, ok: false);
   }
 }
 
 Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
+  StartupTrace.mark(
+    'delay_test_begin',
+    extras: {'count': proxies.length},
+  );
   final delayProxies = proxies.map<Future>((proxy) async {
     await proxyDelayTest(proxy, testUrl);
   }).toList();
+
+  StartupTrace.mark(
+    'delay_test_after_map',
+    extras: {
+      'count': proxies.length,
+      'peak_inflight': ProxyTrace.peakInflight,
+      'started': ProxyTrace.delayStarted,
+    },
+  );
 
   final batchesDelayProxies = delayProxies.batch(100);
   for (final batchDelayProxies in batchesDelayProxies) {
     await Future.wait(batchDelayProxies);
   }
+  StartupTrace.mark(
+    'delay_test_end',
+    extras: {
+      'peak_inflight': ProxyTrace.peakInflight,
+      'started': ProxyTrace.delayStarted,
+      'finished': ProxyTrace.delayFinished,
+      'failed': ProxyTrace.delayFailed,
+    },
+  );
   globalState.container.read(sortNumProvider.notifier).add();
 }
 

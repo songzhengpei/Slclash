@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/views/proxies/common.dart';
 import 'package:flutter/services.dart';
 
 typedef Phase4Reselect = void Function();
@@ -56,6 +60,12 @@ class Phase4PerfCommands {
         };
       case 'keep_dashboard':
         return _keepDashboard(args['keep'] ?? args['value']);
+      case 'proxy_session':
+        return _proxySession(args['value'] ?? args['state']);
+      case 'delay_test':
+        return _delayTest(args['max']);
+      case 'select_race':
+        return _selectRace(args['pattern']);
       default:
         return null;
     }
@@ -85,6 +95,74 @@ class Phase4PerfCommands {
       },
     );
     return {'current': current, 'pages': pages};
+  }
+
+  static String _proxySession(String? raw) {
+    final on = raw == 'start' || raw == 'on' || raw == '1' || raw == 'true';
+    if (on) {
+      ProxyTrace.beginSession();
+      return 'start';
+    }
+    ProxyTrace.endSession();
+    return 'end';
+  }
+
+  static String _delayTest(String? maxRaw) {
+    ProxyTrace.resetDelayCounters();
+    final groups = getCurrentGroups();
+    final proxies = <Proxy>[];
+    for (final group in groups) {
+      proxies.addAll(group.all);
+    }
+    final max = int.tryParse(maxRaw ?? '') ?? proxies.length;
+    final slice = max > 0 && max < proxies.length
+        ? proxies.sublist(0, max)
+        : proxies;
+    StartupTrace.mark(
+      'delay_test_dispatch',
+      extras: {'count': slice.length, 'max': max},
+    );
+    unawaited(delayTest(slice));
+    return '${slice.length}';
+  }
+
+  /// Rapid Selector taps through the product selectedMap + debounce path.
+  static String _selectRace(String? pattern) {
+    final groups = getCurrentGroups();
+    Group? group;
+    for (final candidate in groups) {
+      if (candidate.type == GroupType.Selector && candidate.all.length >= 3) {
+        group = candidate;
+        break;
+      }
+    }
+    if (group == null) {
+      StartupTrace.mark('proxy_select_race_skip', extras: {'reason': 'no_selector'});
+      return 'no_selector';
+    }
+    final a = group.all[0].name;
+    final b = group.all[1].name;
+    final c = group.all[2].name;
+    final seq = pattern == 'aba' ? [a, b, a] : [a, b, c];
+    final container = globalState.container;
+    for (final name in seq) {
+      ProxyTrace.noteSelectIntent(group: group.name, proxy: name);
+      container
+          .read(profilesActionProvider.notifier)
+          .updateCurrentSelectedMap(group.name, name);
+      container
+          .read(proxiesActionProvider.notifier)
+          .changeProxyDebounce(group.name, name);
+    }
+    StartupTrace.mark(
+      'proxy_select_race_issued',
+      extras: {
+        'group': group.name,
+        'pattern': pattern ?? 'abc',
+        'seq': seq.join(','),
+      },
+    );
+    return '${group.name}:${seq.join(',')}';
   }
 
   static String _keepDashboard(String? raw) {

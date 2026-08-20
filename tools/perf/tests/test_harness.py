@@ -38,6 +38,7 @@ from parsers import (  # noqa: E402
     parse_tun_from_proc_net_dev,
     parse_tun_from_sys_class_net,
     parse_tun_interfaces,
+    summarize_delay_events,
     ui_process_kill_commands,
     vpn_stop_cleared,
 )
@@ -228,6 +229,17 @@ Janky frames: 6 (5.00%)
         self.assertEqual(marks["core_skipped"], 1500)
         self.assertEqual(parse_pidof("1234 5678"), 1234)
         self.assertIsNone(parse_pidof(""))
+
+    def test_delay_peak_inflight_from_started_marks(self) -> None:
+        events = parse_phase4_events(
+            "I/flutter: [PHASE4] mark=delay_request_started elapsed_ms=10 name=a inflight=20 peak_inflight=20\n"
+            "I/flutter: [PHASE4] mark=delay_test_after_map elapsed_ms=11 count=20 started=20 peak_inflight=20\n"
+            "I/flutter: [PHASE4] mark=delay_request_finished elapsed_ms=40 name=a inflight=0 peak_inflight=20\n"
+        )
+        summary = summarize_delay_events(events)
+        self.assertEqual(summary["started"], 1)
+        self.assertEqual(summary["peak_inflight"], 20)
+        self.assertFalse(summary["batch_limits_start"])
 
 
 class TunAndVpnAssessmentTests(unittest.TestCase):

@@ -6,6 +6,7 @@ Usage:
     python tools/perf/phase4.py env|cold-start|memory|jank|vpn|background
     python tools/perf/phase4.py running-reattach
     python tools/perf/phase4.py navigation
+    python tools/perf/phase4.py proxy --proxy-session idle
     python tools/perf/phase4.py compare --baseline a.json --current b.json
 """
 
@@ -54,6 +55,7 @@ from parsers import (  # noqa: E402
     vpn_stop_cleared,
     assess_running_navigation_continuity,
     assess_running_navigation_preconditions,
+    summarize_delay_events,
 )
 from provenance import collect_git_provenance  # noqa: E402
 from report import (  # noqa: E402
@@ -1255,11 +1257,116 @@ class Runner:
         }
 
 
+    def proxy(self, session: str = "idle", delay_max: int = 20) -> dict:
+        """Phase 4C.0 Proxy UX baseline. Never force-stops. Does not change product UX."""
+        self.require_package()
+        session = (session or "idle").lower()
+        notes = [
+            "4C.0 proxy workload never uses am force-stop.",
+            "delay batch(100) is await grouping only; futures start at map().toList().",
+            "Does not change changeProxy / closeConnections / delay semantics.",
+        ]
+        unreliable: list[str] = []
+        vpn_before = self._vpn_status()
+        session_before = self.read_session_presence()
+        if session == "running":
+            pre_ok, pre_reasons = assess_running_navigation_preconditions(
+                vpn=vpn_before,
+                session=session_before,
+            )
+            if not pre_ok:
+                return {
+                    "ok": False,
+                    "session": session,
+                    "unreliable": pre_reasons,
+                    "notes": notes + ["RUNNING preconditions failed; not constructing a fake session."],
+                    "vpn_before": vpn_before,
+                    "session_before": session_before,
+                }
+        self.nav_broadcast("ping")
+        ready = self.wait_nav_ready(timeout=25.0)
+        completes_before = self._count_marks("nav_complete")
+        self.nav_broadcast("navigate", {"page": "dashboard"})
+        self.wait_mark_count("nav_complete", completes_before + 1, timeout=12)
+        completes_before = self._count_marks("nav_complete")
+        self.nav_broadcast("proxy_session", {"value": "start"})
+        self.nav_broadcast("navigate", {"page": "proxies"})
+        self.wait_mark_count("nav_complete", completes_before + 1, timeout=12)
+        time.sleep(2.5)
+        if delay_max > 0:
+            self.nav_broadcast("delay_test", {"max": str(delay_max)})
+            deadline = time.monotonic() + 90.0
+            while time.monotonic() < deadline:
+                events = self.logcat_events()
+                if any(e.get("mark") == "delay_test_end" for e in events):
+                    break
+                time.sleep(0.4)
+        self.nav_broadcast("select_race", {"pattern": "abc"})
+        time.sleep(1.3)
+        self.nav_broadcast("select_race", {"pattern": "aba"})
+        time.sleep(1.3)
+        completes_mid = self._count_marks("nav_complete")
+        self.nav_broadcast("navigate", {"page": "dashboard"})
+        self.wait_mark_count("nav_complete", completes_mid + 1, timeout=12)
+        self.nav_broadcast("navigate", {"page": "proxies"})
+        self.wait_mark_count("nav_complete", completes_mid + 2, timeout=12)
+        self.nav_broadcast("proxy_session", {"value": "end"})
+        time.sleep(0.4)
+        events = self.logcat_events()
+        transitions = group_nav_transitions(events)
+        dash_proxy = filter_transitions(transitions, pair=("dashboard", "proxies"))
+        proxy_dash = filter_transitions(transitions, pair=("proxies", "dashboard"))
+        delay = summarize_delay_events(events)
+        eager = [e for e in events if e.get("mark") == "proxy_eager_list"]
+        select_intent = [e for e in events if e.get("mark") == "proxy_select_intent"]
+        select_ack = [e for e in events if e.get("mark") == "proxy_select_core_ack"]
+        select_race = [e for e in events if e.get("mark") in ("proxy_select_race_issued", "proxy_select_race_skip")]
+        session_end = next(
+            (e for e in reversed(events) if e.get("mark") == "proxy_session_end"),
+            None,
+        )
+        vpn_after = self._vpn_status()
+        session_after = self.read_session_presence()
+        cont_ok, cont_reasons = True, []
+        if session == "running":
+            cont_ok, cont_reasons = assess_running_navigation_continuity(
+                before_vpn=vpn_before or {},
+                after_vpn=vpn_after,
+                before_session=session_before or {},
+                after_session=session_after,
+            )
+            if not cont_ok:
+                unreliable.extend(cont_reasons)
+        ok = bool(ready.get("nav_listener_ready")) and (session != "running" or cont_ok)
+        return {
+            "ok": ok,
+            "session": session,
+            "delay_max": delay_max,
+            "delay": delay,
+            "eager_list": eager[-1] if eager else None,
+            "session_end": session_end,
+            "frame_timing": {
+                "dashboard_to_proxy": summarize_nav(dash_proxy),
+                "proxy_to_dashboard": summarize_nav(proxy_dash),
+            },
+            "select_intent_count": len(select_intent),
+            "select_ack_count": len(select_ack),
+            "select_race": select_race,
+            "vpn_before": vpn_before,
+            "vpn_after": vpn_after,
+            "session_before": session_before,
+            "session_after": session_after,
+            "continuity_ok": cont_ok,
+            "unreliable": unreliable,
+            "notes": notes,
+        }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="SlClash Phase 4 performance harness")
     parser.add_argument(
         "command",
-        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "running-reattach", "navigation", "compare"],
+        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "running-reattach", "navigation", "proxy", "compare"],
     )
     parser.add_argument(
         "--package",
@@ -1303,6 +1410,18 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["idle", "running"],
         default="idle",
         help="navigation workload: idle force-stops; running never force-stops a live VPN session.",
+    )
+    parser.add_argument(
+        "--proxy-session",
+        choices=["idle", "running"],
+        default="idle",
+        help="4C.0 proxy workload: never force-stops. running requires live VPN continuity.",
+    )
+    parser.add_argument(
+        "--delay-max",
+        type=int,
+        default=20,
+        help="4C.0 delay_test node cap. 0 skips delay_test.",
     )
     return parser
 
@@ -1369,6 +1488,7 @@ def main(argv: list[str] | None = None) -> int:
             "background": None,
             "running_reattach": None,
             "navigation": None,
+            "proxy": None,
         }
         if env.get("build_role") == "diagnostic_only":
             result["notes"].append(
@@ -1384,11 +1504,14 @@ def main(argv: list[str] | None = None) -> int:
             "background": ["background"],
             "running-reattach": ["running_reattach"],
             "navigation": ["navigation"],
+            "proxy": ["proxy"],
             "all": ["cold_start", "memory", "jank", "vpn", "background"],
         }
         for name in mapping[args.command]:
             if name == "navigation":
                 block = runner.navigation(session=args.nav_session)
+            elif name == "proxy":
+                block = runner.proxy(session=args.proxy_session, delay_max=args.delay_max)
             else:
                 block = getattr(runner, name)()
             result[name] = block

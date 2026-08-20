@@ -44,6 +44,7 @@ class ProxyCard extends StatelessWidget {
         true => currentProxyName == proxy.name ? '' : proxy.name,
         false => proxy.name,
       };
+      ProxyTrace.noteSelectIntent(group: groupName, proxy: nextProxyName);
       ref
           .read(profilesActionProvider.notifier)
           .updateCurrentSelectedMap(groupName, nextProxyName);
@@ -63,6 +64,7 @@ class ProxyCard extends StatelessWidget {
           selectedProxyNameProvider(groupName),
         );
         final isSelected = selectedProxyName == proxy.name;
+        ProxyTrace.noteHotspotBuild('proxy_card');
         return SurgeSelectableRow(
           key: key,
           selected: isSelected,

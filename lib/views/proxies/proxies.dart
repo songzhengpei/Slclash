@@ -126,6 +126,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
 
   @override
   Widget build(BuildContext context) {
+    ProxyTrace.noteHotspotBuild('proxies_view');
     final surge = SurgeTheme.of(context);
     final isLoading = ref.watch(loadingProvider(LoadingTag.proxies));
     return CommonScaffold(

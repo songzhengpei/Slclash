@@ -197,6 +197,10 @@ class _ProxiesListViewState extends State<ProxiesListView> {
         items.addAll(proxyItems);
       }
     }
+    ProxyTrace.noteEagerList(
+      items: items.length,
+      proxyCards: items.length - groups.length,
+    );
     return items;
   }
 
@@ -321,6 +325,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
   Widget build(BuildContext context) {
     return Consumer(
       builder: (_, ref, _) {
+        ProxyTrace.noteHotspotBuild('proxies_list');
         final state = ref.watch(proxiesListStateProvider);
         final snapshotState = ref.watch(proxyGroupsSnapshotProvider);
         ref.watch(themeSettingProvider.select((state) => state.textScale));
@@ -597,6 +602,7 @@ class _ListHeaderState extends State<ListHeader> {
 
   @override
   Widget build(BuildContext context) {
+    ProxyTrace.noteHotspotBuild('list_header');
     final surge = SurgeTheme.of(context);
     final radius = BorderRadius.vertical(
       top:

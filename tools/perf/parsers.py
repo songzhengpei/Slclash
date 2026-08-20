@@ -191,6 +191,27 @@ def parse_phase4_events(output: str) -> list[dict]:
     return events
 
 
+def summarize_delay_events(events: list[dict]) -> dict:
+    """peak_inflight from delay_request_started extras. batch(100) is await-only."""
+    started = [e for e in events if e.get("mark") == "delay_request_started"]
+    finished = [e for e in events if e.get("mark") == "delay_request_finished"]
+    failed = [e for e in events if e.get("mark") == "delay_request_failed"]
+    after_map = [e for e in events if e.get("mark") == "delay_test_after_map"]
+    peaks = []
+    for row in started + after_map:
+        value = row.get("peak_inflight")
+        if isinstance(value, (int, float)):
+            peaks.append(int(value))
+    return {
+        "started": len(started),
+        "finished": len(finished),
+        "failed": len(failed),
+        "peak_inflight": max(peaks) if peaks else 0,
+        "after_map_started": after_map[-1].get("started") if after_map else None,
+        "batch_limits_start": False,
+    }
+
+
 def parse_display_refresh_hz(output: str) -> dict:
     """Collect dumpsys refresh-rate *candidates*. Max is not actual presentation Hz.
 
