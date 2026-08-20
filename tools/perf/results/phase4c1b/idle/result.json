@@ -1,0 +1,1074 @@
+{
+  "ok": true,
+  "timestamp": "2026-08-20T10:56:10Z",
+  "commit": "ce52834d0617c908e67cb0532a2f33cdb7707b12",
+  "phase4_product_baseline": "b7e08b6ef84546e9b3d084a411c3a59e3e4df7c8",
+  "device": "25042PN24C",
+  "build": {
+    "package": "com.slclash.app.profile",
+    "version_name": "9.9.10",
+    "version_code": "1",
+    "mode": "profile",
+    "role": "profiling",
+    "formal_eligible": true,
+    "debuggable": true,
+    "mode_detection": "cli",
+    "mode_notes": [
+      "package is DEBUGGABLE but --build-mode=profile was declared; using declared mode"
+    ],
+    "git_head": "ce52834d0617c908e67cb0532a2f33cdb7707b12",
+    "dirty": true,
+    "submodule_dirty": true,
+    "worktree_fingerprint": "91e1aa60aac41369"
+  },
+  "env": {
+    "adb_serial": "0604B44041A00540",
+    "model": "25042PN24C",
+    "android_version": "16",
+    "sdk": 36,
+    "package": "com.slclash.app.profile",
+    "version_name": "9.9.10",
+    "version_code": "1",
+    "flutter_pid": null,
+    "remote_pid": null,
+    "git_commit": "ce52834d0617c908e67cb0532a2f33cdb7707b12",
+    "git_head": "ce52834d0617c908e67cb0532a2f33cdb7707b12",
+    "dirty": true,
+    "submodule_dirty": true,
+    "worktree_fingerprint": "91e1aa60aac41369",
+    "build_mode": "profile",
+    "build_role": "profiling",
+    "formal_eligible": true,
+    "debuggable": true,
+    "build_mode_detection": "cli",
+    "build_mode_notes": [
+      "package is DEBUGGABLE but --build-mode=profile was declared; using declared mode"
+    ]
+  },
+  "errors": [],
+  "notes": [],
+  "cold_start": null,
+  "memory": null,
+  "jank": null,
+  "vpn": null,
+  "background": null,
+  "running_reattach": null,
+  "navigation": null,
+  "proxy": {
+    "ok": true,
+    "session": "idle",
+    "delay_max": 20,
+    "delay_sizes": [
+      20,
+      100
+    ],
+    "delay": {
+      "started": 121,
+      "finished": 121,
+      "failed": 0,
+      "peak_inflight": 100,
+      "after_map_started": 100,
+      "batch_limits_start": false
+    },
+    "delay_runs": [
+      {
+        "requested": 20
+      },
+      {
+        "requested": 100
+      }
+    ],
+    "select": {
+      "intent_count": 19,
+      "superseded_count": 5,
+      "dispatch_count": 14,
+      "ack_count": 14,
+      "visual_count": 19,
+      "groups_consistent_count": 14,
+      "intent_gens": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "ack_gens": [
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        14,
+        17,
+        18,
+        19
+      ],
+      "ack_bound_to_latest_only": false,
+      "tap_to_visual_ms": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "tap_to_core_ack_ms": [
+        609,
+        619,
+        614,
+        612,
+        615,
+        608,
+        608,
+        612,
+        607,
+        610,
+        607,
+        614,
+        606,
+        607
+      ]
+    },
+    "eager_list": {
+      "mark": "proxy_eager_list",
+      "elapsed_ms": 46852,
+      "items": 21,
+      "proxy_cards": 2,
+      "proxy_item_materialized": 21
+    },
+    "eager_history": [
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 13375,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 13423,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 14006,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 17971,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 18046,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 20357,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 20403,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 22651,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 22710,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 23550,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 23998,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 24059,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 25004,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 27068,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 27149,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 30300,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 30824,
+        "items": 19,
+        "proxy_cards": 0,
+        "proxy_item_materialized": 19
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 31231,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 33227,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 33276,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 34191,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 34265,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 35155,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 35213,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 36128,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 36202,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 37084,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 37142,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 38057,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 38114,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 39029,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 39062,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 39993,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 40051,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 40959,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 41007,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 43893,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 43959,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 45340,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 45392,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 46794,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      },
+      {
+        "mark": "proxy_eager_list",
+        "elapsed_ms": 46852,
+        "items": 21,
+        "proxy_cards": 2,
+        "proxy_item_materialized": 21
+      }
+    ],
+    "page_entry": [
+      {
+        "mark": "proxy_page_entry",
+        "elapsed_ms": 13411,
+        "scenario": "P2_stale_snapshot",
+        "ensure_ready": true,
+        "force_apply": false,
+        "expired": true,
+        "groups_empty": false
+      }
+    ],
+    "first_group_visible": {
+      "mark": "proxy_first_group_visible",
+      "elapsed_ms": 13375
+    },
+    "event_dumps": [
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 17634,
+        "event": "delay_20",
+        "eager_items": 0,
+        "eager_proxy_cards": 0
+      },
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 18599,
+        "event": "delay_100",
+        "eager_items": 0,
+        "eager_proxy_cards": 0
+      },
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 20149,
+        "event": "E1",
+        "eager_items": 0,
+        "eager_proxy_cards": 0
+      },
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 21610,
+        "event": "E2",
+        "eager_items": 0,
+        "eager_proxy_cards": 0
+      },
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 23096,
+        "event": "E3",
+        "eager_items": 19,
+        "eager_proxy_cards": 0,
+        "hotspot_builds": "proxies_list:2,list_header:28"
+      },
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 24557,
+        "event": "E4",
+        "eager_items": 21,
+        "eager_proxy_cards": 2,
+        "hotspot_builds": "proxies_list:3,list_header:36,proxy_card:6"
+      },
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 26017,
+        "event": "E5",
+        "eager_items": 19,
+        "eager_proxy_cards": 0,
+        "hotspot_builds": "proxies_list:1,list_header:14"
+      },
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 27481,
+        "event": "E6",
+        "eager_items": 19,
+        "eager_proxy_cards": 0,
+        "hotspot_builds": "proxies_list:2,list_header:28"
+      },
+      {
+        "mark": "proxy_event_dump",
+        "elapsed_ms": 28923,
+        "event": "E7",
+        "eager_items": 0,
+        "eager_proxy_cards": 0
+      }
+    ],
+    "unfold": [
+      {
+        "mark": "proxy_unfold",
+        "elapsed_ms": 23549,
+        "group": "Final",
+        "expand": true
+      },
+      {
+        "mark": "proxy_unfold",
+        "elapsed_ms": 25001,
+        "group": "Final",
+        "expand": false
+      },
+      {
+        "mark": "proxy_unfold",
+        "elapsed_ms": 30292,
+        "group": "Final",
+        "expand": true
+      },
+      {
+        "mark": "proxy_unfold",
+        "elapsed_ms": 30817,
+        "group": "Final",
+        "expand": false
+      },
+      {
+        "mark": "proxy_unfold",
+        "elapsed_ms": 31225,
+        "group": "Final",
+        "expand": true
+      }
+    ],
+    "core_unavailable": [],
+    "owner_guard": [],
+    "session_end": {
+      "mark": "proxy_session_end",
+      "elapsed_ms": 49016,
+      "peak_inflight": 100,
+      "delay_started": 101,
+      "delay_finished": 101,
+      "delay_failed": 0,
+      "selection_gen": 19,
+      "superseded": 5,
+      "dispatch": 14,
+      "ack": 14,
+      "eager_items": 21,
+      "eager_proxy_cards": 2,
+      "hotspot_builds": "list_header:412,proxies_list:27,proxy_card:2"
+    },
+    "frame_timing": {
+      "dashboard_to_proxy": {
+        "count": 2,
+        "total_ms": {
+          "count": 2,
+          "min": 289.0,
+          "max": 294.0,
+          "median": 291.5,
+          "p50": 291.5,
+          "p90": 293.5,
+          "p99": 293.95
+        },
+        "target_first_build_latency_ms": {
+          "count": 1,
+          "min": 18.0,
+          "max": 18.0,
+          "median": 18.0,
+          "p50": 18.0,
+          "p90": 18.0,
+          "p99": 18.0
+        },
+        "first_build_ms": {
+          "count": 1,
+          "min": 18.0,
+          "max": 18.0,
+          "median": 18.0,
+          "p50": 18.0,
+          "p90": 18.0,
+          "p99": 18.0
+        },
+        "first_frame_ms": {
+          "count": 1,
+          "min": 39.0,
+          "max": 39.0,
+          "median": 39.0,
+          "p50": 39.0,
+          "p90": 39.0,
+          "p99": 39.0
+        },
+        "scroll_command_ms": {
+          "count": 2,
+          "min": 4.0,
+          "max": 8.0,
+          "median": 6.0,
+          "p50": 6.0,
+          "p90": 7.6,
+          "p99": 7.96
+        },
+        "scroll_animation_complete_ms": {
+          "count": 2,
+          "min": 286.0,
+          "max": 290.0,
+          "median": 288.0,
+          "p50": 288.0,
+          "p90": 289.6,
+          "p99": 289.96000000000004
+        },
+        "worst_frame_ms": {
+          "count": 2,
+          "min": 10.662,
+          "max": 32.236,
+          "median": 21.448999999999998,
+          "p50": 21.448999999999998,
+          "p90": 30.078599999999998,
+          "p99": 32.02026
+        },
+        "over_budget": {
+          "count": 2,
+          "min": 1.0,
+          "max": 12.0,
+          "median": 6.5,
+          "p50": 6.5,
+          "p90": 10.9,
+          "p99": 11.889999999999999
+        },
+        "frame_count": {
+          "count": 2,
+          "min": 22.0,
+          "max": 38.0,
+          "median": 30.0,
+          "p50": 30.0,
+          "p90": 36.400000000000006,
+          "p99": 37.839999999999996
+        },
+        "build_p50_ms": {
+          "count": 2,
+          "min": 1.2,
+          "max": 2.266,
+          "median": 1.733,
+          "p50": 1.733,
+          "p90": 2.1594,
+          "p99": 2.25534
+        },
+        "build_p90_ms": {
+          "count": 2,
+          "min": 1.438,
+          "max": 3.46,
+          "median": 2.449,
+          "p50": 2.449,
+          "p90": 3.2578,
+          "p99": 3.43978
+        },
+        "build_p99_ms": {
+          "count": 2,
+          "min": 3.846,
+          "max": 15.687,
+          "median": 9.7665,
+          "p50": 9.7665,
+          "p90": 14.5029,
+          "p99": 15.56859
+        },
+        "raster_p50_ms": {
+          "count": 2,
+          "min": 2.441,
+          "max": 6.03,
+          "median": 4.2355,
+          "p50": 4.2355,
+          "p90": 5.6711,
+          "p99": 5.99411
+        },
+        "raster_p90_ms": {
+          "count": 2,
+          "min": 3.336,
+          "max": 9.644,
+          "median": 6.49,
+          "p50": 6.49,
+          "p90": 9.013200000000001,
+          "p99": 9.58092
+        },
+        "raster_p99_ms": {
+          "count": 2,
+          "min": 4.937,
+          "max": 12.185,
+          "median": 8.561,
+          "p50": 8.561,
+          "p90": 11.4602,
+          "p99": 12.11252
+        },
+        "total_span_p50_ms": {
+          "count": 2,
+          "min": 4.248,
+          "max": 8.872,
+          "median": 6.5600000000000005,
+          "p50": 6.5600000000000005,
+          "p90": 8.4096,
+          "p99": 8.825759999999999
+        },
+        "total_span_p90_ms": {
+          "count": 2,
+          "min": 5.477,
+          "max": 16.785,
+          "median": 11.131,
+          "p50": 11.131,
+          "p90": 15.654200000000001,
+          "p99": 16.67192
+        },
+        "total_span_p99_ms": {
+          "count": 2,
+          "min": 9.435,
+          "max": 29.411,
+          "median": 19.423000000000002,
+          "p50": 19.423000000000002,
+          "p90": 27.413400000000003,
+          "p99": 29.21124
+        },
+        "scroll_us": {
+          "count": 2,
+          "min": 318.0,
+          "max": 460.0,
+          "median": 389.0,
+          "p50": 389.0,
+          "p90": 445.8,
+          "p99": 458.58
+        },
+        "scroll_elements": {
+          "count": 2,
+          "min": 1935.0,
+          "max": 1983.0,
+          "median": 1959.0,
+          "p50": 1959.0,
+          "p90": 1978.2,
+          "p99": 1982.52
+        },
+        "scroll_positions": {
+          "count": 2,
+          "min": 1.0,
+          "max": 1.0,
+          "median": 1.0,
+          "p50": 1.0,
+          "p90": 1.0,
+          "p99": 1.0
+        },
+        "hotspots": {
+          "builds": {
+            "dashboard_hero": 1
+          },
+          "events": {
+            "network_detection_update": 2
+          },
+          "transition_count": 2
+        }
+      },
+      "proxy_to_dashboard": {
+        "count": 1,
+        "total_ms": {
+          "count": 1,
+          "min": 295.0,
+          "max": 295.0,
+          "median": 295.0,
+          "p50": 295.0,
+          "p90": 295.0,
+          "p99": 295.0
+        },
+        "target_first_build_latency_ms": {
+          "count": 1,
+          "min": 10.0,
+          "max": 10.0,
+          "median": 10.0,
+          "p50": 10.0,
+          "p90": 10.0,
+          "p99": 10.0
+        },
+        "first_build_ms": {
+          "count": 1,
+          "min": 10.0,
+          "max": 10.0,
+          "median": 10.0,
+          "p50": 10.0,
+          "p90": 10.0,
+          "p99": 10.0
+        },
+        "first_frame_ms": {
+          "count": 1,
+          "min": 31.0,
+          "max": 31.0,
+          "median": 31.0,
+          "p50": 31.0,
+          "p90": 31.0,
+          "p99": 31.0
+        },
+        "scroll_command_ms": {
+          "count": 1,
+          "min": 8.0,
+          "max": 8.0,
+          "median": 8.0,
+          "p50": 8.0,
+          "p90": 8.0,
+          "p99": 8.0
+        },
+        "scroll_animation_complete_ms": {
+          "count": 1,
+          "min": 290.0,
+          "max": 290.0,
+          "median": 290.0,
+          "p50": 290.0,
+          "p90": 290.0,
+          "p99": 290.0
+        },
+        "worst_frame_ms": {
+          "count": 1,
+          "min": 21.41,
+          "max": 21.41,
+          "median": 21.41,
+          "p50": 21.41,
+          "p90": 21.41,
+          "p99": 21.41
+        },
+        "over_budget": {
+          "count": 1,
+          "min": 7.0,
+          "max": 7.0,
+          "median": 7.0,
+          "p50": 7.0,
+          "p90": 7.0,
+          "p99": 7.0
+        },
+        "frame_count": {
+          "count": 1,
+          "min": 24.0,
+          "max": 24.0,
+          "median": 24.0,
+          "p50": 24.0,
+          "p90": 24.0,
+          "p99": 24.0
+        },
+        "build_p50_ms": {
+          "count": 1,
+          "min": 1.868,
+          "max": 1.868,
+          "median": 1.868,
+          "p50": 1.868,
+          "p90": 1.868,
+          "p99": 1.868
+        },
+        "build_p90_ms": {
+          "count": 1,
+          "min": 2.522,
+          "max": 2.522,
+          "median": 2.522,
+          "p50": 2.522,
+          "p90": 2.522,
+          "p99": 2.522
+        },
+        "build_p99_ms": {
+          "count": 1,
+          "min": 13.215,
+          "max": 13.215,
+          "median": 13.215,
+          "p50": 13.215,
+          "p90": 13.215,
+          "p99": 13.215
+        },
+        "raster_p50_ms": {
+          "count": 1,
+          "min": 3.559,
+          "max": 3.559,
+          "median": 3.559,
+          "p50": 3.559,
+          "p90": 3.559,
+          "p99": 3.559
+        },
+        "raster_p90_ms": {
+          "count": 1,
+          "min": 6.832,
+          "max": 6.832,
+          "median": 6.832,
+          "p50": 6.832,
+          "p90": 6.832,
+          "p99": 6.832
+        },
+        "raster_p99_ms": {
+          "count": 1,
+          "min": 9.852,
+          "max": 9.852,
+          "median": 9.852,
+          "p50": 9.852,
+          "p90": 9.852,
+          "p99": 9.852
+        },
+        "total_span_p50_ms": {
+          "count": 1,
+          "min": 6.559,
+          "max": 6.559,
+          "median": 6.559,
+          "p50": 6.559,
+          "p90": 6.559,
+          "p99": 6.559
+        },
+        "total_span_p90_ms": {
+          "count": 1,
+          "min": 12.34,
+          "max": 12.34,
+          "median": 12.34,
+          "p50": 12.34,
+          "p90": 12.34,
+          "p99": 12.34
+        },
+        "total_span_p99_ms": {
+          "count": 1,
+          "min": 19.586,
+          "max": 19.586,
+          "median": 19.586,
+          "p50": 19.586,
+          "p90": 19.586,
+          "p99": 19.586
+        },
+        "scroll_us": {
+          "count": 1,
+          "min": 495.0,
+          "max": 495.0,
+          "median": 495.0,
+          "p50": 495.0,
+          "p90": 495.0,
+          "p99": 495.0
+        },
+        "scroll_elements": {
+          "count": 1,
+          "min": 2048.0,
+          "max": 2048.0,
+          "median": 2048.0,
+          "p50": 2048.0,
+          "p90": 2048.0,
+          "p99": 2048.0
+        },
+        "scroll_positions": {
+          "count": 1,
+          "min": 1.0,
+          "max": 1.0,
+          "median": 1.0,
+          "p50": 1.0,
+          "p90": 1.0,
+          "p99": 1.0
+        },
+        "hotspots": {
+          "builds": {
+            "dashboard_hero": 1,
+            "dashboard_view": 1,
+            "network_overview": 1
+          },
+          "events": {
+            "latency_setState": 1,
+            "network_detection_update": 1,
+            "total_traffic_update": 1,
+            "traffic_history_update": 1
+          },
+          "transition_count": 1
+        }
+      }
+    },
+    "select_intent_count": 19,
+    "select_ack_count": 14,
+    "select_race": [
+      {
+        "mark": "proxy_select_race_issued",
+        "elapsed_ms": 42675,
+        "group": "Edge",
+        "pattern": "abc",
+        "seq": "低倍率,香港,日本"
+      },
+      {
+        "mark": "proxy_select_race_issued",
+        "elapsed_ms": 44117,
+        "group": "Edge",
+        "pattern": "aba",
+        "seq": "低倍率,香港,低倍率"
+      }
+    ],
+    "vpn_before": {
+      "tun_ifaces": [],
+      "vpn_service_running": false,
+      "remote_pid": null,
+      "connectivity_vpn": true,
+      "start_observable": false,
+      "vpn_ready": false,
+      "confidence": "confirmed_absent"
+    },
+    "vpn_after": {
+      "tun_ifaces": [],
+      "vpn_service_running": false,
+      "remote_pid": 22079,
+      "connectivity_vpn": true,
+      "start_observable": true,
+      "vpn_ready": null,
+      "confidence": "unconfirmed"
+    },
+    "session_before": {
+      "session_id": 1787219637303,
+      "state": "RUNNING",
+      "pid": 19910,
+      "started_at": 1787219679725,
+      "smart_paused": false,
+      "parse_ok": true,
+      "ok": true,
+      "returncode": 0
+    },
+    "session_after": {
+      "session_id": null,
+      "state": null,
+      "pid": null,
+      "started_at": null,
+      "smart_paused": null,
+      "parse_ok": false,
+      "ok": false,
+      "returncode": 1
+    },
+    "continuity_ok": true,
+    "unreliable": [],
+    "notes": [
+      "4C.1B proxy evidence never uses am force-stop.",
+      "delay batch(100) is await grouping only; futures start at map().toList().",
+      "Does not change changeProxy / closeConnections / delay semantics.",
+      "Selection ACK gen is the request gen, not the latest intent."
+    ]
+  }
+}

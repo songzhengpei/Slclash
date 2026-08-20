@@ -1,0 +1,100 @@
+{
+  "ok": false,
+  "timestamp": "2026-08-20T10:57:46Z",
+  "commit": "ce52834d0617c908e67cb0532a2f33cdb7707b12",
+  "phase4_product_baseline": "b7e08b6ef84546e9b3d084a411c3a59e3e4df7c8",
+  "device": "25042PN24C",
+  "build": {
+    "package": "com.slclash.app.profile",
+    "version_name": "9.9.10",
+    "version_code": "1",
+    "mode": "profile",
+    "role": "profiling",
+    "formal_eligible": true,
+    "debuggable": true,
+    "mode_detection": "cli",
+    "mode_notes": [
+      "package is DEBUGGABLE but --build-mode=profile was declared; using declared mode"
+    ],
+    "git_head": "ce52834d0617c908e67cb0532a2f33cdb7707b12",
+    "dirty": true,
+    "submodule_dirty": true,
+    "worktree_fingerprint": "3527b989ce974628"
+  },
+  "env": {
+    "adb_serial": "0604B44041A00540",
+    "model": "25042PN24C",
+    "android_version": "16",
+    "sdk": 36,
+    "package": "com.slclash.app.profile",
+    "version_name": "9.9.10",
+    "version_code": "1",
+    "flutter_pid": 6119,
+    "remote_pid": 22079,
+    "git_commit": "ce52834d0617c908e67cb0532a2f33cdb7707b12",
+    "git_head": "ce52834d0617c908e67cb0532a2f33cdb7707b12",
+    "dirty": true,
+    "submodule_dirty": true,
+    "worktree_fingerprint": "3527b989ce974628",
+    "build_mode": "profile",
+    "build_role": "profiling",
+    "formal_eligible": true,
+    "debuggable": true,
+    "build_mode_detection": "cli",
+    "build_mode_notes": [
+      "package is DEBUGGABLE but --build-mode=profile was declared; using declared mode"
+    ]
+  },
+  "errors": [
+    {
+      "code": "proxy_failed",
+      "message": "proxy did not complete successfully"
+    }
+  ],
+  "notes": [],
+  "cold_start": null,
+  "memory": null,
+  "jank": null,
+  "vpn": null,
+  "background": null,
+  "running_reattach": null,
+  "navigation": null,
+  "proxy": {
+    "ok": false,
+    "session": "running",
+    "unreliable": [
+      "vpn_service_not_running",
+      "tun_missing",
+      "vpn_ready_false",
+      "session_id_invalid",
+      "session_not_running"
+    ],
+    "notes": [
+      "4C.1B proxy evidence never uses am force-stop.",
+      "delay batch(100) is await grouping only; futures start at map().toList().",
+      "Does not change changeProxy / closeConnections / delay semantics.",
+      "Selection ACK gen is the request gen, not the latest intent.",
+      "RUNNING preconditions failed; not constructing a fake session."
+    ],
+    "vpn_before": {
+      "tun_ifaces": [],
+      "vpn_service_running": false,
+      "remote_pid": 22079,
+      "connectivity_vpn": true,
+      "start_observable": true,
+      "vpn_ready": null,
+      "confidence": "unconfirmed"
+    },
+    "session_before": {
+      "session_id": null,
+      "state": null,
+      "pid": null,
+      "started_at": null,
+      "smart_paused": null,
+      "parse_ok": false,
+      "ok": false,
+      "returncode": 1
+    },
+    "blocked": "4C.1B BLOCKED: real RUNNING evidence unavailable"
+  }
+}
