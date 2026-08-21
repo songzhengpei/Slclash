@@ -402,7 +402,11 @@ class _OverviewSpeedCharts extends ConsumerWidget {
       height: cardLayout.chartHeight,
       child: Stack(
         children: [
-          Positioned.fill(
+          Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            height: cardLayout.chartHeight / 2,
             child: LineChart(
               points: uploadPoints,
               color: uploadColor,
@@ -414,7 +418,11 @@ class _OverviewSpeedCharts extends ConsumerWidget {
               maxY: hasLiveTraffic ? null : 0.2,
             ),
           ),
-          Positioned.fill(
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: cardLayout.chartHeight / 2,
             child: LineChart(
               points: downloadPoints,
               color: downloadColor,

@@ -1104,12 +1104,12 @@ class _CurrentProfileExpandButton extends StatelessWidget {
             children: [
               _SoftOsIconSurface(
                 icon: SurgeIcons.hub,
-                color: enabled ? surge.textPrimary : surge.textSecondary,
+                color: enabled ? surge.primary : surge.textSecondary,
                 size: 30,
                 radius: 15,
                 iconSize: 15,
-                backgroundAlpha: enabled ? 0.055 : 0.04,
-                foregroundAlpha: enabled ? 0.72 : 0.55,
+                backgroundAlpha: enabled ? 0.08 : 0.04,
+                foregroundAlpha: enabled ? 0.88 : 0.55,
               ),
               const SizedBox(width: 12),
               Expanded(
