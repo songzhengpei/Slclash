@@ -80,7 +80,7 @@ Phase status:
 - Phase 4A (Startup): **CLOSED**
 - Phase 4B (Navigation / Page Mounting): **CLOSED** — `docs/phase4-b-final-closeout.md`
 - Phase 4C (Proxy / Group UX): **CLOSED** — `docs/phase4-c-final-closeout.md`
-- Phase 4D (Runtime Polling / Core IPC): **CURRENT** — 4D.1 `docs/phase4-d1-ipc-outcome-correctness.md`. **STOP before 4E (human audit).**
+- Phase 4D (Runtime Polling / Core IPC): **CURRENT** — 4D.2 `docs/phase4-d2-dashboard-network-diagnostics.md`. **STOP for human audit → Phase 4D Final Closeout.** Do not start 4D.3 / 4E.
 - Phase 4E (VPN Lifecycle): **FUTURE**
 - Phase 4F (Background / Power): **FUTURE**
 - Phase 4G (Animation polish): **FUTURE**
