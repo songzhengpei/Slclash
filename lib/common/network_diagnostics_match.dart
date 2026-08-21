@@ -1,39 +1,32 @@
 import 'package:fl_clash/common/network_diagnostics_models.dart';
 import 'package:fl_clash/models/models.dart';
 
+/// Exact probe-host match for diagnostics fallback.
+///
+/// Uses [NetworkDiagnosticTarget.probeUrl] host only. Nearby GitHub
+/// subdomains such as `api.github.com` must not count as the favicon probe.
 bool trackerMatchesTarget(TrackerInfo conn, NetworkDiagnosticTarget target) {
-  final host = target.host;
-  final bareHost = target.bareHost;
-  final meta = conn.metadata;
-  final fields = [
-    meta.host,
-    meta.destinationIP,
-    meta.remoteDestination,
-    conn.rulePayload,
-    conn.rule,
-  ];
-  for (final raw in fields) {
-    final field = raw.toLowerCase();
+  final expected = _normalizeHost(target.probeHost);
+  if (expected.isEmpty) return false;
+  for (final raw in [conn.metadata.host, conn.metadata.remoteDestination]) {
+    final field = _normalizeHost(raw);
     if (field.isEmpty) continue;
-    if (_hostMatches(field, host: host, bareHost: bareHost)) {
-      return true;
-    }
-    if (field.contains(bareHost)) {
-      return true;
-    }
+    if (field == expected) return true;
   }
   return false;
 }
 
-bool _hostMatches(
-  String field, {
-  required String host,
-  required String bareHost,
-}) {
+String _normalizeHost(String raw) {
+  var field = raw.trim().toLowerCase();
+  if (field.isEmpty) return '';
+  if (field.startsWith('[') && field.contains(']')) {
+    final end = field.indexOf(']');
+    field = field.substring(1, end);
+    return field;
+  }
   final colon = field.indexOf(':');
-  final fieldNoPort = colon > 0 ? field.substring(0, colon) : field;
-  if (fieldNoPort == host || fieldNoPort == bareHost) return true;
-  if (fieldNoPort.endsWith('.$bareHost')) return true;
-  if (bareHost.isNotEmpty && fieldNoPort == 'www.$bareHost') return true;
-  return false;
+  if (colon > 0 && field.split(':').length == 2) {
+    field = field.substring(0, colon);
+  }
+  return field;
 }

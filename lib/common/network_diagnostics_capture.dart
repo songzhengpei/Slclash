@@ -15,31 +15,53 @@ class CoreRouteCapture with CoreEventListener {
   Completer<TrackerInfo?>? _completer;
   TrackerInfo? _hit;
   var eventHits = 0;
+  var _listening = false;
 
-  Future<TrackerInfo?> arm({
+  TrackerInfo? get hit => _hit;
+
+  void start({
     required NetworkDiagnosticTarget target,
     required DateTime armedAt,
-    required Duration wait,
-  }) async {
+  }) {
+    stop();
     _target = target;
     _armedAt = armedAt;
     _hit = null;
     _completer = Completer<TrackerInfo?>();
     coreEventManager.addListener(this);
     CoreEventTypeLease.acquire(CoreEventType.request, this);
+    _listening = true;
+  }
+
+  void stop() {
+    if (!_listening) return;
+    _listening = false;
+    coreEventManager.removeListener(this);
+    CoreEventTypeLease.release(CoreEventType.request, this);
+    final pending = _completer;
+    _completer = null;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(_hit);
+    }
+  }
+
+  Future<TrackerInfo?> arm({
+    required NetworkDiagnosticTarget target,
+    required DateTime armedAt,
+    required Duration wait,
+  }) async {
+    start(target: target, armedAt: armedAt);
     try {
       return await _completer!.future.timeout(wait, onTimeout: () => _hit);
     } finally {
-      coreEventManager.removeListener(this);
-      CoreEventTypeLease.release(CoreEventType.request, this);
-      _completer = null;
+      stop();
     }
   }
 
   @override
   void onRequest(TrackerInfo connection) {
     final target = _target;
-    if (target == null || _completer == null || _completer!.isCompleted) {
+    if (target == null || !_listening) {
       return;
     }
     if (!trackerMatchesTarget(connection, target)) {
@@ -52,7 +74,10 @@ class CoreRouteCapture with CoreEventListener {
     }
     _hit = connection;
     eventHits += 1;
-    _completer!.complete(connection);
+    final pending = _completer;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete(connection);
+    }
   }
 }
 

@@ -32,19 +32,25 @@ TrackerInfo _tracker({
 }
 
 class _FakeCapture extends CoreRouteCapture {
-  _FakeCapture(this.future);
-  final Future<TrackerInfo?> future;
+  _FakeCapture([this.preset]);
+  final TrackerInfo? preset;
+  TrackerInfo? _live;
 
   @override
-  Future<TrackerInfo?> arm({
+  TrackerInfo? get hit => _live;
+
+  @override
+  void start({
     required NetworkDiagnosticTarget target,
     required DateTime armedAt,
-    required Duration wait,
-  }) async {
-    final info = await future;
-    if (info == null || !trackerMatchesTarget(info, target)) return null;
-    return info;
+  }) {
+    _live = preset != null && trackerMatchesTarget(preset!, target)
+        ? preset
+        : null;
   }
+
+  @override
+  void stop() {}
 }
 
 DiagnosticsHttpGet _scriptedHttp(
@@ -58,55 +64,62 @@ DiagnosticsHttpGet _scriptedHttp(
     int? mixedPort,
     Map<String, String> headers = const {},
     bool readBody = false,
+    DiagnosticsOnHeaders? onHeaders,
   }) async {
     uris.add(uri);
     final s = uri.toString();
+    late DiagnosticsHttpResponse res;
     if (s.contains('github.com/favicon.ico')) {
       expect(headers['range'] ?? headers['Range'], 'bytes=0-0');
-      return const DiagnosticsHttpResponse(
+      res = const DiagnosticsHttpResponse(
         headerMs: 42,
         statusCode: 200,
         method: 'GET',
       );
-    }
-    if (s.contains('youtube.com/generate_204')) {
-      return const DiagnosticsHttpResponse(
+    } else if (s.contains('youtube.com/generate_204')) {
+      res = const DiagnosticsHttpResponse(
         headerMs: 74,
         statusCode: 204,
         method: 'GET',
       );
-    }
-    if (s.contains('cdn-cgi/trace')) {
-      return DiagnosticsHttpResponse(
+    } else if (s.contains('cdn-cgi/trace')) {
+      res = DiagnosticsHttpResponse(
         headerMs: 96,
         statusCode: 200,
         body: chatgptBody,
         method: 'GET',
       );
-    }
-    if (s.contains('report_mapping')) {
-      return DiagnosticsHttpResponse(
+    } else if (s.contains('report_mapping')) {
+      res = DiagnosticsHttpResponse(
         headerMs: 10,
         statusCode: 200,
         body: '$youtubeIp => google AS15169',
         method: 'GET',
       );
-    }
-    if (s.contains('ip-api.com/json/')) {
+    } else if (s.contains('ip-api.com/json/')) {
       expect(s.contains(youtubeIp), isTrue);
-      return const DiagnosticsHttpResponse(
+      res = const DiagnosticsHttpResponse(
         headerMs: 5,
         statusCode: 200,
         body: '{"status":"success","countryCode":"US","query":"8.8.8.8"}',
         method: 'GET',
       );
+    } else {
+      res = const DiagnosticsHttpResponse(
+        headerMs: 5,
+        statusCode: 200,
+        body: '{}',
+        method: 'GET',
+      );
     }
-    return const DiagnosticsHttpResponse(
-      headerMs: 5,
-      statusCode: 200,
-      body: '{}',
-      method: 'GET',
+    await onHeaders?.call(
+      DiagnosticsHttpResponse(
+        headerMs: res.headerMs,
+        statusCode: res.statusCode,
+        method: res.method,
+      ),
     );
+    return res;
   };
 }
 
@@ -160,6 +173,7 @@ void main() {
           int? mixedPort,
           Map<String, String> headers = const {},
           bool readBody = false,
+          DiagnosticsOnHeaders? onHeaders,
         }) async {
           hits.add(uri);
           if (uri.host == 'ip-api.com') {
@@ -189,6 +203,7 @@ void main() {
           int? mixedPort,
           Map<String, String> headers = const {},
           bool readBody = false,
+          DiagnosticsOnHeaders? onHeaders,
         }) async {
           fail('stale generation must not HTTP');
         },
@@ -284,7 +299,7 @@ void main() {
       final uris = <Uri>[];
       final session = NetworkDiagnosticsSession(
         httpGet: _scriptedHttp(uris),
-        capture: () => _FakeCapture(Future.value(null)),
+        capture: () => _FakeCapture(),
       );
       await session.refresh(
         mixedPort: null,
@@ -306,7 +321,7 @@ void main() {
     test('Core OFF does not reuse a global country as target country', () async {
       final session = NetworkDiagnosticsSession(
         httpGet: _scriptedHttp([]),
-        capture: () => _FakeCapture(Future.value(null)),
+        capture: () => _FakeCapture(),
       );
       await session.refresh(
         mixedPort: null,
@@ -330,12 +345,15 @@ void main() {
       );
     });
 
-    test('successful latency is visible before delayed route capture', () async {
-      final route = Completer<TrackerInfo?>();
+    test('successful latency is visible before delayed live snapshot', () async {
+      final snapshotGate = Completer<void>();
       final session = NetworkDiagnosticsSession(
         httpGet: _scriptedHttp([]),
-        capture: () => _FakeCapture(route.future),
-        listConnections: () async => [],
+        capture: () => _FakeCapture(),
+        listConnections: () async {
+          await snapshotGate.future;
+          return [_tracker(host: 'github.com', chains: ['🇯🇵 JP-01'])];
+        },
       );
       final done = session.refresh(
         mixedPort: 7890,
@@ -344,17 +362,18 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(session.store.states['GitHub']!.latencyMs, 42);
-      expect(session.store.states['GitHub']!.refreshing, isTrue);
-      route.complete(null);
+      expect(session.store.states['GitHub']!.countryCode, isNull);
+      snapshotGate.complete();
       await done;
       expect(session.store.states['GitHub']!.latencyMs, 42);
+      expect(session.store.states['GitHub']!.countryCode, 'JP');
     });
 
     test('event miss uses at most one getConnections snapshot per target', () async {
       var calls = 0;
       final session = NetworkDiagnosticsSession(
         httpGet: _scriptedHttp([]),
-        capture: () => _FakeCapture(Future.value(null)),
+        capture: () => _FakeCapture(),
         listConnections: () async {
           calls += 1;
           return [_tracker(host: 'github.com', chains: ['🇭🇰 HK-1'])];
@@ -376,11 +395,9 @@ void main() {
       final session = NetworkDiagnosticsSession(
         httpGet: _scriptedHttp([]),
         capture: () => _FakeCapture(
-          Future.value(
-            _tracker(
-              host: 'www.youtube.com',
-              chains: ['🇯🇵 JP-Node', 'YouTube'],
-            ),
+          _tracker(
+            host: 'www.youtube.com',
+            chains: ['🇯🇵 JP-Node', 'YouTube'],
           ),
         ),
         coreCountryLookup: (ip) async => 'US',
@@ -399,14 +416,126 @@ void main() {
         NetworkDiagnosticCountrySource.googleReportMapping,
       );
     });
+
+    test('live snapshot runs after headers and before HTTP release', () async {
+      final order = <String>[];
+      final session = NetworkDiagnosticsSession(
+        httpGet: ({
+          required Uri uri,
+          required Duration timeout,
+          int? mixedPort,
+          Map<String, String> headers = const {},
+          bool readBody = false,
+          DiagnosticsOnHeaders? onHeaders,
+        }) async {
+          if (!uri.toString().contains('github.com/favicon.ico')) {
+            final other = _scriptedHttp([]);
+            return other(
+              uri: uri,
+              timeout: timeout,
+              mixedPort: mixedPort,
+              headers: headers,
+              readBody: readBody,
+              onHeaders: onHeaders,
+            );
+          }
+          order.add('headers');
+          await onHeaders?.call(
+            const DiagnosticsHttpResponse(
+              headerMs: 42,
+              statusCode: 200,
+              method: 'GET',
+            ),
+          );
+          order.add('released');
+          return const DiagnosticsHttpResponse(
+            headerMs: 42,
+            statusCode: 200,
+            method: 'GET',
+          );
+        },
+        capture: () => _FakeCapture(),
+        listConnections: () async {
+          expect(order.contains('released'), isFalse);
+          order.add('snapshot');
+          return [_tracker(host: 'github.com', chains: ['🇭🇰 HK-1'])];
+        },
+      );
+      await session.refresh(
+        mixedPort: 7890,
+        routeChange: false,
+        reason: 'live',
+      );
+      expect(order.first, 'headers');
+      expect(order.last, 'released');
+      expect(order.contains('snapshot'), isTrue);
+      expect(order.indexOf('snapshot'), lessThan(order.indexOf('released')));
+      expect(order.where((step) => step == 'snapshot').length, 3);
+      expect(session.store.states['GitHub']!.latencyMs, 42);
+      expect(session.store.states['GitHub']!.countryCode, 'HK');
+      expect(session.getConnectionsCalls, lessThanOrEqualTo(3));
+    });
+
+    test('event hit skips getConnections snapshot for that target', () async {
+      var snapshots = 0;
+      final session = NetworkDiagnosticsSession(
+        httpGet: _scriptedHttp([]),
+        capture: () => _FakeCapture(
+          _tracker(host: 'github.com', chains: ['🇯🇵 JP-01']),
+        ),
+        listConnections: () async {
+          snapshots += 1;
+          return [];
+        },
+      );
+      await session.refresh(
+        mixedPort: 7890,
+        routeChange: false,
+        reason: 'event',
+      );
+      expect(session.store.states['GitHub']!.countryCode, 'JP');
+      expect(session.getConnectionsCalls, snapshots);
+      expect(session.getConnectionsCalls, 2);
+    });
+
+    test('api.github.com live snapshot is not used as GitHub probe', () async {
+      final session = NetworkDiagnosticsSession(
+        httpGet: _scriptedHttp([]),
+        capture: () => _FakeCapture(),
+        listConnections: () async => [
+          _tracker(host: 'api.github.com', chains: ['🇭🇰 HK-1']),
+        ],
+      );
+      await session.refresh(
+        mixedPort: 7890,
+        routeChange: false,
+        reason: 'api',
+      );
+      expect(session.store.states['GitHub']!.countryCode, isNull);
+      expect(
+        session.store.states['GitHub']!.countrySource,
+        NetworkDiagnosticCountrySource.unknown,
+      );
+    });
   });
 
   group('core tracker match / events', () {
-    test('matches target host and ignores unrelated tracker', () {
+    test('exact github.com tracker matches; api.github.com does not', () {
       final github = _tracker(host: 'github.com');
+      final api = _tracker(host: 'api.github.com');
+      final raw = _tracker(host: 'raw.githubusercontent.com');
       final other = _tracker(host: 'example.com');
       expect(trackerMatchesTarget(github, NetworkDiagnosticTarget.github), isTrue);
+      expect(trackerMatchesTarget(api, NetworkDiagnosticTarget.github), isFalse);
+      expect(trackerMatchesTarget(raw, NetworkDiagnosticTarget.github), isFalse);
       expect(trackerMatchesTarget(other, NetworkDiagnosticTarget.github), isFalse);
+      expect(
+        trackerMatchesTarget(
+          _tracker(host: 'github.com:443'),
+          NetworkDiagnosticTarget.github,
+        ),
+        isTrue,
+      );
     });
 
     test('request-event hit path completes capture', () async {
@@ -444,12 +573,32 @@ void main() {
             host: 'github.com',
             start: armedAt.subtract(const Duration(minutes: 5)),
           ),
+          _tracker(host: 'api.github.com', start: armedAt),
           _tracker(host: 'github.com', start: armedAt),
         ],
         target: NetworkDiagnosticTarget.github,
         armedAt: armedAt,
       );
-      expect(picked?.start.isBefore(armedAt.subtract(const Duration(seconds: 2))), isFalse);
+      expect(picked?.metadata.host, 'github.com');
+      expect(
+        picked?.start.isBefore(armedAt.subtract(const Duration(seconds: 2))),
+        isFalse,
+      );
+    });
+
+    test('historical github.com connection is ignored when older than arm', () {
+      final armedAt = DateTime.now();
+      final picked = pickFallbackConnection(
+        connections: [
+          _tracker(
+            host: 'github.com',
+            start: armedAt.subtract(const Duration(minutes: 5)),
+          ),
+        ],
+        target: NetworkDiagnosticTarget.github,
+        armedAt: armedAt,
+      );
+      expect(picked, isNull);
     });
   });
 

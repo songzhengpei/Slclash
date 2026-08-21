@@ -47,6 +47,8 @@ class NetworkDiagnosticTarget {
 
   String get bareHost => host.startsWith('www.') ? host.substring(4) : host;
 
+  String get probeHost => Uri.parse(probeUrl).host.toLowerCase();
+
   static const github = NetworkDiagnosticTarget(
     id: NetworkDiagnosticTargetId.github,
     name: 'GitHub',

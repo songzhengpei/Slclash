@@ -84,73 +84,30 @@ class NetworkDiagnosticsSession {
     );
     final armedAt = DateTime.now();
     final cap = mixedPort != null ? capture() : null;
-    final routeFuture = cap?.arm(
-      target: target,
-      armedAt: armedAt,
-      wait: const Duration(milliseconds: 800),
-    );
-    final probeHeaders = target.id == NetworkDiagnosticTargetId.github
-        ? const {HttpHeaders.rangeHeader: 'bytes=0-0'}
-        : const <String, String>{};
-    final latencyRes = await httpGet(
-      uri: Uri.parse(target.probeUrl),
-      timeout: networkDiagnosticsTimeout,
-      mixedPort: mixedPort,
-      headers: probeHeaders,
-      readBody: target.id == NetworkDiagnosticTargetId.chatgpt,
-    );
-    final latencyMs = latencyRes?.headerMs;
-    if (store.commitLatency(
-      target: target.name,
-      generation: generation,
-      latencyMs: latencyMs,
-      measuredAt: DateTime.now(),
-    )) {
+    cap?.start(target: target, armedAt: armedAt);
+
+    TrackerInfo? tracker;
+    var routeSource = 'none';
+
+    Future<void> captureLiveRoute() async {
       StartupTrace.mark(
-        'target_latency_visible',
+        'target_route_begin',
         extras: {
           'target': target.name,
           'generation': generation,
           'reason': reason,
-          'latency_ms': latencyMs,
-          'elapsed_from_refresh_ms': DateTime.now()
-              .difference(refreshStarted)
-              .inMilliseconds,
         },
       );
-      onChanged?.call();
-    }
-
-    StartupTrace.mark(
-      'target_route_begin',
-      extras: {
-        'target': target.name,
-        'generation': generation,
-        'reason': reason,
-      },
-    );
-    TrackerInfo? tracker;
-    var routeSource = 'none';
-    if (routeFuture != null) {
-      tracker = await routeFuture;
-      if (tracker != null) {
+      final eventHit = cap?.hit;
+      if (eventHit != null) {
+        tracker = eventHit;
         routeSource = 'event';
-        StartupTrace.mark(
-          'core_request_event_hit',
-          extras: {
-            'target': target.name,
-            'generation': generation,
-            'host': tracker.metadata.host,
-            'destinationIP': tracker.metadata.destinationIP,
-            'remoteDestination': tracker.metadata.remoteDestination,
-            'rule': tracker.rule,
-            'rulePayload': tracker.rulePayload,
-            'chains': tracker.chains.join('>'),
-          },
-        );
+        _markTracker('core_request_event_hit', target, generation, eventHit);
+        return;
       }
-    }
-    if (tracker == null && mixedPort != null && listConnections != null) {
+      if (mixedPort == null || listConnections == null) {
+        return;
+      }
       getConnectionsCalls += 1;
       snapshotFallbacks += 1;
       try {
@@ -162,19 +119,7 @@ class NetworkDiagnosticsSession {
         );
         if (tracker != null) {
           routeSource = 'snapshot';
-          StartupTrace.mark(
-            'core_snapshot_fallback',
-            extras: {
-              'target': target.name,
-              'generation': generation,
-              'host': tracker.metadata.host,
-              'destinationIP': tracker.metadata.destinationIP,
-              'remoteDestination': tracker.metadata.remoteDestination,
-              'rule': tracker.rule,
-              'rulePayload': tracker.rulePayload,
-              'chains': tracker.chains.join('>'),
-            },
-          );
+          _markTracker('core_snapshot_fallback', target, generation, tracker!);
         } else if (conns.isNotEmpty) {
           final sample = conns
               .take(4)
@@ -194,7 +139,58 @@ class NetworkDiagnosticsSession {
         }
       } catch (_) {}
     }
-    if (tracker == null && mixedPort != null) {
+
+    DiagnosticsHttpResponse? latencyRes;
+    try {
+      final probeHeaders = target.id == NetworkDiagnosticTargetId.github
+          ? const {HttpHeaders.rangeHeader: 'bytes=0-0'}
+          : const <String, String>{};
+      latencyRes = await httpGet(
+        uri: Uri.parse(target.probeUrl),
+        timeout: networkDiagnosticsTimeout,
+        mixedPort: mixedPort,
+        headers: probeHeaders,
+        readBody: target.id == NetworkDiagnosticTargetId.chatgpt,
+        onHeaders: (headers) async {
+          if (store.commitLatency(
+            target: target.name,
+            generation: generation,
+            latencyMs: headers.headerMs,
+            measuredAt: DateTime.now(),
+          )) {
+            StartupTrace.mark(
+              'target_latency_visible',
+              extras: {
+                'target': target.name,
+                'generation': generation,
+                'reason': reason,
+                'latency_ms': headers.headerMs,
+                'elapsed_from_refresh_ms': DateTime.now()
+                    .difference(refreshStarted)
+                    .inMilliseconds,
+              },
+            );
+            onChanged?.call();
+          }
+          if (mixedPort != null) {
+            await captureLiveRoute();
+          }
+        },
+      );
+    } finally {
+      cap?.stop();
+    }
+
+    if (latencyRes == null) {
+      store.commitLatency(
+        target: target.name,
+        generation: generation,
+        latencyMs: null,
+        measuredAt: DateTime.now(),
+      );
+    }
+
+    if (mixedPort != null && tracker == null && routeSource == 'none') {
       routeMisses += 1;
       StartupTrace.mark(
         'core_route_miss',
@@ -209,7 +205,7 @@ class NetworkDiagnosticsSession {
     String? routeName;
     final heuristic = tracker == null
         ? (routeName: null, country: null)
-        : chainHeuristic(tracker.chains);
+        : chainHeuristic(tracker!.chains);
     routeName = heuristic.routeName;
 
     switch (target.id) {
@@ -263,7 +259,8 @@ class NetworkDiagnosticsSession {
         break;
     }
 
-    final gotRoute = country.isNotEmpty || (routeName != null && routeName.isNotEmpty);
+    final gotRoute =
+        country.isNotEmpty || (routeName != null && routeName.isNotEmpty);
     if (store.commitRoute(
       target: target.name,
       generation: generation,
@@ -306,5 +303,26 @@ class NetworkDiagnosticsSession {
       },
     );
     onChanged?.call();
+  }
+
+  void _markTracker(
+    String mark,
+    NetworkDiagnosticTarget target,
+    int generation,
+    TrackerInfo tracker,
+  ) {
+    StartupTrace.mark(
+      mark,
+      extras: {
+        'target': target.name,
+        'generation': generation,
+        'host': tracker.metadata.host,
+        'destinationIP': tracker.metadata.destinationIP,
+        'remoteDestination': tracker.metadata.remoteDestination,
+        'rule': tracker.rule,
+        'rulePayload': tracker.rulePayload,
+        'chains': tracker.chains.join('>'),
+      },
+    );
   }
 }

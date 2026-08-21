@@ -19,6 +19,9 @@ class DiagnosticsHttpResponse {
   final String method;
 }
 
+typedef DiagnosticsOnHeaders =
+    FutureOr<void> Function(DiagnosticsHttpResponse headers);
+
 typedef DiagnosticsHttpGet =
     Future<DiagnosticsHttpResponse?> Function({
       required Uri uri,
@@ -26,6 +29,7 @@ typedef DiagnosticsHttpGet =
       int? mixedPort,
       Map<String, String> headers,
       bool readBody,
+      DiagnosticsOnHeaders? onHeaders,
     });
 
 Future<DiagnosticsHttpResponse?> diagnosticsHttpGet({
@@ -34,34 +38,49 @@ Future<DiagnosticsHttpResponse?> diagnosticsHttpGet({
   int? mixedPort,
   Map<String, String> headers = const {},
   bool readBody = false,
+  DiagnosticsOnHeaders? onHeaders,
 }) async {
   final client = HttpClient()..connectionTimeout = timeout;
   if (mixedPort != null && mixedPort > 0) {
     client.findProxy = (uri) => 'PROXY 127.0.0.1:$mixedPort';
   }
   final watch = Stopwatch()..start();
+  HttpClientResponse? response;
   try {
     final request = await client.openUrl('GET', uri).timeout(timeout);
     request.followRedirects = false;
     request.maxRedirects = 0;
     request.headers.set(HttpHeaders.userAgentHeader, 'FlClash');
     headers.forEach(request.headers.set);
-    final response = await request.close().timeout(timeout);
+    response = await request.close().timeout(timeout);
     watch.stop();
+    final headersResult = DiagnosticsHttpResponse(
+      headerMs: watch.elapsedMilliseconds,
+      statusCode: response.statusCode,
+      method: 'GET',
+    );
+    if (onHeaders != null) {
+      await onHeaders(headersResult);
+    }
     var body = '';
     if (readBody) {
       final remaining = timeout - watch.elapsed;
-      final wait = remaining.isNegative ? const Duration(milliseconds: 200) : remaining;
+      final wait = remaining.isNegative
+          ? const Duration(milliseconds: 200)
+          : remaining;
       body = await response
           .transform(const Utf8Decoder())
           .join()
           .timeout(wait, onTimeout: () => '');
     } else {
-      unawaited(response.drain<void>());
+      await response.drain<void>().timeout(
+        const Duration(milliseconds: 400),
+        onTimeout: () {},
+      );
     }
     return DiagnosticsHttpResponse(
-      headerMs: watch.elapsedMilliseconds,
-      statusCode: response.statusCode,
+      headerMs: headersResult.headerMs,
+      statusCode: headersResult.statusCode,
       body: body,
       method: 'GET',
     );
@@ -118,10 +137,9 @@ class ExplicitIpGeoLookup {
         if (json is! Map) continue;
         final map = Map<String, dynamic>.from(json);
         if (map['status'] == 'fail') continue;
-        final code = (map['countryCode'] ??
-                map['country_code'] ??
-                map['country'])
-            ?.toString();
+        final code =
+            (map['countryCode'] ?? map['country_code'] ?? map['country'])
+                ?.toString();
         if (code != null && code.length == 2) {
           return IpInfo(ip: ip, countryCode: code.toUpperCase());
         }
