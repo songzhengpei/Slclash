@@ -675,15 +675,6 @@ class Runner:
             )
             windows.append(
                 self._vpn_window(
-                    "paused_quick_stop",
-                    lambda: self._quick_action("stop"),
-                    "PAUSED",
-                    False,
-                    timeout_s,
-                )
-            )
-            windows.append(
-                self._vpn_window(
                     "paused_toggle_resume",
                     lambda: self._quick_action("toggle"),
                     "RUNNING",
@@ -708,6 +699,30 @@ class Runner:
                     True,
                     timeout_s,
                 )
+            )
+            windows.append(
+                self._vpn_window(
+                    "automatic_smart_stop",
+                    lambda: self.nav_broadcast(
+                        "smart_auto_stop_config",
+                        {"enabled": "true", "network": "0.0.0.0/0"},
+                    ),
+                    "PAUSED",
+                    False,
+                    timeout_s,
+                )
+            )
+            windows.append(
+                self._vpn_window(
+                    "paused_quick_stop",
+                    lambda: self._quick_action("stop"),
+                    "STOPPED",
+                    False,
+                    timeout_s,
+                )
+            )
+            self.nav_broadcast(
+                "smart_auto_stop_config", {"enabled": "false"}
             )
 
         if scenario in {"all", "quick"}:

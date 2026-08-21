@@ -6,6 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  test('full stop clears smart pause and its manual override', () {
+    final cleared = <String>[];
+    convergeFullStopProviders(
+      clearManualOverride: () => cleared.add('override'),
+      clearSmartStopped: () => cleared.add('smartStopped'),
+    );
+    expect(cleared, ['override', 'smartStopped']);
+  });
+
   group('ensureRestoreValidationCoreReady', () {
     test('connects and initializes the core once before validation', () async {
       var connectCalls = 0;

@@ -28,6 +28,20 @@ internal fun runStateForSessionState(state: String): RunState = when (state) {
     else -> RunState.STOP
 }
 
+internal enum class SessionCommand {
+    START, STOP, SMART_RESUME, NONE
+}
+
+internal fun toggleCommandForSessionState(state: String): SessionCommand = when (state) {
+    SessionState.RUNNING -> SessionCommand.STOP
+    SessionState.PAUSED -> SessionCommand.SMART_RESUME
+    SessionState.STOPPED -> SessionCommand.START
+    else -> SessionCommand.NONE
+}
+
+internal fun canFullStopSession(state: String): Boolean =
+    state == SessionState.RUNNING || state == SessionState.PAUSED
+
 
 object State {
 
@@ -50,16 +64,18 @@ object State {
         get() = flutterEngine?.plugin<TilePlugin>()
 
     suspend fun handleToggleAction() {
+        handleSyncState()
         Phase4Mark.emit(
             "vpn_action_requested",
             mapOf("action" to "toggle", "source" to "temp_activity", "run_state" to runStateFlow.value),
         )
         var action: (suspend () -> Unit)?
         runLock.withLock {
-            action = when (runStateFlow.value) {
-                RunState.PENDING -> null
-                RunState.START -> ::handleStopServiceAction
-                RunState.STOP -> ::handleStartServiceAction
+            action = when (toggleCommandForSessionState(sessionSnapshot.state)) {
+                SessionCommand.STOP -> ::handleStopServiceAction
+                SessionCommand.SMART_RESUME -> ::handleSmartResumeAction
+                SessionCommand.START -> ::handleStartServiceAction
+                SessionCommand.NONE -> null
             }
         }
         action?.invoke()
@@ -70,6 +86,10 @@ object State {
             "vpn_action_requested",
             mapOf("action" to "smart_stop", "source" to "temp_activity", "run_state" to runStateFlow.value),
         )
+        if (flutterEngine != null) {
+            tilePlugin?.handleSmartStop()
+            return
+        }
         Service.bind()
         Service.smartStop()
         handleSyncState()
@@ -133,11 +153,12 @@ object State {
     }
 
     suspend fun handleStopServiceAction() {
+        handleSyncState()
         Phase4Mark.emit(
             "vpn_action_requested",
             mapOf("action" to "stop", "source" to "android_action", "run_state" to runStateFlow.value),
         )
-        if (runStateFlow.value != RunState.START) {
+        if (!canFullStopSession(sessionSnapshot.state)) {
             return
         }
         tilePlugin?.handleStop()
@@ -359,7 +380,7 @@ object State {
     fun handleStopService() {
         GlobalState.launch {
             runLock.withLock {
-                if (runStateFlow.value != RunState.START) {
+                if (!canFullStopSession(sessionSnapshot.state)) {
                     return@launch
                 }
                 try {
@@ -384,7 +405,7 @@ object State {
                     }
                 } finally {
                     if (runStateFlow.value == RunState.PENDING) {
-                        runStateFlow.tryEmit(RunState.START)
+                        runStateFlow.tryEmit(runStateForSessionState(sessionSnapshot.state))
                     }
                 }
             }

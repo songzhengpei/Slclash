@@ -14,4 +14,22 @@ class RunStateMappingTest {
         assertEquals(RunState.STOP, runStateForSessionState(SessionState.STOPPED))
         assertEquals(RunState.STOP, runStateForSessionState("UNKNOWN"))
     }
+
+    @Test
+    fun toggleUsesAuthoritativeSessionState() {
+        assertEquals(SessionCommand.STOP, toggleCommandForSessionState(SessionState.RUNNING))
+        assertEquals(SessionCommand.SMART_RESUME, toggleCommandForSessionState(SessionState.PAUSED))
+        assertEquals(SessionCommand.START, toggleCommandForSessionState(SessionState.STOPPED))
+        assertEquals(SessionCommand.NONE, toggleCommandForSessionState(SessionState.STARTING))
+        assertEquals(SessionCommand.NONE, toggleCommandForSessionState(SessionState.STOPPING))
+    }
+
+    @Test
+    fun fullStopAllowsRunningAndPausedOnly() {
+        assertEquals(true, canFullStopSession(SessionState.RUNNING))
+        assertEquals(true, canFullStopSession(SessionState.PAUSED))
+        assertEquals(false, canFullStopSession(SessionState.STARTING))
+        assertEquals(false, canFullStopSession(SessionState.STOPPING))
+        assertEquals(false, canFullStopSession(SessionState.STOPPED))
+    }
 }

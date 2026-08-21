@@ -55,6 +55,10 @@ mixin CoreInterface {
 
   Future<bool> stopListener();
 
+  /// Stops only the Core event listener without changing the native VPN
+  /// service/session lifecycle.
+  Future<bool> stopCoreListenerOnly();
+
   Future<String> getExternalProviders();
 
   Future<String>? getExternalProvider(String externalProviderName);
@@ -420,6 +424,11 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   @override
   Future<bool> stopListener() async {
+    return stopCoreListenerOnly();
+  }
+
+  @override
+  Future<bool> stopCoreListenerOnly() async {
     return await _invoke<bool>(method: ActionMethod.stopListener) ?? false;
   }
 

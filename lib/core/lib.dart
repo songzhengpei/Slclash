@@ -10,6 +10,15 @@ import 'package:fl_clash/state.dart';
 import 'package:fl_clash/core/command_outcome.dart';
 import 'package:fl_clash/core/interface.dart';
 
+Future<bool> stopListenerAndNativeService({
+  required Future<bool> Function() stopCoreListenerOnly,
+  required Future<bool> Function() stopNativeService,
+}) async {
+  await stopCoreListenerOnly();
+  await stopNativeService();
+  return true;
+}
+
 class CoreLib extends CoreHandlerInterface {
   static CoreLib? _instance;
 
@@ -78,9 +87,10 @@ class CoreLib extends CoreHandlerInterface {
 
   @override
   Future<bool> stopListener() async {
-    await super.stopListener();
-    await service?.stop();
-    return true;
+    return stopListenerAndNativeService(
+      stopCoreListenerOnly: stopCoreListenerOnly,
+      stopNativeService: () async => await service?.stop() ?? false,
+    );
   }
 
   @override

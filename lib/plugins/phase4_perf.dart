@@ -97,6 +97,11 @@ class Phase4PerfCommands {
         return _vpnDump();
       case 'vpn_action':
         return _vpnAction(args['action'] ?? args['value']);
+      case 'smart_auto_stop_config':
+        return _smartAutoStopConfig(
+          args['enabled'] ?? args['value'],
+          args['network'],
+        );
       default:
         return null;
     }
@@ -429,6 +434,23 @@ class Phase4PerfCommands {
       },
     );
     return snapshot;
+  }
+
+  static Map<String, Object?> _smartAutoStopConfig(
+    String? enabledRaw,
+    String? network,
+  ) {
+    final enabled = enabledRaw == 'true' || enabledRaw == '1';
+    final container = globalState.container;
+    final current = container.read(vpnSettingProvider);
+    container.read(vpnSettingProvider.notifier).value = current.copyWith(
+      smartAutoStop: enabled,
+      smartAutoStopNetworks: enabled ? [network ?? '0.0.0.0/0'] : const [],
+    );
+    return {
+      'enabled': enabled,
+      'networks': enabled ? (network ?? '0.0.0.0/0') : '',
+    };
   }
 
   static String _keepDashboard(String? raw) {

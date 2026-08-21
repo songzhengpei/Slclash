@@ -126,6 +126,14 @@ bool shouldStartListenerAfterSmartResume({
   return !suspend && coreReady;
 }
 
+void convergeFullStopProviders({
+  required void Function() clearManualOverride,
+  required void Function() clearSmartStopped,
+}) {
+  clearManualOverride();
+  clearSmartStopped();
+}
+
 /// User-tap start uses the same applyProfile → TUN order as init.
 /// Differences: silence loading, stop VPN if apply/start fails, and do not seed runTime at 0.
 ({bool silence, bool stopOnFailure, bool seedRunTimeAtZero}) vpnStartPolicy({
@@ -848,7 +856,7 @@ class SetupAction extends _$SetupAction {
     startTime = null;
     _updateTimer?.cancel();
     _updateTimer = null;
-    final stopped = await coreController.stopListener();
+    final stopped = await coreController.stopCoreListenerOnly();
     StartupTrace.mark(
       'vpn_listener_stop',
       extras: {'success': stopped, 'source': 'smart_stop'},
@@ -1025,7 +1033,12 @@ class SetupAction extends _$SetupAction {
     } else {
       // Clear smart auto stop manual override when user stops proxy.
       // This ensures the next start on a trusted network auto-stops again.
-      ref.read(smartAutoStopManualOverrideProvider.notifier).clear();
+      convergeFullStopProviders(
+        clearManualOverride: () =>
+            ref.read(smartAutoStopManualOverrideProvider.notifier).clear(),
+        clearSmartStopped: () =>
+            ref.read(isSmartStoppedProvider.notifier).set(false),
+      );
       await handleStop();
       coreController.resetTraffic();
       ref.read(trafficsProvider.notifier).clear();

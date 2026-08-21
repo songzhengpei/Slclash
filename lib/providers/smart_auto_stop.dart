@@ -22,6 +22,36 @@ bool isFilteredNetworkInterface(String name) {
   return filteredInterfacePrefixes.any(lower.startsWith);
 }
 
+Future<bool> convergeConfirmedSmartStop({
+  required Future<bool> Function() smartStop,
+  required Future<void> Function(bool value) setNativeSmartStopped,
+  required void Function(bool value) setFlutterSmartStopped,
+  required Future<void> Function() stopLocalListener,
+}) async {
+  if (!await smartStop()) return false;
+  await setNativeSmartStopped(true);
+  setFlutterSmartStopped(true);
+  await stopLocalListener();
+  return true;
+}
+
+Future<bool> convergeConfirmedSmartResume({
+  required Future<bool> Function() smartResume,
+  required Future<void> Function(bool value) setNativeSmartStopped,
+  required Future<DateTime?> Function() getNativeStartTime,
+  required Future<void> Function(DateTime startTime) resumeLocalListener,
+  required void Function(bool value) setFlutterSmartStopped,
+}) async {
+  if (!await smartResume()) return false;
+  await setNativeSmartStopped(false);
+  final nativeStartTime = await getNativeStartTime();
+  if (nativeStartTime != null) {
+    await resumeLocalListener(nativeStartTime);
+  }
+  setFlutterSmartStopped(false);
+  return true;
+}
+
 /// Tracks whether smart auto stop is currently active (VPN was auto-stopped
 /// because the device is on a trusted network).
 @Riverpod(keepAlive: true)
@@ -234,7 +264,13 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
     final s = service;
     if (s != null) {
       try {
-        final success = await s.smartStop();
+        final success = await convergeConfirmedSmartStop(
+          smartStop: s.smartStop,
+          setNativeSmartStopped: s.setSmartStopped,
+          setFlutterSmartStopped: (value) =>
+              ref.read(isSmartStoppedProvider.notifier).set(value),
+          stopLocalListener: setupAction.handleSmartStopLocal,
+        );
         StartupTrace.mark(
           'vpn_action_complete',
           extras: {
@@ -243,21 +279,20 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
             'success': success,
           },
         );
-        if (success) {
-          await s.setSmartStopped(true);
-          // Mark provider BEFORE clearing runTime so UI listeners see
-          // paused state before isStart flips to false.
-          ref.read(isSmartStoppedProvider.notifier).set(true);
-          // Local: cancel timer, stop listener, clear runTime
-          await setupAction.handleSmartStopLocal();
-          return;
-        }
+        if (success) return;
       } catch (_) {}
     }
     // Native smartStop failed — defer rather than full stop.
     // Scheduling a re-check lets the next attempt succeed once the
     // service is fully ready.
     _debouncedCheck();
+  }
+
+  /// Explicit smart-stop entry point used by external Android controls.
+  /// This intentionally bypasses trusted-network matching while reusing the
+  /// same confirmed native pause and Flutter convergence path as automation.
+  Future<void> pauseNow() async {
+    await _smartStop();
   }
 
   /// Resume VPN via native smartResume (resume TUN only, no service restart),
@@ -271,7 +306,14 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
     final s = service;
     if (s != null) {
       try {
-        final success = await s.smartResume();
+        final success = await convergeConfirmedSmartResume(
+          smartResume: s.smartResume,
+          setNativeSmartStopped: s.setSmartStopped,
+          getNativeStartTime: s.getRunTime,
+          resumeLocalListener: setupAction.handleSmartResumeLocal,
+          setFlutterSmartStopped: (value) =>
+              ref.read(isSmartStoppedProvider.notifier).set(value),
+        );
         StartupTrace.mark(
           'vpn_action_complete',
           extras: {
@@ -280,16 +322,7 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
             'success': success,
           },
         );
-        if (success) {
-          await s.setSmartStopped(false);
-          // Read native startTime and sync local timer/listener
-          final nativeStartTime = await s.getRunTime();
-          if (nativeStartTime != null) {
-            await setupAction.handleSmartResumeLocal(nativeStartTime);
-          }
-          ref.read(isSmartStoppedProvider.notifier).set(false);
-          return;
-        }
+        if (success) return;
       } catch (_) {}
       // Native failed — fall through to phase 1 fallback
     }

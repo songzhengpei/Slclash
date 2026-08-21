@@ -6,6 +6,11 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+bool shouldHandleTileFullStop({
+  required bool isStart,
+  required bool isSmartStopped,
+}) => isStart || isSmartStopped;
+
 class TileManager extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -23,6 +28,8 @@ class _TileContainerState extends ConsumerState<TileManager> with TileListener {
 
   bool get isStart => ref.read(isStartProvider);
 
+  bool get isSmartStopped => ref.read(isSmartStoppedProvider);
+
   @override
   Future<void> onStart() async {
     if (isStart && coreController.isCompleted) {
@@ -35,12 +42,21 @@ class _TileContainerState extends ConsumerState<TileManager> with TileListener {
 
   @override
   Future<void> onStop() async {
-    if (!isStart) {
+    if (!shouldHandleTileFullStop(
+      isStart: isStart,
+      isSmartStopped: isSmartStopped,
+    )) {
       return;
     }
-    ref.read(setupActionProvider.notifier).updateStatus(false);
+    await ref.read(setupActionProvider.notifier).updateStatus(false);
     app?.tip(currentAppLocalizations.stopVpn);
     super.onStop();
+  }
+
+  @override
+  Future<void> onSmartStop() async {
+    await ref.read(smartAutoStopManagerProvider.notifier).pauseNow();
+    super.onSmartStop();
   }
 
   @override

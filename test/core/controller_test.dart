@@ -403,6 +403,14 @@ void main() {
       expect(result, false);
     });
 
+    test('stopCoreListenerOnly delegates without using full stop', () async {
+      when(() => mock.stopCoreListenerOnly()).thenAnswer((_) async => true);
+      final result = await controller.stopCoreListenerOnly();
+      expect(result, true);
+      verify(() => mock.stopCoreListenerOnly()).called(1);
+      verifyNever(() => mock.stopListener());
+    });
+
     test('updateGeoData delegates', () async {
       const params = UpdateGeoDataParams(geoType: 'mmdb', geoName: 'Country');
       when(() => mock.updateGeoData(params)).thenAnswer((_) async => 'ok');

@@ -10,6 +10,8 @@ abstract mixin class TileListener {
 
   void onStop() {}
 
+  void onSmartStop() {}
+
   void onSmartResume() {}
 
   void onDetached() {}
@@ -36,6 +38,9 @@ class Tile {
           break;
         case 'stop':
           listener.onStop();
+          break;
+        case 'smartStop':
+          listener.onSmartStop();
           break;
         case 'smartResume':
           listener.onSmartResume();
