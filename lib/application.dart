@@ -409,7 +409,13 @@ class ApplicationState extends ConsumerState<Application> {
               if (last == null || now.difference(last).inMilliseconds > 1000) {
                 _lastCloseConnectionsTime = now;
                 try {
-                  await coreController.closeConnections();
+                  final closed = await coreController.closeConnections();
+                  if (!closed) {
+                    commonPrint.log(
+                      'some connections could not be closed after network change',
+                      logLevel: LogLevel.warning,
+                    );
+                  }
                 } catch (e) {
                   commonPrint.log(
                     'closeConnections on connectivity changed failed: $e',

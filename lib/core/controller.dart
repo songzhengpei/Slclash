@@ -208,8 +208,8 @@ class CoreController {
     await _interface.closeConnection(id);
   }
 
-  Future<void> closeConnections() async {
-    await _interface.closeConnections();
+  Future<bool> closeConnections() async {
+    return await _interface.closeConnections();
   }
 
   Future<void> resetConnections() async {

@@ -438,18 +438,21 @@ func handleGetConnections() string {
 func handleCloseConnections() bool {
 	runLock.Lock()
 	defer runLock.Unlock()
-	closeConnections()
-	return true
+	return closeConnections()
 }
 
-func closeConnections() {
+func closeConnections() bool {
+	success := true
 	statistic.DefaultManager.Range(func(c statistic.Tracker) bool {
 		err := c.Close()
 		if err != nil {
-			return false
+			success = false
 		}
+		// A single broken tracker must not prevent the remaining connections
+		// from being closed during a network handover.
 		return true
 	})
+	return success
 }
 
 func handleResetConnections() bool {
