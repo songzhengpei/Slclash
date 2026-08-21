@@ -69,6 +69,7 @@ docs/*
 !docs/phase4-d0-runtime-polling-ipc-baseline.md
 !docs/phase4-d1-ipc-outcome-correctness.md
 !docs/phase4-d2-dashboard-network-diagnostics.md
+!docs/phase4-d-final-closeout.md
 !docs/images/
 docs/images/*
 !docs/images/readme/
