@@ -49,6 +49,8 @@ from parsers import (  # noqa: E402
     parse_meminfo,
     parse_phase4_events,
     parse_phase4_logcat,
+    parse_proc_stat,
+    parse_proc_status,
     parse_remote_session_presence,
     parse_pidof,
     parse_tun_from_proc_net_dev,
@@ -61,6 +63,7 @@ from parsers import (  # noqa: E402
     summarize_delay_events,
     summarize_select_events,
     summarize_ipc_events,
+    summarize_power_events,
     summarize_vpn_lifecycle_events,
     latest_ipc_window_id,
 )
@@ -811,6 +814,209 @@ class Runner:
             "notes": notes,
             "unreliable": unreliable,
         }
+
+    def _power_logcat_dump(self) -> str:
+        proc = self.adb.run(["logcat", "-d"], timeout=30)
+        return proc.stdout + proc.stderr
+
+    def _power_process_snapshot(self) -> dict:
+        rows = {}
+        for role, process in (("main", self.package), ("remote", f"{self.package}:remote")):
+            pid = self.pid_of(process)
+            if pid is None:
+                rows[role] = {"pid": None, "stat": {"available": False}, "status": {"available": False}, "memory": None}
+                continue
+            stat = parse_proc_stat(self.adb.shell(f"cat /proc/{pid}/stat").stdout)
+            status = parse_proc_status(self.adb.shell(f"cat /proc/{pid}/status").stdout)
+            memory = parse_meminfo(self.adb.shell(f"dumpsys meminfo {pid}").stdout)
+            rows[role] = {"pid": pid, "stat": stat, "status": status, "memory": memory}
+        return rows
+
+    @staticmethod
+    def _power_process_delta(before: dict, after: dict, duration_s: float, clock_ticks: int) -> dict:
+        result = {}
+        for role in ("main", "remote"):
+            first = before.get(role) or {}
+            last = after.get(role) or {}
+            same_pid = first.get("pid") is not None and first.get("pid") == last.get("pid")
+            stat_a, stat_b = first.get("stat") or {}, last.get("stat") or {}
+            status_a, status_b = first.get("status") or {}, last.get("status") or {}
+            cpu_ms = None
+            if same_pid and stat_a.get("available") and stat_b.get("available"):
+                ticks = (stat_b.get("utime_ticks", 0) + stat_b.get("stime_ticks", 0)) - (
+                    stat_a.get("utime_ticks", 0) + stat_a.get("stime_ticks", 0)
+                )
+                cpu_ms = round(ticks * 1000.0 / max(clock_ticks, 1), 2)
+            def delta_field(name: str):
+                a, b = status_a.get(name), status_b.get(name)
+                return b - a if same_pid and isinstance(a, int) and isinstance(b, int) else None
+            minutes = duration_s / 60.0 if duration_s > 0 else 0.0
+            ctxt = delta_field("voluntary_ctxt_switches")
+            nonvol = delta_field("nonvoluntary_ctxt_switches")
+            result[role] = {
+                "pid_before": first.get("pid"),
+                "pid_after": last.get("pid"),
+                "pid_stable": same_pid,
+                "cpu_ms": cpu_ms,
+                "cpu_ms_per_min": round(cpu_ms / minutes, 2) if cpu_ms is not None and minutes else None,
+                "voluntary_context_switches": ctxt,
+                "nonvoluntary_context_switches": nonvol,
+                "context_switches_per_min": round((ctxt + nonvol) / minutes, 2)
+                if ctxt is not None and nonvol is not None and minutes else None,
+                "threads_before": status_a.get("threads"),
+                "threads_after": status_b.get("threads"),
+                "rss_kb_before": status_a.get("rss_kb"),
+                "rss_kb_after": status_b.get("rss_kb"),
+                "memory_before": first.get("memory"),
+                "memory_after": last.get("memory"),
+            }
+        return result
+
+    def _power_window(self, label: str, duration_s: float, setup=None) -> dict:
+        self.adb.run(["logcat", "-c"], timeout=20)
+        if setup is not None:
+            setup()
+            time.sleep(2.0)
+        transition_log = self._power_logcat_dump()
+        self.adb.run(["logcat", "-c"], timeout=20)
+        before = self._power_process_snapshot()
+        vpn_before = self._vpn_status()
+        session_before = self.read_session_presence()
+        started = time.monotonic()
+        time.sleep(duration_s)
+        actual = time.monotonic() - started
+        after = self._power_process_snapshot()
+        vpn_after = self._vpn_status()
+        session_after = self.read_session_presence()
+        transition_events = parse_phase4_events(transition_log)
+        measurement_events = parse_phase4_events(self._power_logcat_dump())
+        ticks_raw = self.adb.shell("getconf CLK_TCK").stdout.strip()
+        clock_ticks = int(ticks_raw) if ticks_raw.isdigit() else 100
+        return {
+            "window": label,
+            "duration_s": round(actual, 3),
+            "process": self._power_process_delta(before, after, actual, clock_ticks),
+            "events": summarize_power_events(measurement_events, actual),
+            "transition_events": summarize_power_events(transition_events, 0),
+            "vpn_before": vpn_before,
+            "vpn_after": vpn_after,
+            "session_before": session_before,
+            "session_after": session_after,
+            "session_continuity": (session_before or {}).get("session_id") is not None
+            and (session_before or {}).get("session_id") == (session_after or {}).get("session_id"),
+            "raw_event_count": len(transition_events) + len(measurement_events),
+        }
+
+    def power(self, scale: float = 1.0) -> dict:
+        """Phase 4F observer-only F0-F7 background/power attribution windows."""
+        self.require_package()
+        initial_session = self.read_session_presence()
+        original_idle = self.adb.shell("dumpsys deviceidle").stdout
+        windows = []
+        durations = {"F0": 60, "F1": 60, "F2": 60, "F3": 90, "F4": 120, "F5": 120, "F6": 120, "F7": 120}
+        durations = {key: max(1.0, value * scale) for key, value in durations.items()}
+
+        def power_sources() -> dict:
+            commands = {
+                "battery": f"dumpsys batterystats {self.package}",
+                "deviceidle": "dumpsys deviceidle",
+                "power": "dumpsys power",
+                "alarm": f"dumpsys alarm | grep -i {self.package} || true",
+                "jobscheduler": f"dumpsys jobscheduler | grep -i {self.package} || true",
+            }
+            captured = {}
+            for name, command in commands.items():
+                proc = self.adb.shell(command, timeout=30)
+                output = (proc.stdout + proc.stderr).strip()
+                captured[name] = {
+                    "available": proc.returncode == 0,
+                    "output": output[:20000],
+                    "truncated": len(output) > 20000,
+                }
+            return captured
+
+        def wake():
+            self.adb.shell("dumpsys deviceidle unforce")
+            self.adb.shell("input keyevent KEYCODE_WAKEUP")
+            self.adb.shell("wm dismiss-keyguard")
+
+        try:
+            supporting_before = power_sources()
+            wake()
+            self.start_main()
+            self.wait_nav_ready(timeout=25.0)
+            self.nav_broadcast("health_test_config", {"action": "save_disable"})
+            self.nav_broadcast("vpn_action", {"action": "stop"})
+            time.sleep(3.0)
+            windows.append(self._power_window("F0", durations["F0"]))
+
+            self.nav_broadcast("vpn_action", {"action": "start"})
+            time.sleep(5.0)
+            self.nav_broadcast("navigate", {"page": "dashboard"})
+            windows.append(self._power_window("F1", durations["F1"]))
+
+            self.nav_broadcast("navigate", {"page": "proxies"})
+            windows.append(self._power_window("F2", durations["F2"]))
+
+            windows.append(self._power_window("F3", durations["F3"], lambda: self.adb.shell("input keyevent KEYCODE_HOME")))
+
+            wake()
+            self.start_main()
+            time.sleep(2.0)
+            windows.append(self._power_window("F4", durations["F4"], lambda: self.adb.shell("input keyevent KEYCODE_SLEEP")))
+
+            idle_result = {"supported": False, "output": None, "confirmed": False}
+            def force_idle():
+                proc = self.adb.shell("dumpsys deviceidle force-idle", timeout=30)
+                idle_result["output"] = (proc.stdout + proc.stderr).strip()
+                idle_result["supported"] = proc.returncode == 0
+                state = self.adb.shell("dumpsys deviceidle get deep").stdout.strip().lower()
+                idle_result["confirmed"] = state == "idle"
+            windows.append(self._power_window("F5", durations["F5"], force_idle))
+
+            wake()
+            self.start_main()
+            time.sleep(2.0)
+            self.nav_broadcast("smart_action", {"action": "pause"})
+            time.sleep(3.0)
+            windows.append(self._power_window("F6", durations["F6"], lambda: self.adb.shell("input keyevent KEYCODE_SLEEP")))
+
+            wake()
+            self.start_main()
+            self.nav_broadcast("smart_action", {"action": "resume"})
+            self.nav_broadcast("health_test_config", {"action": "enable_due"})
+            time.sleep(2.0)
+            windows.append(self._power_window("F7", durations["F7"], lambda: self.adb.shell("input keyevent KEYCODE_HOME")))
+            ok = len(windows) == 8
+            supporting_after = power_sources()
+            return {
+                "ok": ok,
+                "windows": windows,
+                "device_idle": idle_result,
+                "original_deviceidle": original_idle,
+                "android_power_sources_before": supporting_before,
+                "android_power_sources_after": supporting_after,
+                "notes": [
+                    "Observer-only profile/dev instrumentation; no cadence or lifecycle policy changes.",
+                    "CPU derives from /proc stat ticks; unavailable fields remain null.",
+                    "F7 is USER_OPT_IN_WORKLOAD and is excluded from ordinary VPN background cost.",
+                    "Short windows cannot establish precise mAh savings.",
+                ],
+            }
+        finally:
+            wake()
+            self.start_main()
+            time.sleep(1.0)
+            self.nav_broadcast("health_test_config", {"action": "restore"})
+            state = str((initial_session or {}).get("state") or "STOPPED").upper()
+            if state == "RUNNING":
+                self.nav_broadcast("vpn_action", {"action": "start"})
+            elif state == "PAUSED":
+                self.nav_broadcast("vpn_action", {"action": "start"})
+                time.sleep(2.0)
+                self.nav_broadcast("smart_action", {"action": "pause"})
+            else:
+                self.nav_broadcast("vpn_action", {"action": "stop"})
 
     def _snapshot_process(self, label: str) -> dict:
         flutter_pid = self.pid_of(self.package)
@@ -1861,7 +2067,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="SlClash Phase 4 performance harness")
     parser.add_argument(
         "command",
-        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "running-reattach", "navigation", "proxy", "ipc", "compare"],
+        choices=["all", "env", "cold-start", "memory", "jank", "vpn", "background", "power", "running-reattach", "navigation", "proxy", "ipc", "compare"],
     )
     parser.add_argument(
         "--package",
@@ -1941,6 +2147,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=True,
         help="4C.1B extra event-scope / selection / unfold matrix. Default on.",
     )
+    parser.add_argument(
+        "--power-scale",
+        type=float,
+        default=1.0,
+        help="Scale F0-F7 durations for instrumentation smoke tests; formal baseline uses 1.0.",
+    )
     return parser
 
 
@@ -2011,6 +2223,7 @@ def main(argv: list[str] | None = None) -> int:
             "navigation": None,
             "proxy": None,
             "ipc": None,
+            "power": None,
         }
         if env.get("build_role") == "diagnostic_only":
             result["notes"].append(
@@ -2028,6 +2241,7 @@ def main(argv: list[str] | None = None) -> int:
             "navigation": ["navigation"],
             "proxy": ["proxy"],
             "ipc": ["ipc"],
+            "power": ["power"],
             "all": ["cold_start", "memory", "jank", "vpn", "background"],
         }
         for name in mapping[args.command]:
@@ -2052,6 +2266,8 @@ def main(argv: list[str] | None = None) -> int:
                 )
             elif name == "vpn":
                 block = runner.vpn(scenario=args.vpn_scenario)
+            elif name == "power":
+                block = runner.power(scale=args.power_scale)
             else:
                 block = getattr(runner, name)()
             result[name] = block

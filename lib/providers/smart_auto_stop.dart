@@ -181,6 +181,10 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
   void _startListening() {
     _subscription?.cancel();
     _subscription = Connectivity().onConnectivityChanged.listen((results) {
+      StartupTrace.mark(
+        'smart_auto_connectivity_event',
+        extras: {'results': results.map((value) => value.name).join(',')},
+      );
       _debouncedCheck();
     });
   }
@@ -194,6 +198,7 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
 
   Future<void> _checkAndToggle() async {
     if (_checking) return;
+    StartupTrace.mark('smart_auto_check');
     _checking = true;
     try {
       final vpnProps = ref.read(vpnSettingProvider);

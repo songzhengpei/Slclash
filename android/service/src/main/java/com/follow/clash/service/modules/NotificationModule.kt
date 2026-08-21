@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
 import com.follow.clash.common.Components
 import com.follow.clash.common.GlobalState
+import com.follow.clash.common.Phase4Mark
 import com.follow.clash.common.QuickAction
 import com.follow.clash.common.quickIntent
 import com.follow.clash.common.receiveBroadcastFlow
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class ExtendedNotificationParams(
@@ -87,10 +89,18 @@ class NotificationModule(private val service: Service) : Module() {
 
             update(State.notificationParamsFlow.value?.extended ?: NotificationParams().extended, true)
 
+            val ticks = tickerFlow(REFRESH_INTERVAL_MILLIS).onEach {
+                Phase4Mark.emit("notification_tick")
+            }
             combine(
-                tickerFlow(REFRESH_INTERVAL_MILLIS), State.notificationParamsFlow, screenFlow
+                ticks, State.notificationParamsFlow, screenFlow
             ) { _, params, screenOn ->
-                if (screenOn) params?.extended else null
+                if (screenOn && params != null) {
+                    Phase4Mark.emit("notification_evaluated", mapOf("screen_on" to true))
+                    params.extended
+                } else {
+                    null
+                }
             }.filter { params -> params != null }
                 .distinctUntilChanged()
                 .collect { params ->
@@ -154,11 +164,16 @@ class NotificationModule(private val service: Service) : Module() {
         if (shouldStartForeground) {
             service.startForeground(notification)
             foregroundStarted = true
+            Phase4Mark.emit(
+                "notification_updated",
+                mapOf("operation" to "start_foreground", "forced" to forceForeground),
+            )
             return
         }
 
         service.getSystemService<NotificationManager>()
             ?.notify(GlobalState.NOTIFICATION_ID, notification)
+        Phase4Mark.emit("notification_updated", mapOf("operation" to "notify"))
     }
 
     override suspend fun onUninstall() {

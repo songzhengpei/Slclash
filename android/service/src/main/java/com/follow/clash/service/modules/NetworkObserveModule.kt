@@ -10,6 +10,7 @@ import android.net.NetworkCapabilities.TRANSPORT_USB
 import android.net.NetworkRequest
 import android.os.Build
 import androidx.core.content.getSystemService
+import com.follow.clash.common.Phase4Mark
 import com.follow.clash.core.Core
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,11 +54,13 @@ class NetworkObserveModule(private val service: Service) : Module() {
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
+            Phase4Mark.emit("network_callback", mapOf("callback" to "available"))
             networkInfos[network] = NetworkInfo()
             super.onAvailable(network)
         }
 
         override fun onLosing(network: Network, maxMsToLive: Int) {
+            Phase4Mark.emit("network_callback", mapOf("callback" to "losing"))
             networkInfos[network]?.losingMs = System.currentTimeMillis() + maxMsToLive
             enqueueNetworkUpdate()
             setUnderlyingNetworks(network)
@@ -65,6 +68,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
         }
 
         override fun onLost(network: Network) {
+            Phase4Mark.emit("network_callback", mapOf("callback" to "lost"))
             networkInfos.remove(network)
             enqueueNetworkUpdate()
             setUnderlyingNetworks(network)
@@ -72,6 +76,10 @@ class NetworkObserveModule(private val service: Service) : Module() {
         }
 
         override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
+            Phase4Mark.emit(
+                "network_callback",
+                mapOf("callback" to "link_properties", "dns_count" to linkProperties.dnsServers.size),
+            )
             if (linkProperties.dnsServers.isNotEmpty()) {
                 networkInfos[network]?.dnsList = linkProperties.dnsServers
                 enqueueNetworkUpdate()
@@ -92,6 +100,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
     }
 
     private fun enqueueNetworkUpdate() {
+        Phase4Mark.emit("network_update_enqueued")
         updates.trySend(generation.next())
     }
 
@@ -117,13 +126,22 @@ class NetworkObserveModule(private val service: Service) : Module() {
     }
 
     private fun applyNetworkUpdate(eventGeneration: Long) {
-        if (!generation.isCurrent(eventGeneration)) return
+        if (!generation.isCurrent(eventGeneration)) {
+            Phase4Mark.emit("network_update_skipped", mapOf("reason" to "stale_generation"))
+            return
+        }
         val dnsList = (networkInfos.asSequence().minByOrNull { networkToInt(it) }?.value?.dnsList
             ?: emptyList()).map { x -> x.asSocketAddressText(53) }
         if (dnsList.isEmpty() || dnsList == preDnsList) {
+            Phase4Mark.emit(
+                "network_update_skipped",
+                mapOf("reason" to if (dnsList.isEmpty()) "empty_dns" else "unchanged_dns"),
+            )
             return
         }
         preDnsList = normalizeDnsServers(dnsList)
+        Phase4Mark.emit("network_update_applied", mapOf("dns_count" to preDnsList.size))
+        Phase4Mark.emit("core_update_dns", mapOf("dns_count" to preDnsList.size))
         Core.updateDNS(preDnsList.joinToString(","))
     }
 
@@ -143,6 +161,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
         networkInfos.clear()
         if (preDnsList.isNotEmpty()) {
             preDnsList = emptyList()
+            Phase4Mark.emit("core_update_dns", mapOf("dns_count" to 0, "reason" to "uninstall"))
             Core.updateDNS("")
         }
     }

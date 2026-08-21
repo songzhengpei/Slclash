@@ -63,6 +63,10 @@ class NetworkDiagnosticsSession {
         );
       }),
     );
+    StartupTrace.mark(
+      'diagnostics_refresh_end',
+      extras: {'generation': generation, 'reason': reason},
+    );
   }
 
   Future<void> _probeTarget({

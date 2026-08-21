@@ -371,7 +371,9 @@ class ApplicationState extends ConsumerState<Application> {
 
   void _autoUpdateProfilesTask() {
     _autoUpdateProfilesTaskTimer = Timer(const Duration(minutes: 20), () async {
+      StartupTrace.mark('profile_auto_update_begin');
       await ref.read(profilesActionProvider.notifier).autoUpdateProfiles();
+      StartupTrace.mark('profile_auto_update_end');
       _autoUpdateProfilesTask();
     });
   }

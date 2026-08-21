@@ -134,7 +134,8 @@ int healthObservationWorkerCount({
   bool networkPowerLimited = false,
 }) {
   if (eligibleProxyCount <= 0 || powerSaveMode) return 0;
-  if (!screenOn || cellular || networkPowerLimited) return math.min(5, eligibleProxyCount);
+  if (!screenOn || cellular || networkPowerLimited)
+    return math.min(5, eligibleProxyCount);
   final maxWorkers = appForeground ? 10 : 5;
   return math.min(maxWorkers, eligibleProxyCount);
 }
@@ -195,9 +196,9 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   bool get _looksStuck {
     final lastAttempt = state.lastAttemptAt;
     if (!state.isObserving || lastAttempt == null) return false;
-    return DateTime.now().difference(lastAttempt) >
-        const Duration(minutes: 10);
+    return DateTime.now().difference(lastAttempt) > const Duration(minutes: 10);
   }
+
   final _cacheStore = MediaCheckCacheStore();
 
   @override
@@ -290,6 +291,14 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// observation can run.
   void _onTick() {
     _timer = null;
+    StartupTrace.mark(
+      'health_observation_due',
+      extras: {
+        'enabled': state.enabled,
+        'foreground': ref.read(appForegroundProvider),
+        'interval_minutes': state.intervalMinutes,
+      },
+    );
     if (!_engineReady) return;
 
     if (_looksStuck) {
@@ -361,6 +370,13 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// [_completeObservation] so that skips receive a short retry instead of
   /// the full interval.
   void _triggerObservation() {
+    StartupTrace.mark(
+      'health_observation_begin',
+      extras: {
+        'foreground': ref.read(appForegroundProvider),
+        'interval_minutes': state.intervalMinutes,
+      },
+    );
     state = state.copyWith(
       lastAttemptAt: DateTime.now(),
       isObserving: true,
@@ -477,6 +493,18 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
       powerSaveMode: powerState.powerSaveMode,
       networkPowerLimited: networkPowerLimited,
     );
+    StartupTrace.mark(
+      'health_observation_workload',
+      extras: {
+        'eligible_proxy_count': eligibleProxies.length,
+        'worker_count': workerCount,
+        'foreground': ref.read(appForegroundProvider),
+        'screen_on': powerState.screenOn,
+        'power_save': powerState.powerSaveMode,
+        'cellular': connectivityPlusCellular,
+        'network_power_limited': networkPowerLimited,
+      },
+    );
 
     if (workerCount <= 0) {
       _completeObservation(skipReason: 'observationPaused');
@@ -592,6 +620,14 @@ class HealthObservationScheduler extends _$HealthObservationScheduler {
   /// - Ran but all proxies failed: short retry (network may be down).
   void _completeObservation({bool success = false, String? skipReason}) {
     final now = DateTime.now();
+    StartupTrace.mark(
+      skipReason == null ? 'health_observation_end' : 'health_observation_skip',
+      extras: {
+        'success': success,
+        'reason': skipReason ?? 'none',
+        'total': state.totalObservations,
+      },
+    );
 
     if (skipReason != null) {
       final retryAfter = _retryForSkipReason(skipReason);

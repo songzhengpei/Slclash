@@ -32,6 +32,7 @@ class _MemoryInfoState extends State<MemoryInfo> {
 
   Future<void> _updateMemory() async {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      StartupTrace.mark('dashboard_memory_refresh');
       final rss = ProcessInfo.currentRss;
       if (coreController.isCompleted) {
         _memoryStateNotifier.value = await coreController.getMemory() + rss;

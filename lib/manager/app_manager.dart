@@ -105,6 +105,7 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     final container = globalState.container;
     final setupAction = container.read(setupActionProvider.notifier);
     if (state == AppLifecycleState.resumed) {
+      StartupTrace.mark('lifecycle_foreground', extras: {'state': state.name});
       container.read(appForegroundProvider.notifier).set(true);
       render?.resume();
       container
@@ -138,6 +139,7 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      StartupTrace.mark('lifecycle_background', extras: {'state': state.name});
       container.read(appForegroundProvider.notifier).set(false);
       container
           .read(healthObservationSchedulerProvider.notifier)
@@ -150,7 +152,23 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
         final last = _lastGcOnBackground;
         if (last == null || now.difference(last).inSeconds >= 60) {
           _lastGcOnBackground = now;
-          unawaited(coreController.requestGc());
+          StartupTrace.mark(
+            'background_gc_requested',
+            extras: {
+              'foreground': false,
+              'session': container.read(isSmartStoppedProvider)
+                  ? 'PAUSED'
+                  : (container.read(isStartProvider) ? 'RUNNING' : 'STOPPED'),
+            },
+          );
+          unawaited(
+            coreController.requestGc().whenComplete(
+              () => StartupTrace.mark(
+                'background_gc_completed',
+                extras: {'foreground': false},
+              ),
+            ),
+          );
         }
       }
     }

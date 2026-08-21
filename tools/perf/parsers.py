@@ -191,6 +191,78 @@ def parse_phase4_events(output: str) -> list[dict]:
     return events
 
 
+def parse_proc_stat(output: str) -> dict:
+    """Parse /proc/<pid>/stat without splitting the parenthesized comm field."""
+    raw = output.strip()
+    close = raw.rfind(")")
+    if close < 0:
+        return {"available": False}
+    head = raw[: close + 1]
+    tail = raw[close + 1 :].strip().split()
+    if len(tail) < 13:
+        return {"available": False}
+    try:
+        return {
+            "available": True,
+            "pid": int(head.split("(", 1)[0].strip()),
+            "comm": head[head.find("(") + 1 : -1],
+            "state": tail[0],
+            "utime_ticks": int(tail[11]),
+            "stime_ticks": int(tail[12]),
+        }
+    except (TypeError, ValueError):
+        return {"available": False}
+
+
+def parse_proc_status(output: str) -> dict:
+    fields = {}
+    for line in output.splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        fields[key.strip()] = value.strip()
+
+    def number(name: str):
+        match = re.match(r"(\d+)", fields.get(name, ""))
+        return int(match.group(1)) if match else None
+
+    available = bool(fields)
+    return {
+        "available": available,
+        "threads": number("Threads"),
+        "voluntary_ctxt_switches": number("voluntary_ctxt_switches"),
+        "nonvoluntary_ctxt_switches": number("nonvoluntary_ctxt_switches"),
+        "rss_kb": number("VmRSS"),
+    }
+
+
+def summarize_power_events(events: list[dict], duration_s: float) -> dict:
+    """Summarize observer-only Phase 4F marks for one isolated window."""
+    counts: dict[str, int] = {}
+    methods: dict[str, int] = {}
+    results: dict[str, int] = {}
+    for event in events:
+        mark = str(event.get("mark") or "")
+        counts[mark] = counts.get(mark, 0) + 1
+        if mark == "core_ipc_dispatch":
+            method = str(event.get("method") or "unknown")
+            methods[method] = methods.get(method, 0) + 1
+        if mark in {"core_ipc_null", "core_ipc_error", "core_ipc_timeout"}:
+            results[mark] = results.get(mark, 0) + 1
+    minutes = duration_s / 60.0 if duration_s > 0 else 0.0
+    return {
+        "counts": counts,
+        "ipc_total": sum(methods.values()),
+        "ipc_methods": methods,
+        "ipc_per_min": round(sum(methods.values()) / minutes, 2) if minutes else None,
+        "ipc_method_per_min": {
+            key: round(value / minutes, 2) if minutes else None
+            for key, value in methods.items()
+        },
+        "ipc_outcomes": results,
+    }
+
+
 VPN_LIFECYCLE_MARKS = {
     "applyProfile",
     "applyProfile.groups",

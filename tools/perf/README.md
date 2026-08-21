@@ -40,7 +40,7 @@ $env:Path = "D:\Code\Tools\Android\Sdk\platform-tools;$env:Path"
 python tools/perf/phase4.py all --build-mode profile
 ```
 
-Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `running-reattach`, `navigation`, `proxy`, `ipc`, `compare`.
+Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `power`, `running-reattach`, `navigation`, `proxy`, `ipc`, `compare`.
 
 ```powershell
 python tools/perf/phase4.py compare --baseline .perf-captures/phase4/old/result.json --current .perf-captures/phase4/latest.json
@@ -49,6 +49,7 @@ python tools/perf/phase4.py navigation --build-mode profile --nav-session runnin
 python tools/perf/phase4.py proxy --build-mode profile --proxy-session idle --delay-max 20
 python tools/perf/phase4.py proxy --build-mode profile --proxy-session running --delay-max 20
 python tools/perf/phase4.py vpn --build-mode profile --vpn-scenario all
+python tools/perf/phase4.py power --build-mode profile
 python -m unittest tools/perf/tests/test_harness.py
 ```
 
@@ -67,6 +68,7 @@ Options: `--package`, `--serial` / `ANDROID_SERIAL`, `--adb`, `--build-mode`, `-
 | navigation | Profile APK only. ADB sends `phase4_cmd` extras to already-exported `MainActivity` (`singleTop` / `onNewIntent`). Dart no-ops unless NavigationTrace is enabled. Records Flutter FrameTiming per tab transition. Frame budget uses the device refresh rate. Idle `dumpsys gfxinfo` is **not** this metric. `all` does not include navigation. Default `--nav-session idle` force-stops the package (VPN OFF). `--nav-session running` never force-stops: it requires VpnService + tun + `:remote` + presence `state=RUNNING` + `sessionId>0` + `vpn_ready`, and sets `ok=false` if remote pid / sessionId / tun / vpn_ready change. |
 | proxy | Phase 4C.0. Never force-stops. Navigates Dashboard → Proxy, runs capped `delayTest` (product `map`+`batch(100)`), then Proxy → Dashboard → Proxy. Records delay peak_inflight, eager `_buildItems` counts, FrameTiming for those tab pairs, VPN continuity when `--proxy-session running`. `all` does not include proxy. |
 | background | foreground vs HOME; CPU / PSS / focus; VPN active vs inactive |
+| power | Phase 4F F0–F7 long windows: `/proc` CPU/context-switch/thread deltas, PSS/RSS, Core IPC, notification/network/suspend/GC marks, session/TUN continuity, controlled Device Idle, and separate health-observation opt-in cost. Formal baseline uses the default `--power-scale 1.0`. Settings and forced-idle state are restored in `finally`. |
 
 Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_missing`, VPN not ready) exit non-zero. Missing timings stay `null`.
 
@@ -82,8 +84,8 @@ Phase status:
 - Phase 4B (Navigation / Page Mounting): **CLOSED** — `docs/phase4-b-final-closeout.md`
 - Phase 4C (Proxy / Group UX): **CLOSED** — `docs/phase4-c-final-closeout.md`
 - Phase 4D (Runtime Polling / Core IPC): **CLOSED**
-- Phase 4E (VPN Lifecycle): **CURRENT — 4E.0 audit/instrumentation baseline only. STOP for human audit after evidence.**
-- Phase 4F (Background / Power): **FUTURE**
+- Phase 4E (VPN Lifecycle): **CLOSED** — `docs/phase4-e-final-closeout.md`
+- Phase 4F (Background / Power): **CURRENT — 4F.0 audit/instrumentation baseline only.**
 - Phase 4G (Animation polish): **FUTURE**
 
 Phase 4D.0 IPC: `python tools/perf/phase4.py ipc --ipc-session idle|running`. Never force-stops. `all` does not include `ipc`.

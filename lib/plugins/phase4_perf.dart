@@ -26,6 +26,7 @@ class Phase4PerfCommands {
 
   /// Profile/perf experiment only. `null` = product `NavigationItem.keep`.
   static bool? dashboardKeepOverride;
+  static ({bool enabled, int intervalMinutes})? _savedHealthConfig;
 
   static void attach() {
     if (!NavigationTrace.enabled || _attached) {
@@ -102,6 +103,10 @@ class Phase4PerfCommands {
           args['enabled'] ?? args['value'],
           args['network'],
         );
+      case 'health_test_config':
+        return _healthTestConfig(args['action'] ?? args['value']);
+      case 'smart_action':
+        return _smartAction(args['action'] ?? args['value']);
       default:
         return null;
     }
@@ -451,6 +456,67 @@ class Phase4PerfCommands {
       'enabled': enabled,
       'networks': enabled ? (network ?? '0.0.0.0/0') : '',
     };
+  }
+
+  static Map<String, Object?> _healthTestConfig(String? action) {
+    final container = globalState.container;
+    final notifier = container.read(
+      healthObservationSchedulerProvider.notifier,
+    );
+    var state = container.read(healthObservationSchedulerProvider);
+    if (action == 'save_enable' || action == 'save_disable') {
+      _savedHealthConfig ??= (
+        enabled: state.enabled,
+        intervalMinutes: state.intervalMinutes,
+      );
+      if (action == 'save_enable') {
+        notifier.setIntervalMinutes(20);
+        notifier.setEnabled(true);
+        notifier.markDue();
+      } else {
+        notifier.setEnabled(false);
+      }
+      state = container.read(healthObservationSchedulerProvider);
+    } else if (action == 'enable_due') {
+      notifier.setIntervalMinutes(20);
+      notifier.setEnabled(true);
+      notifier.markDue();
+      state = container.read(healthObservationSchedulerProvider);
+    } else if (action == 'restore') {
+      final saved = _savedHealthConfig;
+      if (saved != null) {
+        notifier.setIntervalMinutes(saved.intervalMinutes);
+        notifier.setEnabled(saved.enabled);
+        _savedHealthConfig = null;
+        state = container.read(healthObservationSchedulerProvider);
+      }
+    }
+    final snapshot = <String, Object?>{
+      'enabled': state.enabled,
+      'interval_minutes': state.intervalMinutes,
+      'is_observing': state.isObserving,
+      'next_eligible_at': state.nextEligibleAt?.toIso8601String() ?? 'null',
+      'total_observations': state.totalObservations,
+      'successful_observations': state.successfulObservations,
+      'skipped_observations': state.skippedObservations,
+      'saved': _savedHealthConfig != null,
+    };
+    StartupTrace.mark('health_observation_config', extras: snapshot);
+    return snapshot;
+  }
+
+  static Future<Map<String, Object?>> _smartAction(String? action) async {
+    final notifier = globalState.container.read(
+      smartAutoStopManagerProvider.notifier,
+    );
+    if (action == 'pause') {
+      await notifier.pauseNow();
+    } else if (action == 'resume') {
+      await notifier.resumeNow();
+    } else {
+      return {'error': 'unsupported_action', 'action': action};
+    }
+    return _vpnDump();
   }
 
   static String _keepDashboard(String? raw) {

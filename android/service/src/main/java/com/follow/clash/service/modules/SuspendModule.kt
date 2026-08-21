@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.PowerManager
 import androidx.core.content.getSystemService
+import com.follow.clash.common.Phase4Mark
 import com.follow.clash.common.receiveBroadcastFlow
 import com.follow.clash.core.Core
 import kotlinx.coroutines.CoroutineScope
@@ -35,11 +36,16 @@ class SuspendModule(private val service: Service) : Module() {
         }
 
     private fun onUpdate(isScreenOn: Boolean) {
+        val deviceIdle = isDeviceIdleMode
+        Phase4Mark.emit("screen_state", mapOf("screen_on" to isScreenOn))
+        Phase4Mark.emit("device_idle_state", mapOf("device_idle" to deviceIdle))
         if (isScreenOn) {
+            Phase4Mark.emit("core_suspend_requested", mapOf("value" to false))
             Core.suspended(false)
             return
         }
-        Core.suspended(isDeviceIdleMode)
+        Phase4Mark.emit("core_suspend_requested", mapOf("value" to deviceIdle))
+        Core.suspended(deviceIdle)
     }
 
     override suspend fun onInstall() {

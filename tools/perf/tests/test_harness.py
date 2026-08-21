@@ -34,6 +34,8 @@ from parsers import (  # noqa: E402
     parse_meminfo,
     parse_phase4_events,
     parse_phase4_logcat,
+    parse_proc_stat,
+    parse_proc_status,
     parse_phase4_session_fields,
     parse_remote_session_presence,
     parse_pidof,
@@ -44,6 +46,7 @@ from parsers import (  # noqa: E402
     summarize_vpn_lifecycle_events,
     summarize_select_events,
     summarize_ipc_events,
+    summarize_power_events,
     latest_ipc_window_id,
     ui_process_kill_commands,
     vpn_stop_cleared,
@@ -57,6 +60,38 @@ from report import (  # noqa: E402
 )
 from navigation import group_nav_transitions, summarize_hotspots, summarize_nav, parse_count_csv  # noqa: E402
 from stats import summarize  # noqa: E402
+
+
+class PowerParserTests(unittest.TestCase):
+    def test_proc_stat_handles_spaces_in_comm(self) -> None:
+        fields = ["S"] + ["0"] * 10 + ["123", "7"] + ["0"] * 20
+        parsed = parse_proc_stat("4242 (com.slclash app) " + " ".join(fields))
+        self.assertTrue(parsed["available"])
+        self.assertEqual(parsed["pid"], 4242)
+        self.assertEqual(parsed["comm"], "com.slclash app")
+        self.assertEqual(parsed["utime_ticks"], 123)
+        self.assertEqual(parsed["stime_ticks"], 7)
+
+    def test_proc_status_and_power_event_rates(self) -> None:
+        status = parse_proc_status(
+            "Threads:\t19\nVmRSS:\t54321 kB\n"
+            "voluntary_ctxt_switches:\t120\n"
+            "nonvoluntary_ctxt_switches:\t3\n"
+        )
+        self.assertEqual(status["threads"], 19)
+        self.assertEqual(status["rss_kb"], 54321)
+        events = [
+            {"mark": "notification_tick"},
+            {"mark": "core_ipc_dispatch", "method": "getTrafficSnapshot"},
+            {"mark": "core_ipc_dispatch", "method": "getMemory"},
+            {"mark": "core_ipc_error"},
+        ]
+        summary = summarize_power_events(events, 120.0)
+        self.assertEqual(summary["counts"]["notification_tick"], 1)
+        self.assertEqual(summary["ipc_total"], 2)
+        self.assertEqual(summary["ipc_per_min"], 1.0)
+        self.assertEqual(summary["ipc_method_per_min"]["getMemory"], 0.5)
+        self.assertEqual(summary["ipc_outcomes"]["core_ipc_error"], 1)
 
 
 class BuildModeTests(unittest.TestCase):

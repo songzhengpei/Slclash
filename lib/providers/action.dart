@@ -724,6 +724,10 @@ class SetupAction extends _$SetupAction {
       final snapshot = await coreController.getTrafficSnapshot(
         onlyStatisticsProxy,
       );
+      StartupTrace.mark(
+        'ui_stats_traffic_snapshot',
+        extras: {'page': ref.read(currentPageLabelProvider).name},
+      );
 
       // 1. Speed text: every tick (1s) — lightweight ValueNotifier, no Provider rebuild
       currentSpeedNotifier.value = snapshot.traffic;
@@ -763,6 +767,10 @@ class SetupAction extends _$SetupAction {
   void _startUiStatsTimer() {
     _updateTimer?.cancel();
     _updateTimer = Timer.periodic(_tickInterval, (_) {
+      StartupTrace.mark(
+        'ui_stats_tick',
+        extras: {'page': ref.read(currentPageLabelProvider).name},
+      );
       unawaited(_updateUiStats());
     });
   }
@@ -779,6 +787,9 @@ class SetupAction extends _$SetupAction {
   /// Cancel the UI stats timer when app goes to background.
   /// Does NOT reset startTime, traffic, or core listener.
   void cancelUiStatsTimer() {
+    if (_updateTimer != null) {
+      StartupTrace.mark('ui_stats_timer_stopped');
+    }
     _updateTimer?.cancel();
     _updateTimer = null;
     _lastChartUpdateAt = null;
@@ -796,6 +807,7 @@ class SetupAction extends _$SetupAction {
     unawaited(_updateUiStats());
     // Restore periodic timer (no-op if already running)
     if (_updateTimer == null) {
+      StartupTrace.mark('ui_stats_timer_started');
       _startUiStatsTimer();
     }
   }
