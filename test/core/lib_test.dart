@@ -22,4 +22,27 @@ void main() {
       expect(calls, ['listener', 'service']);
     },
   );
+
+  test('full stopListener reports native service failure', () async {
+    final result = await stopListenerAndNativeService(
+      stopCoreListenerOnly: () async => true,
+      stopNativeService: () async => false,
+    );
+
+    expect(result, isFalse);
+  });
+
+  test('listener cleanup failure does not skip native service stop', () async {
+    var nativeStopCalled = false;
+    final result = await stopListenerAndNativeService(
+      stopCoreListenerOnly: () async => throw StateError('listener failed'),
+      stopNativeService: () async {
+        nativeStopCalled = true;
+        return true;
+      },
+    );
+
+    expect(nativeStopCalled, isTrue);
+    expect(result, isTrue);
+  });
 }

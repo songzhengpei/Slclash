@@ -32,9 +32,10 @@ class _VpnContainerState extends ConsumerState<VpnManager> {
   bool _vpnPropsRequireRestart(VpnProps? prev, VpnProps next) {
     if (prev == null) return false;
     return prev.copyWith(
-      smartAutoStop: next.smartAutoStop,
-      smartAutoStopNetworks: next.smartAutoStopNetworks,
-    ) != next;
+          smartAutoStop: next.smartAutoStop,
+          smartAutoStopNetworks: next.smartAutoStopNetworks,
+        ) !=
+        next;
   }
 
   void showTip(VpnState state) {
@@ -50,7 +51,8 @@ class _VpnContainerState extends ConsumerState<VpnManager> {
             actionText: currentAppLocalizations.restart,
             action: () async {
               final setupAction = ref.read(setupActionProvider.notifier);
-              await setupAction.handleStop();
+              final stopped = await setupAction.handleStop();
+              if (!stopped) return;
               await setupAction.updateStatus(true);
             },
           ),

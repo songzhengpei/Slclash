@@ -378,19 +378,20 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
 
     override fun isOperational(): Boolean = tunEstablished && !shutdownComplete
 
-    override suspend fun smartStop() = lifecycleMutex.withLock {
+    override suspend fun smartStop(): Boolean = lifecycleMutex.withLock {
         Phase4Mark.emit(
             "vpn_tun_observed",
             mapOf("phase" to "smart_stop_begin", "shutdown_complete" to shutdownComplete),
         )
-        if (!shutdownComplete) {
-            clearResolverCache()
-            Core.stopTun()
-        }
+        if (shutdownComplete || !tunEstablished) return@withLock false
+        clearResolverCache()
+        Core.stopTun()
+        tunEstablished = false
         Phase4Mark.emit(
             "vpn_tun_observed",
             mapOf("phase" to "smart_stop_complete", "tun_present" to false),
         )
+        true
     }
 
     override suspend fun smartResume(): Boolean = lifecycleMutex.withLock {

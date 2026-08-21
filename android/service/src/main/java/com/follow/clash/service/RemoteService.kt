@@ -35,6 +35,9 @@ import kotlin.coroutines.resume
 internal fun canReuseRunningSession(state: String, operational: Boolean): Boolean =
     state == SessionState.RUNNING && operational
 
+internal fun disconnectedSessionSnapshot(message: String): SessionSnapshot =
+    SessionSnapshot.stopped(ServiceErrorCode.SERVICE_DISCONNECTED, message)
+
 class RemoteService : Service(), CoroutineScope {
     private val serviceJob = SupervisorJob()
     override val coroutineContext = serviceJob + Dispatchers.Default
@@ -112,23 +115,10 @@ class RemoteService : Service(), CoroutineScope {
                 // not overwrite the replacement session that is now RUNNING.
                 if (generation != delegateGeneration) return@withLock
                 clearDelegate()
-                applySession(
-                    if (
-                    State.snapshot.state == SessionState.STOPPING ||
-                    State.snapshot.state == SessionState.STOPPED
-                ) {
-                    State.snapshot.copy(
-                        lastErrorCode = ServiceErrorCode.SERVICE_DISCONNECTED,
-                        lastErrorMessage = message,
-                    )
-                } else {
-                    State.snapshot.copy(
-                        state = SessionState.STOPPING,
-                        lastErrorCode = ServiceErrorCode.SERVICE_DISCONNECTED,
-                        lastErrorMessage = message,
-                    )
-                }
-                )
+                // The bound physical service is gone and this delegate does
+                // not reconnect automatically. STOPPING would therefore be a
+                // permanent phantom state with no actor left to complete it.
+                applySession(disconnectedSessionSnapshot(message))
             }
         }
     }
@@ -168,7 +158,9 @@ class RemoteService : Service(), CoroutineScope {
                     current = State.snapshot
                 }
                 if (current.state == SessionState.PAUSED) {
-                    val resumed = delegate?.useService { it.smartResume() }?.getOrNull() == true
+                    val resumed = delegate?.useService {
+                        it.smartResume() && it.isOperational()
+                    }?.getOrNull() == true
                     if (resumed) {
                         applySession(SessionTransitions.running(current))
                         replyOperation(result, ServiceOperationResult.success(current.startedAt))
@@ -428,11 +420,9 @@ class RemoteService : Service(), CoroutineScope {
                         result.onResult(0)
                         return@withLock
                     }
-                    var success = false
-                    d.useService { service ->
-                        service.smartStop()
-                        success = true
-                    }
+                    val success = d.useService { service ->
+                        service.smartStop() && !service.isOperational()
+                    }.getOrNull() == true
                     if (success) {
                         applySession(SessionTransitions.paused(current))
                         Phase4Mark.emit(
@@ -458,16 +448,33 @@ class RemoteService : Service(), CoroutineScope {
             )
             launch {
                 runLock.withLock {
-                    // Not stopped — return current runTime (idempotent)
+                    // Only a physically operational RUNNING session is
+                    // idempotent. A stale snapshot must not confirm resume.
                     val current = State.snapshot
                     if (current.state != SessionState.PAUSED) {
+                        val operational = if (current.state == SessionState.RUNNING) {
+                            delegate?.useService { it.isOperational() }?.getOrNull() == true
+                        } else {
+                            false
+                        }
+                        if (current.state == SessionState.RUNNING && !operational) {
+                            delegate?.useService(timeoutMillis = 10_000L) { it.stop() }
+                            clearDelegate()
+                            applySession(
+                                SessionSnapshot.stopped(
+                                    ServiceErrorCode.SERVICE_DISCONNECTED,
+                                    "RUNNING session is not operational",
+                                )
+                            )
+                        }
                         Phase4Mark.emit(
                             "smart_resume_complete",
-                            mapOf("result_class" to "idempotent_or_rejected", "state" to current.state),
+                            mapOf(
+                                "result_class" to if (operational) "idempotent" else "rejected",
+                                "state" to State.snapshot.state,
+                            ),
                         )
-                        result.onResult(
-                            current.takeIf { it.state == SessionState.RUNNING }?.startedAt ?: 0L
-                        )
+                        result.onResult(current.takeIf { operational }?.startedAt ?: 0L)
                         return@withLock
                     }
                     val options = State.options
@@ -476,10 +483,9 @@ class RemoteService : Service(), CoroutineScope {
                         result.onResult(0)
                         return@withLock
                     }
-                    var success = false
-                    d.useService { service ->
-                        success = service.smartResume()
-                    }
+                    val success = d.useService { service ->
+                        service.smartResume() && service.isOperational()
+                    }.getOrNull() == true
                     if (success) {
                         applySession(SessionTransitions.running(current))
                         Phase4Mark.emit(

@@ -825,9 +825,23 @@ class SetupAction extends _$SetupAction {
 
   Future _updateStartTime() async {
     StartupTrace.mark('vpn_flutter_sync_begin', extras: {'source': 'app_init'});
-    startTime = await service?.getRunTime();
+    final observedStartTime = await service?.getRunTime();
     if (StartupTrace.enabled || system.isAndroid) {
-      _nativeSession = await service?.getSessionSnapshot() ?? const {};
+      final observedSession = await service?.getSessionSnapshot() ?? const {};
+      final observedState = observedSession['state'];
+      if (observedState is String) {
+        _nativeSession = observedSession;
+        if (observedState == 'RUNNING') {
+          final startedAt = observedSession['startedAt'];
+          startTime =
+              observedStartTime ??
+              (startedAt is int && startedAt > 0
+                  ? DateTime.fromMillisecondsSinceEpoch(startedAt)
+                  : startTime);
+        } else if (observedState == 'PAUSED' || observedState == 'STOPPED') {
+          startTime = null;
+        }
+      }
       StartupTrace.mark(
         'vpn_snapshot',
         extras: {
@@ -839,6 +853,8 @@ class SetupAction extends _$SetupAction {
           'flutter_is_start': startTime != null,
         },
       );
+    } else {
+      startTime = observedStartTime;
     }
     StartupTrace.mark(
       'vpn_flutter_sync_end',
@@ -894,20 +910,33 @@ class SetupAction extends _$SetupAction {
     }
   }
 
-  Future handleStop() async {
-    startTime = null;
-    _updateTimer?.cancel();
-    _updateTimer = null;
+  Future<bool> handleStop() async {
     final stopped = await coreController.stopListener();
     StartupTrace.mark(
       'vpn_listener_stop',
       extras: {'success': stopped, 'source': 'setup_action'},
     );
+    if (system.isAndroid) {
+      await reconcileNativeSession();
+      if (_sessionState != 'STOPPED') {
+        // Keep/restore the visible running state when native did not confirm
+        // teardown. A failed command must not render a fake disconnection.
+        resumeUiStatsTimerIfNeeded();
+        return false;
+      }
+    } else if (!stopped) {
+      return false;
+    } else {
+      startTime = null;
+      _updateTimer?.cancel();
+      _updateTimer = null;
+    }
     // P0+P1: 停代理后先关连接释放 buffer，再 GC 释放 Go 堆
     // 顺序执行，不阻塞 handleStop 调用者的后续 UI 重置
     unawaited(
       coreController.closeConnections().then((_) => coreController.requestGc()),
     );
+    return true;
   }
 
   /// Local-only stop for smart auto stop: cancel timer, stop listener,
@@ -1074,7 +1103,8 @@ class SetupAction extends _$SetupAction {
 
         if (!started || !applied) {
           if (policy.stopOnFailure) {
-            await handleStop();
+            final stopped = await handleStop();
+            if (!stopped) return;
           }
           startTime = null;
           ref.read(runTimeProvider.notifier).value = null;
@@ -1087,20 +1117,32 @@ class SetupAction extends _$SetupAction {
         }
         ref.read(commonActionProvider.notifier).updateRunTime();
       } catch (_) {
-        if (!isInit) rethrow;
+        if (!isInit) {
+          try {
+            await handleStop();
+          } catch (_) {
+            if (system.isAndroid) await reconcileNativeSession();
+          }
+          rethrow;
+        }
+        if (system.isAndroid) {
+          await reconcileNativeSession();
+          return;
+        }
         startTime = null;
         ref.read(runTimeProvider.notifier).value = null;
       }
     } else {
       // Clear smart auto stop manual override when user stops proxy.
       // This ensures the next start on a trusted network auto-stops again.
+      final stopped = await handleStop();
+      if (!stopped) return;
       convergeFullStopProviders(
         clearManualOverride: () =>
             ref.read(smartAutoStopManualOverrideProvider.notifier).clear(),
         clearSmartStopped: () =>
             ref.read(isSmartStoppedProvider.notifier).set(false),
       );
-      await handleStop();
       coreController.resetTraffic();
       ref.read(trafficsProvider.notifier).clear();
       ref.read(totalTrafficProvider.notifier).value = const Traffic();

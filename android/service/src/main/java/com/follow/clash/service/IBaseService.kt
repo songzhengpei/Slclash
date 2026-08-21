@@ -27,9 +27,8 @@ interface IBaseService {
      */
     fun isOperational(): Boolean
 
-    suspend fun smartStop() {
-        // Default no-op for services without TUN (e.g. CommonService)
-    }
+    /** Returns true only when the runtime resource is confirmed paused. */
+    suspend fun smartStop(): Boolean = false
 
     suspend fun smartResume(): Boolean {
         return true

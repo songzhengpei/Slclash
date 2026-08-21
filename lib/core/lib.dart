@@ -14,9 +14,12 @@ Future<bool> stopListenerAndNativeService({
   required Future<bool> Function() stopCoreListenerOnly,
   required Future<bool> Function() stopNativeService,
 }) async {
-  await stopCoreListenerOnly();
-  await stopNativeService();
-  return true;
+  // Native lifecycle state is authoritative. Listener cleanup is best-effort
+  // and must never prevent the physical service stop from being attempted.
+  try {
+    await stopCoreListenerOnly();
+  } catch (_) {}
+  return stopNativeService();
 }
 
 class CoreLib extends CoreHandlerInterface {
