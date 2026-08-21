@@ -117,14 +117,19 @@ abstract class CoreHandlerInterface with CoreInterface {
     dynamic data,
     Duration? timeout,
   }) async {
+    final preWait = Stopwatch()..start();
     try {
       await completer.future.timeout(const Duration(seconds: 10));
     } catch (e) {
+      preWait.stop();
       commonPrint.log(
         'Invoke pre ${method.name} timeout $e',
         logLevel: LogLevel.error,
       );
-      CoreIpcTrace.noteNotReady(method.name);
+      CoreIpcTrace.noteNotReady(
+        method.name,
+        preinvokeWaitMs: preWait.elapsedMilliseconds,
+      );
       return null;
     }
     final shouldLog = _shouldLogInvoke(method);

@@ -156,7 +156,10 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
 Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
   StartupTrace.mark(
     'delay_test_begin',
-    extras: {'count': proxies.length},
+    extras: {
+      'count': proxies.length,
+      ...CoreIpcTrace.identityExtras(),
+    },
   );
   final delayProxies = proxies.map<Future>((proxy) async {
     await proxyDelayTest(proxy, testUrl);
@@ -168,6 +171,7 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
       'count': proxies.length,
       'peak_inflight': ProxyTrace.peakInflight,
       'started': ProxyTrace.delayStarted,
+      ...CoreIpcTrace.identityExtras(),
     },
   );
 
@@ -182,6 +186,7 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
       'started': ProxyTrace.delayStarted,
       'finished': ProxyTrace.delayFinished,
       'failed': ProxyTrace.delayFailed,
+      ...CoreIpcTrace.identityExtras(),
     },
   );
   globalState.container.read(sortNumProvider.notifier).add();

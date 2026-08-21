@@ -1,83 +1,168 @@
 {
-  "background": {
+  "idle_run_id": "r1787282281",
+  "running_run_id": "r1787282631",
+  "idle_background": {
     "page": "background",
-    "total": 27,
-    "dispatch_count": 30,
-    "peak_inflight": 4,
+    "run_id": "r1787282281",
+    "window_id": "r1787282281-w6",
+    "inflight_at_start": 0,
+    "dispatched_in_window": 1,
+    "completed_in_window": 1,
+    "matched_dispatch_complete": 1,
+    "unfinished_at_end": 0,
+    "complete_without_window_dispatch": 0,
+    "unfinished_ids": [],
+    "total": 1,
+    "dispatch_count": 1,
+    "peak_inflight": 1,
     "result_class": {
-      "success": 27
+      "success": 1
     },
-    "overlap": {
-      "getConnections": 7
-    },
+    "overlap": {},
     "methods": {
-      "getTrafficSnapshot": {
-        "count": 4,
+      "forceGc": {
+        "count": 1,
+        "matched_complete": 1,
         "overlap_count": 0,
         "peak_same_method_inflight": 1,
-        "p50_ms": 4.5,
-        "p90_ms": 6.0,
-        "p99_ms": 6.0,
-        "max_ms": 6
-      },
+        "p50_ms": 32.0,
+        "p90_ms": 32.0,
+        "p99_ms": 32.0,
+        "max_ms": 32,
+        "callers": {
+          "<asynchronous_suspension>": 1
+        }
+      }
+    },
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 1
+  },
+  "idle_resume": {
+    "page": "resume",
+    "run_id": "r1787282281",
+    "window_id": "r1787282281-w7",
+    "inflight_at_start": 0,
+    "dispatched_in_window": 0,
+    "completed_in_window": 0,
+    "matched_dispatch_complete": 0,
+    "unfinished_at_end": 0,
+    "complete_without_window_dispatch": 0,
+    "unfinished_ids": [],
+    "total": 0,
+    "dispatch_count": 0,
+    "peak_inflight": 0,
+    "result_class": {},
+    "overlap": {},
+    "methods": {},
+    "transport_null_or_timeout": 0,
+    "core_not_ready": 0,
+    "core_error": 0,
+    "success": 0
+  },
+  "running_background": {
+    "page": "background",
+    "run_id": "r1787282631",
+    "window_id": "r1787282631-w6",
+    "inflight_at_start": 1,
+    "dispatched_in_window": 14,
+    "completed_in_window": 15,
+    "matched_dispatch_complete": 14,
+    "unfinished_at_end": 0,
+    "complete_without_window_dispatch": 1,
+    "unfinished_ids": [],
+    "total": 14,
+    "dispatch_count": 14,
+    "peak_inflight": 1,
+    "result_class": {
+      "success": 15
+    },
+    "overlap": {},
+    "methods": {
       "getConnections": {
-        "count": 22,
-        "overlap_count": 7,
-        "peak_same_method_inflight": 3,
-        "p50_ms": 5.5,
-        "p90_ms": 10.0,
-        "p99_ms": 12.369999999999997,
-        "max_ms": 13
+        "count": 13,
+        "matched_complete": 13,
+        "overlap_count": 0,
+        "peak_same_method_inflight": 1,
+        "p50_ms": 15.0,
+        "p90_ms": 33.2,
+        "p99_ms": 41.91999999999999,
+        "max_ms": 43,
+        "callers": {
+          "#7_CoreController.getConnections_(core/controller.dart:200)": 13
+        }
       },
       "forceGc": {
         "count": 1,
+        "matched_complete": 1,
         "overlap_count": 0,
         "peak_same_method_inflight": 1,
         "p50_ms": 27.0,
         "p90_ms": 27.0,
         "p99_ms": 27.0,
-        "max_ms": 27
+        "max_ms": 27,
+        "callers": {
+          "#7_CoreController.requestGc_(core/controller.dart:379)": 1
+        }
       }
     },
     "transport_null_or_timeout": 0,
     "core_not_ready": 0,
     "core_error": 0,
-    "success": 27
+    "success": 15
   },
-  "resume": {
+  "running_resume": {
     "page": "resume",
-    "total": 29,
-    "dispatch_count": 29,
+    "run_id": "r1787282631",
+    "window_id": "r1787282631-w7",
+    "inflight_at_start": 0,
+    "dispatched_in_window": 49,
+    "completed_in_window": 49,
+    "matched_dispatch_complete": 49,
+    "unfinished_at_end": 0,
+    "complete_without_window_dispatch": 0,
+    "unfinished_ids": [],
+    "total": 49,
+    "dispatch_count": 49,
     "peak_inflight": 4,
     "result_class": {
-      "success": 29
+      "success": 49
     },
     "overlap": {
-      "getConnections": 5
+      "getConnections": 13
     },
     "methods": {
       "getTrafficSnapshot": {
-        "count": 10,
+        "count": 13,
+        "matched_complete": 13,
         "overlap_count": 0,
         "peak_same_method_inflight": 1,
-        "p50_ms": 6.0,
-        "p90_ms": 13.1,
-        "p99_ms": 13.91,
-        "max_ms": 14
+        "p50_ms": 9.0,
+        "p90_ms": 12.8,
+        "p99_ms": 13.879999999999999,
+        "max_ms": 14,
+        "callers": {
+          "#7_CoreController.getTrafficSnapshot_(core/controller.dart:349)": 13
+        }
       },
       "getConnections": {
-        "count": 19,
-        "overlap_count": 5,
+        "count": 36,
+        "matched_complete": 36,
+        "overlap_count": 13,
         "peak_same_method_inflight": 3,
-        "p50_ms": 7.0,
-        "p90_ms": 13.999999999999993,
-        "p99_ms": 23.64,
-        "max_ms": 24
+        "p50_ms": 11.5,
+        "p90_ms": 20.0,
+        "p99_ms": 26.599999999999994,
+        "max_ms": 28,
+        "callers": {
+          "#7_CoreController.getConnections_(core/controller.dart:200)": 36
+        }
       }
     },
     "transport_null_or_timeout": 0,
     "core_not_ready": 0,
     "core_error": 0,
-    "success": 29
+    "success": 49
   }
 }

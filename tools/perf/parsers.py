@@ -191,12 +191,22 @@ def parse_phase4_events(output: str) -> list[dict]:
     return events
 
 
-def summarize_delay_events(events: list[dict]) -> dict:
+def summarize_delay_events(
+    events: list[dict],
+    *,
+    run_id: str | None = None,
+    window_id: str | None = None,
+) -> dict:
     """peak_inflight from delay_request_started extras. batch(100) is await-only."""
-    started = [e for e in events if e.get("mark") == "delay_request_started"]
-    finished = [e for e in events if e.get("mark") == "delay_request_finished"]
-    failed = [e for e in events if e.get("mark") == "delay_request_failed"]
-    after_map = [e for e in events if e.get("mark") == "delay_test_after_map"]
+    scoped = events
+    if window_id:
+        scoped = [e for e in events if str(e.get("window_id") or "") == str(window_id)]
+    elif run_id:
+        scoped = [e for e in events if str(e.get("run_id") or "") == str(run_id)]
+    started = [e for e in scoped if e.get("mark") == "delay_request_started"]
+    finished = [e for e in scoped if e.get("mark") == "delay_request_finished"]
+    failed = [e for e in scoped if e.get("mark") == "delay_request_failed"]
+    after_map = [e for e in scoped if e.get("mark") == "delay_test_after_map"]
     peaks = []
     for row in started + after_map:
         value = row.get("peak_inflight")
@@ -209,6 +219,8 @@ def summarize_delay_events(events: list[dict]) -> dict:
         "peak_inflight": max(peaks) if peaks else 0,
         "after_map_started": after_map[-1].get("started") if after_map else None,
         "batch_limits_start": False,
+        "run_id": run_id,
+        "window_id": window_id,
     }
 
 
@@ -258,41 +270,78 @@ def _ipc_percentile(values: list[int], p: float) -> float | None:
     return xs[lo] + (xs[hi] - xs[lo]) * frac
 
 
-def summarize_ipc_events(events: list[dict], page: str | None = None) -> dict:
-    """Core IPC complete/dispatch marks. Timeout vs other nulls are not split."""
-    scoped = events
-    if page:
-        start_ms = None
-        end_ms = None
-        for row in events:
-            mark = row.get("mark")
-            if mark == "ipc_window_begin" and str(row.get("page") or "") == page:
-                start_ms = row.get("elapsed_ms")
-                end_ms = None
-            elif (
-                mark == "ipc_window_end"
-                and start_ms is not None
-                and str(row.get("page") or page) == page
-            ):
-                end_ms = row.get("elapsed_ms")
-        if start_ms is not None:
-            scoped = [
-                row
-                for row in events
-                if isinstance(row.get("elapsed_ms"), int)
-                and row["elapsed_ms"] >= start_ms
-                and (end_ms is None or row["elapsed_ms"] <= end_ms)
-            ]
+def latest_ipc_window_id(
+    events: list[dict],
+    *,
+    run_id: str | None = None,
+    page: str | None = None,
+) -> str | None:
+    for row in reversed(events):
+        if row.get("mark") != "ipc_window_begin":
+            continue
+        if run_id is not None and str(row.get("run_id") or "") != str(run_id):
+            continue
+        if page is not None and str(row.get("page") or "") != str(page):
+            continue
+        wid = row.get("window_id")
+        if wid:
+            return str(wid)
+    return None
 
-    completes = [e for e in scoped if e.get("mark") == "core_ipc_complete"]
+
+def summarize_ipc_events(
+    events: list[dict],
+    page: str | None = None,
+    *,
+    run_id: str | None = None,
+    window_id: str | None = None,
+) -> dict:
+    """Pair dispatch→complete by request id inside one measurement window.
+
+    Page rates use DISPATCH in the window. Transport latency uses only
+    matched ids dispatched and completed in the same window.
+    `core_not_ready` is preinvoke wait, not transport latency.
+    """
+    resolved_window = window_id
+    if resolved_window is None and (run_id or page):
+        resolved_window = latest_ipc_window_id(events, run_id=run_id, page=page)
+
+    def _in_window(row: dict) -> bool:
+        if resolved_window:
+            return str(row.get("window_id") or "") == str(resolved_window)
+        if run_id:
+            return str(row.get("run_id") or "") == str(run_id)
+        if page:
+            return str(row.get("page") or "") == str(page)
+        return True
+
+    scoped = [row for row in events if _in_window(row)]
+    begin = next((e for e in scoped if e.get("mark") == "ipc_window_begin"), {})
+    inflight_at_start = begin.get("inflight_at_window_start")
+    if not isinstance(inflight_at_start, int):
+        inflight_at_start = 0
+
     dispatches = [e for e in scoped if e.get("mark") == "core_ipc_dispatch"]
+    completes = [e for e in scoped if e.get("mark") == "core_ipc_complete"]
+    dispatch_ids = {str(e.get("id")) for e in dispatches if e.get("id")}
+    complete_ids = {str(e.get("id")) for e in completes if e.get("id")}
+    matched_ids = dispatch_ids & complete_ids
+    unfinished = sorted(dispatch_ids - complete_ids)
+    complete_unmatched = sorted(complete_ids - dispatch_ids)
+
     result_class: dict[str, int] = defaultdict(int)
     overlap: dict[str, int] = defaultdict(int)
     method_peak: dict[str, int] = defaultdict(int)
     durations: dict[str, list[int]] = defaultdict(list)
-    peak_inflight = 0
+    callers: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    peak_inflight = inflight_at_start
+    dispatch_by_method: dict[str, int] = defaultdict(int)
+
     for row in dispatches:
         method = str(row.get("method") or "unknown")
+        dispatch_by_method[method] += 1
+        caller = str(row.get("caller") or "unknown")
+        callers[method][caller] += 1
         same = row.get("same_method_inflight")
         inf = row.get("inflight")
         if isinstance(same, int):
@@ -301,51 +350,67 @@ def summarize_ipc_events(events: list[dict], page: str | None = None) -> dict:
                 overlap[method] += 1
         if isinstance(inf, int):
             peak_inflight = max(peak_inflight, inf)
+
     for row in completes:
-        method = str(row.get("method") or "unknown")
         result_class[str(row.get("result_class") or "unknown")] += 1
+        inf = row.get("inflight")
+        if isinstance(inf, int):
+            peak_inflight = max(peak_inflight, inf)
+        if str(row.get("id")) not in matched_ids:
+            continue
+        if row.get("latency_kind") == "preinvoke" or row.get("result_class") == "core_not_ready":
+            continue
+        method = str(row.get("method") or "unknown")
         dur = row.get("duration")
         if isinstance(dur, int):
             durations[method].append(dur)
         elif isinstance(dur, float):
             durations[method].append(int(dur))
-        same = row.get("same_method_inflight")
-        inf = row.get("inflight")
-        if isinstance(same, int):
-            method_peak[method] = max(method_peak[method], same)
-        if isinstance(inf, int):
-            peak_inflight = max(peak_inflight, inf)
 
     methods = {}
-    for method, samples in durations.items():
+    for method, count in dispatch_by_method.items():
+        samples = durations.get(method) or []
         methods[method] = {
-            "count": len(samples),
+            "count": count,
+            "matched_complete": len(samples),
             "overlap_count": overlap.get(method, 0),
             "peak_same_method_inflight": method_peak.get(method, 0),
             "p50_ms": _ipc_percentile(samples, 0.50),
             "p90_ms": _ipc_percentile(samples, 0.90),
             "p99_ms": _ipc_percentile(samples, 0.99),
             "max_ms": max(samples) if samples else None,
+            "callers": dict(callers.get(method) or {}),
         }
     for method, count in overlap.items():
         methods.setdefault(
             method,
             {
                 "count": 0,
+                "matched_complete": 0,
                 "overlap_count": 0,
                 "peak_same_method_inflight": method_peak.get(method, 0),
                 "p50_ms": None,
                 "p90_ms": None,
                 "p99_ms": None,
                 "max_ms": None,
+                "callers": {},
             },
         )
         methods[method]["overlap_count"] = count
         methods[method]["peak_same_method_inflight"] = method_peak.get(method, 0)
 
     return {
-        "page": page,
-        "total": len(completes),
+        "page": page or begin.get("page"),
+        "run_id": run_id or begin.get("run_id"),
+        "window_id": resolved_window,
+        "inflight_at_start": inflight_at_start,
+        "dispatched_in_window": len(dispatches),
+        "completed_in_window": len(completes),
+        "matched_dispatch_complete": len(matched_ids),
+        "unfinished_at_end": len(unfinished),
+        "complete_without_window_dispatch": len(complete_unmatched),
+        "unfinished_ids": unfinished[:20],
+        "total": len(dispatches),
         "dispatch_count": len(dispatches),
         "peak_inflight": peak_inflight,
         "result_class": dict(result_class),

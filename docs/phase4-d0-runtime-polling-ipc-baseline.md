@@ -2,23 +2,36 @@
 
 Measurement only. No poll-interval, timeout, mutex, delay-limiter, VPN, or Mihomo changes. Phase 4C remains CLOSED / frozen.
 
+**4D.0.1 (this document revision):** IPC evidence integrity cleanup only. No product behavior optimization. **STOP. Do not start 4D.1 until human audit.**
+
 ## 1. Provenance
 
 | Field | Value |
 |---|---|
+| 4D.0.1 base | `9673ef7e71d33a52ed1c737e4e149ec7cf1bc38d` |
 | closeout / 4D start base | `afea7b90121a49fd3593f9985b48ed862b09acba` |
-| housekeeping | `da6d43b1` (`docs: fill Phase 4C closeout regression placeholders`) |
-| instrumentation | `047d4a8c34b9973c408e5f2d27e3bb27142077dc` |
+| 4D.0 instrumentation | `047d4a8c34b9973c408e5f2d27e3bb27142077dc` |
 | pinned Mihomo before/after | `ac017cdd246ce8bd547653d927e7bf77d7ee73d5` (unchanged) |
 | local Clash.Meta worktree | leftover dirty files were present and **not** committed |
 | device | `25042PN24C` serial `0604B44041A00540` |
 | package | `com.slclash.app.profile` `9.9.10` profile / `PHASE4_PERF=true` |
+| IDLE run_id | `r1787282281` |
+| RUNNING run_id | `r1787282631` |
+| RUNNING remote / session | pid `16898`, sessionId `1787282592591`, `tun0`, `continuity_ok=true` |
 | captures | `tools/perf/results/phase4d0/{idle,running,lifecycle,delay-interference}/` |
 | raw (gitignored) | `.perf-captures/phase4/d0-idle/`, `d0-running/` |
 
-IDLE: VPN absent. RUNNING: `tun0`, VpnService, remote pid `24601`, sessionId `1787226145295`, `continuity_ok=true` before/after.
-
 Command: `python tools/perf/phase4.py ipc --ipc-session idle|running --build-mode profile`. Never force-stops.
+
+### 4D.0.1 measurement rules
+
+- `beginWindow()` resets only window aggregates (counts, durations, overlap/peak counters). Live `_globalInflight` / `_methodInflight` / in-flight classification stay. `resetForTest()` is the only full live-state clear.
+- Each harness `ipc` run has `run_id`; each window has `window_id`. Marks `ipc_window_begin/end`, `core_ipc_created/dispatch/complete` carry both.
+- Page rates = DISPATCH in that window. Transport latency = same `id` dispatch→complete in the same window. Completes without a window dispatch are `complete_without_window_dispatch`, not a new page request.
+- Delay `started/finished` is scoped to the delay `window_id`/`run_id`, not whole logcat.
+- Background: START → HOME → 10 s auto-end. Resume is a separate window started by `am start` MainActivity. Background does not include the resume edge.
+- `core_not_ready` records `preinvoke_wait_ms` and `latency_kind=preinvoke`. It is not transport latency and is not a dispatch.
+- GitHub has **no status checks** on this repo. Local tests are recorded below. That is **not** “CI PASS”.
 
 ## 2. Runtime Scheduler Inventory
 
@@ -111,99 +124,98 @@ Legitimate Core success **can** equal `''` for mutations. Transport null becomes
 
 ## 7. Request Rate by Page
 
-RUNNING foreground (18/16/12/12 s windows). Per-min from window counts.
+Rates from **DISPATCH in the named window**, not elapsed-ms logcat slices. RUNNING `run_id=r1787282631`.
 
 | Method | Dashboard/min | Proxy/min | Profiles/min | Tools/min | RUNNING required |
 |---|---|---|---|---|---|
-| `getTrafficSnapshot` | **66.7** (20/18s) | 0 | 0 | 0 | yes (timer only if started) |
-| `getConnections` | **20** (6/18s) | 0 | 0 | 0 | Dashboard latency host |
-| `getProxies` | 0 | **3.75** (1/16s) | 0 | 0 | Proxy enter / 30 s |
-| `getIsInit` | 0 | 3.75 | 0 | 0 | Proxy path |
-| `asyncTestDelay` | 360* | 52.5* | 0 | 0 | burst; *see caveats |
+| `getTrafficSnapshot` | **70.0** (21/18s) | 0 | 0 | 0 | yes (timer only if started + Dashboard) |
+| `getConnections` | **86.67** (26/18s) | **30.0** (8/16s) | 0 | 0 | yes; see callers below |
+| `getProxies` | 0 | 0 | 0 | 0 | Proxy enter / 30 s; not hit this window |
+| `asyncTestDelay` | **0** | 0 | 0 | 0 | only the commanded delay window |
 | other Core | 0 | 0 | **0** | **0** | |
 
-IDLE all pages: **0** Core completes (VPN/Core not started). Page gating of traffic poll: **yes** (no snapshot off Dashboard; none when IDLE).
+Dashboard window provenance (`r1787282631-w1`): `inflight_at_start=2`, `dispatched=47`, `completed=49`, `matched=47`, `unfinished_at_end=0`, `complete_without_window_dispatch=2`.
 
-\* Dashboard `asyncTestDelay` 108 completes in the 18 s window is **not** the 1 s traffic poll. Overlap peak 10. Likely in-flight delay/health/start tests sharing process logcat/window. Do not treat 360/min as a Dashboard poller.
+**4D.0 Dashboard 108 `asyncTestDelay`:** after window isolation this **disappeared**. It was **old measurement contamination** (elapsed-ms slicing + shared Flutter process), not a Dashboard poller. Do not treat 360/min as product cadence.
+
+**Who actually calls `getConnections` on Dashboard:** `CoreController.getConnections`. Product callers:
+
+- `network_overview_card.dart` `_pollCoreConnections` — up to **18** Core polls at 160 ms while matching a latency probe
+- `network_overview_card.dart` `_probeSingleTarget` — one snapshot of connection IDs before the probe
+- `connections.dart` 1 s list timer when that view is allowed to refresh
+- `requests.dart` (Requests page; not this Dashboard window)
+
+The 87/min Dashboard rate and `getConnections` overlap 12 / peak_same **3** are this latency-probe burst, not leftover delay tests.
+
+IDLE all pages: **0** Core dispatches (VPN/Core not started). Page gating of traffic poll: **yes**.
 
 ## 8. IDLE vs RUNNING
 
-| | IDLE fg | RUNNING fg |
+| | IDLE fg (`r1787282281`) | RUNNING fg (`r1787282631`) |
 |---|---|---|
-| traffic poll | none | ~1 Hz Dashboard, overlap **0**, p50 **7 ms** |
-| Core mix | delay burst only when commanded | snapshot + connections + proxies + delay |
-| peak inflight | 20 (delay-20) | 22 (delay window) |
+| traffic poll | none | ~1.17 Hz Dashboard, overlap **0**, p50 **12 ms** |
+| Core mix | delay burst only when commanded | snapshot + connections + delay |
+| peak inflight | 20 (delay-20) | 21 (delay window) |
 | null/timeout class | 0 | 0 |
-| VPN | absent | tun0, pid 24601 unchanged |
+| VPN | absent | tun0, pid 16898 unchanged |
 
 PAUSED (SMART_STOP) not entered naturally; not faked.
 
 ## 9. Foreground / Background
 
-IDLE background window: **`forceGc` ×1** (pause path). No traffic poll.
+IDLE background (`r1787282281-w6`, HOME then 10 s, **no** `am start` in this window): **`forceGc` ×1**. No traffic poll.
 
-RUNNING `background` window (includes HOME + resume `am start` edge, **not** a pure screen-off sample):
+RUNNING background (`r1787282631-w6`): `inflight_at_start=1`, **`getConnections` ×13**, **`forceGc` ×1**. No `getTrafficSnapshot` dispatch. Traffic timer cancel is visible. Connections/latency Core calls **continued** after HOME in this 10 s sample (peak_same 1, no overlap). This is observation only; **4D.0.1 did not add a background power policy.**
 
-- `getTrafficSnapshot` ×4, `getConnections` ×22, `forceGc` ×1
-- Cannot claim “poll fully stops” from this window; 4F must measure after timer cancel with a dump that does not use `am start`.
-
-**IPC-CORRECTNESS:** traffic timer is *intended* cancelled on background (`cancelUiStatsTimer`).  
-**POWER-CANDIDATE (4F):** `forceGc` on pause; any residual snapshot/connections if they continue after true pause.
+RUNNING resume (`r1787282631-w7`, separate window, `am start` then 8 s): `getTrafficSnapshot` ×13 (overlap 0), `getConnections` ×36 (overlap 13, peak 3). Resume edge is **not** inside the background window.
 
 ## 10. Overlap / Duplicate Requests
 
-| Method | Context | overlap_count | peak_same |
-|---|---|---|---|
-| `getTrafficSnapshot` | Dashboard RUNNING | **0** | 1 |
-| `getConnections` | Dashboard / delay / resume | 5–7 | 3 |
-| `asyncTestDelay` | delay-20 | 19 | **20** |
-| `getProxies` | Proxy | 0 | 1 |
+| Method | Context | overlap_count | peak_same | inflight_at_start |
+|---|---|---|---|---|
+| `getTrafficSnapshot` | Dashboard RUNNING | **0** | 1 | 2 (window) |
+| `getConnections` | Dashboard RUNNING | 12 | **3** | same window |
+| `asyncTestDelay` | delay-20 same window | 19 | **20** | 4 (delay window) |
+| `getProxies` | Proxy this capture | — | — | 0 |
 
 `_isUpdatingUiStats` prevents overlapping traffic ticks. Connections/latency can overlap (`peak` 3). Delay `map(async)` overlap is **by design** (4C).
 
-Old result overwriting newer traffic state: not evidenced (single in-flight snapshot). Groups owner guard still applies (4C freeze).
-
 ## 11. IPC Latency
+
+Matched dispatch→complete only. `core_not_ready` / preinvoke wait **not** in these tables (0 observed).
 
 | Method | Context | n | p50 | p90 | p99 | max | Class |
 |---|---|---|---|---|---|---|---|
-| `getTrafficSnapshot` | RUNNING Dashboard | 20 | 7 | 12.2 | 15.6 | 16 | fast read |
-| `getTrafficSnapshot` | during delay-20 | 5 | 7 | 9 | 9 | 9 | fast read |
-| `getConnections` | Dashboard | 6 | 18.5 | 25.5 | 26.9 | 27 | fast read |
-| `getConnections` | during delay-20 | 20 | 6 | 12.2 | 14.8 | 15 | fast read |
-| `getProxies` | Proxy | 1 | 57 | 57 | 57 | 57 | state read |
-| `asyncTestDelay` | IDLE delay-20 | 20 | 182 | 309 | 627 | 693 | delay test |
-| `asyncTestDelay` | RUNNING delay window | 20 | 271 | 330 | 606 | 663 | delay test |
-| `forceGc` | pause | 1 | 27–41 | — | — | 41 | mutation |
+| `getTrafficSnapshot` | RUNNING Dashboard | 21 | 12 | 15 | 16 | 16 | fast read |
+| `getTrafficSnapshot` | during delay-20 | 9 | 13 | 17.6 | 19.8 | 20 | fast read |
+| `getConnections` | Dashboard | 26 | 17 | 24 | 27 | 27 | fast read |
+| `getConnections` | during delay-20 | 32 | 13 | 24.9 | 27.4 | 28 | fast read |
+| `asyncTestDelay` | IDLE delay-20 | 20 | 199 | 321 | 677 | 754 | delay test |
+| `asyncTestDelay` | RUNNING delay window | 20 | 275 | 367 | 1478 | 1718 | delay test |
+| `forceGc` | IDLE / RUNNING pause | 1 | 32 / 27 | — | — | 32 | mutation |
 
-Do not compare 500 ms provider vs 7 ms snapshot.
+Do not compare 500 ms provider vs 12 ms snapshot. Do not report preinvoke 10 s waits as 0 ms Core transport latency.
 
 ## 12. Resume / Reattach
 
-RUNNING resume 8 s window: `getTrafficSnapshot` ×10 (overlap 0), `getConnections` ×19 (overlap 5, peak 3). No second traffic timer proven (`peak_same` 1). Groups burst not seen in this 8 s (groups already owned). `tryStartCore` / `ensureCurrentProfileReady` not visible as extra `getProxies` here.
-
-No VPN pid/session change. VPN lifecycle still 4E.
+RUNNING resume 8 s: traffic overlap 0, `peak_same` 1. No second traffic timer proven. Groups burst not seen (`getProxies` 0). No VPN pid/session change. VPN lifecycle still 4E.
 
 ## 13. Delay-Test Interference
 
-Question: does delay fan-out starve unrelated Core IPC?
-
-RUNNING delay-20 vs Dashboard traffic baseline:
+Delay events scoped to `window_id` `…-w5`. RUNNING: `delay.started=20`, `finished=20`, `failed=0`, `after_map_started=20`. IPC: `asyncTestDelay` dispatched 20, matched 20. Caller: `CoreController.getDelay`. Workload is the Phase4 `delay_test` command → `delayTest` → `getDelay`, not Dashboard.
 
 | | Dashboard baseline | During delay-20 |
 |---|---|---|
-| `getTrafficSnapshot` p50 | 7 ms | **7 ms** |
+| `getTrafficSnapshot` p50 | 12 ms | **13 ms** |
 | `getTrafficSnapshot` overlap | 0 | 0 |
-| `getConnections` p50 | 18.5 ms | **6 ms** |
+| `getConnections` p50 | 17 ms | **13 ms** |
 | timeouts/nulls | 0 | 0 |
 | delay peak_inflight | — | 20 |
-| global peak | 14 (dashboard window) | **22** |
+| global peak | 4 (dashboard window) | **21** |
 
-**DELAY FAN-OUT ACCEPTED** for n=20 vs traffic/connections latency. No limiter. Re-check only if 4D.1 sees queue saturation at larger n or vs `setupConfig`/`changeProxy`.
+**ACCEPTED FOR NORMAL n=20 OBSERVATION.** n=20 RUNNING workload did not starve traffic/connections. This is **not** “all large fan-out permanently accepted.” n=100 start fan-out evidence remains **4C.1B**. No RUNNING n=100 stress in D0.1.
 
-IDLE delay-20: 20 success, peak 20, p50 182 ms. `delay.finished` 19 vs 20 started = logcat/end-race, not 0-fail product (`failed=0`).
-
-n=100 not repeated this round (RUNNING stay 20; IDLE used 20). 4C.1B still owns n=100 start-fan-out evidence.
+IDLE delay-20: 20 started / 20 finished in the same window (the old 19/20 logcat-wide count was contamination).
 
 ## 14. Correctness Findings
 
@@ -213,17 +225,18 @@ n=100 not repeated this round (RUNNING stay 20; IDLE used 20). 4C.1B still owns 
 | B stale overwrite | Not seen for traffic | single in-flight snapshot |
 | C overlapping polls | Traffic no; `getConnections` yes (peak 3); delay yes (design) | §10 |
 | D poller after page gone | Traffic **stops** on Proxy/Profiles/Tools (0 snapshot) | §7 |
-| E background vs documented gate | Intended cancel; RUNNING HOME window **contaminated** by resume start | §9 |
+| E background vs documented gate | Traffic stops after HOME; `getConnections` still dispatched in RUNNING background 10 s | §9 |
 | F resume duplicate pollers | Traffic peak_same=1 | §12 |
 | G delay starves IPC | **No** for n=20 traffic/connections | §13 |
+| H Dashboard 108 delay | **Contamination**; gone after `window_id` pairing | §7 |
 
 No auto-fix. No 4C reopen.
 
 ## 15. Performance Findings
 
-- Traffic IPC is cheap (~7 ms) and non-overlapping at 1 Hz while Dashboard+RUNNING+fg.
-- `getConnections` overlap is the main Dashboard IPC-efficiency issue (latency host), not traffic.
-- Global peak 22 dominated by delay starts, not traffic.
+- Traffic IPC is cheap (~12 ms) and non-overlapping at ~1 Hz while Dashboard+RUNNING+fg.
+- `getConnections` overlap is the main Dashboard IPC-efficiency issue (latency probe burst in `network_overview_card.dart`), not traffic.
+- Global peak 21 dominated by delay starts, not traffic.
 - Profiles/Tools: no hidden Core poll in these windows.
 
 ## 16. Phase Ownership
@@ -232,21 +245,21 @@ No auto-fix. No 4C reopen.
 
 **4E:** VPN start/stop/TUN/session machine (not changed). Continuity held this session.
 
-**4F:** background power, screen-off, `forceGc` policy, residual polls after pause.
+**4F:** background power, screen-off, `forceGc` policy, residual `getConnections` after HOME.
 
 ## 17. Candidate 4D Fixes
 
-Do **not** implement in D0.
+Do **not** implement in D0 / D0.1.
 
 1. **P0 contract (design):** distinguish transport null vs Core `''` for `changeProxy` / `unfixProxy` / `setupConfig` without breaking 4C empty-success. Evidence: source matrix; 0 live timeouts this capture.
-2. **P1:** `getConnections` same-method peak 3 on Dashboard (latency matching). Measure whether coalescing one fetch per tick is enough.
+2. **P1:** `getConnections` same-method peak 3 on Dashboard (overview latency matching). Measure whether coalescing one fetch per tick is enough.
 3. **P1 hygiene:** `CoreLib.invoke` ignores `Duration? timeout` (delay’s 6 s is not the Dart `withTimeout`; default 3 min). Document vs wire.
-4. **ACCEPTED:** 1 Hz `getTrafficSnapshot`; delay n=20 fan-out vs other IPC; Logs/Requests 300 ms UI batch; Proxy 30 s groups gate.
+4. **ACCEPTED FOR NORMAL n=20 OBSERVATION:** 1 Hz `getTrafficSnapshot`; delay n=20 vs other IPC; Logs/Requests 300 ms UI batch; Proxy 30 s groups gate.
 
 ## 18. Deferred to 4E / 4F
 
 - 4E: VPN session/TUN ownership; SMART_STOP state machine.
-- 4F: HOME/background request policy; pause `forceGc`; screen-off.
+- 4F: HOME/background request policy; pause `forceGc`; screen-off; residual connections polls.
 
 ## 19. Acceptance
 
@@ -257,14 +270,27 @@ Do **not** implement in D0.
 | IPC call-chain map | PASS |
 | Return/default matrix | PASS |
 | Mutating timeout-risk | PASS (source); live nulls 0 |
-| Dashboard / Proxy / Profiles / Tools rates | PASS |
+| Dashboard / Proxy / Profiles / Tools rates | PASS (dispatch-scoped) |
 | IDLE + real RUNNING | PASS |
-| fg/bg | PASS with HOME-window caveat |
-| overlap + peak inflight | PASS (peak 22) |
-| p50/p90/p99 | PASS for sampled methods |
-| resume | PASS (no VPN break) |
-| delay interference | PASS → **DELAY FAN-OUT ACCEPTED** (n=20) |
+| fg/bg | PASS (split windows) |
+| overlap + peak inflight | PASS (peak 21) |
+| p50/p90/p99 | PASS for matched pairs |
+| resume | PASS (no VPN break; separate window) |
+| delay interference | **ACCEPTED FOR NORMAL n=20 OBSERVATION** |
 | 4C frozen / Mihomo pin | PASS |
 | no cadence / protocol change | PASS |
+| GitHub CI | **not claimed** (no status checks) |
 
-4D.0 complete. Wait for human audit before 4D.1.
+## 20. Local regression (4D.0.1)
+
+| Check | Result |
+|---|---|
+| `flutter test test/common/core_ipc_trace_test.dart` | PASS (6 tests) |
+| `python -m unittest tools.perf.tests.test_harness` | PASS (55 tests) |
+| `proxy_group_selection_test` / `fixed_test` / `compute_test` | PASS |
+| `provider_readiness_service_test` | PASS |
+| `smart_auto_stop_test` | PASS |
+| `flutter analyze` | 69 **info** findings (existing deprecations / style). No new error/warning from this change set. |
+| GitHub Actions status checks | **none configured** — do not write CI PASS |
+
+4D.0.1 complete. **STOP.** Human audit before 4D.1.

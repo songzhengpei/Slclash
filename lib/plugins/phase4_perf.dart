@@ -82,8 +82,14 @@ class Phase4PerfCommands {
         return _refreshGroups();
       case 'sort_bump':
         return _sortBump();
+      case 'ipc_run':
+        return _ipcRun(args['run_id'] ?? args['value']);
       case 'ipc_window':
-        return _ipcWindow(args['value'] ?? args['state'], args['page']);
+        return _ipcWindow(
+          args['value'] ?? args['state'],
+          args['page'],
+          args['auto_end_ms'],
+        );
       case 'ipc_dump':
         return _ipcDump(args['reason'] ?? args['event']);
       default:
@@ -364,11 +370,20 @@ class Phase4PerfCommands {
     return 'ok';
   }
 
-  static String _ipcWindow(String? raw, String? page) {
+  static String _ipcRun(String? id) {
+    final runId = (id == null || id.isEmpty) ? 'ipc' : id;
+    CoreIpcTrace.beginRun(id: runId);
+    return runId;
+  }
+
+  static String _ipcWindow(String? raw, String? page, String? autoEndRaw) {
     final on = raw == 'start' || raw == 'on' || raw == '1' || raw == 'true';
     if (on) {
-      CoreIpcTrace.beginWindow(page: page ?? '');
-      return 'start';
+      CoreIpcTrace.beginWindow(
+        page: page ?? '',
+        autoEndMs: int.tryParse(autoEndRaw ?? ''),
+      );
+      return CoreIpcTrace.windowId;
     }
     CoreIpcTrace.endWindow();
     return 'end';

@@ -8,7 +8,29 @@ void main() {
     expect(CoreIpcTrace.enabled, isTrue);
   });
 
+  test('beginWindow does not clear live inflight or classification', () async {
+    CoreIpcTrace.beginRun(id: 'r1');
+    final hanging = CoreIpcTrace.run<String>(
+      id: 'getTrafficSnapshot#live',
+      method: 'getTrafficSnapshot',
+      body: () async {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        CoreIpcTrace.classify('getTrafficSnapshot#live', 'success');
+        return '{}';
+      },
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    expect(CoreIpcTrace.globalInflight, 1);
+    CoreIpcTrace.beginWindow(page: 'dashboard');
+    expect(CoreIpcTrace.globalInflight, 1);
+    expect(CoreIpcTrace.inflightAtWindowStart, 1);
+    expect(CoreIpcTrace.requestCounts['getTrafficSnapshot'], isNull);
+    await hanging;
+    expect(CoreIpcTrace.globalInflight, 0);
+  });
+
   test('same-method overlap increments when a second invoke starts', () async {
+    CoreIpcTrace.beginRun(id: 'r1');
     CoreIpcTrace.beginWindow(page: 'dashboard');
     late Future<String?> second;
     final first = CoreIpcTrace.run<String>(
@@ -35,9 +57,11 @@ void main() {
     expect(CoreIpcTrace.overlapCounts['getTrafficSnapshot'], 1);
     expect(CoreIpcTrace.methodPeak['getTrafficSnapshot'], 2);
     expect(CoreIpcTrace.requestCounts['getTrafficSnapshot'], 2);
+    expect(CoreIpcTrace.windowId, 'r1-w1');
   });
 
   test('transport null classification is explicit', () async {
+    CoreIpcTrace.beginWindow(page: 't');
     final out = await CoreIpcTrace.run<String>(
       id: 'changeProxy#1',
       method: 'changeProxy',
@@ -51,6 +75,7 @@ void main() {
   });
 
   test('ring buffer stays bounded', () async {
+    CoreIpcTrace.beginWindow(page: 't');
     for (var i = 0; i < 80; i++) {
       await CoreIpcTrace.run<String>(
         id: 'getMemory#$i',
@@ -66,9 +91,11 @@ void main() {
     expect((snap['durations'] as Map)['getMemory'], hasLength(80));
   });
 
-  test('noteNotReady does not bump inflight', () {
-    CoreIpcTrace.noteNotReady('getProxies');
+  test('noteNotReady records preinvoke wait and does not bump inflight', () {
+    CoreIpcTrace.beginWindow(page: 't');
+    CoreIpcTrace.noteNotReady('getProxies', preinvokeWaitMs: 10000);
     expect(CoreIpcTrace.globalInflight, 0);
     expect(CoreIpcTrace.resultCounts['core_not_ready'], 1);
+    expect(CoreIpcTrace.requestCounts['getProxies'], isNull);
   });
 }

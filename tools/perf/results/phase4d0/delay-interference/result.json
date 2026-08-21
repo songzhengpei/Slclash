@@ -1,6 +1,17 @@
 {
+  "idle_run_id": "r1787282281",
+  "running_run_id": "r1787282631",
   "idle": {
     "page": "delay",
+    "run_id": "r1787282281",
+    "window_id": "r1787282281-w5",
+    "inflight_at_start": 0,
+    "dispatched_in_window": 20,
+    "completed_in_window": 20,
+    "matched_dispatch_complete": 20,
+    "unfinished_at_end": 0,
+    "complete_without_window_dispatch": 0,
+    "unfinished_ids": [],
     "total": 20,
     "dispatch_count": 20,
     "peak_inflight": 20,
@@ -13,12 +24,16 @@
     "methods": {
       "asyncTestDelay": {
         "count": 20,
+        "matched_complete": 20,
         "overlap_count": 19,
         "peak_same_method_inflight": 20,
-        "p50_ms": 182.0,
-        "p90_ms": 308.90000000000003,
-        "p99_ms": 626.6899999999996,
-        "max_ms": 693
+        "p50_ms": 199.0,
+        "p90_ms": 321.00000000000006,
+        "p99_ms": 676.8599999999994,
+        "max_ms": 754,
+        "callers": {
+          "<asynchronous_suspension>": 20
+        }
       }
     },
     "transport_null_or_timeout": 0,
@@ -28,75 +43,91 @@
     "delay_size": 20,
     "delay": {
       "started": 20,
-      "finished": 19,
+      "finished": 20,
       "failed": 0,
       "peak_inflight": 20,
       "after_map_started": 20,
-      "batch_limits_start": false
+      "batch_limits_start": false,
+      "run_id": "r1787282281",
+      "window_id": "r1787282281-w5"
     }
   },
   "running": {
     "page": "delay",
-    "total": 45,
-    "dispatch_count": 45,
-    "peak_inflight": 22,
+    "run_id": "r1787282631",
+    "window_id": "r1787282631-w5",
+    "inflight_at_start": 4,
+    "dispatched_in_window": 61,
+    "completed_in_window": 65,
+    "matched_dispatch_complete": 61,
+    "unfinished_at_end": 0,
+    "complete_without_window_dispatch": 4,
+    "unfinished_ids": [],
+    "total": 61,
+    "dispatch_count": 61,
+    "peak_inflight": 21,
     "result_class": {
-      "success": 45
+      "success": 65
     },
     "overlap": {
-      "asyncTestDelay": 19,
-      "getConnections": 5
+      "getConnections": 11,
+      "asyncTestDelay": 19
     },
     "methods": {
+      "getConnections": {
+        "count": 32,
+        "matched_complete": 32,
+        "overlap_count": 11,
+        "peak_same_method_inflight": 3,
+        "p50_ms": 13.0,
+        "p90_ms": 24.900000000000002,
+        "p99_ms": 27.380000000000003,
+        "max_ms": 28,
+        "callers": {
+          "#7_CoreController.getConnections_(core/controller.dart:200)": 32
+        }
+      },
       "getTrafficSnapshot": {
-        "count": 5,
+        "count": 9,
+        "matched_complete": 9,
         "overlap_count": 0,
         "peak_same_method_inflight": 1,
-        "p50_ms": 7.0,
-        "p90_ms": 9.0,
-        "p99_ms": 9.0,
-        "max_ms": 9
-      },
-      "getConnections": {
-        "count": 20,
-        "overlap_count": 5,
-        "peak_same_method_inflight": 3,
-        "p50_ms": 6.0,
-        "p90_ms": 12.200000000000003,
-        "p99_ms": 14.809999999999999,
-        "max_ms": 15
+        "p50_ms": 13.0,
+        "p90_ms": 17.6,
+        "p99_ms": 19.759999999999998,
+        "max_ms": 20,
+        "callers": {
+          "#7_CoreController.getTrafficSnapshot_(core/controller.dart:349)": 9
+        }
       },
       "asyncTestDelay": {
         "count": 20,
+        "matched_complete": 20,
         "overlap_count": 19,
         "peak_same_method_inflight": 20,
-        "p50_ms": 270.5,
-        "p90_ms": 329.50000000000006,
-        "p99_ms": 605.6199999999997,
-        "max_ms": 663
+        "p50_ms": 275.0,
+        "p90_ms": 366.90000000000015,
+        "p99_ms": 1478.2199999999984,
+        "max_ms": 1718,
+        "callers": {
+          "#7_CoreController.getDelay_(core/controller.dart:269)": 20
+        }
       }
     },
     "transport_null_or_timeout": 0,
     "core_not_ready": 0,
     "core_error": 0,
-    "success": 45,
+    "success": 65,
     "delay_size": 20,
     "delay": {
-      "started": 40,
-      "finished": 39,
+      "started": 20,
+      "finished": 20,
       "failed": 0,
       "peak_inflight": 20,
       "after_map_started": 20,
-      "batch_limits_start": false
+      "batch_limits_start": false,
+      "run_id": "r1787282631",
+      "window_id": "r1787282631-w5"
     }
-  },
-  "dashboard_traffic_baseline": {
-    "count": 20,
-    "overlap_count": 0,
-    "peak_same_method_inflight": 1,
-    "p50_ms": 7.0,
-    "p90_ms": 12.200000000000003,
-    "p99_ms": 15.619999999999997,
-    "max_ms": 16
   }
 }

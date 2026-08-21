@@ -59,6 +59,7 @@ from parsers import (  # noqa: E402
     summarize_delay_events,
     summarize_select_events,
     summarize_ipc_events,
+    latest_ipc_window_id,
 )
 from provenance import collect_git_provenance  # noqa: E402
 from report import (  # noqa: E402
@@ -1446,7 +1447,7 @@ class Runner:
             rates[method] = round((info.get("count") or 0) * 60.0 / window_s, 2)
         return rates
 
-    def _ipc_page_window(self, page: str, seconds: float) -> dict:
+    def _ipc_page_window(self, page: str, seconds: float, run_id: str) -> dict:
         self.nav_broadcast("navigate", {"page": page})
         time.sleep(0.8)
         self.nav_broadcast("ipc_window", {"value": "start", "page": page})
@@ -1454,7 +1455,11 @@ class Runner:
         self.nav_broadcast("ipc_dump", {"reason": page})
         self.nav_broadcast("ipc_window", {"value": "end", "page": page})
         time.sleep(0.3)
-        summary = summarize_ipc_events(self.logcat_events(), page=page)
+        events = self.logcat_events()
+        window_id = latest_ipc_window_id(events, run_id=run_id, page=page)
+        summary = summarize_ipc_events(
+            events, page=page, run_id=run_id, window_id=window_id
+        )
         summary["window_s"] = seconds
         summary["per_min"] = self._ipc_rate(summary, seconds)
         return summary
@@ -1492,47 +1497,70 @@ class Runner:
                 }
         self.nav_broadcast("ping")
         self.wait_nav_ready(timeout=25.0)
+        run_id = f"r{int(time.time())}"
+        self.nav_broadcast("ipc_run", {"run_id": run_id})
+        time.sleep(0.3)
         pages = {
-            "dashboard": self._ipc_page_window("dashboard", 18.0),
-            "proxies": self._ipc_page_window("proxies", 16.0),
-            "profiles": self._ipc_page_window("profiles", 12.0),
-            "tools": self._ipc_page_window("tools", 12.0),
+            "dashboard": self._ipc_page_window("dashboard", 18.0, run_id),
+            "proxies": self._ipc_page_window("proxies", 16.0, run_id),
+            "profiles": self._ipc_page_window("profiles", 12.0, run_id),
+            "tools": self._ipc_page_window("tools", 12.0, run_id),
         }
         self.nav_broadcast("navigate", {"page": "dashboard"})
         time.sleep(0.6)
         delay_size = 20 if session == "running" else max(delay_max, 20)
         self.nav_broadcast("ipc_window", {"value": "start", "page": "delay"})
+        time.sleep(0.4)
+        delay_window_id = latest_ipc_window_id(
+            self.logcat_events(), run_id=run_id, page="delay"
+        )
         self.nav_broadcast("delay_test", {"max": str(delay_size)})
         deadline = time.monotonic() + 90.0
         while time.monotonic() < deadline:
             events = self.logcat_events()
-            if any(e.get("mark") == "delay_test_end" for e in events):
+            if any(
+                e.get("mark") == "delay_test_end"
+                and str(e.get("window_id") or "") == str(delay_window_id or "")
+                for e in events
+            ):
                 break
             time.sleep(0.4)
         time.sleep(2.0)
         self.nav_broadcast("ipc_dump", {"reason": "delay"})
         self.nav_broadcast("ipc_window", {"value": "end", "page": "delay"})
-        delay_summary = summarize_ipc_events(self.logcat_events(), page="delay")
-        delay_summary["delay_size"] = delay_size
-        delay_summary["delay"] = summarize_delay_events(self.logcat_events())
-
-        self.nav_broadcast("ipc_window", {"value": "start", "page": "background"})
-        self.adb.shell("input keyevent KEYCODE_HOME", timeout=10)
-        time.sleep(10.0)
-        self.adb.shell(
-            f"am start -n {self.package}/{MAIN_ACTIVITY}",
-            timeout=20,
+        time.sleep(0.3)
+        events = self.logcat_events()
+        delay_window_id = latest_ipc_window_id(events, run_id=run_id, page="delay")
+        delay_summary = summarize_ipc_events(
+            events, page="delay", run_id=run_id, window_id=delay_window_id
         )
-        time.sleep(1.0)
-        self.nav_broadcast("ipc_window", {"value": "end", "page": "background"})
-        time.sleep(0.4)
-        background = summarize_ipc_events(self.logcat_events(), page="background")
+        delay_summary["delay_size"] = delay_size
+        delay_summary["delay"] = summarize_delay_events(
+            events, run_id=run_id, window_id=delay_window_id
+        )
+
+        self.nav_broadcast(
+            "ipc_window",
+            {"value": "start", "page": "background", "auto_end_ms": "10000"},
+        )
+        self.adb.shell("input keyevent KEYCODE_HOME", timeout=10)
+        time.sleep(11.0)
+        events = self.logcat_events()
+        bg_window_id = latest_ipc_window_id(events, run_id=run_id, page="background")
+        background = summarize_ipc_events(
+            events, page="background", run_id=run_id, window_id=bg_window_id
+        )
+
         self.nav_broadcast("ipc_window", {"value": "start", "page": "resume"})
         time.sleep(8.0)
         self.nav_broadcast("ipc_dump", {"reason": "resume"})
         self.nav_broadcast("ipc_window", {"value": "end", "page": "resume"})
         time.sleep(0.3)
-        resume = summarize_ipc_events(self.logcat_events(), page="resume")
+        events = self.logcat_events()
+        resume_window_id = latest_ipc_window_id(events, run_id=run_id, page="resume")
+        resume = summarize_ipc_events(
+            events, page="resume", run_id=run_id, window_id=resume_window_id
+        )
 
         vpn_after = self._vpn_status()
         session_after = self.read_session_presence()
@@ -1559,6 +1587,7 @@ class Runner:
         return {
             "ok": True if session != "running" else bool(cont_ok),
             "session": session,
+            "run_id": run_id,
             "pages": pages,
             "delay_interference": delay_summary,
             "background": background,

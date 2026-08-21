@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/core_ipc_trace.dart';
 import 'package:fl_clash/common/perf_trace.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter/foundation.dart';
@@ -322,6 +323,7 @@ class ProxyTrace {
         'name': name,
         'inflight': _inflight,
         'peak_inflight': peakInflight,
+        ...CoreIpcTrace.identityExtras(),
       },
     );
   }
@@ -344,6 +346,7 @@ class ProxyTrace {
         'name': name,
         'inflight': _inflight,
         'peak_inflight': peakInflight,
+        ...CoreIpcTrace.identityExtras(),
       },
     );
   }

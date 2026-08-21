@@ -41,6 +41,7 @@ from parsers import (  # noqa: E402
     summarize_delay_events,
     summarize_select_events,
     summarize_ipc_events,
+    latest_ipc_window_id,
     ui_process_kill_commands,
     vpn_stop_cleared,
 )
@@ -917,72 +918,193 @@ class NavigationReportTests(unittest.TestCase):
 
 
 class IpcTraceTests(unittest.TestCase):
-    def test_summarize_ipc_overlap_and_null_class(self):
+    def test_summarize_ipc_pairs_by_window_id_not_elapsed(self):
         events = [
-            {"mark": "ipc_window_begin", "elapsed_ms": 10, "page": "dashboard"},
+            {
+                "mark": "ipc_window_begin",
+                "elapsed_ms": 10,
+                "page": "dashboard",
+                "run_id": "r1",
+                "window_id": "r1-w1",
+                "inflight_at_window_start": 0,
+            },
             {
                 "mark": "core_ipc_dispatch",
                 "elapsed_ms": 11,
+                "id": "getTrafficSnapshot#a",
                 "method": "getTrafficSnapshot",
                 "inflight": 1,
                 "same_method_inflight": 1,
+                "run_id": "r1",
+                "window_id": "r1-w1",
             },
             {
                 "mark": "core_ipc_dispatch",
                 "elapsed_ms": 12,
+                "id": "getTrafficSnapshot#b",
                 "method": "getTrafficSnapshot",
                 "inflight": 2,
                 "same_method_inflight": 2,
+                "run_id": "r1",
+                "window_id": "r1-w1",
             },
             {
                 "mark": "core_ipc_complete",
                 "elapsed_ms": 20,
+                "id": "getTrafficSnapshot#a",
                 "method": "getTrafficSnapshot",
                 "duration": 8,
                 "inflight": 1,
                 "same_method_inflight": 2,
                 "result_class": "success",
+                "run_id": "r1",
+                "window_id": "r1-w1",
             },
             {
                 "mark": "core_ipc_complete",
                 "elapsed_ms": 21,
+                "id": "changeProxy#z",
                 "method": "changeProxy",
                 "duration": 12,
                 "inflight": 0,
                 "same_method_inflight": 1,
                 "result_class": "transport_null_or_timeout",
+                "run_id": "r1",
+                "window_id": "r1-w1",
             },
-            {"mark": "ipc_window_end", "elapsed_ms": 30, "page": "dashboard"},
+            {
+                "mark": "ipc_window_end",
+                "elapsed_ms": 30,
+                "page": "dashboard",
+                "run_id": "r1",
+                "window_id": "r1-w1",
+            },
             {
                 "mark": "core_ipc_complete",
                 "elapsed_ms": 40,
+                "id": "getMemory#old",
                 "method": "getMemory",
                 "duration": 99,
                 "result_class": "success",
+                "run_id": "r0",
+                "window_id": "r0-w1",
             },
         ]
-        summary = summarize_ipc_events(events, page="dashboard")
-        self.assertEqual(summary["total"], 2)
+        summary = summarize_ipc_events(events, page="dashboard", run_id="r1")
+        self.assertEqual(summary["window_id"], "r1-w1")
+        self.assertEqual(summary["dispatched_in_window"], 2)
+        self.assertEqual(summary["completed_in_window"], 2)
+        self.assertEqual(summary["matched_dispatch_complete"], 1)
+        self.assertEqual(summary["unfinished_at_end"], 1)
+        self.assertEqual(summary["complete_without_window_dispatch"], 1)
         self.assertEqual(summary["peak_inflight"], 2)
         self.assertEqual(summary["overlap"]["getTrafficSnapshot"], 1)
         self.assertEqual(summary["transport_null_or_timeout"], 1)
-        self.assertEqual(summary["success"], 1)
         self.assertNotIn("getMemory", summary["methods"])
         self.assertEqual(summary["methods"]["getTrafficSnapshot"]["p50_ms"], 8)
+        self.assertEqual(summary["methods"]["getTrafficSnapshot"]["count"], 2)
+
+    def test_complete_from_prior_dispatch_is_not_a_new_page_request(self):
+        events = [
+            {
+                "mark": "ipc_window_begin",
+                "page": "dashboard",
+                "run_id": "r1",
+                "window_id": "r1-w2",
+                "inflight_at_window_start": 1,
+            },
+            {
+                "mark": "core_ipc_complete",
+                "id": "asyncTestDelay#old",
+                "method": "asyncTestDelay",
+                "duration": 500,
+                "result_class": "success",
+                "run_id": "r1",
+                "window_id": "r1-w2",
+            },
+            {
+                "mark": "core_ipc_dispatch",
+                "id": "getTrafficSnapshot#n",
+                "method": "getTrafficSnapshot",
+                "inflight": 1,
+                "same_method_inflight": 1,
+                "run_id": "r1",
+                "window_id": "r1-w2",
+            },
+            {
+                "mark": "core_ipc_complete",
+                "id": "getTrafficSnapshot#n",
+                "method": "getTrafficSnapshot",
+                "duration": 7,
+                "result_class": "success",
+                "latency_kind": "transport",
+                "run_id": "r1",
+                "window_id": "r1-w2",
+            },
+        ]
+        summary = summarize_ipc_events(events, run_id="r1", window_id="r1-w2")
+        self.assertEqual(summary["inflight_at_start"], 1)
+        self.assertEqual(summary["dispatched_in_window"], 1)
+        self.assertEqual(summary["complete_without_window_dispatch"], 1)
+        self.assertNotIn("asyncTestDelay", summary["methods"])
+        self.assertEqual(summary["methods"]["getTrafficSnapshot"]["count"], 1)
+        self.assertEqual(summary["methods"]["getTrafficSnapshot"]["p50_ms"], 7)
+
+    def test_delay_events_are_window_scoped(self):
+        events = [
+            {"mark": "delay_request_started", "window_id": "r1-w1", "peak_inflight": 20},
+            {"mark": "delay_request_finished", "window_id": "r1-w1"},
+            {"mark": "delay_request_started", "window_id": "r1-w9", "peak_inflight": 100},
+            {"mark": "delay_request_finished", "window_id": "r1-w9"},
+        ]
+        summary = summarize_delay_events(events, window_id="r1-w1")
+        self.assertEqual(summary["started"], 1)
+        self.assertEqual(summary["finished"], 1)
+        self.assertEqual(summary["peak_inflight"], 20)
 
     def test_timeout_is_not_invented_from_null_class_name(self):
         events = [
             {
                 "mark": "core_ipc_complete",
                 "elapsed_ms": 1,
+                "id": "changeProxy#1",
                 "method": "changeProxy",
                 "duration": 5,
                 "result_class": "transport_null_or_timeout",
-            }
+                "window_id": "w1",
+            },
+            {
+                "mark": "core_ipc_dispatch",
+                "id": "changeProxy#1",
+                "method": "changeProxy",
+                "window_id": "w1",
+                "same_method_inflight": 1,
+                "inflight": 1,
+            },
         ]
-        summary = summarize_ipc_events(events)
+        summary = summarize_ipc_events(events, window_id="w1")
         self.assertEqual(summary["transport_null_or_timeout"], 1)
         self.assertNotIn("timeout", summary["result_class"])
+        self.assertEqual(latest_ipc_window_id(events, page=None), None)
+
+    def test_preinvoke_wait_is_not_transport_latency(self):
+        events = [
+            {
+                "mark": "core_ipc_complete",
+                "id": "getProxies#notready",
+                "method": "getProxies",
+                "duration": 0,
+                "preinvoke_wait_ms": 10000,
+                "result_class": "core_not_ready",
+                "latency_kind": "preinvoke",
+                "window_id": "w1",
+            }
+        ]
+        summary = summarize_ipc_events(events, window_id="w1")
+        self.assertEqual(summary["core_not_ready"], 1)
+        self.assertEqual(summary["dispatched_in_window"], 0)
+        self.assertNotIn("getProxies", summary["methods"])
+
 
 
 if __name__ == "__main__":
