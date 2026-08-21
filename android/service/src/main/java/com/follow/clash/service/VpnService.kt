@@ -16,6 +16,8 @@ import com.follow.clash.common.Phase4Mark
 import com.follow.clash.core.Core
 import com.follow.clash.service.models.ServiceErrorCode
 import com.follow.clash.service.models.ServiceOperationResult
+import com.follow.clash.service.models.SessionSnapshot
+import com.follow.clash.service.models.SessionState
 import com.follow.clash.service.models.VpnOptions
 import com.follow.clash.service.models.getIpv4RouteAddress
 import com.follow.clash.service.models.getIpv6RouteAddress
@@ -40,12 +42,22 @@ import java.util.LinkedHashMap
 import java.net.InetSocketAddress
 import android.net.VpnService as SystemVpnService
 
+internal fun shouldStopRevokedSession(
+    revokedSessionId: Long,
+    current: SessionSnapshot,
+): Boolean =
+    revokedSessionId != 0L &&
+        current.sessionId == revokedSessionId &&
+        current.state != SessionState.STOPPED
+
 class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
 
     private val serviceJob = SupervisorJob()
     override val coroutineContext = serviceJob + Dispatchers.Default
     private val lifecycleMutex = Mutex()
     private var shutdownComplete = false
+    @Volatile
+    private var tunEstablished = false
 
     private val self: VpnService
         get() = this
@@ -85,7 +97,27 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
     }
 
     override fun onRevoke() {
-        launch { shutdown("vpn_revoked") }
+        // Android has already deactivated our interface. Publish that fact
+        // synchronously so a later explicit Start cannot reuse a stale
+        // RUNNING session while shutdown is still being dispatched.
+        tunEstablished = false
+        val revokedSessionId = State.snapshot.sessionId
+        GlobalState.launch {
+            shutdown("vpn_revoked")
+            var stoppedRevokedSession = false
+            State.runLock.withLock {
+                if (shouldStopRevokedSession(revokedSessionId, State.snapshot)) {
+                    State.snapshot = SessionSnapshot.stopped(
+                        ServiceErrorCode.VPN_REVOKED,
+                        "VPN ownership was revoked by Android",
+                    )
+                    stoppedRevokedSession = true
+                }
+            }
+            if (stoppedRevokedSession) {
+                stopService(Intent(this@VpnService, RemoteService::class.java))
+            }
+        }
         super.onRevoke()
     }
 
@@ -312,6 +344,7 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
                 "Native TUN listener failed to start",
             )
         }
+        tunEstablished = true
     }
 
     override suspend fun start(): ServiceOperationResult = lifecycleMutex.withLock {
@@ -342,6 +375,8 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
     }
 
     override suspend fun stop(): ServiceOperationResult = shutdown("user_stop")
+
+    override fun isOperational(): Boolean = tunEstablished && !shutdownComplete
 
     override suspend fun smartStop() = lifecycleMutex.withLock {
         Phase4Mark.emit(
@@ -401,6 +436,7 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
 
     private suspend fun cleanupLocked(stopService: Boolean) {
         Phase4Mark.emit("vpn_tun_observed", mapOf("phase" to "stop_begin"))
+        tunEstablished = false
         Core.stopTun()
         Phase4Mark.emit(
             "vpn_tun_observed",

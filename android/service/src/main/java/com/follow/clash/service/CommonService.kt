@@ -29,6 +29,8 @@ class CommonService : Service(), IBaseService, CoroutineScope {
     override val coroutineContext = serviceJob + Dispatchers.Default
     private val lifecycleMutex = Mutex()
     private var shutdownComplete = false
+    @Volatile
+    private var operational = false
 
     private val self: CommonService
         get() = this
@@ -86,6 +88,7 @@ class CommonService : Service(), IBaseService, CoroutineScope {
         shutdownComplete = false
         return try {
             loader.load()
+            operational = true
             ServiceOperationResult.success()
         } catch (e: Exception) {
             GlobalState.log("CommonService start failed: ${e.message}")
@@ -95,6 +98,8 @@ class CommonService : Service(), IBaseService, CoroutineScope {
     }
 
     override suspend fun stop(): ServiceOperationResult = shutdown("user_stop")
+
+    override fun isOperational(): Boolean = operational && !shutdownComplete
 
     private suspend fun shutdown(
         reason: String,
@@ -109,6 +114,7 @@ class CommonService : Service(), IBaseService, CoroutineScope {
     }
 
     private suspend fun cleanupLocked(stopService: Boolean) {
+        operational = false
         loader.unload()
         shutdownComplete = true
         if (stopService) stopSelf()

@@ -20,6 +20,13 @@ interface IBaseService {
 
     suspend fun stop(): ServiceOperationResult
 
+    /**
+     * Whether the service still owns the runtime resource represented by a
+     * RUNNING session. For VPN mode this must mean an established TUN, not
+     * merely a live Service instance.
+     */
+    fun isOperational(): Boolean
+
     suspend fun smartStop() {
         // Default no-op for services without TUN (e.g. CommonService)
     }

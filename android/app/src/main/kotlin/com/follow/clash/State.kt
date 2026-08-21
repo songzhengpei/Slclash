@@ -42,6 +42,9 @@ internal fun toggleCommandForSessionState(state: String): SessionCommand = when 
 internal fun canFullStopSession(state: String): Boolean =
     state == SessionState.RUNNING || state == SessionState.PAUSED
 
+internal fun canAttemptExplicitStart(runState: RunState): Boolean =
+    runState != RunState.PENDING
+
 
 object State {
 
@@ -170,12 +173,16 @@ object State {
     }
 
     suspend fun handleStartService(): Boolean {
-        // Short-lock: check + set PENDING, then release lock for permission wait
+        // Always re-check VPN preparation. Android grants VPN ownership to only
+        // one package at a time, so a cached RUNNING state does not prove that
+        // this package is still the prepared VPN application.
         runLock.withLock {
-            if (runStateFlow.value != RunState.STOP) {
-                return runStateFlow.value == RunState.START
+            if (!canAttemptExplicitStart(runStateFlow.value)) {
+                return false
             }
-            runStateFlow.tryEmit(RunState.PENDING)
+            if (runStateFlow.value == RunState.STOP) {
+                runStateFlow.tryEmit(RunState.PENDING)
+            }
         }
         // Lock released — wait for permissions without blocking other operations
         try {
@@ -232,10 +239,15 @@ object State {
                 }
             }
 
-            // Re-acquire lock: confirm still PENDING, then commit
+            // Re-acquire lock and commit. START is also intentional here: the
+            // remote layer must validate that its RUNNING session still has an
+            // operational TUN before it may return success.
             return runLock.withLock {
-                if (runStateFlow.value != RunState.PENDING) {
-                    return@withLock runStateFlow.value == RunState.START
+                if (
+                    runStateFlow.value != RunState.PENDING &&
+                    runStateFlow.value != RunState.START
+                ) {
+                    return@withLock false
                 }
                 startServiceLocked()
             }
@@ -379,35 +391,35 @@ object State {
 
     fun handleStopService() {
         GlobalState.launch {
-            runLock.withLock {
-                if (!canFullStopSession(sessionSnapshot.state)) {
-                    return@launch
-                }
-                try {
-                    runStateFlow.tryEmit(RunState.PENDING)
-                    val result = Service.stopService()
-                    Phase4Mark.emit(
-                        "vpn_service_result",
-                        mapOf(
-                            "action" to "stop",
-                            "success" to result.success,
-                            "error_code" to result.errorCode,
-                        ),
-                    )
-                    if (result.success) {
-                        applySnapshot(
-                            Service.getSessionSnapshot().getOrNull()
-                                ?: SessionSnapshot.stopped()
-                        )
-                    } else {
-                        GlobalState.log("Stop failed: ${result.errorCode} ${result.message}")
-                        Service.getSessionSnapshot().onSuccess(::applySnapshot)
-                    }
-                } finally {
-                    if (runStateFlow.value == RunState.PENDING) {
-                        runStateFlow.tryEmit(runStateForSessionState(sessionSnapshot.state))
-                    }
-                }
+            stopServiceAndAwait()
+        }
+    }
+
+    suspend fun stopServiceAndAwait(): Boolean = runLock.withLock {
+        try {
+            runStateFlow.tryEmit(RunState.PENDING)
+            val result = Service.stopService()
+            Phase4Mark.emit(
+                "vpn_service_result",
+                mapOf(
+                    "action" to "stop",
+                    "success" to result.success,
+                    "error_code" to result.errorCode,
+                ),
+            )
+            if (result.success) {
+                applySnapshot(
+                    Service.getSessionSnapshot().getOrNull()
+                        ?: SessionSnapshot.stopped()
+                )
+            } else {
+                GlobalState.log("Stop failed: ${result.errorCode} ${result.message}")
+                Service.getSessionSnapshot().onSuccess(::applySnapshot)
+            }
+            result.success && sessionSnapshot.state == SessionState.STOPPED
+        } finally {
+            if (runStateFlow.value == RunState.PENDING) {
+                runStateFlow.tryEmit(runStateForSessionState(sessionSnapshot.state))
             }
         }
     }

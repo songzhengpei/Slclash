@@ -32,10 +32,21 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 
+internal fun canReuseRunningSession(state: String, operational: Boolean): Boolean =
+    state == SessionState.RUNNING && operational
+
 class RemoteService : Service(), CoroutineScope {
     private val serviceJob = SupervisorJob()
     override val coroutineContext = serviceJob + Dispatchers.Default
     private val sessionCounter = AtomicLong(System.currentTimeMillis())
+    private var delegateGeneration = 0L
+
+    private fun clearDelegate() {
+        delegate?.unbind()
+        delegate = null
+        intent = null
+        delegateGeneration += 1L
+    }
 
     private fun applySession(snapshot: SessionSnapshot) {
         State.snapshot = snapshot
@@ -72,9 +83,7 @@ class RemoteService : Service(), CoroutineScope {
                     ServiceErrorCode.SERVICE_DISCONNECTED,
                     "Background service is unavailable during stop",
                 )
-                delegate?.unbind()
-                delegate = null
-                intent = null
+                clearDelegate()
                 applySession(
                     if (stopResult.success) {
                     SessionSnapshot.stopped()
@@ -91,16 +100,18 @@ class RemoteService : Service(), CoroutineScope {
         }
     }
 
-    private fun handleServiceDisconnected(message: String) {
+    private fun handleServiceDisconnected(generation: Long, message: String) {
         Phase4Mark.emit(
             "vpn_remote_disconnected",
             mapOf("service" to "background", "state" to State.snapshot.state, "message" to message),
         )
         GlobalState.log("Background service disconnected: $message")
-        intent = null
-        delegate = null
         launch {
             runLock.withLock {
+                // A disconnect from a service discarded during handover must
+                // not overwrite the replacement session that is now RUNNING.
+                if (generation != delegateGeneration) return@withLock
+                clearDelegate()
                 applySession(
                     if (
                     State.snapshot.state == SessionState.STOPPING ||
@@ -133,11 +144,28 @@ class RemoteService : Service(), CoroutineScope {
         )
         launch {
             runLock.withLock {
-                val current = State.snapshot
+                var current = State.snapshot
                 if (current.state == SessionState.RUNNING) {
-                    applySession(current)
-                    replyOperation(result, ServiceOperationResult.success(current.startedAt))
-                    return@withLock
+                    val operational = delegate?.useService { service ->
+                        service.isOperational()
+                    }?.getOrNull() == true
+                    if (canReuseRunningSession(current.state, operational)) {
+                        applySession(current)
+                        replyOperation(result, ServiceOperationResult.success(current.startedAt))
+                        return@withLock
+                    }
+
+                    // A different VPN app can revoke our TUN while the remote
+                    // process and its RUNNING snapshot remain alive. Discard
+                    // that stale session so this explicit Start establishes a
+                    // new interface and reclaims Android VPN ownership.
+                    GlobalState.log("Discard stale RUNNING session without an operational service")
+                    delegate?.useService(timeoutMillis = 10_000L) { service ->
+                        service.stop()
+                    }
+                    clearDelegate()
+                    applySession(SessionSnapshot.stopped())
+                    current = State.snapshot
                 }
                 if (current.state == SessionState.PAUSED) {
                     val resumed = delegate?.useService { it.smartResume() }?.getOrNull() == true
@@ -175,8 +203,12 @@ class RemoteService : Service(), CoroutineScope {
                         false -> CommonService::class.intent
                     }
                     if (intent != nextIntent) {
-                        delegate?.unbind()
-                        delegate = ServiceDelegate(nextIntent, ::handleServiceDisconnected) { binder ->
+                        clearDelegate()
+                        val generation = delegateGeneration
+                        delegate = ServiceDelegate(
+                            nextIntent,
+                            { message -> handleServiceDisconnected(generation, message) },
+                        ) { binder ->
                             when (binder) {
                                 is VpnService.LocalBinder -> binder.getService()
                                 is CommonService.LocalBinder -> binder.getService()
@@ -229,9 +261,7 @@ class RemoteService : Service(), CoroutineScope {
                 service.stop()
             }.getOrNull()?.success == true
         }
-        activeDelegate?.unbind()
-        delegate = null
-        intent = null
+        clearDelegate()
         applySession(
             if (cleanupSucceeded) {
             SessionSnapshot.stopped(errorCode, message)
@@ -507,9 +537,7 @@ class RemoteService : Service(), CoroutineScope {
                             service.stop()
                         }.getOrNull()?.success == true
                     }
-                    activeDelegate?.unbind()
-                    delegate = null
-                    intent = null
+                    clearDelegate()
                     applySession(
                         if (stopped) {
                             SessionSnapshot.stopped()

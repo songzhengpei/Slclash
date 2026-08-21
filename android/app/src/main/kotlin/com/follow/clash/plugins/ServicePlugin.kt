@@ -121,8 +121,9 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
     private fun handleStop(result: MethodChannel.Result) {
         Phase4Mark.emit("vpn_action_requested", mapOf("action" to "stop", "source" to "flutter_ui"))
-        State.handleStopService()
-        result.success(true)
+        launch {
+            result.success(State.stopServiceAndAwait())
+        }
     }
 
     val semaphore = Semaphore(10)

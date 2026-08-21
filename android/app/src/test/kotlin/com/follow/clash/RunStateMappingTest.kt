@@ -32,4 +32,11 @@ class RunStateMappingTest {
         assertEquals(false, canFullStopSession(SessionState.STOPPING))
         assertEquals(false, canFullStopSession(SessionState.STOPPED))
     }
+
+    @Test
+    fun explicitStartRevalidatesCachedRunningState() {
+        assertEquals(true, canAttemptExplicitStart(RunState.STOP))
+        assertEquals(true, canAttemptExplicitStart(RunState.START))
+        assertEquals(false, canAttemptExplicitStart(RunState.PENDING))
+    }
 }
