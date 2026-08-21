@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:fl_clash/common/common.dart';
@@ -12,76 +11,6 @@ import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-/// Maps country keywords found in proxy names to ISO 3166-1 alpha-2 codes.
-const _countryKeywords = {
-  'hk': 'HK',
-  'hong kong': 'HK',
-  '香港': 'HK',
-  'tw': 'TW',
-  'taiwan': 'TW',
-  '台湾': 'TW',
-  '臺灣': 'TW',
-  'jp': 'JP',
-  'japan': 'JP',
-  '日本': 'JP',
-  'sg': 'SG',
-  'singapore': 'SG',
-  '新加坡': 'SG',
-  'us': 'US',
-  'usa': 'US',
-  'united states': 'US',
-  'america': 'US',
-  '美国': 'US',
-  '美國': 'US',
-  'kr': 'KR',
-  'korea': 'KR',
-  '韩国': 'KR',
-  '韓國': 'KR',
-  'uk': 'GB',
-  'gb': 'GB',
-  'united kingdom': 'GB',
-  'britain': 'GB',
-  '英国': 'GB',
-  '英國': 'GB',
-  'de': 'DE',
-  'germany': 'DE',
-  '德国': 'DE',
-  '德國': 'DE',
-  'fr': 'FR',
-  'france': 'FR',
-  '法国': 'FR',
-  '法國': 'FR',
-  'ca': 'CA',
-  'canada': 'CA',
-  '加拿大': 'CA',
-  'au': 'AU',
-  'australia': 'AU',
-  '澳大利亚': 'AU',
-  'nl': 'NL',
-  'netherlands': 'NL',
-  '荷兰': 'NL',
-};
-
-/// Returns true when [text] contains [keyword] as a standalone token (for
-/// short Latin keywords) or as a substring (for longer / CJK keywords).
-bool _matchesCountryKeyword(String text, String keyword) {
-  final isShortLatinKeyword = RegExp(r'^[a-z]{2,3}$').hasMatch(keyword);
-  if (!isShortLatinKeyword) {
-    return text.contains(keyword);
-  }
-  return RegExp(
-    '(^|[^a-z])${RegExp.escape(keyword)}([^a-z]|\$)',
-  ).hasMatch(text);
-}
-
-/// Extracts an embedded flag emoji (e.g. 🇯🇵) from [text], if present.
-String? _extractEmbeddedFlag(String text) {
-  return RegExp(
-    r'[\u{1F1E6}-\u{1F1FF}]{2}',
-    unicode: true,
-  ).firstMatch(text)?.group(0);
-}
 
 @visibleForTesting
 class NetworkOverviewCardLayout {
@@ -660,274 +589,81 @@ class _OverviewLatencyHost extends ConsumerStatefulWidget {
 class _OverviewLatencyHostState extends ConsumerState<_OverviewLatencyHost> {
   static const _latencyRefreshInterval = Duration(seconds: 60);
   static const _pageLabel = PageLabel.dashboard;
-  static const _latencyTargets = [
-    _LatencyTarget(
-      name: 'GitHub',
-      url: 'https://github.com',
-      probeUrl: 'https://github.com/favicon.ico',
-    ),
-    _LatencyTarget(
-      name: 'YouTube',
-      url: 'https://www.youtube.com',
-      probeUrl: 'https://www.youtube.com/generate_204',
-    ),
-    _LatencyTarget(
-      name: 'ChatGPT',
-      url: 'https://chatgpt.com',
-      probeUrl: 'https://chatgpt.com/favicon.ico',
-    ),
-  ];
+  static const _coalesceWindow = Duration(milliseconds: 200);
 
-  static const _latencyTimeout = Duration(seconds: 5);
-
-  final Map<String, _LatencyResult> _latencyResults = {};
+  late final NetworkDiagnosticsSession _session;
   Timer? _latencyRefreshTimer;
-  bool _isTestingLatencies = false;
+  Timer? _coalesceTimer;
+  var _pendingRouteChange = false;
+  String _pendingReason = 'periodic';
 
-  String? _extractCountryFromProxyName(String proxyName) {
-    final flag = _extractEmbeddedFlag(proxyName);
-    if (flag != null) return _emojiToCountryCode(flag);
-    final lower = proxyName.toLowerCase();
-    for (final entry in _countryKeywords.entries) {
-      if (_matchesCountryKeyword(lower, entry.key)) return entry.value;
-    }
-    return null;
-  }
-
-  static String? _emojiToCountryCode(String emoji) {
-    final runes = emoji.runes.toList();
-    if (runes.length != 2) return null;
-    final a = runes[0] - 0x1F1E6;
-    final b = runes[1] - 0x1F1E6;
-    if (a < 0 || a > 25 || b < 0 || b > 25) return null;
-    return String.fromCharCodes([0x41 + a, 0x41 + b]);
-  }
-
-  /// Check whether a core connection record matches the probe target.
-  bool _matchesHost(TrackerInfo conn, _LatencyTarget target) {
-    final host = target.host;
-    final bareHost = target.bareHost;
-    final meta = conn.metadata;
-
-    for (final raw in [meta.host, meta.destinationIP, meta.remoteDestination]) {
-      final field = raw.toLowerCase();
-      if (field.isEmpty) continue;
-      if (field == host || field == bareHost) return true;
-      if (field.endsWith('.$bareHost')) return true;
-      // Strip port suffix (e.g. "host:443")
-      final colon = field.indexOf(':');
-      final fieldNoPort = colon > 0 ? field.substring(0, colon) : field;
-      if (fieldNoPort == bareHost ||
-          fieldNoPort.endsWith('.$bareHost') ||
-          (bareHost.isNotEmpty && fieldNoPort == 'www.$bareHost')) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /// Poll the core /connections endpoint (via FFI) for up to 3 seconds,
-  /// matching only connections whose id is not in [beforeIds].
-  /// Returns the first matching [TrackerInfo], or null.
-  Future<TrackerInfo?> _pollCoreConnections(
-    _LatencyTarget target,
-    Set<String> beforeIds,
-  ) async {
-    for (var i = 0; i < 18; i++) {
-      if (i != 0) {
-        await Future.delayed(const Duration(milliseconds: 160));
-      }
-      try {
-        final conns = await CoreController().getConnections();
-        for (final conn in conns) {
-          if (beforeIds.contains(conn.id)) continue;
-          if (_matchesHost(conn, target)) return conn;
-        }
-      } catch (_) {
-        // Core may not be ready; silently retry.
-      }
-    }
-    return null;
-  }
-
-  /// Poll [requestsProvider] for up to 3 seconds after a probe, looking for
-  /// a new [TrackerInfo] whose host matches [target]. Only entries added
-  /// after [startIndex] are considered, so historical connections are never
-  /// mistaken for this probe.
-  Future<TrackerInfo?> _pollForNewTracker(
-    _LatencyTarget target,
-    Set<String> beforeIds,
-  ) async {
-    final host = target.host;
-    final bareHost = target.bareHost;
-    // Poll for up to 3s, checking immediately on the first iteration to avoid
-    // missing short-lived connections (e.g. favicon or generate_204).
-    for (var i = 0; i < 36; i++) {
-      if (i != 0) {
-        await Future.delayed(const Duration(milliseconds: 80));
-      }
-      final requests = ref.read(requestsProvider).list;
-      for (final req in requests) {
-        if (beforeIds.contains(req.id)) continue;
-        final meta = req.metadata;
-        final reqHost = meta.host.toLowerCase();
-        final remoteDest = meta.remoteDestination.toLowerCase();
-        final destIP = meta.destinationIP.toLowerCase();
-        if (reqHost == host ||
-            reqHost == bareHost ||
-            reqHost.endsWith('.$bareHost') ||
-            remoteDest.contains(bareHost) ||
-            destIP.contains(bareHost)) {
-          return req;
-        }
-      }
-    }
-    return null;
-  }
-
-  /// Probe one target and capture both latency and the country code inferred
-  /// from the Clash route chain. Returns a fully-populated [_LatencyResult].
-  /// Uses core /connections (FFI) as primary source; falls back to
-  /// requestsProvider polling for the rare case the core path misses.
-  Future<_LatencyResult> _probeSingleTarget(
-    _LatencyTarget target, {
-    required int? mixedPort,
-    required String? fallbackCountryCode,
-  }) async {
-    // --- snapshot IDs before the probe so we only match NEW connections ---
-    final beforeProviderIds = ref
-        .read(requestsProvider)
-        .list
-        .map((e) => e.id)
-        .toSet();
-    Set<String> beforeCoreIds;
-    if (mixedPort != null) {
-      try {
-        final conns = await CoreController().getConnections();
-        beforeCoreIds = conns.map((e) => e.id).toSet();
-      } catch (_) {
-        beforeCoreIds = {};
-      }
-    } else {
-      beforeCoreIds = {};
-    }
-
-    // Start core polling and provider polling BEFORE the probe request.
-    // Both run in parallel with the HTTP measurement.
-    final coreFuture = mixedPort != null
-        ? _pollCoreConnections(target, beforeCoreIds)
-        : Future<TrackerInfo?>.value(null);
-    final providerFuture = mixedPort != null
-        ? _pollForNewTracker(target, beforeProviderIds)
-        : Future<TrackerInfo?>.value(null);
-
-    final latency = await _measureLatency(target, mixedPort: mixedPort);
-
-    String? countryCode;
-    String? routeName;
-    TrackerInfo? trackerInfo;
-    bool coreHit = false;
-    bool providerHit = false;
-
-    if (mixedPort != null && latency != null) {
-      // Prefer core /connections — it captures live connections regardless
-      // of how briefly they exist.
-      trackerInfo = await coreFuture;
-      if (trackerInfo != null) {
-        coreHit = true;
-      } else {
-        // Fallback: poll provider for connections that arrived via events.
-        trackerInfo = await providerFuture;
-        if (trackerInfo != null) {
-          providerHit = true;
-        }
-      }
-
-      if (trackerInfo != null) {
-        // Walk chains in reverse; use the first entry that resolves to a
-        // country code. If DIRECT is encountered, fall back immediately.
-        for (final chain in trackerInfo.chains.reversed) {
-          final trimmed = chain.trim();
-          if (trimmed.isEmpty) continue;
-          if (trimmed.toUpperCase() == 'DIRECT') {
-            routeName ??= trimmed;
-            countryCode ??= fallbackCountryCode;
-            break;
-          }
-          final cc = _extractCountryFromProxyName(trimmed);
-          if (cc != null) {
-            routeName = trimmed;
-            countryCode = cc;
-            break;
-          }
-          // Keep first non-empty as fallback routeName if no country resolves.
-          routeName ??= trimmed;
-        }
-      }
-    }
-
-    // Fallback logic: only apply fallbackCountryCode when proxy is not
-    // running. When proxy IS running but tracker capture failed, return
-    // countryCode: null so the UI shows a globe instead of the wrong flag.
-    final effectiveCountryCode = mixedPort == null
-        ? (countryCode ?? fallbackCountryCode)
-        : countryCode;
-
-    assert(() {
-      debugPrint(
-        '[LatencyRoute] target=${target.name} mixedPort=$mixedPort '
-        'latency=$latency coreHit=$coreHit providerHit=$providerHit '
-        'host=${trackerInfo?.metadata.host} '
-        'chains=${trackerInfo?.chains} '
-        'country=$effectiveCountryCode',
-      );
-      return true;
-    }());
-
-    return _LatencyResult(
-      latency: latency,
-      countryCode: effectiveCountryCode,
-      routeName: routeName,
-      proxyName: routeName,
-    );
-  }
+  Map<String, NetworkDiagnosticTargetState> get _latencyResults =>
+      _session.store.states;
 
   @override
   void initState() {
     super.initState();
     OverviewLatencyHostLifecycle.mounts++;
-
-    // Listen to foreground changes — sync timer, refresh on return-to-foreground
+    _session = NetworkDiagnosticsSession(
+      listConnections: () => CoreController().getConnections(),
+      coreCountryLookup: (ip) async {
+        final info = await CoreController().getCountryCode(ip);
+        return info?.countryCode;
+      },
+    );
     ref.listenManual(appForegroundProvider, (prev, next) {
       _syncLatencyRefreshTimer();
       if (next) {
-        unawaited(_testLatencies(force: true));
+        _requestRefresh(reason: 'foreground', routeChange: true);
       }
     });
-    // Listen to page changes — sync timer, refresh when dashboard becomes visible
     ref.listenManual(currentPageLabelProvider, (prev, next) {
       _syncLatencyRefreshTimer();
       if (next == _pageLabel) {
-        unawaited(_testLatencies(force: true));
+        _requestRefresh(reason: 'dashboard_active', routeChange: true);
       }
     });
-
+    ref.listenManual(isStartProvider, (prev, next) {
+      if (prev != next) {
+        _requestRefresh(
+          reason: next ? 'vpn_start' : 'vpn_stop',
+          routeChange: true,
+        );
+      }
+    });
+    ref.listenManual(checkIpNumProvider, (prev, next) {
+      if (prev != next) {
+        _requestRefresh(reason: 'connectivity', routeChange: true);
+      }
+    });
+    ref.listenManual(isSmartStoppedProvider, (prev, next) {
+      if (prev != next) {
+        _requestRefresh(reason: 'smart_stop', routeChange: true);
+      }
+    });
+    NetworkDiagnosticsRevision.addListener(_onRevision);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_shouldRunLatencyRefresh(ref)) {
-        unawaited(_testLatencies());
+        _requestRefresh(reason: 'dashboard_active', routeChange: false);
       }
       _syncLatencyRefreshTimer();
     });
   }
 
+  void _onRevision() {
+    _requestRefresh(reason: 'route_revision', routeChange: true);
+  }
+
   @override
   void dispose() {
     OverviewLatencyHostLifecycle.disposes++;
+    NetworkDiagnosticsRevision.removeListener(_onRevision);
     if (NavigationTrace.enabled) {
       NavigationTrace.networkLatencyTimerActive = false;
     }
     _latencyRefreshTimer?.cancel();
+    _coalesceTimer?.cancel();
     super.dispose();
   }
 
@@ -956,98 +692,54 @@ class _OverviewLatencyHostState extends ConsumerState<_OverviewLatencyHost> {
     }
     if (_latencyRefreshTimer != null) return;
     _latencyRefreshTimer = Timer.periodic(_latencyRefreshInterval, (_) {
-      unawaited(_testLatencies(force: true));
+      _requestRefresh(reason: 'periodic', routeChange: false);
     });
     if (NavigationTrace.enabled) {
       NavigationTrace.networkLatencyTimerActive = true;
     }
   }
 
-  Future<int?> _measureLatency(_LatencyTarget target, {int? mixedPort}) async {
-    Future<HttpClientResponse> request(
-      HttpClient client,
-      Uri uri,
-      String method,
-    ) async {
-      final httpRequest = await client
-          .openUrl(method, uri)
-          .timeout(_latencyTimeout);
-      httpRequest.followRedirects = false;
-      httpRequest.maxRedirects = 0;
-      httpRequest.headers.set(HttpHeaders.userAgentHeader, 'FlClash');
-      if (method == 'GET') {
-        httpRequest.headers.set(HttpHeaders.rangeHeader, 'bytes=0-0');
-      }
-      return httpRequest.close().timeout(_latencyTimeout);
+  void _requestRefresh({
+    required String reason,
+    required bool routeChange,
+    bool immediate = false,
+  }) {
+    if (immediate) {
+      _coalesceTimer?.cancel();
+      unawaited(_runRefresh(reason: reason, routeChange: routeChange));
+      return;
     }
-
-    final client = HttpClient()..connectionTimeout = _latencyTimeout;
-    if (mixedPort != null) {
-      client.findProxy = (uri) => 'PROXY 127.0.0.1:$mixedPort';
-    }
-    final uri = Uri.parse(target.probeUrl);
-    final stopwatch = Stopwatch()..start();
-    try {
-      HttpClientResponse response;
-      try {
-        response = await request(client, uri, 'HEAD');
-      } catch (_) {
-        response = await request(client, uri, 'GET');
-      }
-      stopwatch.stop();
-      unawaited(response.drain<void>());
-      return stopwatch.elapsedMilliseconds;
-    } catch (_) {
-      stopwatch.stop();
-      return null;
-    } finally {
-      client.close(force: true);
-    }
+    _pendingRouteChange = _pendingRouteChange || routeChange;
+    _pendingReason = reason;
+    _coalesceTimer?.cancel();
+    _coalesceTimer = Timer(_coalesceWindow, () {
+      final pendingChange = _pendingRouteChange;
+      _pendingRouteChange = false;
+      unawaited(
+        _runRefresh(reason: _pendingReason, routeChange: pendingChange),
+      );
+    });
   }
 
-  Future<void> _testLatencies({bool force = false}) async {
-    // Allow testing even when proxy is not running (requirement 7), but
-    // skip if another test is already in progress or results are fresh.
-    if (_isTestingLatencies) return;
-    if (!force && _latencyResults.isNotEmpty) return;
-
+  Future<void> _runRefresh({
+    required String reason,
+    required bool routeChange,
+  }) async {
+    if (!mounted) return;
     final hasProxy = _shouldUseClashRoute(ref);
     final mixedPort = hasProxy
         ? ref.read(patchClashConfigProvider).mixedPort
         : null;
-    final fallbackCountryCode = ref
-        .read(networkDetectionProvider)
-        .ipInfo
-        ?.countryCode;
-
-    _latencySetState(() {
-      _isTestingLatencies = true;
-      for (final target in _latencyTargets) {
-        _latencyResults[target.name] = const _LatencyResult.pending();
-      }
-    });
-
-    // Parallel per-target: all targets probe concurrently,
-    // each result is shown as soon as it completes.
-    await Future.wait(
-      _latencyTargets.map((target) async {
-        if (!mounted) return;
-        final result = await _probeSingleTarget(
-          target,
-          mixedPort: mixedPort != 0 ? mixedPort : null,
-          fallbackCountryCode: fallbackCountryCode,
-        );
-        if (!mounted) return;
-        _latencySetState(() {
-          _latencyResults[target.name] = result;
-        });
-      }),
+    await _session.refresh(
+      mixedPort: mixedPort != 0 ? mixedPort : null,
+      routeChange: routeChange,
+      reason: reason,
+      onChanged: () {
+        if (mounted) {
+          _latencySetState(() {});
+        }
+      },
     );
-
-    if (!mounted) return;
-    _latencySetState(() {
-      _isTestingLatencies = false;
-    });
   }
 
   void _latencySetState(VoidCallback fn) {
@@ -1065,9 +757,9 @@ class _OverviewLatencyHostState extends ConsumerState<_OverviewLatencyHost> {
     final isDashboardActive = ref.watch(
       currentPageLabelProvider.select((l) => l == PageLabel.dashboard),
     );
-    final hasPendingLatency = _latencyResults.values.any((r) => r.pending);
+    final hasRefreshing = _latencyResults.values.any((r) => r.refreshing);
     final shouldAnimatePending =
-        isForeground && isDashboardActive && hasPendingLatency;
+        isForeground && isDashboardActive && hasRefreshing;
     final cardLayout = widget.cardLayout;
     final responsiveLayout = widget.layout;
     return Column(
@@ -1083,7 +775,7 @@ class _OverviewLatencyHostState extends ConsumerState<_OverviewLatencyHost> {
         ),
         SizedBox(height: cardLayout.latencyHeaderToRowsGap),
         _PlatformLatencyPanel(
-          targets: _latencyTargets,
+          targets: NetworkDiagnosticTarget.all,
           results: _latencyResults,
           fallbackCountryCode: null,
           activeColor: semantic.dashboardDynamicActive,
@@ -1094,7 +786,11 @@ class _OverviewLatencyHostState extends ConsumerState<_OverviewLatencyHost> {
           latencyGood: semantic.latencyGood,
           latencyMedium: semantic.latencyMedium,
           latencyBad: semantic.latencyBad,
-          onRetest: () => unawaited(_testLatencies(force: true)),
+          onRetest: () => _requestRefresh(
+            reason: 'manual',
+            routeChange: false,
+            immediate: true,
+          ),
           shouldAnimatePending: shouldAnimatePending,
           rowGap: cardLayout.latencyRowGap,
           layout: responsiveLayout,
@@ -1349,46 +1045,6 @@ class _NetworkDetectionBar extends StatelessWidget {
   }
 }
 
-class _LatencyTarget {
-  const _LatencyTarget({
-    required this.name,
-    required this.url,
-    required this.probeUrl,
-  });
-
-  final String name;
-  final String url;
-  final String probeUrl;
-
-  String get host => Uri.parse(url).host.toLowerCase();
-
-  String get bareHost => host.startsWith('www.') ? host.substring(4) : host;
-}
-
-class _LatencyResult {
-  const _LatencyResult({
-    required this.latency,
-    this.countryCode,
-    this.routeName,
-    this.proxyName,
-  }) : pending = false;
-
-  const _LatencyResult.pending()
-    : latency = null,
-      pending = true,
-      countryCode = null,
-      routeName = null,
-      proxyName = null;
-
-  final int? latency;
-  final bool pending;
-  final String? countryCode;
-  final String? routeName;
-  final String? proxyName;
-
-  bool get timeout => !pending && latency == null;
-}
-
 class _TotalTrafficBadge extends StatelessWidget {
   const _TotalTrafficBadge({
     required this.up,
@@ -1476,8 +1132,8 @@ class _PlatformLatencyPanel extends StatelessWidget {
     required this.layout,
   });
 
-  final List<_LatencyTarget> targets;
-  final Map<String, _LatencyResult> results;
+  final List<NetworkDiagnosticTarget> targets;
+  final Map<String, NetworkDiagnosticTargetState> results;
   final String? fallbackCountryCode;
   final Color activeColor;
   final Color fillColor;
@@ -1492,41 +1148,29 @@ class _PlatformLatencyPanel extends StatelessWidget {
   final double rowGap;
   final DashboardResponsiveLayout layout;
 
-  Color _flowColor(_LatencyResult? result) {
-    if (result == null || result.pending) return activeColor;
-    final latency = result.latency;
+  Color _flowColor(NetworkDiagnosticTargetState? result) {
+    if (result == null || result.latencyMs == null) return activeColor;
+    final latency = result.latencyMs;
     if (latency == null) return latencyBad;
     if (latency < 180) return latencyGood;
     if (latency < 420) return latencyMedium;
     return latencyBad;
   }
 
-  Color _trackColor(_LatencyResult? result) {
+  Color _trackColor(NetworkDiagnosticTargetState? result) {
     final flow = _flowColor(result);
     return Color.lerp(flow, Colors.black, 0.76)!.withValues(alpha: 0.58);
   }
 
-  double _barWidth(_LatencyResult? result) {
-    if (result == null || result.pending) return 1;
-    final latency = result.latency;
+  double _barWidth(NetworkDiagnosticTargetState? result) {
+    if (result == null || result.latencyMs == null) return 1;
+    final latency = result.latencyMs;
     if (latency == null) return 1;
     return (latency / 640).clamp(0.08, 1).toDouble();
   }
 
-  Widget _value(BuildContext context, _LatencyResult? result) {
-    if (result?.pending == true) {
-      return RepaintBoundary(
-        child: SizedBox(
-          width: layout.geometry(12),
-          height: layout.geometry(12),
-          child: CommonCircleLoading(
-            color: activeColor,
-            active: shouldAnimatePending,
-          ),
-        ),
-      );
-    }
-    if (result?.timeout == true) {
+  Widget _value(BuildContext context, NetworkDiagnosticTargetState? result) {
+    if (result?.latencyStatus == NetworkDiagnosticLatencyStatus.timeout) {
       return Text(
         'Timeout',
         maxLines: 1,
@@ -1535,8 +1179,18 @@ class _PlatformLatencyPanel extends StatelessWidget {
         style: _valueStyle(context).copyWith(color: dangerColor),
       );
     }
-    final latency = result?.latency;
-    if (latency == null) {
+    if (result?.latencyMs == null) {
+      if (result?.refreshing == true) {
+        return Opacity(
+          opacity: 0.55,
+          child: Text(
+            '-',
+            maxLines: 1,
+            softWrap: false,
+            style: _valueStyle(context).copyWith(color: secondaryTextColor),
+          ),
+        );
+      }
       return Text(
         '-',
         maxLines: 1,
@@ -1544,13 +1198,16 @@ class _PlatformLatencyPanel extends StatelessWidget {
         style: _valueStyle(context).copyWith(color: secondaryTextColor),
       );
     }
-    final padded = latency.toString().padLeft(3, '0');
-    return Text(
-      '${padded}ms',
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.clip,
-      style: _valueStyle(context).copyWith(color: textColor),
+    final padded = result!.latencyMs!.toString().padLeft(3, '0');
+    return Opacity(
+      opacity: result.refreshing ? 0.82 : 1,
+      child: Text(
+        '${padded}ms',
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.clip,
+        style: _valueStyle(context).copyWith(color: textColor),
+      ),
     );
   }
 
@@ -1567,10 +1224,7 @@ class _PlatformLatencyPanel extends StatelessWidget {
           // only use the resolved countryCode from a completed probe.
           _PlatformLatencyRow(
             target: target,
-            countryCode: () {
-              final r = results[target.name];
-              return (r == null || r.pending) ? null : r.countryCode;
-            }(),
+            countryCode: results[target.name]?.countryCode,
             trackColor: _trackColor(results[target.name]),
             flowColor: _flowColor(results[target.name]),
             barWidthFactor: _barWidth(results[target.name]),
@@ -1578,7 +1232,10 @@ class _PlatformLatencyPanel extends StatelessWidget {
             secondaryTextColor: secondaryTextColor,
             trailing: _value(context, results[target.name]),
             onRetest: onRetest,
-            active: results[target.name]?.pending == true,
+            active:
+                shouldAnimatePending &&
+                (results[target.name]?.refreshing ?? false),
+            dimmed: results[target.name]?.refreshing == true,
             layout: layout,
           ),
           if (target != targets.last) SizedBox(height: rowGap),
@@ -1600,10 +1257,11 @@ class _PlatformLatencyRow extends StatelessWidget {
     required this.trailing,
     required this.onRetest,
     this.active = false,
+    this.dimmed = false,
     required this.layout,
   });
 
-  final _LatencyTarget target;
+  final NetworkDiagnosticTarget target;
   final String? countryCode;
   final Color trackColor;
   final Color flowColor;
@@ -1613,6 +1271,7 @@ class _PlatformLatencyRow extends StatelessWidget {
   final Widget trailing;
   final VoidCallback onRetest;
   final bool active;
+  final bool dimmed;
   final DashboardResponsiveLayout layout;
 
   @override
@@ -1622,7 +1281,10 @@ class _PlatformLatencyRow extends StatelessWidget {
       children: [
         _PlatformBrandIcon(target: target, layout: layout),
         SizedBox(width: layout.geometry(6)),
-        _RouteFlagBadge(countryCode: countryCode, layout: layout),
+        Opacity(
+          opacity: dimmed ? 0.82 : 1,
+          child: _RouteFlagBadge(countryCode: countryCode, layout: layout),
+        ),
         SizedBox(width: layout.geometry(8)),
         Expanded(
           child: SurgePressable(
@@ -1654,7 +1316,7 @@ class _PlatformLatencyRow extends StatelessWidget {
 class _PlatformBrandIcon extends StatelessWidget {
   const _PlatformBrandIcon({required this.target, required this.layout});
 
-  final _LatencyTarget target;
+  final NetworkDiagnosticTarget target;
   final DashboardResponsiveLayout layout;
 
   @override

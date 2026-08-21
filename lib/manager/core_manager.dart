@@ -55,10 +55,11 @@ class _CoreContainerState extends ConsumerState<CoreManager>
     );
 
     coreEventManager.setEventTypeEnabled(CoreEventType.log, shouldCollectLogs);
-    coreEventManager.setEventTypeEnabled(
-      CoreEventType.request,
-      shouldCollectRequests,
-    );
+    if (shouldCollectRequests) {
+      CoreEventTypeLease.acquire(CoreEventType.request, this);
+    } else {
+      CoreEventTypeLease.release(CoreEventType.request, this);
+    }
 
     if (!coreController.isCompleted) {
       _logStreamRunning = false;
@@ -132,7 +133,7 @@ class _CoreContainerState extends ConsumerState<CoreManager>
   @override
   Future<void> dispose() async {
     coreEventManager.setEventTypeEnabled(CoreEventType.log, false);
-    coreEventManager.setEventTypeEnabled(CoreEventType.request, false);
+    CoreEventTypeLease.release(CoreEventType.request, this);
     if (_logStreamRunning && coreController.isCompleted) {
       coreController.stopLog();
     }

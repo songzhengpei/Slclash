@@ -856,6 +856,7 @@ class SetupAction extends _$SetupAction {
       await coreController.startListener();
     }
     _startUiStatsTimer();
+    NetworkDiagnosticsRevision.bump(reason: 'smart_resume');
   }
 
   Future<void> initStatus() async {
@@ -1304,6 +1305,7 @@ class SetupAction extends _$SetupAction {
 
         globalState.lastConfigMd5 = yamlMd5;
         ref.read(checkIpNumProvider.notifier).add();
+        NetworkDiagnosticsRevision.bump(reason: 'profile_apply');
         await onUpdated?.call();
         success = true;
         StartupTrace.mark('applyProfile');
@@ -2606,6 +2608,7 @@ class ProxiesAction extends _$ProxiesAction {
         await coreController.resetConnections();
       }
       ref.read(checkIpNumProvider.notifier).add();
+      NetworkDiagnosticsRevision.bump(reason: 'selection_success');
       return;
     }
     final currentIntent = ref
