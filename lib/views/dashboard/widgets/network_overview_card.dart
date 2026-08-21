@@ -159,21 +159,36 @@ class NetworkOverviewCardLayoutCalculator {
   }
 }
 
+const _trafficChartMaxY = 0.2;
+const _uploadChartCenterY = 0.13;
+const _downloadChartCenterY = 0.077;
+const _trafficChartHalfSpan =
+    (_uploadChartCenterY - _downloadChartCenterY) * 0.45;
+
 List<Point> _trafficSeries(
   List<Traffic> traffics,
   num Function(Traffic traffic) valueOf,
   List<double> placeholder,
+  double centerY,
 ) {
   final values = traffics
       .map((traffic) => valueOf(traffic).toDouble())
       .toList();
   final hasRealData = values.any((value) => value > 0);
   final source = hasRealData ? values : placeholder;
-  return source
-      .asMap()
-      .entries
-      .map((entry) => Point(entry.key.toDouble(), entry.value))
-      .toList();
+  final minValue = source.reduce((a, b) => a < b ? a : b);
+  final maxValue = source.reduce((a, b) => a > b ? a : b);
+  final valueSpan = maxValue - minValue;
+  return source.asMap().entries.map((entry) {
+    final normalized = valueSpan == 0
+        ? 0.5
+        : (entry.value - minValue) / valueSpan;
+    final y =
+        centerY -
+        _trafficChartHalfSpan +
+        normalized * _trafficChartHalfSpan * 2;
+    return Point(entry.key.toDouble(), y);
+  }).toList();
 }
 
 class SurgeNetworkOverviewCard extends StatelessWidget {
@@ -377,18 +392,17 @@ class _OverviewSpeedCharts extends ConsumerWidget {
     final semantic = surge.semantic;
     final traffics = ref.watch(trafficsProvider).list;
     final isStart = ref.watch(isStartProvider);
-    final hasLiveTraffic = traffics.any(
-      (traffic) => traffic.up > 0 || traffic.down > 0,
-    );
     final uploadPoints = _trafficSeries(
       traffics,
       (traffic) => traffic.up,
       const [0.13, 0.13, 0.13, 0.13, 0.13, 0.13, 0.13, 0.13],
+      _uploadChartCenterY,
     );
     final downloadPoints = _trafficSeries(
       traffics,
       (traffic) => traffic.down,
       const [0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077, 0.077],
+      _downloadChartCenterY,
     );
     final uploadColor = isStart
         ? semantic.dashboardDynamicActive
@@ -402,11 +416,7 @@ class _OverviewSpeedCharts extends ConsumerWidget {
       height: cardLayout.chartHeight,
       child: Stack(
         children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            right: 0,
-            height: cardLayout.chartHeight / 2,
+          Positioned.fill(
             child: LineChart(
               points: uploadPoints,
               color: uploadColor,
@@ -414,15 +424,11 @@ class _OverviewSpeedCharts extends ConsumerWidget {
               gradientStartAlpha: lineFillStartAlpha,
               gradientEndAlpha: lineFillEndAlpha,
               duration: commonDuration,
-              minY: hasLiveTraffic ? null : 0,
-              maxY: hasLiveTraffic ? null : 0.2,
+              minY: 0,
+              maxY: _trafficChartMaxY,
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: cardLayout.chartHeight / 2,
+          Positioned.fill(
             child: LineChart(
               points: downloadPoints,
               color: downloadColor,
@@ -430,8 +436,8 @@ class _OverviewSpeedCharts extends ConsumerWidget {
               gradientStartAlpha: lineFillStartAlpha,
               gradientEndAlpha: lineFillEndAlpha,
               duration: commonDuration,
-              minY: hasLiveTraffic ? null : 0,
-              maxY: hasLiveTraffic ? null : 0.2,
+              minY: 0,
+              maxY: _trafficChartMaxY,
             ),
           ),
         ],
