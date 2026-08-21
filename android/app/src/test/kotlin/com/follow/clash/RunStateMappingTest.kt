@@ -39,4 +39,13 @@ class RunStateMappingTest {
         assertEquals(true, canAttemptExplicitStart(RunState.START))
         assertEquals(false, canAttemptExplicitStart(RunState.PENDING))
     }
+
+    @Test
+    fun lifecycleSignalsWaitForATerminalSnapshot() {
+        assertEquals(false, isTerminalSessionState(SessionState.STARTING))
+        assertEquals(false, isTerminalSessionState(SessionState.STOPPING))
+        assertEquals(true, isTerminalSessionState(SessionState.RUNNING))
+        assertEquals(true, isTerminalSessionState(SessionState.PAUSED))
+        assertEquals(true, isTerminalSessionState(SessionState.STOPPED))
+    }
 }

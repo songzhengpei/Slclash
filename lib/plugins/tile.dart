@@ -6,15 +6,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 abstract mixin class TileListener {
-  void onStart() {}
+  FutureOr<void> onStart() {}
 
-  void onStop() {}
+  FutureOr<void> onStop() {}
 
-  void onSmartStop() {}
+  FutureOr<void> onSmartStop() {}
 
-  void onSmartResume() {}
+  FutureOr<void> onSmartResume() {}
 
-  void onDetached() {}
+  FutureOr<void> onSync() {}
+
+  FutureOr<void> onDetached() {}
 }
 
 class Tile {
@@ -34,19 +36,22 @@ class Tile {
     for (final TileListener listener in _listeners) {
       switch (call.method) {
         case 'start':
-          listener.onStart();
+          await listener.onStart();
           break;
         case 'stop':
-          listener.onStop();
+          await listener.onStop();
           break;
         case 'smartStop':
-          listener.onSmartStop();
+          await listener.onSmartStop();
           break;
         case 'smartResume':
-          listener.onSmartResume();
+          await listener.onSmartResume();
+          break;
+        case 'sync':
+          await listener.onSync();
           break;
         case 'detached':
-          listener.onDetached();
+          await listener.onDetached();
           break;
       }
     }

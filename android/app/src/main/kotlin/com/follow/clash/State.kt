@@ -45,6 +45,9 @@ internal fun canFullStopSession(state: String): Boolean =
 internal fun canAttemptExplicitStart(runState: RunState): Boolean =
     runState != RunState.PENDING
 
+internal fun isTerminalSessionState(state: String): Boolean =
+    state != SessionState.STARTING && state != SessionState.STOPPING
+
 
 object State {
 
@@ -121,6 +124,18 @@ object State {
         }
     }
 
+    suspend fun handleServiceLifecycleSignal() {
+        repeat(6) {
+            handleSyncState()
+            if (isTerminalSessionState(sessionSnapshot.state)) {
+                tilePlugin?.handleSync()
+                return
+            }
+            delay(250L)
+        }
+        tilePlugin?.handleSync()
+    }
+
     private fun applySnapshot(snapshot: SessionSnapshot) {
         sessionSnapshot = snapshot
         runTime = snapshot.takeIf { it.state == SessionState.RUNNING }?.startedAt ?: 0L
@@ -145,7 +160,7 @@ object State {
             "vpn_action_requested",
             mapOf("action" to "start", "source" to "android_action", "run_state" to runStateFlow.value),
         )
-        if (runStateFlow.value != RunState.STOP) {
+        if (!canAttemptExplicitStart(runStateFlow.value)) {
             return
         }
         tilePlugin?.handleStart()
@@ -168,8 +183,9 @@ object State {
         if (flutterEngine != null) {
             return
         }
-        GlobalState.application.showToast(sharedState.stopTip)
-        handleStopService()
+        if (stopServiceAndAwait()) {
+            GlobalState.application.showToast(sharedState.stopTip)
+        }
     }
 
     suspend fun handleStartService(): Boolean {
@@ -282,7 +298,6 @@ object State {
     private suspend fun setupAndStart() {
         Service.bind()
         syncState()
-        GlobalState.application.showToast(sharedState.startTip)
         val initParams = mutableMapOf<String, Any>()
         initParams["home-dir"] = GlobalState.application.filesDir.path
         initParams["version"] = android.os.Build.VERSION.SDK_INT
@@ -303,17 +318,13 @@ object State {
             }
             return
         }
-        startServiceSafely()
+        if (startServiceSafely()) {
+            GlobalState.application.showToast(sharedState.startTip)
+        }
     }
 
     private suspend fun startServiceSafely(): Boolean {
-        return runLock.withLock {
-            if (runStateFlow.value != RunState.STOP) {
-                return@withLock runStateFlow.value == RunState.START
-            }
-            runStateFlow.tryEmit(RunState.PENDING)
-            startServiceLocked()
-        }
+        return handleStartService()
     }
 
     private suspend fun startServiceLocked(): Boolean {

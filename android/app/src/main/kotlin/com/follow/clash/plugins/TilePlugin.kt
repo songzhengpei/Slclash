@@ -35,6 +35,10 @@ class TilePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         channel.invokeMethodOnMainThread<Any>("smartResume", null)
     }
 
+    fun handleSync() {
+        channel.invokeMethodOnMainThread<Any>("sync", null)
+    }
+
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {}
 }

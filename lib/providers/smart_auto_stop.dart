@@ -43,11 +43,10 @@ Future<bool> convergeConfirmedSmartResume({
   required void Function(bool value) setFlutterSmartStopped,
 }) async {
   if (!await smartResume()) return false;
-  await setNativeSmartStopped(false);
   final nativeStartTime = await getNativeStartTime();
-  if (nativeStartTime != null) {
-    await resumeLocalListener(nativeStartTime);
-  }
+  if (nativeStartTime == null) return false;
+  await setNativeSmartStopped(false);
+  await resumeLocalListener(nativeStartTime);
   setFlutterSmartStopped(false);
   return true;
 }
@@ -333,7 +332,9 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
     }
     // Fallback: full start via setupAction
     await setupAction.updateStatus(true);
-    ref.read(isSmartStoppedProvider.notifier).set(false);
+    if (ref.read(isStartProvider)) {
+      ref.read(isSmartStoppedProvider.notifier).set(false);
+    }
   }
 
   /// Schedule a check after the startup guard expires.

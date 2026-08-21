@@ -78,6 +78,23 @@ void main() {
     },
   );
 
+  test(
+    'smart resume without confirmed native identity keeps pause UI',
+    () async {
+      var mutations = 0;
+      final success = await convergeConfirmedSmartResume(
+        smartResume: () async => true,
+        setNativeSmartStopped: (_) async => mutations++,
+        getNativeStartTime: () async => null,
+        resumeLocalListener: (_) async => mutations++,
+        setFlutterSmartStopped: (_) => mutations++,
+      );
+
+      expect(success, isFalse);
+      expect(mutations, 0);
+    },
+  );
+
   group('isFilteredNetworkInterface', () {
     test('filters loopback', () {
       expect(isFilteredNetworkInterface('lo'), isTrue);

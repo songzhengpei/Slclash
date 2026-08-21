@@ -126,6 +126,17 @@ bool shouldStartListenerAfterSmartResume({
   return !suspend && coreReady;
 }
 
+enum NativeSessionUiState { running, paused, stopped, pending }
+
+NativeSessionUiState nativeSessionUiStateFor(String? sessionState) {
+  return switch (sessionState) {
+    'RUNNING' => NativeSessionUiState.running,
+    'PAUSED' => NativeSessionUiState.paused,
+    'STOPPED' => NativeSessionUiState.stopped,
+    _ => NativeSessionUiState.pending,
+  };
+}
+
 void convergeFullStopProviders({
   required void Function() clearManualOverride,
   required void Function() clearSmartStopped,
@@ -843,6 +854,44 @@ class SetupAction extends _$SetupAction {
   String? get _sessionState {
     final value = _nativeSession['state'];
     return value is String ? value : null;
+  }
+
+  /// Reconcile Flutter's visible state from the authoritative native session
+  /// without issuing another VPN lifecycle command.
+  Future<void> reconcileNativeSession() async {
+    if (!system.isAndroid) return;
+    await _updateStartTime();
+    switch (nativeSessionUiStateFor(_sessionState)) {
+      case NativeSessionUiState.running:
+        ref.read(isSmartStoppedProvider.notifier).set(false);
+        if (startTime != null) {
+          ref.read(commonActionProvider.notifier).updateRunTime();
+          resumeUiStatsTimerIfNeeded();
+        }
+        break;
+      case NativeSessionUiState.paused:
+        await handleSmartStopLocal();
+        ref.read(isSmartStoppedProvider.notifier).set(true);
+        break;
+      case NativeSessionUiState.stopped:
+        startTime = null;
+        cancelUiStatsTimer();
+        await coreController.stopCoreListenerOnly();
+        convergeFullStopProviders(
+          clearManualOverride: () =>
+              ref.read(smartAutoStopManualOverrideProvider.notifier).clear(),
+          clearSmartStopped: () =>
+              ref.read(isSmartStoppedProvider.notifier).set(false),
+        );
+        coreController.resetTraffic();
+        ref.read(trafficsProvider.notifier).clear();
+        ref.read(totalTrafficProvider.notifier).value = const Traffic();
+        ref.read(runTimeProvider.notifier).value = null;
+        ref.read(checkIpNumProvider.notifier).add();
+        break;
+      case NativeSessionUiState.pending:
+        break;
+    }
   }
 
   Future handleStop() async {

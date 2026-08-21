@@ -14,14 +14,14 @@ class BroadcastReceiver : BroadcastReceiver() {
             BroadcastAction.SERVICE_CREATED.action -> {
                 GlobalState.log("Receiver service created")
                 GlobalState.launch {
-                    State.handleStartServiceAction()
+                    State.handleServiceLifecycleSignal()
                 }
             }
 
             BroadcastAction.SERVICE_DESTROYED.action -> {
                 GlobalState.log("Receiver service destroyed")
                 GlobalState.launch {
-                    State.handleStopServiceAction()
+                    State.handleServiceLifecycleSignal()
                 }
             }
         }

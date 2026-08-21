@@ -1,5 +1,4 @@
 import 'package:fl_clash/common/app_localizations.dart';
-import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/tile.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -32,11 +31,10 @@ class _TileContainerState extends ConsumerState<TileManager> with TileListener {
 
   @override
   Future<void> onStart() async {
-    if (isStart && coreController.isCompleted) {
-      return;
+    await ref.read(setupActionProvider.notifier).updateStatus(true);
+    if (isStart) {
+      await app?.tip(currentAppLocalizations.startVpn);
     }
-    ref.read(setupActionProvider.notifier).updateStatus(true);
-    app?.tip(currentAppLocalizations.startVpn);
     super.onStart();
   }
 
@@ -49,7 +47,9 @@ class _TileContainerState extends ConsumerState<TileManager> with TileListener {
       return;
     }
     await ref.read(setupActionProvider.notifier).updateStatus(false);
-    app?.tip(currentAppLocalizations.stopVpn);
+    if (!isStart && !isSmartStopped) {
+      await app?.tip(currentAppLocalizations.stopVpn);
+    }
     super.onStop();
   }
 
@@ -63,6 +63,13 @@ class _TileContainerState extends ConsumerState<TileManager> with TileListener {
   Future<void> onSmartResume() async {
     await ref.read(smartAutoStopManagerProvider.notifier).resumeNow();
     super.onSmartResume();
+  }
+
+  @override
+  Future<void> onSync() async {
+    if (!ref.read(initProvider)) return;
+    await ref.read(setupActionProvider.notifier).reconcileNativeSession();
+    super.onSync();
   }
 
   @override

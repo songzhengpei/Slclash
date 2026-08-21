@@ -139,6 +139,15 @@ void main() {
         isFalse,
       );
     });
+
+    test('native session maps to visible UI state without guessing', () {
+      expect(nativeSessionUiStateFor('RUNNING'), NativeSessionUiState.running);
+      expect(nativeSessionUiStateFor('PAUSED'), NativeSessionUiState.paused);
+      expect(nativeSessionUiStateFor('STOPPED'), NativeSessionUiState.stopped);
+      expect(nativeSessionUiStateFor('STARTING'), NativeSessionUiState.pending);
+      expect(nativeSessionUiStateFor('STOPPING'), NativeSessionUiState.pending);
+      expect(nativeSessionUiStateFor(null), NativeSessionUiState.pending);
+    });
   });
 
   group('vpnStartPolicy', () {

@@ -107,6 +107,9 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     if (state == AppLifecycleState.resumed) {
       StartupTrace.mark('lifecycle_foreground', extras: {'state': state.name});
       container.read(appForegroundProvider.notifier).set(true);
+      if (container.read(initProvider)) {
+        await setupAction.reconcileNativeSession();
+      }
       render?.resume();
       container
           .read(healthObservationSchedulerProvider.notifier)
