@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:fl_clash/common/function.dart';
 import 'package:fl_clash/common/proxy_group_selection.dart';
+import 'package:fl_clash/core/command_outcome.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -102,6 +103,10 @@ void main() {
       expect(isCoreSelectionSuccess(''), isTrue);
       expect(isCoreSelectionSuccess('Must be a Selector'), isFalse);
       expect(isCoreSelectionSuccess('proxy not exist'), isFalse);
+      expect(
+        isCoreSelectionSuccess(CoreCommandOutcome.unconfirmed),
+        isFalse,
+      );
     });
 
     test('failed A does not rollback newer B', () {
@@ -252,6 +257,38 @@ void main() {
         expect(h.session.peek('g'), isNull);
         expect(h.close, 1);
         expect(h.checkIp, 1);
+      });
+    });
+
+    test('changeProxy transport unconfirmed rolls back without close or checkIp', () {
+      fakeAsync((async) {
+        final h = _SelectionHarness()..map['g'] = 'A';
+        h.optimisticTap('g', 'B');
+        h.dispatchSelectAsync(
+          'g',
+          'B',
+          Future.value(CoreCommandOutcome.unconfirmed),
+        );
+        async.flushMicrotasks();
+        expect(h.map['g'], 'A');
+        expect(h.close, 0);
+        expect(h.checkIp, 0);
+        expect(h.session.peek('g'), isNull);
+      });
+    });
+
+    test('unfix transport unconfirmed rolls back without close or checkIp', () {
+      fakeAsync((async) {
+        final h = _SelectionHarness()..map['g'] = 'A';
+        h.optimisticUnfix('g');
+        h.dispatchUnfixAsync(
+          'g',
+          Future.value(CoreCommandOutcome.unconfirmed),
+        );
+        async.flushMicrotasks();
+        expect(h.map['g'], 'A');
+        expect(h.close, 0);
+        expect(h.checkIp, 0);
       });
     });
 

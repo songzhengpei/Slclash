@@ -7,7 +7,8 @@ import 'package:fl_clash/plugins/service.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 
-import 'interface.dart';
+import 'package:fl_clash/core/command_outcome.dart';
+import 'package:fl_clash/core/interface.dart';
 
 class CoreLib extends CoreHandlerInterface {
   static CoreLib? _instance;
@@ -26,14 +27,17 @@ class CoreLib extends CoreHandlerInterface {
       tag: 'service init',
       onTimeout: () => 'service init timeout',
     );
-    if (res?.isEmpty != true) {
-      return res ?? '';
+    if (res == null) {
+      return CoreCommandOutcome.unconfirmed;
+    }
+    if (res.isNotEmpty) {
+      return res;
     }
     _connectedCompleter.safeCompleter(true);
     final syncRes = await service?.syncState(
       globalState.container.read(sharedStateProvider),
     );
-    return syncRes ?? '';
+    return syncRes ?? CoreCommandOutcome.unconfirmed;
   }
 
   factory CoreLib() {
@@ -52,7 +56,11 @@ class CoreLib extends CoreHandlerInterface {
       return false;
     }
     _connectedCompleter = Completer();
-    return service?.shutdown() ?? true;
+    final svc = service;
+    if (svc == null) {
+      return false;
+    }
+    return svc.shutdown();
   }
 
   @override
@@ -88,7 +96,7 @@ class CoreLib extends CoreHandlerInterface {
       body: () async {
         final result = await service
             ?.invokeAction(Action(id: id, method: method, data: data))
-            .withTimeout(onTimeout: () => null);
+            .withTimeout(timeout: timeout, onTimeout: () => null);
         if (result == null) {
           CoreIpcTrace.classify(id, 'transport_null_or_timeout');
           return null;

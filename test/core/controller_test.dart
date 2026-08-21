@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fl_clash/core/command_outcome.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -191,9 +192,41 @@ void main() {
       expect(preloaded, isFalse);
     });
 
+    test('setupConfig skips TUN preload when transport is unconfirmed', () async {
+      const params = SetupParams(selectedMap: {}, testUrl: 'http://x.com');
+      const setupState = SetupState(
+        profileId: null,
+        profileLastUpdateDate: null,
+        overwriteType: OverwriteType.standard,
+        rules: [],
+        proxyGroups: [],
+        addedRules: [],
+        script: null,
+        overrideDns: false,
+        dns: Dns(),
+      );
+      when(() => mock.setupConfig(params)).thenAnswer(
+        (_) async => CoreCommandOutcome.unconfirmed,
+      );
+      var preloaded = false;
+      final message = await controller.setupConfig(
+        params: params,
+        setupState: setupState,
+        preloadInvoke: () async {
+          preloaded = true;
+        },
+      );
+      expect(message, CoreCommandOutcome.unconfirmed);
+      expect(preloaded, isFalse);
+    });
+
     test('shouldPreloadVpnAfterSetup is true only for empty messages', () {
       expect(CoreController.shouldPreloadVpnAfterSetup(''), isTrue);
       expect(CoreController.shouldPreloadVpnAfterSetup('is empty'), isFalse);
+      expect(
+        CoreController.shouldPreloadVpnAfterSetup(CoreCommandOutcome.unconfirmed),
+        isFalse,
+      );
     });
 
     test('updateConfig delegates to interface', () async {

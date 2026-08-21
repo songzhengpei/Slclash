@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/core/command_outcome.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 
@@ -156,6 +157,20 @@ abstract class CoreHandlerInterface with CoreInterface {
     Duration? timeout,
   });
 
+  /// Command-style Core String APIs. Null transport is unconfirmed, not `""`.
+  Future<String> _invokeCommandString({
+    required ActionMethod method,
+    dynamic data,
+    Duration? timeout,
+  }) async {
+    final raw = await _invoke<String>(
+      method: method,
+      data: data,
+      timeout: timeout,
+    );
+    return CoreCommandOutcome.fromInvoke(raw);
+  }
+
   Future<T> parasResult<T>(ActionResult result) async {
     return switch (result.method) {
       ActionMethod.getConfig => result.toResult as T,
@@ -187,20 +202,18 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   @override
   Future<String> validateConfig(String path) async {
-    return await _invoke<String>(
-          method: ActionMethod.validateConfig,
-          data: path,
-        ) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.validateConfig,
+      data: path,
+    );
   }
 
   @override
   Future<String> updateConfig(UpdateParams updateParams) async {
-    return await _invoke<String>(
-          method: ActionMethod.updateConfig,
-          data: json.encode(updateParams),
-        ) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.updateConfig,
+      data: json.encode(updateParams),
+    );
   }
 
   @override
@@ -211,11 +224,10 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   @override
   Future<String> setupConfig(SetupParams setupParams) async {
-    return await _invoke<String>(
-          method: ActionMethod.setupConfig,
-          data: json.encode(setupParams),
-        ) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.setupConfig,
+      data: json.encode(setupParams),
+    );
   }
 
   @override
@@ -271,20 +283,18 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   @override
   Future<String> changeProxy(ChangeProxyParams changeProxyParams) async {
-    return await _invoke<String>(
-          method: ActionMethod.changeProxy,
-          data: json.encode(changeProxyParams),
-        ) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.changeProxy,
+      data: json.encode(changeProxyParams),
+    );
   }
 
   @override
   Future<String> unfixProxy(UnfixProxyParams unfixProxyParams) async {
-    return await _invoke<String>(
-          method: ActionMethod.unfixProxy,
-          data: json.encode(unfixProxyParams),
-        ) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.unfixProxy,
+      data: json.encode(unfixProxyParams),
+    );
   }
 
   @override
@@ -304,11 +314,10 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   @override
   Future<String> updateGeoData(UpdateGeoDataParams params) async {
-    return await _invoke<String>(
-          method: ActionMethod.updateGeoData,
-          data: json.encode(params),
-        ) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.updateGeoData,
+      data: json.encode(params),
+    );
   }
 
   @override
@@ -316,20 +325,18 @@ abstract class CoreHandlerInterface with CoreInterface {
     required String providerName,
     required String data,
   }) async {
-    return await _invoke<String>(
-          method: ActionMethod.sideLoadExternalProvider,
-          data: json.encode({'providerName': providerName, 'data': data}),
-        ) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.sideLoadExternalProvider,
+      data: json.encode({'providerName': providerName, 'data': data}),
+    );
   }
 
   @override
   Future<String> updateExternalProvider(String providerName) async {
-    return await _invoke<String>(
-          method: ActionMethod.updateExternalProvider,
-          data: providerName,
-        ) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.updateExternalProvider,
+      data: providerName,
+    );
   }
 
   @override
@@ -385,8 +392,10 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   @override
   Future<String> deleteFile(String path) async {
-    return await _invoke<String>(method: ActionMethod.deleteFile, data: path) ??
-        '';
+    return _invokeCommandString(
+      method: ActionMethod.deleteFile,
+      data: path,
+    );
   }
 
   @override

@@ -67,6 +67,7 @@ docs/*
 !docs/phase4-c1b-proxy-performance-evidence.md
 !docs/phase4-c-final-closeout.md
 !docs/phase4-d0-runtime-polling-ipc-baseline.md
+!docs/phase4-d1-ipc-outcome-correctness.md
 !docs/images/
 docs/images/*
 !docs/images/readme/

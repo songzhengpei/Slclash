@@ -29,6 +29,27 @@ void main() {
     expect(CoreIpcTrace.globalInflight, 0);
   });
 
+  test('completion keeps dispatch window identity after a later window starts', () async {
+    CoreIpcTrace.beginRun(id: 'r1');
+    CoreIpcTrace.beginWindow(page: 'w1');
+    final hanging = CoreIpcTrace.run<String>(
+      id: 'changeProxy#1',
+      method: 'changeProxy',
+      body: () async {
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        CoreIpcTrace.classify('changeProxy#1', 'success');
+        return '';
+      },
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    CoreIpcTrace.endWindow();
+    CoreIpcTrace.beginWindow(page: 'w2');
+    await hanging;
+    final row = CoreIpcTrace.ringForTest().last;
+    expect(row['request_run_id'], 'r1');
+    expect(row['request_window_id'], 'r1-w1');
+  });
+
   test('same-method overlap increments when a second invoke starts', () async {
     CoreIpcTrace.beginRun(id: 'r1');
     CoreIpcTrace.beginWindow(page: 'dashboard');

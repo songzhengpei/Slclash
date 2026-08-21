@@ -119,7 +119,8 @@ class CoreController {
     return _interface.updateConfig(updateParams);
   }
 
-  /// Establish TUN / startListener only after native setupConfig succeeds.
+  /// Establish TUN / startListener only after native setupConfig **confirmed** empty success.
+  /// Transport unconfirmed is nonempty and must not preload.
   @visibleForTesting
   static bool shouldPreloadVpnAfterSetup(String message) => message.isEmpty;
 

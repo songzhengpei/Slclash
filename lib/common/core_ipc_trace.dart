@@ -191,14 +191,20 @@ class CoreIpcTrace {
     _seq += 1;
     final caller = _callerHint();
     final createdMs = StartupTrace.elapsedMs;
+    final requestRunId = runId;
+    final requestWindowId = windowId;
     StartupTrace.mark(
       'core_ipc_created',
-      extras: identityExtras({
+      extras: {
+        'run_id': requestRunId,
+        'window_id': requestWindowId,
+        'request_run_id': requestRunId,
+        'request_window_id': requestWindowId,
         'id': id,
         'method': method,
         'seq': _seq,
         'caller': caller,
-      }),
+      },
     );
     final sameBefore = _methodInflight[method] ?? 0;
     if (window && sameBefore > 0) {
@@ -221,13 +227,17 @@ class CoreIpcTrace {
     }
     StartupTrace.mark(
       'core_ipc_dispatch',
-      extras: identityExtras({
+      extras: {
+        'run_id': requestRunId,
+        'window_id': requestWindowId,
+        'request_run_id': requestRunId,
+        'request_window_id': requestWindowId,
         'id': id,
         'method': method,
         'inflight': _globalInflight,
         'same_method_inflight': sameNow,
         'caller': caller,
-      }),
+      },
     );
     final watch = Stopwatch()..start();
     var resultClass = 'success';
@@ -267,6 +277,8 @@ class CoreIpcTrace {
         'result_class': resultClass,
         'created_ms': createdMs,
         'caller': caller,
+        'request_run_id': requestRunId,
+        'request_window_id': requestWindowId,
       };
       _ring.add(row);
       if (_ring.length > _ringMax) {
@@ -278,7 +290,11 @@ class CoreIpcTrace {
         'core_not_ready' => 'core_ipc_timeout',
         _ => 'core_ipc_complete',
       };
-      final extras = identityExtras({
+      final extras = <String, Object?>{
+        'run_id': requestRunId,
+        'window_id': requestWindowId,
+        'request_run_id': requestRunId,
+        'request_window_id': requestWindowId,
         'id': id,
         'method': method,
         'duration': duration,
@@ -287,7 +303,7 @@ class CoreIpcTrace {
         'result_class': resultClass,
         'caller': caller,
         'latency_kind': 'transport',
-      });
+      };
       StartupTrace.mark(mark, extras: extras);
       if (mark != 'core_ipc_complete') {
         StartupTrace.mark('core_ipc_complete', extras: extras);
@@ -335,6 +351,11 @@ class CoreIpcTrace {
     resultCounts.clear();
     _durations.clear();
     _ring.clear();
+  }
+
+  @visibleForTesting
+  static List<Map<String, Object?>> ringForTest() {
+    return List<Map<String, Object?>>.from(_ring);
   }
 
   static String _callerHint() {
