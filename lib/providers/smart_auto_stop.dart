@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/common/network_matcher.dart';
+import 'package:fl_clash/common/perf_trace.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -225,11 +226,23 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
   /// On failure, defers instead of full-stopping to avoid killing a
   /// service that is still starting up.
   Future<void> _smartStop() async {
+    StartupTrace.mark(
+      'vpn_action_requested',
+      extras: {'action': 'smart_stop', 'source': 'smart_auto_stop'},
+    );
     final setupAction = ref.read(setupActionProvider.notifier);
     final s = service;
     if (s != null) {
       try {
         final success = await s.smartStop();
+        StartupTrace.mark(
+          'vpn_action_complete',
+          extras: {
+            'action': 'smart_stop',
+            'source': 'smart_auto_stop',
+            'success': success,
+          },
+        );
         if (success) {
           await s.setSmartStopped(true);
           // Mark provider BEFORE clearing runTime so UI listeners see
@@ -250,11 +263,23 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
   /// Resume VPN via native smartResume (resume TUN only, no service restart),
   /// falling back to full stop/start if native call fails.
   Future<void> _smartResume() async {
+    StartupTrace.mark(
+      'vpn_action_requested',
+      extras: {'action': 'smart_resume', 'source': 'smart_auto_stop'},
+    );
     final setupAction = ref.read(setupActionProvider.notifier);
     final s = service;
     if (s != null) {
       try {
         final success = await s.smartResume();
+        StartupTrace.mark(
+          'vpn_action_complete',
+          extras: {
+            'action': 'smart_resume',
+            'source': 'smart_auto_stop',
+            'success': success,
+          },
+        );
         if (success) {
           await s.setSmartStopped(false);
           // Read native startTime and sync local timer/listener

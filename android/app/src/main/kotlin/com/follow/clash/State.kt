@@ -2,6 +2,7 @@ package com.follow.clash
 
 import android.net.VpnService
 import com.follow.clash.common.GlobalState
+import com.follow.clash.common.Phase4Mark
 import com.follow.clash.models.SharedState
 import com.follow.clash.plugins.AppPlugin
 import com.follow.clash.plugins.TilePlugin
@@ -18,6 +19,13 @@ import kotlinx.coroutines.sync.withLock
 
 enum class RunState {
     START, PENDING, STOP
+}
+
+internal fun runStateForSessionState(state: String): RunState = when (state) {
+    SessionState.RUNNING -> RunState.START
+    SessionState.STARTING, SessionState.STOPPING -> RunState.PENDING
+    SessionState.PAUSED, SessionState.STOPPED -> RunState.STOP
+    else -> RunState.STOP
 }
 
 
@@ -42,6 +50,10 @@ object State {
         get() = flutterEngine?.plugin<TilePlugin>()
 
     suspend fun handleToggleAction() {
+        Phase4Mark.emit(
+            "vpn_action_requested",
+            mapOf("action" to "toggle", "source" to "temp_activity", "run_state" to runStateFlow.value),
+        )
         var action: (suspend () -> Unit)?
         runLock.withLock {
             action = when (runStateFlow.value) {
@@ -54,12 +66,20 @@ object State {
     }
 
     suspend fun handleSmartStopAction() {
+        Phase4Mark.emit(
+            "vpn_action_requested",
+            mapOf("action" to "smart_stop", "source" to "temp_activity", "run_state" to runStateFlow.value),
+        )
         Service.bind()
         Service.smartStop()
         handleSyncState()
     }
 
     suspend fun handleSmartResumeAction() {
+        Phase4Mark.emit(
+            "vpn_action_requested",
+            mapOf("action" to "smart_resume", "source" to "temp_activity", "run_state" to runStateFlow.value),
+        )
         if (flutterEngine != null) {
             tilePlugin?.handleSmartResume()
             return
@@ -81,17 +101,27 @@ object State {
     private fun applySnapshot(snapshot: SessionSnapshot) {
         sessionSnapshot = snapshot
         runTime = snapshot.takeIf { it.state == SessionState.RUNNING }?.startedAt ?: 0L
-        runStateFlow.tryEmit(
-            when (snapshot.state) {
-                SessionState.RUNNING -> RunState.START
-                SessionState.STARTING, SessionState.STOPPING -> RunState.PENDING
-                SessionState.PAUSED, SessionState.STOPPED -> RunState.STOP
-                else -> RunState.STOP
-            }
+        val runState = runStateForSessionState(snapshot.state)
+        Phase4Mark.emit(
+            "vpn_snapshot",
+            mapOf(
+                "layer" to "android_app",
+                "state" to snapshot.state,
+                "session_id" to snapshot.sessionId,
+                "started_at" to snapshot.startedAt,
+                "smart_paused" to snapshot.smartPaused,
+                "run_state" to runState,
+                "run_time" to runTime,
+            ),
         )
+        runStateFlow.tryEmit(runState)
     }
 
     suspend fun handleStartServiceAction() {
+        Phase4Mark.emit(
+            "vpn_action_requested",
+            mapOf("action" to "start", "source" to "android_action", "run_state" to runStateFlow.value),
+        )
         if (runStateFlow.value != RunState.STOP) {
             return
         }
@@ -103,6 +133,10 @@ object State {
     }
 
     suspend fun handleStopServiceAction() {
+        Phase4Mark.emit(
+            "vpn_action_requested",
+            mapOf("action" to "stop", "source" to "android_action", "run_state" to runStateFlow.value),
+        )
         if (runStateFlow.value != RunState.START) {
             return
         }
@@ -135,11 +169,21 @@ object State {
 
             val appPlugin = flutterEngine?.plugin<AppPlugin>()
             if (appPlugin != null) {
+                Phase4Mark.emit("vpn_permission_begin", mapOf("permission" to "notification"))
                 val notificationReady = appPlugin.requestNotificationsPermissionAwait()
+                Phase4Mark.emit(
+                    "vpn_permission_result",
+                    mapOf("permission" to "notification", "granted" to notificationReady),
+                )
                 if (!notificationReady) {
                     // 通知权限拒绝不阻断启动，继续
                 }
+                Phase4Mark.emit("vpn_permission_begin", mapOf("permission" to "vpn"))
                 val vpnPrepared = appPlugin.prepareVpnAwait(options.enable)
+                Phase4Mark.emit(
+                    "vpn_permission_result",
+                    mapOf("permission" to "vpn", "granted" to vpnPrepared),
+                )
                 if (!vpnPrepared) {
                     runLock.withLock {
                         if (runStateFlow.value == RunState.PENDING) {
@@ -150,7 +194,12 @@ object State {
                     return false
                 }
             } else {
+                Phase4Mark.emit("vpn_permission_begin", mapOf("permission" to "vpn"))
                 val intent = VpnService.prepare(GlobalState.application)
+                Phase4Mark.emit(
+                    "vpn_permission_result",
+                    mapOf("permission" to "vpn", "granted" to (intent == null)),
+                )
                 if (intent != null) {
                     runLock.withLock {
                         if (runStateFlow.value == RunState.PENDING) {
@@ -244,6 +293,15 @@ object State {
             }
 
             val result = Service.startService(options, runTime)
+            Phase4Mark.emit(
+                "vpn_service_result",
+                mapOf(
+                    "action" to "start",
+                    "success" to result.success,
+                    "run_time" to result.runTime,
+                    "error_code" to result.errorCode,
+                ),
+            )
             if (result.success && result.runTime > 0L) {
                 val snapshot = awaitStartSnapshot()
                 if (snapshot != null) {
@@ -307,6 +365,14 @@ object State {
                 try {
                     runStateFlow.tryEmit(RunState.PENDING)
                     val result = Service.stopService()
+                    Phase4Mark.emit(
+                        "vpn_service_result",
+                        mapOf(
+                            "action" to "stop",
+                            "success" to result.success,
+                            "error_code" to result.errorCode,
+                        ),
+                    )
                     if (result.success) {
                         applySnapshot(
                             Service.getSessionSnapshot().getOrNull()

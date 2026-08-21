@@ -37,8 +37,10 @@ from navigation import (  # noqa: E402
 from parsers import (  # noqa: E402
     aggregate_startup_marks,
     assess_running_reattach_round,
+    assess_vpn_lifecycle_observations,
     assess_vpn_state,
     connectivity_has_vpn_network,
+    filter_vpn_lifecycle_lines,
     jank_is_valid,
     parse_am_start_w,
     parse_display_refresh_hz,
@@ -59,6 +61,7 @@ from parsers import (  # noqa: E402
     summarize_delay_events,
     summarize_select_events,
     summarize_ipc_events,
+    summarize_vpn_lifecycle_events,
     latest_ipc_window_id,
 )
 from provenance import collect_git_provenance  # noqa: E402
@@ -72,6 +75,7 @@ from report import (  # noqa: E402
 from stats import summarize  # noqa: E402
 
 PRODUCT_BASELINE = "b7e08b6ef84546e9b3d084a411c3a59e3e4df7c8"
+PHASE4E_BASELINE = "1a591aa025e825eebfb0abb735ac62649acb1e8b"
 DEFAULT_PACKAGE = "com.slclash.app.dev"
 MAIN_ACTIVITY = "com.follow.clash.MainActivity"
 TEMP_ACTIVITY = "com.follow.clash.TempActivity"
@@ -409,114 +413,349 @@ class Runner:
             "note": "Device connectivity only; does not prove traffic is in the VPN tunnel.",
         }
 
-    def vpn(self, timeout_s: float = 20.0) -> dict:
-        self.require_package()
-        unreliable = [
-            "vpn_consent_cannot_be_granted_over_adb",
-            "network_probe_is_not_tunnel_attribution",
-        ]
-        notes = [
-            "Uses existing TempActivity START/STOP intents from Phase 1–3 Android quick actions.",
-            "vpn_ready requires VpnService + real tunN iface; remote pid alone is not enough.",
-        ]
-        self.force_stop()
-        time.sleep(0.5)
-        start_cmd = (
+    def _lifecycle_logcat(self) -> str:
+        proc = self.adb.run(["logcat", "-d", "-t", "12000"], timeout=30)
+        return proc.stdout + proc.stderr
+
+    def _lifecycle_snapshot(self, label: str) -> dict:
+        return {
+            "label": label,
+            "host_monotonic_ms": int(time.monotonic() * 1000),
+            "flutter_pid": self.pid_of(self.package),
+            "remote_pid": self.pid_of(f"{self.package}:remote"),
+            "session": self.read_session_presence(),
+            "vpn": self._vpn_status(),
+        }
+
+    def _quick_action(self, action: str) -> dict:
+        command = (
             f"am start -W -n {self.package}/{TEMP_ACTIVITY} "
-            f"-a {self.package}.action.START"
+            f"-a {self.package}.action.{action.upper()}"
         )
-        started_at = time.monotonic()
-        start_proc = self.adb.shell(start_cmd, timeout=30)
-        start_parsed = parse_am_start_w(start_proc.stdout + "\n" + start_proc.stderr)
+        proc = self.adb.shell(command, timeout=30)
+        return {
+            "kind": "temp_activity",
+            "action": action,
+            "command": command,
+            "returncode": proc.returncode,
+            "am_start": parse_am_start_w(proc.stdout + "\n" + proc.stderr),
+        }
 
-        observed = None
-        start_to_observable_ms = None
-        start_to_ready_ms = None
-        vpn_ready = None
-        deadline = started_at + timeout_s
-        while time.monotonic() < deadline:
-            observed = self._vpn_status()
-            now_ms = int((time.monotonic() - started_at) * 1000)
-            if start_to_observable_ms is None and observed["start_observable"]:
-                start_to_observable_ms = now_ms
-            if observed["vpn_ready"] is True:
-                start_to_ready_ms = now_ms
-                vpn_ready = True
-                break
-            time.sleep(0.5)
-        else:
-            if observed is None:
-                observed = self._vpn_status()
-            vpn_ready = observed.get("vpn_ready")
-            if vpn_ready is True and start_to_ready_ms is None:
-                start_to_ready_ms = int((time.monotonic() - started_at) * 1000)
-            if vpn_ready is None:
-                unreliable.append("vpn_ready_unconfirmed_partial_signals_only")
-                notes.append(
-                    "Partial start signals observed but VpnService+tunN were not both present; "
-                    "start_to_ready_ms left null."
-                )
-            elif vpn_ready is False:
-                notes.append(
-                    "VPN did not become ready. Consent dialog, missing profile, "
-                    "or core failure — ready timing is null."
-                )
+    def _flutter_action(self, action: str) -> dict:
+        self.nav_broadcast("vpn_action", {"action": action})
+        return {"kind": "flutter_ui", "action": action, "returncode": 0}
 
-        probe = self._network_probe() if vpn_ready is True else None
-
-        stop_cmd = (
-            f"am start -W -n {self.package}/{TEMP_ACTIVITY} "
-            f"-a {self.package}.action.STOP"
-        )
-        stop_started = time.monotonic()
-        stop_proc = self.adb.shell(stop_cmd, timeout=30)
-        stop_observed = None
-        stop_to_cleared_ms = None
-        stop_success = False
-        stop_deadline = stop_started + timeout_s
-        while time.monotonic() < stop_deadline:
-            stop_observed = self._vpn_status()
-            if vpn_stop_cleared(stop_observed):
-                stop_to_cleared_ms = int((time.monotonic() - stop_started) * 1000)
-                stop_success = True
-                break
-            time.sleep(0.5)
-        if stop_observed is None:
-            stop_observed = self._vpn_status()
-        if not stop_success:
-            if vpn_stop_cleared(stop_observed):
-                stop_success = True
-                stop_to_cleared_ms = int((time.monotonic() - stop_started) * 1000)
+    def _wait_lifecycle(
+        self,
+        label: str,
+        expected_state: str,
+        tun_present: bool,
+        timeout_s: float,
+    ) -> tuple[bool, int | None, list[dict]]:
+        started = time.monotonic()
+        observations: list[dict] = []
+        while time.monotonic() - started < timeout_s:
+            row = self._lifecycle_snapshot(label)
+            observations.append(row)
+            session = row.get("session") or {}
+            vpn = row.get("vpn") or {}
+            state = session.get("state")
+            has_tun = bool(vpn.get("tun_ifaces"))
+            if expected_state == "STOPPED":
+                matched = session.get("parse_ok") is not True and vpn_stop_cleared(vpn)
             else:
-                unreliable.append("vpn_stop_not_cleared")
-                notes.append(
-                    "After STOP, VpnService and/or tunN still present; stop timing not counted as success."
-                )
-                stop_to_cleared_ms = None
+                matched = state == expected_state and has_tun == tun_present
+            if matched:
+                return True, int((time.monotonic() - started) * 1000), observations
+            time.sleep(0.25)
+        return False, None, observations
 
-        # Scenario ok only when VPN readiness was confirmed; never invent ready timing.
-        ok = vpn_ready is True
+    def _vpn_window(
+        self,
+        name: str,
+        action,
+        expected_state: str,
+        tun_present: bool,
+        timeout_s: float,
+    ) -> dict:
+        before = self._lifecycle_snapshot(f"{name}_before")
+        self.adb.run(["logcat", "-c"], timeout=15)
+        started = time.monotonic()
+        dispatch = action()
+        converged, elapsed_ms, observations = self._wait_lifecycle(
+            name, expected_state, tun_present, timeout_s
+        )
+        if self.pid_of(self.package) is not None:
+            self.nav_broadcast("vpn_dump")
+            if before.get("flutter_pid") is None:
+                time.sleep(8.0)
+                self.nav_broadcast("vpn_dump")
+            time.sleep(0.3)
+        after = self._lifecycle_snapshot(f"{name}_after")
+        raw_logcat = self._lifecycle_logcat()
+        events = parse_phase4_events(raw_logcat)
+        summary = summarize_vpn_lifecycle_events(events)
+        return {
+            "name": name,
+            "ok": converged,
+            "expected_state": expected_state,
+            "expected_tun_present": tun_present,
+            "elapsed_ms": elapsed_ms,
+            "dispatch_elapsed_ms": int((time.monotonic() - started) * 1000),
+            "dispatch": dispatch,
+            "before": before,
+            "observations": observations,
+            "after": after,
+            "lifecycle": summary,
+            "observation_flags": assess_vpn_lifecycle_observations(observations + [after]),
+            "raw_phase4_lines": filter_vpn_lifecycle_lines(raw_logcat),
+        }
+
+    def vpn(self, timeout_s: float = 25.0, scenario: str = "all") -> dict:
+        """Phase 4E structured lifecycle baseline. Mutates only the profile test app."""
+        self.require_package()
+        scenario = (scenario or "all").lower()
+        allowed = {"all", "start-stop", "reattach", "smart", "quick"}
+        if scenario not in allowed:
+            raise HarnessError("bad_vpn_scenario", f"unknown vpn scenario {scenario}")
+        notes = [
+            "Raw observations and ordered PHASE4 lines are retained; flags are not automatic bug classifications.",
+            "TUN truth is device-observed tunN plus VpnService; SessionPresence is separate process/session truth.",
+            "Only the profile/debug package is force-stopped for the initial known STOPPED state.",
+        ]
+        windows: list[dict] = []
+        self.force_stop()
+        time.sleep(0.8)
+        initial = self._lifecycle_snapshot("initial_stopped")
+
+        self.start_main()
+        time.sleep(3.0)
+        self.nav_broadcast("vpn_dump")
+        time.sleep(0.3)
+
+        if scenario in {"all", "start-stop"}:
+            windows.append(
+                self._vpn_window(
+                    "flutter_start_1",
+                    lambda: self._flutter_action("start"),
+                    "RUNNING",
+                    True,
+                    timeout_s,
+                )
+            )
+            windows.append(
+                self._vpn_window(
+                    "flutter_stop_1",
+                    lambda: self._flutter_action("stop"),
+                    "STOPPED",
+                    False,
+                    timeout_s,
+                )
+            )
+            windows.append(
+                self._vpn_window(
+                    "flutter_start_2",
+                    lambda: self._flutter_action("start"),
+                    "RUNNING",
+                    True,
+                    timeout_s,
+                )
+            )
+
+        if scenario in {"all", "reattach"}:
+            if self._vpn_status().get("vpn_ready") is not True:
+                windows.append(
+                    self._vpn_window(
+                        "reattach_prerequisite_start",
+                        lambda: self._flutter_action("start"),
+                        "RUNNING",
+                        True,
+                        timeout_s,
+                    )
+                )
+            before = self._lifecycle_snapshot("reattach_before")
+            self.adb.run(["logcat", "-c"], timeout=15)
+            flutter_pid = before.get("flutter_pid")
+            killed = (
+                self.kill_ui_keep_remote(flutter_pid)
+                if isinstance(flutter_pid, int)
+                else {"ok": False, "reason": "ui_pid_missing"}
+            )
+            middle = self._lifecycle_snapshot("reattach_middle")
+            launch = self.start_main()
+            time.sleep(8.0)
+            self.nav_broadcast("vpn_dump")
+            time.sleep(0.3)
+            after = self._lifecycle_snapshot("reattach_after")
+            events = parse_phase4_events(self._lifecycle_logcat())
+            round_ok, reason = assess_running_reattach_round(
+                remote_before=before.get("remote_pid"),
+                kill=killed,
+                ui_pid_before=flutter_pid if isinstance(flutter_pid, int) else 0,
+                remote_mid=middle.get("remote_pid"),
+                remote_post=after.get("remote_pid"),
+                session_before=before.get("session") or {},
+                session_post=after.get("session") or {},
+                vpn_ready_before=(before.get("vpn") or {}).get("vpn_ready"),
+                vpn_ready_post=(after.get("vpn") or {}).get("vpn_ready"),
+            )
+            windows.append(
+                {
+                    "name": "running_reattach",
+                    "ok": round_ok,
+                    "reason": reason,
+                    "before": before,
+                    "kill": killed,
+                    "middle": middle,
+                    "launch": launch,
+                    "after": after,
+                    "lifecycle": summarize_vpn_lifecycle_events(events),
+                    "raw_phase4_lines": filter_vpn_lifecycle_lines(
+                        self._lifecycle_logcat()
+                    ),
+                }
+            )
+
+        if scenario in {"all", "smart"}:
+            if self._vpn_status().get("vpn_ready") is not True:
+                windows.append(
+                    self._vpn_window(
+                        "smart_prerequisite_start",
+                        lambda: self._flutter_action("start"),
+                        "RUNNING",
+                        True,
+                        timeout_s,
+                    )
+                )
+            windows.append(
+                self._vpn_window(
+                    "smart_stop",
+                    lambda: self._quick_action("smart_stop"),
+                    "PAUSED",
+                    False,
+                    timeout_s,
+                )
+            )
+            paused_before = self._lifecycle_snapshot("paused_reattach_before")
+            paused_pid = paused_before.get("flutter_pid")
+            paused_kill = (
+                self.kill_ui_keep_remote(paused_pid)
+                if isinstance(paused_pid, int)
+                else {"ok": False, "reason": "ui_pid_missing"}
+            )
+            paused_middle = self._lifecycle_snapshot("paused_reattach_middle")
+            self.adb.run(["logcat", "-c"], timeout=15)
+            paused_launch = self.start_main()
+            time.sleep(8.0)
+            self.nav_broadcast("vpn_dump")
+            time.sleep(0.3)
+            paused_after = self._lifecycle_snapshot("paused_reattach_after")
+            paused_events = parse_phase4_events(self._lifecycle_logcat())
+            paused_ok = (
+                (paused_after.get("session") or {}).get("state") == "PAUSED"
+                and paused_after.get("remote_pid") == paused_before.get("remote_pid")
+                and (paused_after.get("session") or {}).get("session_id")
+                == (paused_before.get("session") or {}).get("session_id")
+                and not (paused_after.get("vpn") or {}).get("tun_ifaces")
+            )
+            windows.append(
+                {
+                    "name": "paused_reattach",
+                    "ok": paused_ok,
+                    "before": paused_before,
+                    "kill": paused_kill,
+                    "middle": paused_middle,
+                    "launch": paused_launch,
+                    "after": paused_after,
+                    "lifecycle": summarize_vpn_lifecycle_events(paused_events),
+                    "raw_phase4_lines": filter_vpn_lifecycle_lines(
+                        self._lifecycle_logcat()
+                    ),
+                }
+            )
+            windows.append(
+                self._vpn_window(
+                    "paused_quick_stop",
+                    lambda: self._quick_action("stop"),
+                    "PAUSED",
+                    False,
+                    timeout_s,
+                )
+            )
+            windows.append(
+                self._vpn_window(
+                    "paused_toggle_resume",
+                    lambda: self._quick_action("toggle"),
+                    "RUNNING",
+                    True,
+                    timeout_s,
+                )
+            )
+            windows.append(
+                self._vpn_window(
+                    "smart_stop_before_explicit_resume",
+                    lambda: self._quick_action("smart_stop"),
+                    "PAUSED",
+                    False,
+                    timeout_s,
+                )
+            )
+            windows.append(
+                self._vpn_window(
+                    "smart_resume",
+                    lambda: self._quick_action("smart_resume"),
+                    "RUNNING",
+                    True,
+                    timeout_s,
+                )
+            )
+
+        if scenario in {"all", "quick"}:
+            windows.append(
+                self._vpn_window(
+                    "quick_stop",
+                    lambda: self._quick_action("stop"),
+                    "STOPPED",
+                    False,
+                    timeout_s,
+                )
+            )
+            quick_ui_pid = self.pid_of(self.package)
+            quick_kill = (
+                self.kill_ui_keep_remote(quick_ui_pid)
+                if isinstance(quick_ui_pid, int)
+                else {"ok": True, "reason": "ui_already_absent"}
+            )
+            windows.append(
+                self._vpn_window(
+                    "quick_start_without_flutter",
+                    lambda: self._quick_action("start"),
+                    "RUNNING",
+                    True,
+                    timeout_s,
+                )
+            )
+            windows.append(
+                self._vpn_window(
+                    "quick_final_stop",
+                    lambda: self._quick_action("stop"),
+                    "STOPPED",
+                    False,
+                    timeout_s,
+                )
+            )
+
+        ok = bool(windows) and all(row.get("ok") is True for row in windows)
         return {
             "ok": ok,
-            "start": {
-                "command": start_cmd,
-                "am_start": start_parsed,
-                "returncode": start_proc.returncode,
-            },
-            "observed": observed,
-            "start_observable": bool(observed and observed.get("start_observable")),
-            "start_to_observable_ms": start_to_observable_ms,
-            "vpn_ready": vpn_ready,
-            "start_to_ready_ms": start_to_ready_ms if vpn_ready is True else None,
-            "network_probe": probe,
-            "stop": {
-                "command": stop_cmd,
-                "returncode": stop_proc.returncode,
-                "observed": stop_observed,
-            },
-            "stop_success": stop_success,
-            "stop_to_cleared_ms": stop_to_cleared_ms if stop_success else None,
-            "unreliable": unreliable,
+            "scenario": scenario,
+            "initial": initial,
+            "quick_ui_kill": quick_kill if scenario in {"all", "quick"} else None,
+            "windows": windows,
+            "network_probe": self._network_probe()
+            if any((row.get("after") or {}).get("vpn", {}).get("vpn_ready") is True for row in windows)
+            else None,
+            "unreliable": [] if ok else ["one_or_more_lifecycle_windows_failed"],
             "notes": notes,
         }
 
@@ -1665,6 +1904,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="4D.0 IPC workload: never force-stops. running requires live VPN continuity.",
     )
     parser.add_argument(
+        "--vpn-scenario",
+        choices=["all", "start-stop", "reattach", "smart", "quick"],
+        default="all",
+        help="4E lifecycle scenario set. Initial force-stop applies only to the selected profile/debug package.",
+    )
+    parser.add_argument(
         "--delay-max",
         type=int,
         default=20,
@@ -1685,6 +1930,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     args = build_parser().parse_args(argv)
     if args.command == "compare":
         if not args.baseline or not args.current:
@@ -1720,6 +1967,7 @@ def main(argv: list[str] | None = None) -> int:
             "timestamp": utc_now(),
             "commit": env["git_commit"],
             "phase4_product_baseline": PRODUCT_BASELINE,
+            "phase4e_baseline": PHASE4E_BASELINE,
             "device": env.get("model"),
             "build": {
                 "package": env.get("package"),
@@ -1787,6 +2035,8 @@ def main(argv: list[str] | None = None) -> int:
                     session=args.ipc_session,
                     delay_max=args.delay_max,
                 )
+            elif name == "vpn":
+                block = runner.vpn(scenario=args.vpn_scenario)
             else:
                 block = getattr(runner, name)()
             result[name] = block

@@ -31,7 +31,15 @@ class ServiceDelegate<T>(
     private fun handleBind(data: Pair<IBinder?, String>) {
         data.first?.let {
             _serviceState.value = Pair(interfaceCreator(it), data.second)
+            Phase4Mark.emit(
+                "vpn_remote_connected",
+                mapOf("service" to intent.component?.className),
+            )
         } ?: run {
+            Phase4Mark.emit(
+                "vpn_remote_disconnected",
+                mapOf("service" to intent.component?.className, "message" to data.second),
+            )
             _serviceState.value = Pair(null, data.second)
             unbind()
             onServiceDisconnected?.invoke(data.second)
@@ -41,6 +49,10 @@ class ServiceDelegate<T>(
 
     fun bind() {
         if (_bindingState.compareAndSet(false, true)) {
+            Phase4Mark.emit(
+                "vpn_remote_bind_begin",
+                mapOf("service" to intent.component?.className),
+            )
             job?.cancel()
             job = null
             _serviceState.value = null
@@ -70,6 +82,10 @@ class ServiceDelegate<T>(
 
     fun unbind() {
         if (_bindingState.compareAndSet(true, false)) {
+            Phase4Mark.emit(
+                "vpn_remote_unbound",
+                mapOf("service" to intent.component?.className),
+            )
             job?.cancel()
             job = null
             _serviceState.value = null

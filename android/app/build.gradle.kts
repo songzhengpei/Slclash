@@ -120,6 +120,7 @@ dependencies {
     implementation(libs.androidx.core)
     implementation(libs.core.splashscreen)
     implementation(libs.gson)
+    testImplementation(kotlin("test-junit"))
     implementation(libs.smali.dexlib2) {
         exclude(group = "com.google.guava", module = "guava")
     }

@@ -191,6 +191,159 @@ def parse_phase4_events(output: str) -> list[dict]:
     return events
 
 
+VPN_LIFECYCLE_MARKS = {
+    "applyProfile",
+    "applyProfile.groups",
+    "initCore",
+    "paused_core_attached",
+    "setupConfig",
+    "smart_paused_restored",
+    "startListener",
+    "vpn_action_requested",
+    "vpn_permission_begin",
+    "vpn_permission_result",
+    "vpn_service_dispatch",
+    "vpn_service_result",
+    "vpn_state_transition",
+    "vpn_snapshot",
+    "vpn_session_presence",
+    "vpn_remote_bind_begin",
+    "vpn_remote_connected",
+    "vpn_remote_disconnected",
+    "vpn_remote_unbound",
+    "vpn_flutter_sync_begin",
+    "vpn_flutter_sync_end",
+    "vpn_flutter_state",
+    "vpn_listener_start",
+    "vpn_listener_stop",
+    "vpn_tun_observed",
+    "vpn_action_complete",
+    "vpn_quick_action",
+    "vpn_tile_state",
+    "smart_stop_begin",
+    "smart_stop_complete",
+    "smart_resume_begin",
+    "smart_resume_complete",
+}
+
+
+def filter_vpn_lifecycle_lines(output: str) -> list[str]:
+    tokens = tuple(f"mark={name} " for name in VPN_LIFECYCLE_MARKS)
+    return [
+        line
+        for line in output.splitlines()
+        if "[PHASE4]" in line and any(token in line for token in tokens)
+    ]
+
+
+def summarize_vpn_lifecycle_events(events: list[dict]) -> dict:
+    """Preserve ordered 4E facts and report invariant flags without calling them bugs."""
+    scoped = [row for row in events if row.get("mark") in VPN_LIFECYCLE_MARKS]
+    transitions = [row for row in scoped if row.get("mark") == "vpn_state_transition"]
+    dispatches = [row for row in scoped if row.get("mark") == "vpn_service_dispatch"]
+    session_ids = sorted(
+        {
+            int(row["session_id"])
+            for row in scoped
+            if isinstance(row.get("session_id"), int) and row["session_id"] > 0
+        }
+    )
+    flags: list[dict] = []
+    transition_states = [str(row.get("new_state") or "") for row in transitions]
+    if transition_states and transition_states[-1] in {"STARTING", "STOPPING"}:
+        flags.append(
+            {
+                "code": f"final_{transition_states[-1].lower()}",
+                "classification": "observation",
+            }
+        )
+    if len(session_ids) > 1 and "STOPPED" not in transition_states:
+        flags.append(
+            {
+                "code": "session_id_changed_without_observed_stop",
+                "classification": "observation",
+            }
+        )
+    start_dispatches = [row for row in dispatches if row.get("action") == "start"]
+    if len(start_dispatches) > 1:
+        flags.append(
+            {
+                "code": "multiple_native_start_dispatches",
+                "classification": "observation",
+                "count": len(start_dispatches),
+            }
+        )
+    native_state = transition_states[-1] if transition_states else None
+    flutter_rows = [row for row in scoped if row.get("mark") == "vpn_flutter_state"]
+    latest_flutter = flutter_rows[-1] if flutter_rows else None
+    if native_state and latest_flutter:
+        flutter_running = latest_flutter.get("flutter_is_start") is True
+        flutter_paused = latest_flutter.get("flutter_smart_stopped") is True
+        if native_state == "RUNNING":
+            if not flutter_running:
+                flags.append(
+                    {"code": "native_running_flutter_stopped", "classification": "observation"}
+                )
+            if flutter_paused:
+                flags.append(
+                    {"code": "native_running_flutter_paused", "classification": "observation"}
+                )
+        elif native_state == "STOPPED" and flutter_running:
+            flags.append(
+                {"code": "native_stopped_flutter_running", "classification": "observation"}
+            )
+        elif native_state == "PAUSED" and (flutter_running or not flutter_paused):
+            flags.append(
+                {"code": "native_paused_flutter_not_paused", "classification": "observation"}
+            )
+    tile_rows = [row for row in scoped if row.get("mark") == "vpn_tile_state"]
+    if native_state and tile_rows:
+        expected = {
+            "RUNNING": "START",
+            "STARTING": "PENDING",
+            "STOPPING": "PENDING",
+            "PAUSED": "STOP",
+            "STOPPED": "STOP",
+        }.get(native_state, "STOP")
+        if tile_rows[-1].get("run_state") != expected:
+            flags.append(
+                {"code": "tile_native_state_disagreement", "classification": "observation"}
+            )
+    return {
+        "event_count": len(scoped),
+        "events": scoped,
+        "transitions": transitions,
+        "session_ids": session_ids,
+        "start_dispatch_count": len(start_dispatches),
+        "stop_dispatch_count": sum(
+            1 for row in dispatches if row.get("action") == "stop"
+        ),
+        "flags": flags,
+        "latest_native_state": native_state,
+        "latest_flutter_state": latest_flutter,
+    }
+
+
+def assess_vpn_lifecycle_observations(observations: list[dict]) -> list[dict]:
+    """Flag cross-layer contradictions while retaining the underlying snapshots."""
+    flags: list[dict] = []
+    for row in observations:
+        label = row.get("label")
+        session = row.get("session") or {}
+        vpn = row.get("vpn") or {}
+        state = session.get("state")
+        tun = bool(vpn.get("tun_ifaces"))
+        if len(vpn.get("tun_ifaces") or []) > 1:
+            flags.append({"code": "multiple_tun_interfaces", "label": label})
+        if state == "RUNNING" and not tun:
+            flags.append({"code": "running_but_tun_missing", "label": label})
+        if state == "STOPPED" and tun:
+            flags.append({"code": "stopped_but_tun_present", "label": label})
+        if state == "PAUSED" and tun:
+            flags.append({"code": "paused_but_tun_present", "label": label})
+    return flags
+
+
 def summarize_delay_events(
     events: list[dict],
     *,

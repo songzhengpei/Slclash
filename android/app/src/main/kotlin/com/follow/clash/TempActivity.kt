@@ -3,6 +3,7 @@ package com.follow.clash
 import android.app.Activity
 import android.os.Bundle
 import com.follow.clash.common.QuickAction
+import com.follow.clash.common.Phase4Mark
 import com.follow.clash.common.action
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,14 @@ class TempActivity : Activity(),
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Phase4Mark.emit(
+            "vpn_quick_action",
+            mapOf(
+                "action" to intent.action?.substringAfterLast('.'),
+                "run_state" to State.runStateFlow.value,
+                "session_state" to State.sessionSnapshot.state,
+            ),
+        )
         when (intent.action) {
             QuickAction.START.action -> {
                 launch {

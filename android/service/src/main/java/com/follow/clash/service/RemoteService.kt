@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import com.follow.clash.common.GlobalState
+import com.follow.clash.common.Phase4Mark
 import com.follow.clash.common.ServiceDelegate
 import com.follow.clash.common.chunkedForAidl
 import com.follow.clash.common.intent
@@ -53,6 +54,10 @@ class RemoteService : Service(), CoroutineScope {
     }
 
     private fun handleStopService(result: IOperationResultInterface) {
+        Phase4Mark.emit(
+            "vpn_service_dispatch",
+            mapOf("action" to "stop", "state" to State.snapshot.state),
+        )
         launch {
             runLock.withLock {
                 val current = State.snapshot
@@ -87,6 +92,10 @@ class RemoteService : Service(), CoroutineScope {
     }
 
     private fun handleServiceDisconnected(message: String) {
+        Phase4Mark.emit(
+            "vpn_remote_disconnected",
+            mapOf("service" to "background", "state" to State.snapshot.state, "message" to message),
+        )
         GlobalState.log("Background service disconnected: $message")
         intent = null
         delegate = null
@@ -118,6 +127,10 @@ class RemoteService : Service(), CoroutineScope {
         runTime: Long,
         result: IOperationResultInterface,
     ) {
+        Phase4Mark.emit(
+            "vpn_service_dispatch",
+            mapOf("action" to "start", "state" to State.snapshot.state, "run_time" to runTime),
+        )
         launch {
             runLock.withLock {
                 val current = State.snapshot
@@ -343,19 +356,40 @@ class RemoteService : Service(), CoroutineScope {
         }
 
         override fun getSessionSnapshot(): SessionSnapshot {
+            Phase4Mark.emit(
+                "vpn_snapshot",
+                mapOf(
+                    "layer" to "remote_binder",
+                    "state" to State.snapshot.state,
+                    "session_id" to State.snapshot.sessionId,
+                    "smart_paused" to State.snapshot.smartPaused,
+                ),
+            )
             return State.snapshot
         }
 
         override fun smartStop(result: IResultInterface) {
+            Phase4Mark.emit(
+                "smart_stop_begin",
+                mapOf("state" to State.snapshot.state, "session_id" to State.snapshot.sessionId),
+            )
             launch {
                 runLock.withLock {
                     // Already stopped — return success (idempotent)
                     val current = State.snapshot
                     if (current.state == SessionState.PAUSED) {
+                        Phase4Mark.emit(
+                            "smart_stop_complete",
+                            mapOf("result_class" to "idempotent", "state" to current.state),
+                        )
                         result.onResult(1)
                         return@withLock
                     }
                     if (current.state != SessionState.RUNNING) {
+                        Phase4Mark.emit(
+                            "smart_stop_complete",
+                            mapOf("result_class" to "rejected", "state" to current.state),
+                        )
                         result.onResult(0)
                         return@withLock
                     }
@@ -371,8 +405,16 @@ class RemoteService : Service(), CoroutineScope {
                     }
                     if (success) {
                         applySession(SessionTransitions.paused(current))
+                        Phase4Mark.emit(
+                            "smart_stop_complete",
+                            mapOf("result_class" to "success", "state" to State.snapshot.state),
+                        )
                         result.onResult(1)
                     } else {
+                        Phase4Mark.emit(
+                            "smart_stop_complete",
+                            mapOf("result_class" to "service_unavailable", "state" to current.state),
+                        )
                         result.onResult(0)
                     }
                 }
@@ -380,11 +422,19 @@ class RemoteService : Service(), CoroutineScope {
         }
 
         override fun smartResume(result: IResultInterface) {
+            Phase4Mark.emit(
+                "smart_resume_begin",
+                mapOf("state" to State.snapshot.state, "session_id" to State.snapshot.sessionId),
+            )
             launch {
                 runLock.withLock {
                     // Not stopped — return current runTime (idempotent)
                     val current = State.snapshot
                     if (current.state != SessionState.PAUSED) {
+                        Phase4Mark.emit(
+                            "smart_resume_complete",
+                            mapOf("result_class" to "idempotent_or_rejected", "state" to current.state),
+                        )
                         result.onResult(
                             current.takeIf { it.state == SessionState.RUNNING }?.startedAt ?: 0L
                         )
@@ -402,8 +452,16 @@ class RemoteService : Service(), CoroutineScope {
                     }
                     if (success) {
                         applySession(SessionTransitions.running(current))
+                        Phase4Mark.emit(
+                            "smart_resume_complete",
+                            mapOf("result_class" to "success", "state" to State.snapshot.state),
+                        )
                         result.onResult(current.startedAt)
                     } else {
+                        Phase4Mark.emit(
+                            "smart_resume_complete",
+                            mapOf("result_class" to "tun_start_failed", "state" to current.state),
+                        )
                         result.onResult(0)
                     }
                 }

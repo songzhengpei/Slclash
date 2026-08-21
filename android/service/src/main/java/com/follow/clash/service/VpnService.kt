@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.core.content.getSystemService
 import com.follow.clash.common.AccessControlMode
 import com.follow.clash.common.GlobalState
+import com.follow.clash.common.Phase4Mark
 import com.follow.clash.core.Core
 import com.follow.clash.service.models.ServiceErrorCode
 import com.follow.clash.service.models.ServiceOperationResult
@@ -181,6 +182,10 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
     }
 
     private fun handleStart(options: VpnOptions) {
+        Phase4Mark.emit(
+            "vpn_tun_observed",
+            mapOf("phase" to "establish_begin", "tun_present" to false),
+        )
         val fd = with(Builder()) {
             val cidr = IPV4_ADDRESS.toCIDR()
             addAddress(cidr.address, cidr.prefixLength)
@@ -283,6 +288,10 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             establish()?.detachFd()
                 ?: throw NullPointerException("Establish VPN rejected by system")
         }
+        Phase4Mark.emit(
+            "vpn_tun_observed",
+            mapOf("phase" to "establish_complete", "fd_valid" to (fd >= 0)),
+        )
         GlobalState.log("TUN dns hijack ${options.dns}")
         val started = Core.startTun(
             fd,
@@ -291,6 +300,10 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             options.stack,
             options.address,
             options.dns
+        )
+        Phase4Mark.emit(
+            "vpn_tun_observed",
+            mapOf("phase" to "core_start_result", "tun_present" to started),
         )
         if (!started) {
             Core.stopTun()
@@ -331,21 +344,45 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
     override suspend fun stop(): ServiceOperationResult = shutdown("user_stop")
 
     override suspend fun smartStop() = lifecycleMutex.withLock {
+        Phase4Mark.emit(
+            "vpn_tun_observed",
+            mapOf("phase" to "smart_stop_begin", "shutdown_complete" to shutdownComplete),
+        )
         if (!shutdownComplete) {
             clearResolverCache()
             Core.stopTun()
         }
+        Phase4Mark.emit(
+            "vpn_tun_observed",
+            mapOf("phase" to "smart_stop_complete", "tun_present" to false),
+        )
     }
 
     override suspend fun smartResume(): Boolean = lifecycleMutex.withLock {
+        Phase4Mark.emit(
+            "vpn_tun_observed",
+            mapOf("phase" to "smart_resume_begin", "shutdown_complete" to shutdownComplete),
+        )
         if (shutdownComplete) return@withLock false
         return@withLock try {
             State.options?.let {
                 handleStart(it)
+                Phase4Mark.emit(
+                    "vpn_tun_observed",
+                    mapOf("phase" to "smart_resume_complete", "tun_present" to true),
+                )
                 true
             } ?: false
         } catch (e: Exception) {
             GlobalState.log("VpnService smartResume failed: ${e.message}")
+            Phase4Mark.emit(
+                "vpn_tun_observed",
+                mapOf(
+                    "phase" to "smart_resume_failed",
+                    "tun_present" to false,
+                    "error" to e.javaClass.simpleName,
+                ),
+            )
             false
         }
     }
@@ -363,7 +400,12 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
     }
 
     private suspend fun cleanupLocked(stopService: Boolean) {
+        Phase4Mark.emit("vpn_tun_observed", mapOf("phase" to "stop_begin"))
         Core.stopTun()
+        Phase4Mark.emit(
+            "vpn_tun_observed",
+            mapOf("phase" to "stop_complete", "tun_present" to false),
+        )
         loader.unload()
         clearResolverCache()
         shutdownComplete = true

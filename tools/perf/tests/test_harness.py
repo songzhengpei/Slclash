@@ -23,7 +23,9 @@ from parsers import (  # noqa: E402
     assess_running_navigation_continuity,
     assess_running_navigation_preconditions,
     assess_vpn_state,
+    assess_vpn_lifecycle_observations,
     connectivity_has_vpn_network,
+    filter_vpn_lifecycle_lines,
     jank_is_valid,
     parse_am_start_w,
     parse_display_refresh_hz,
@@ -39,6 +41,7 @@ from parsers import (  # noqa: E402
     parse_tun_from_sys_class_net,
     parse_tun_interfaces,
     summarize_delay_events,
+    summarize_vpn_lifecycle_events,
     summarize_select_events,
     summarize_ipc_events,
     latest_ipc_window_id,
@@ -112,6 +115,88 @@ class StatsTests(unittest.TestCase):
 
 
 class ParserTests(unittest.TestCase):
+    def test_vpn_lifecycle_raw_filter_excludes_unrelated_ipc(self) -> None:
+        lines = filter_vpn_lifecycle_lines(
+            "\n".join(
+                [
+                    "I [PHASE4] mark=vpn_state_transition elapsed_ms=1 new_state=RUNNING",
+                    "I [PHASE4] mark=setupConfig elapsed_ms=2",
+                    "I [PHASE4] mark=core_ipc_dispatch elapsed_ms=3 method=getProxies",
+                ]
+            )
+        )
+        self.assertEqual(len(lines), 2)
+
+    def test_vpn_lifecycle_summary_preserves_order_and_flags_duplicate_start(self) -> None:
+        events = parse_phase4_events(
+            "\n".join(
+                [
+                    "[PHASE4] mark=vpn_state_transition elapsed_ms=1 old_state=STOPPED new_state=STARTING session_id=7",
+                    "[PHASE4] mark=vpn_service_dispatch elapsed_ms=2 action=start state=STOPPED",
+                    "[PHASE4] mark=vpn_service_dispatch elapsed_ms=3 action=start state=STARTING",
+                    "[PHASE4] mark=vpn_state_transition elapsed_ms=4 old_state=STARTING new_state=RUNNING session_id=7",
+                ]
+            )
+        )
+        summary = summarize_vpn_lifecycle_events(events)
+        self.assertEqual(summary["session_ids"], [7])
+        self.assertEqual(summary["start_dispatch_count"], 2)
+        self.assertEqual(summary["events"][0]["new_state"], "STARTING")
+        self.assertIn(
+            "multiple_native_start_dispatches",
+            [row["code"] for row in summary["flags"]],
+        )
+
+    def test_vpn_observation_flags_are_facts_not_bug_classification(self) -> None:
+        flags = assess_vpn_lifecycle_observations(
+            [
+                {
+                    "label": "running",
+                    "session": {"state": "RUNNING"},
+                    "vpn": {"tun_ifaces": []},
+                },
+                {
+                    "label": "paused",
+                    "session": {"state": "PAUSED"},
+                    "vpn": {"tun_ifaces": ["tun0"]},
+                },
+            ]
+        )
+        self.assertEqual(
+            [row["code"] for row in flags],
+            ["running_but_tun_missing", "paused_but_tun_present"],
+        )
+
+    def test_vpn_lifecycle_flags_paused_flutter_contradiction(self) -> None:
+        events = parse_phase4_events(
+            "\n".join(
+                [
+                    "[PHASE4] mark=vpn_state_transition elapsed_ms=1 old_state=RUNNING new_state=PAUSED session_id=9",
+                    "[PHASE4] mark=vpn_flutter_state elapsed_ms=2 flutter_is_start=true flutter_smart_stopped=false",
+                ]
+            )
+        )
+        summary = summarize_vpn_lifecycle_events(events)
+        self.assertIn(
+            "native_paused_flutter_not_paused",
+            [row["code"] for row in summary["flags"]],
+        )
+
+    def test_vpn_lifecycle_flags_running_with_stale_paused_provider(self) -> None:
+        events = parse_phase4_events(
+            "\n".join(
+                [
+                    "[PHASE4] mark=vpn_state_transition elapsed_ms=1 old_state=PAUSED new_state=RUNNING session_id=9",
+                    "[PHASE4] mark=vpn_flutter_state elapsed_ms=2 flutter_is_start=true flutter_smart_stopped=true",
+                ]
+            )
+        )
+        summary = summarize_vpn_lifecycle_events(events)
+        self.assertIn(
+            "native_running_flutter_paused",
+            [row["code"] for row in summary["flags"]],
+        )
+
     def test_am_start_w(self) -> None:
         parsed = parse_am_start_w(
             "Starting: Intent { cmp=com.slclash.app.dev/com.follow.clash.MainActivity }\n"

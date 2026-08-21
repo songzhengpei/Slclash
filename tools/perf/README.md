@@ -40,7 +40,7 @@ $env:Path = "D:\Code\Tools\Android\Sdk\platform-tools;$env:Path"
 python tools/perf/phase4.py all --build-mode profile
 ```
 
-Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `running-reattach`, `navigation`, `proxy`, `compare`.
+Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `running-reattach`, `navigation`, `proxy`, `ipc`, `compare`.
 
 ```powershell
 python tools/perf/phase4.py compare --baseline .perf-captures/phase4/old/result.json --current .perf-captures/phase4/latest.json
@@ -48,6 +48,7 @@ python tools/perf/phase4.py navigation --build-mode profile --write-nav-baseline
 python tools/perf/phase4.py navigation --build-mode profile --nav-session running
 python tools/perf/phase4.py proxy --build-mode profile --proxy-session idle --delay-max 20
 python tools/perf/phase4.py proxy --build-mode profile --proxy-session running --delay-max 20
+python tools/perf/phase4.py vpn --build-mode profile --vpn-scenario all
 python -m unittest tools/perf/tests/test_harness.py
 ```
 
@@ -61,7 +62,7 @@ Options: `--package`, `--serial` / `ANDROID_SERIAL`, `--adb`, `--build-mode`, `-
 | cold-start | `am force-stop`, `am start -W`; warmup 2, measure 10; median / P90 / min / max; startup marks aggregated across all measure runs |
 | memory | `dumpsys meminfo` for app and `:remote` (PSS, Java/Native heap when present) |
 | jank | `dumpsys gfxinfo reset` then `gfxinfo`; idle frames only, no UI automation |
-| vpn | TempActivity START/STOP; `start_observable` vs confirmed `vpn_ready`; stop latency |
+| vpn | Phase 4E observer-only lifecycle windows. `--vpn-scenario all\|start-stop\|reattach\|smart\|quick` records SessionPresence, native state transitions, Flutter-derived state, remote/UI PID, VpnService, real `tunN`, bind/disconnect, Tile/QuickAction dispatch, and raw ordered `[PHASE4]` lines. |
 | running-reattach | VPN stays up; kill Flutter UI pid only (`run-as kill` / `am kill`, never `force-stop`); reopen MainActivity. Formal continuity requires `kill_ui_keep_remote.ok`, old UI pid gone, remote pid unchanged before/mid/post, presence-file `sessionId>0` identical, `state=RUNNING`, and `vpn_ready` before/post. Logcat is StartupTrace timing only. |
 | navigation | Profile APK only. ADB sends `phase4_cmd` extras to already-exported `MainActivity` (`singleTop` / `onNewIntent`). Dart no-ops unless NavigationTrace is enabled. Records Flutter FrameTiming per tab transition. Frame budget uses the device refresh rate. Idle `dumpsys gfxinfo` is **not** this metric. `all` does not include navigation. Default `--nav-session idle` force-stops the package (VPN OFF). `--nav-session running` never force-stops: it requires VpnService + tun + `:remote` + presence `state=RUNNING` + `sessionId>0` + `vpn_ready`, and sets `ok=false` if remote pid / sessionId / tun / vpn_ready change. |
 | proxy | Phase 4C.0. Never force-stops. Navigates Dashboard → Proxy, runs capped `delayTest` (product `map`+`batch(100)`), then Proxy → Dashboard → Proxy. Records delay peak_inflight, eager `_buildItems` counts, FrameTiming for those tab pairs, VPN continuity when `--proxy-session running`. `all` does not include proxy. |
@@ -73,19 +74,21 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`, `docs/phase4-c0-proxy-group-baseline.md`, `docs/phase4-c1a-mihomo-group-correctness.md`, `docs/phase4-c1b-proxy-performance-evidence.md`, `docs/phase4-c-final-closeout.md`, `docs/phase4-d0-runtime-polling-ipc-baseline.md`.
+Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`, `docs/phase4-c0-proxy-group-baseline.md`, `docs/phase4-c1a-mihomo-group-correctness.md`, `docs/phase4-c1b-proxy-performance-evidence.md`, `docs/phase4-c-final-closeout.md`, `docs/phase4-d0-runtime-polling-ipc-baseline.md`, `docs/phase4-e0-vpn-lifecycle-baseline.md`.
 
 Phase status:
 
 - Phase 4A (Startup): **CLOSED**
 - Phase 4B (Navigation / Page Mounting): **CLOSED** — `docs/phase4-b-final-closeout.md`
 - Phase 4C (Proxy / Group UX): **CLOSED** — `docs/phase4-c-final-closeout.md`
-- Phase 4D (Runtime Polling / Core IPC): **CURRENT** — 4D.2 `docs/phase4-d2-dashboard-network-diagnostics.md`. **STOP for human audit → Phase 4D Final Closeout.** Do not start 4D.3 / 4E.
-- Phase 4E (VPN Lifecycle): **FUTURE**
+- Phase 4D (Runtime Polling / Core IPC): **CLOSED**
+- Phase 4E (VPN Lifecycle): **CURRENT — 4E.0 audit/instrumentation baseline only. STOP for human audit after evidence.**
 - Phase 4F (Background / Power): **FUTURE**
 - Phase 4G (Animation polish): **FUTURE**
 
 Phase 4D.0 IPC: `python tools/perf/phase4.py ipc --ipc-session idle|running`. Never force-stops. `all` does not include `ipc`.
+
+Phase 4E.0 VPN lifecycle: `python tools/perf/phase4.py vpn --build-mode profile --vpn-scenario all`. The command mutates only the selected profile/debug test package, begins from a known STOPPED state, and retains each state/TUN/PID observation plus filtered raw marks. It does not classify observation flags as product bugs. `all` does not include this scenario.
 
 Phase 4C.0 audit: `python tools/perf/phase4.py proxy`. Never force-stops. `all` does not include `proxy`. See `docs/phase4-c0-proxy-group-baseline.md`.
 
@@ -104,6 +107,8 @@ Enabled in debug/profile automatically. Release is off unless:
 ```
 
 Marks: `process_main_begin`, `system.version`, `globalState.init`, `dynamic_color`, `package_info`, `preferences`, `migration`, `database_profiles`, `localization`, `runApp`, `first_frame`, `globalState.attach`, `proxy_group_snapshot_hydration`, `initStatus.begin`, `updateStartTime`, `session_snapshot`, `connectCore`, `preload`, `ensureCoreReady`, `initCore`, `setupAction.initStatus`, `core_ready` / `core_skipped` / `core_connect_failed` / `core_init_failed`, `getProfile`, `setupConfig`, `startListener`, `applyProfile`, `applyProfile.groups`, `syncProviders`, `main_ready`.
+
+Phase 4E native and Flutter marks use the same line format and are enabled only for `.profile` / `.dev`: `vpn_action_requested`, `vpn_permission_begin`, `vpn_permission_result`, `vpn_service_dispatch`, `vpn_service_result`, `vpn_state_transition`, `vpn_snapshot`, `vpn_session_presence`, `vpn_remote_bind_begin`, `vpn_remote_connected`, `vpn_remote_disconnected`, `vpn_remote_unbound`, `vpn_flutter_sync_begin`, `vpn_flutter_sync_end`, `vpn_flutter_state`, `vpn_listener_start`, `vpn_listener_stop`, `vpn_tun_observed`, `vpn_action_complete`, `vpn_quick_action`, `vpn_tile_state`, `smart_stop_begin`, `smart_stop_complete`, `smart_resume_begin`, `smart_resume_complete`.
 
 Only a truly connected+initialized Core emits `core_ready`. Idle autoRun-off paths emit `core_skipped`.
 

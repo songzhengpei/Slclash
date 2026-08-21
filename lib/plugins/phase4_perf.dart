@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -92,6 +93,10 @@ class Phase4PerfCommands {
         );
       case 'ipc_dump':
         return _ipcDump(args['reason'] ?? args['event']);
+      case 'vpn_dump':
+        return _vpnDump();
+      case 'vpn_action':
+        return _vpnAction(args['action'] ?? args['value']);
       default:
         return null;
     }
@@ -163,7 +168,10 @@ class Phase4PerfCommands {
       }
     }
     if (group == null) {
-      StartupTrace.mark('proxy_select_race_skip', extras: {'reason': 'no_selector'});
+      StartupTrace.mark(
+        'proxy_select_race_skip',
+        extras: {'reason': 'no_selector'},
+      );
       return 'no_selector';
     }
     final a = group.all[0].name;
@@ -221,11 +229,7 @@ class Phase4PerfCommands {
     );
     StartupTrace.mark(
       'proxy_select_named',
-      extras: {
-        'group': group.name,
-        'proxy': proxy.name,
-        'applied': applied,
-      },
+      extras: {'group': group.name, 'proxy': proxy.name, 'applied': applied},
     );
     return applied ? '${group.name}:${proxy.name}' : 'ignored';
   }
@@ -281,10 +285,7 @@ class Phase4PerfCommands {
               ? group.fixed!
               : group.all.first.name)
         : group.all.first.name;
-    final applied = applyProxyGroupMemberTap(
-      group: group,
-      tappedName: target,
-    );
+    final applied = applyProxyGroupMemberTap(group: group, tappedName: target);
     StartupTrace.mark(
       'proxy_select_fixed',
       extras: {
@@ -307,9 +308,7 @@ class Phase4PerfCommands {
       return 'no_group';
     }
     final expand =
-        expandRaw != '0' &&
-        expandRaw != 'false' &&
-        expandRaw != 'collapse';
+        expandRaw != '0' && expandRaw != 'false' && expandRaw != 'collapse';
     final profile = globalState.container.read(currentProfileProvider);
     final current = Set<String>.from(profile?.unfoldSet ?? <String>{});
     if (expand) {
@@ -359,7 +358,9 @@ class Phase4PerfCommands {
   }
 
   static String _refreshGroups() {
-    globalState.container.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+    globalState.container
+        .read(proxiesActionProvider.notifier)
+        .updateGroupsDebounce();
     StartupTrace.mark('proxy_refresh_groups');
     return 'ok';
   }
@@ -391,6 +392,43 @@ class Phase4PerfCommands {
 
   static Map<String, Object?> _ipcDump(String? reason) {
     return CoreIpcTrace.dump(reason: reason ?? 'dump');
+  }
+
+  static Map<String, Object?> _vpnDump() {
+    final container = globalState.container;
+    final snapshot = <String, Object?>{
+      'flutter_is_start': container.read(isStartProvider),
+      'flutter_smart_stopped': container.read(isSmartStoppedProvider),
+      'flutter_run_time': container.read(runTimeProvider),
+      'flutter_suspend': container.read(suspendProvider),
+      'core_status': container.read(coreStatusProvider).name,
+      'core_ready': coreController.isCompleted,
+    };
+    StartupTrace.mark('vpn_flutter_state', extras: snapshot);
+    return snapshot;
+  }
+
+  static Future<Map<String, Object?>> _vpnAction(String? action) async {
+    if (action != 'start' && action != 'stop') {
+      return {'error': 'unsupported_action', 'action': action};
+    }
+    StartupTrace.mark(
+      'vpn_action_requested',
+      extras: {'action': action, 'source': 'phase4_flutter_ui'},
+    );
+    await globalState.container
+        .read(setupActionProvider.notifier)
+        .updateStatus(action == 'start');
+    final snapshot = _vpnDump();
+    StartupTrace.mark(
+      'vpn_action_complete',
+      extras: {
+        'action': action,
+        'source': 'phase4_flutter_ui',
+        'flutter_is_start': snapshot['flutter_is_start'],
+      },
+    );
+    return snapshot;
   }
 
   static String _keepDashboard(String? raw) {

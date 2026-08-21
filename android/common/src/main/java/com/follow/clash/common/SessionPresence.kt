@@ -90,6 +90,10 @@ object SessionPresence {
         if (state == "STOPPED") {
             file.delete()
             File(context.filesDir, "$FILE_NAME.tmp").delete()
+            Phase4Mark.emit(
+                "vpn_session_presence",
+                mapOf("operation" to "delete", "state" to state, "session_id" to sessionId),
+            )
             return
         }
         val text = encode(
@@ -107,6 +111,17 @@ object SessionPresence {
             file.writeText(text)
             tmp.delete()
         }
+        Phase4Mark.emit(
+            "vpn_session_presence",
+            mapOf(
+                "operation" to "write",
+                "state" to state,
+                "session_id" to sessionId,
+                "started_at" to startedAt,
+                "smart_paused" to smartPaused,
+                "remote_pid" to pid,
+            ),
+        )
     }
 
     fun readValid(context: Context, expectedProcessName: String): RemotePresence? {

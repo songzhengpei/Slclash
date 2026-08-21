@@ -5,6 +5,7 @@ import com.follow.clash.State
 import com.follow.clash.common.Components
 import com.follow.clash.common.GlobalState
 import com.follow.clash.common.RunTimeProbe
+import com.follow.clash.common.Phase4Mark
 import com.follow.clash.invokeMethodOnMainThread
 import com.follow.clash.models.SharedState
 import com.follow.clash.common.SessionPresence
@@ -111,6 +112,7 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     }
 
     private fun handleStart(result: MethodChannel.Result) {
+        Phase4Mark.emit("vpn_action_requested", mapOf("action" to "start", "source" to "flutter_ui"))
         launch {
             val success = State.handleStartService()
             result.success(success)
@@ -118,6 +120,7 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     }
 
     private fun handleStop(result: MethodChannel.Result) {
+        Phase4Mark.emit("vpn_action_requested", mapOf("action" to "stop", "source" to "flutter_ui"))
         State.handleStopService()
         result.success(true)
     }

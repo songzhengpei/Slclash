@@ -675,6 +675,10 @@ class SetupAction extends _$SetupAction {
   Future<bool> _handleStart() async {
     if (!ref.read(suspendProvider)) {
       final started = await coreController.startListener();
+      StartupTrace.mark(
+        'vpn_listener_start',
+        extras: {'success': started, 'source': 'setup_action'},
+      );
       StartupTrace.mark('startListener');
       if (!started) {
         startTime = null;
@@ -789,17 +793,29 @@ class SetupAction extends _$SetupAction {
   }
 
   Future _updateStartTime() async {
+    StartupTrace.mark('vpn_flutter_sync_begin', extras: {'source': 'app_init'});
     startTime = await service?.getRunTime();
     if (StartupTrace.enabled || system.isAndroid) {
       _nativeSession = await service?.getSessionSnapshot() ?? const {};
       StartupTrace.mark(
-        'session_snapshot',
+        'vpn_snapshot',
         extras: {
+          'layer': 'flutter',
           'session_id': _nativeSession['sessionId'] ?? 0,
           'state': _nativeSession['state'] ?? 'UNKNOWN',
+          'started_at': _nativeSession['startedAt'] ?? 0,
+          'smart_paused': _nativeSession['smartPaused'] ?? false,
+          'flutter_is_start': startTime != null,
         },
       );
     }
+    StartupTrace.mark(
+      'vpn_flutter_sync_end',
+      extras: {
+        'state': _sessionState ?? 'UNKNOWN',
+        'flutter_is_start': startTime != null,
+      },
+    );
   }
 
   Map<String, dynamic> _nativeSession = const {};
@@ -813,7 +829,11 @@ class SetupAction extends _$SetupAction {
     startTime = null;
     _updateTimer?.cancel();
     _updateTimer = null;
-    await coreController.stopListener();
+    final stopped = await coreController.stopListener();
+    StartupTrace.mark(
+      'vpn_listener_stop',
+      extras: {'success': stopped, 'source': 'setup_action'},
+    );
     // P0+P1: 停代理后先关连接释放 buffer，再 GC 释放 Go 堆
     // 顺序执行，不阻塞 handleStop 调用者的后续 UI 重置
     unawaited(
@@ -824,16 +844,32 @@ class SetupAction extends _$SetupAction {
   /// Local-only stop for smart auto stop: cancel timer, stop listener,
   /// clear runTime in UI — but do NOT reset traffic or call native stopService.
   Future handleSmartStopLocal() async {
+    StartupTrace.mark('smart_stop_begin', extras: {'layer': 'flutter_local'});
     startTime = null;
     _updateTimer?.cancel();
     _updateTimer = null;
-    await coreController.stopListener();
+    final stopped = await coreController.stopListener();
+    StartupTrace.mark(
+      'vpn_listener_stop',
+      extras: {'success': stopped, 'source': 'smart_stop'},
+    );
     ref.read(runTimeProvider.notifier).value = null;
+    StartupTrace.mark(
+      'smart_stop_complete',
+      extras: {'layer': 'flutter_local', 'flutter_is_start': false},
+    );
   }
 
   /// Local-only resume for smart auto stop: restore startTime, restart
   /// runtime/traffic timer, resume core listener.
   Future handleSmartResumeLocal(DateTime nativeStartTime) async {
+    StartupTrace.mark(
+      'smart_resume_begin',
+      extras: {
+        'layer': 'flutter_local',
+        'started_at': nativeStartTime.millisecondsSinceEpoch,
+      },
+    );
     startTime = nativeStartTime;
     ref.read(runTimeProvider.notifier).value =
         nativeStartTime.millisecondsSinceEpoch;
@@ -853,10 +889,18 @@ class SetupAction extends _$SetupAction {
       suspend: suspend,
       coreReady: coreReady,
     )) {
-      await coreController.startListener();
+      final started = await coreController.startListener();
+      StartupTrace.mark(
+        'vpn_listener_start',
+        extras: {'success': started, 'source': 'smart_resume'},
+      );
     }
     _startUiStatsTimer();
     NetworkDiagnosticsRevision.bump(reason: 'smart_resume');
+    StartupTrace.mark(
+      'smart_resume_complete',
+      extras: {'layer': 'flutter_local', 'flutter_is_start': true},
+    );
   }
 
   Future<void> initStatus() async {
@@ -929,6 +973,14 @@ class SetupAction extends _$SetupAction {
   }
 
   Future<void> updateStatus(bool isStart, {bool isInit = false}) async {
+    StartupTrace.mark(
+      'vpn_action_requested',
+      extras: {
+        'action': isStart ? 'start' : 'stop',
+        'source': isInit ? 'app_init' : 'flutter_ui',
+        'flutter_is_start': ref.read(isStartProvider),
+      },
+    );
     if (isStart) {
       if (!isInit) {
         final res = await ref
@@ -2021,11 +2073,7 @@ class ProxiesAction extends _$ProxiesAction {
     debouncer.call(FunctionTag.updateGroups, updateGroups, duration: duration);
   }
 
-  void changeProxyDebounce(
-    String groupName,
-    String proxyName, {
-    int gen = 0,
-  }) {
+  void changeProxyDebounce(String groupName, String proxyName, {int gen = 0}) {
     _scheduleSelectionDebounce(
       groupName: groupName,
       proxyName: proxyName,
@@ -2063,11 +2111,7 @@ class ProxiesAction extends _$ProxiesAction {
       if (unfix) {
         await unfixProxy(groupName: groupName, gen: gen);
       } else {
-        await changeProxy(
-          groupName: groupName,
-          proxyName: proxyName,
-          gen: gen,
-        );
+        await changeProxy(groupName: groupName, proxyName: proxyName, gen: gen);
       }
       updateGroupsDebounce();
     }, args: [groupName, proxyName, unfix, gen]);
@@ -2556,11 +2600,7 @@ class ProxiesAction extends _$ProxiesAction {
     final result = await coreController.changeProxy(
       ChangeProxyParams(groupName: groupName, proxyName: proxyName),
     );
-    ProxyTrace.noteSelectCoreAck(
-      gen: gen,
-      group: groupName,
-      result: result,
-    );
+    ProxyTrace.noteSelectCoreAck(gen: gen, group: groupName, result: result);
     await _finishSelection(
       groupName: groupName,
       failedIntent: proxyName,
@@ -2574,11 +2614,7 @@ class ProxiesAction extends _$ProxiesAction {
     final result = await coreController.unfixProxy(
       UnfixProxyParams(groupName: groupName),
     );
-    ProxyTrace.noteSelectCoreAck(
-      gen: gen,
-      group: groupName,
-      result: result,
-    );
+    ProxyTrace.noteSelectCoreAck(gen: gen, group: groupName, result: result);
     await _finishSelection(
       groupName: groupName,
       failedIntent: '',
