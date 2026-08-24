@@ -42,6 +42,28 @@ part 'generated/action.g.dart';
 /// Updated every 1s. Separate from [trafficsProvider] (chart data, 2-3s).
 final currentSpeedNotifier = ValueNotifier<Traffic>(const Traffic());
 
+@visibleForTesting
+Future<void> runAutoProfileRefreshLoop({
+  required Iterable<Profile> capturedProfiles,
+  required Future<void> Function(Profile profile) refresh,
+  required void Function(Object error) onError,
+}) async {
+  for (final profile in capturedProfiles) {
+    if (!profile.autoUpdate) continue;
+    final isNotNeedUpdate = profile.lastUpdateDate
+        ?.add(profile.autoUpdateDuration)
+        .isBeforeNow;
+    if (isNotNeedUpdate == false || profile.type == ProfileType.file) {
+      continue;
+    }
+    try {
+      await refresh(profile);
+    } catch (error) {
+      onError(error);
+    }
+  }
+}
+
 final class RuntimeConfigPostUpdateContext {
   const RuntimeConfigPostUpdateContext({
     required this.lease,
@@ -3115,20 +3137,15 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   Future<void> autoUpdateProfiles() async {
-    for (final profile in ref.read(profilesProvider)) {
-      if (!profile.autoUpdate) continue;
-      final isNotNeedUpdate = profile.lastUpdateDate
-          ?.add(profile.autoUpdateDuration)
-          .isBeforeNow;
-      if (isNotNeedUpdate == false || profile.type == ProfileType.file) {
-        continue;
-      }
-      try {
-        await updateProfile(profile);
-      } catch (e) {
-        commonPrint.log(e.toString(), logLevel: LogLevel.warning);
-      }
-    }
+    await runAutoProfileRefreshLoop(
+      capturedProfiles: ref.read(profilesProvider),
+      refresh: (profile) async {
+        await updateProfile(profile, publishInput: false);
+      },
+      onError: (error) {
+        commonPrint.log(error.toString(), logLevel: LogLevel.warning);
+      },
+    );
   }
 
   void putProfile(Profile profile) {
@@ -3140,14 +3157,14 @@ class ProfilesAction extends _$ProfilesAction {
   Future<void> updateProfiles() async {
     for (final profile in ref.read(profilesProvider)) {
       if (profile.type == ProfileType.file) continue;
-      await updateProfile(profile);
+      await updateProfile(profile, publishInput: false);
     }
   }
 
   Future<ProfileSourceMutationOutcome> updateProfile(
     Profile profile, {
     bool showLoading = false,
-    bool publishInput = true,
+    required bool publishInput,
     bool applyAfterCommit = true,
   }) async {
     final token = profileSourceMutationOwner.begin(profile.id);

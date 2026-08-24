@@ -62,7 +62,7 @@ class _ProfilesViewState extends State<ProfilesView> {
       try {
         await globalState.container
             .read(profilesActionProvider.notifier)
-            .updateProfile(profile, showLoading: true);
+            .updateProfile(profile, showLoading: true, publishInput: false);
       } catch (e) {
         messages.add(
           UpdatingMessage(label: profile.realLabel, message: e.toString()),
@@ -1440,7 +1440,7 @@ class _ProfileListItem extends StatelessWidget {
     await globalState.loadingRun(() async {
       await globalState.container
           .read(profilesActionProvider.notifier)
-          .updateProfile(profile, showLoading: true);
+          .updateProfile(profile, showLoading: true, publishInput: false);
     }, tag: LoadingTag.profiles);
   }
 
@@ -1625,7 +1625,7 @@ class ProfileItem extends StatelessWidget {
     await globalState.loadingRun(() async {
       await globalState.container
           .read(profilesActionProvider.notifier)
-          .updateProfile(profile, showLoading: true);
+          .updateProfile(profile, showLoading: true, publishInput: false);
     }, tag: LoadingTag.profiles);
   }
 

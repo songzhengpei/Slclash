@@ -543,6 +543,115 @@ proxies:
   });
 
   group('ProfilesAction', () {
+    test('auto loop does not republish a stale captured profile', () async {
+      final a = Profile.normal(label: 'A', url: 'https://a.example');
+      final bOld = Profile.normal(label: 'B old', url: 'https://b.example');
+      final bNew = bOld.copyWith(
+        label: 'B newest',
+        autoUpdate: false,
+        autoUpdateDuration: const Duration(hours: 12),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          profilesProvider.overrideWith(() => _TestProfiles([a, bOld])),
+        ],
+      );
+      addTearDown(container.dispose);
+      final aStarted = Completer<void>();
+      final releaseA = Completer<void>();
+      Profile? capturedB;
+
+      final loop = runAutoProfileRefreshLoop(
+        capturedProfiles: List<Profile>.from(container.read(profilesProvider)),
+        refresh: (profile) async {
+          if (profile.id == a.id) {
+            aStarted.complete();
+            await releaseA.future;
+          } else {
+            capturedB = profile;
+          }
+        },
+        onError: (_) {},
+      );
+      await aStarted.future;
+      container.read(profilesProvider.notifier).put(bNew);
+      releaseA.complete();
+      await loop;
+
+      expect(capturedB, bOld);
+      expect(container.read(profilesProvider).getProfile(bOld.id), bNew);
+    });
+
+    test('auto loop supersedes a captured response after URL edit', () async {
+      final a = Profile.normal(label: 'A', url: 'https://a.example');
+      final bOld = Profile.normal(
+        label: 'B old',
+        url: 'https://old.example/profile',
+      );
+      final bNew = bOld.copyWith(
+        label: 'B newest',
+        url: 'https://new.example/profile',
+      );
+      final container = ProviderContainer(
+        overrides: [
+          profilesProvider.overrideWith(() => _TestProfiles([a, bOld])),
+        ],
+      );
+      addTearDown(container.dispose);
+      final aStarted = Completer<void>();
+      final releaseA = Completer<void>();
+      var oldResponseWasCurrent = true;
+
+      final loop = runAutoProfileRefreshLoop(
+        capturedProfiles: List<Profile>.from(container.read(profilesProvider)),
+        refresh: (profile) async {
+          if (profile.id == a.id) {
+            aStarted.complete();
+            await releaseA.future;
+            return;
+          }
+          oldResponseWasCurrent = isProfileSourceIdentityCurrent(
+            container.read(profilesProvider).getProfile(profile.id),
+            profileId: profile.id,
+            sourceUrl: profile.url,
+          );
+        },
+        onError: (_) {},
+      );
+      await aStarted.future;
+      container.read(profilesProvider.notifier).put(bNew);
+      releaseA.complete();
+      await loop;
+
+      expect(oldResponseWasCurrent, isFalse);
+      expect(container.read(profilesProvider).getProfile(bOld.id), bNew);
+    });
+
+    test('refresh-only failure never publishes captured metadata', () async {
+      final captured = Profile.normal(label: 'old label', url: 'bad-url');
+      final latest = captured.copyWith(
+        label: 'newest label',
+        autoUpdate: false,
+        autoUpdateDuration: const Duration(hours: 8),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          currentProfileIdProvider.overrideWithBuild((_, _) => null),
+          profilesProvider.overrideWith(() => _TestProfiles([latest])),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await expectLater(
+        container
+            .read(profilesActionProvider.notifier)
+            .updateProfile(captured, publishInput: false),
+        throwsA(anything),
+      );
+
+      expect(container.read(profilesProvider).getProfile(captured.id), latest);
+    });
+
     test('keeps edited profile data when remote update fails', () async {
       final original = Profile.normal(label: 'old label', url: 'bad-url');
       final edited = original.copyWith(
@@ -563,7 +672,9 @@ proxies:
       );
 
       await expectLater(
-        container.read(profilesActionProvider.notifier).updateProfile(edited),
+        container
+            .read(profilesActionProvider.notifier)
+            .updateProfile(edited, publishInput: true),
         throwsA(anything),
       );
 

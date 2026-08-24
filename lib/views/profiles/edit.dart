@@ -94,7 +94,7 @@ class _EditProfileViewState extends State<EditProfileView> {
       globalState.safeRun(() async {
         await Future.delayed(commonDuration);
         if (hasUpdate) {
-          await profilesAction.updateProfile(profile);
+          await profilesAction.updateProfile(profile, publishInput: true);
         }
       });
     }
