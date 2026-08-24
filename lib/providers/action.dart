@@ -18,6 +18,7 @@ import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/services/mihomo_config/source_config.dart';
+import 'package:fl_clash/services/mihomo_config/runtime_config_commit.dart';
 import 'package:fl_clash/services/providers/provider_readiness_service.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
@@ -648,6 +649,8 @@ UiStatsTimerEffect uiStatsTimerEffect({
 
 @Riverpod(keepAlive: true)
 class SetupAction extends _$SetupAction {
+  final RuntimeConfigCommitOwner _runtimeConfigCommitOwner =
+      RuntimeConfigCommitOwner();
   static const _tickInterval = Duration(seconds: 1);
   static const _chartUpdateInterval = Duration(seconds: 2);
   static const _totalTrafficUpdateInterval = Duration(seconds: 5);
@@ -1120,7 +1123,7 @@ class SetupAction extends _$SetupAction {
       final policy = vpnStartPolicy(isInit: isInit);
       try {
         var started = true;
-        final applied = await applyProfile(
+        final outcome = await _applyProfileOutcome(
           force: true,
           silence: policy.silence,
           preloadInvoke: () async {
@@ -1128,7 +1131,8 @@ class SetupAction extends _$SetupAction {
           },
         );
 
-        if (!started || !applied) {
+        if (outcome == SetupConfigOutcome.superseded) return;
+        if (!started || !outcome.mayContinueStart) {
           if (policy.stopOnFailure) {
             final stopped = await handleStop();
             if (!stopped) return;
@@ -1235,6 +1239,19 @@ class SetupAction extends _$SetupAction {
     bool force = false,
     FutureOr<void> Function()? preloadInvoke,
   }) async {
+    final outcome = await _applyProfileOutcome(
+      silence: silence,
+      force: force,
+      preloadInvoke: preloadInvoke,
+    );
+    return !outcome.isFailure;
+  }
+
+  Future<SetupConfigOutcome> _applyProfileOutcome({
+    bool silence = false,
+    bool force = false,
+    FutureOr<void> Function()? preloadInvoke,
+  }) {
     return _setupConfig(
       force: force,
       silence: silence,
@@ -1243,7 +1260,7 @@ class SetupAction extends _$SetupAction {
         final proxiesAction = ref.read(proxiesActionProvider.notifier);
         await proxiesAction.updateGroups();
         StartupTrace.mark('applyProfile.groups');
-        unawaited(proxiesAction.preheatComputedGroups());
+        await proxiesAction.preheatComputedGroups();
         await ref.read(providersProvider.notifier).syncProviders();
         StartupTrace.mark('syncProviders');
       },
@@ -1431,7 +1448,7 @@ class SetupAction extends _$SetupAction {
     return Result.success(enableTun);
   }
 
-  Future<bool> _setupConfig({
+  Future<SetupConfigOutcome> _setupConfig({
     bool force = false,
     bool silence = false,
     FutureOr<void> Function()? preloadInvoke,
@@ -1439,76 +1456,107 @@ class SetupAction extends _$SetupAction {
     PatchClashConfig? patchConfigOverride,
     bool requestAdmin = true,
   }) async {
-    var profile = ref.read(currentProfileProvider);
-    final nextProfile = await profile?.checkAndUpdateAndCopy();
-    if (nextProfile != null) {
-      profile = nextProfile;
-      ref.read(profilesProvider.notifier).put(nextProfile);
-    }
-    commonPrint.log('setup ===> ${profile?.id}');
-    final PatchClashConfig patchConfig =
-        patchConfigOverride ?? ref.read(patchClashConfigProvider);
-    late final bool realTunEnable;
-    if (requestAdmin) {
-      final res = await _requestAdmin(patchConfig.tun.enable);
-      if (res.isError) return false;
-      realTunEnable = ref.read(realTunEnableProvider);
-    } else {
-      realTunEnable = false;
-    }
-    final realPatchConfig = patchConfig.copyWith.tun(enable: realTunEnable);
-    final setupState = await ref.read(setupStateProvider(profile?.id).future);
-    if (system.isAndroid) {
-      globalState.lastVpnState = ref.read(vpnStateProvider);
-      final sharedState = ref.read(sharedStateProvider);
-      preferences.saveShareState(sharedState);
-    }
-    final vm2 = await getProfile(
-      setupState: setupState,
-      patchConfig: realPatchConfig,
-    );
-    StartupTrace.mark('getProfile');
-    final yamlString = vm2.a;
-    final yamlMd5 = vm2.b;
-    if (yamlMd5 == globalState.lastConfigMd5 && force == false) return true;
-    var success = false;
-    await globalState.loadingRun(
-      () async {
-        final configFilePath = await appPath.configFilePath;
-        await File(configFilePath).safeWriteAsString(yamlString);
-        final message = await coreController.setupConfig(
-          setupState: setupState,
-          params: _setupParams,
-          preloadInvoke: preloadInvoke,
-        );
-        StartupTrace.mark('setupConfig');
-
-        if (message.isNotEmpty) {
-          commonPrint.log(
-            'setupConfig failed: profileId=${setupState.profileId}, '
-            'message="$message", ignoredIsEmpty=${message.endsWith('is empty')}',
-            logLevel: LogLevel.warning,
-          );
-
-          if (message.endsWith('is empty')) {
-            success = false;
-            return;
-          }
-
-          throw message;
+    final requestGeneration = _runtimeConfigCommitOwner.beginRequest();
+    try {
+      var profile = ref.read(currentProfileProvider);
+      final nextProfile = await profile?.checkAndUpdateAndCopy();
+      if (nextProfile != null) {
+        profile = nextProfile;
+        ref.read(profilesProvider.notifier).put(nextProfile);
+      }
+      commonPrint.log('setup ===> ${profile?.id}');
+      final PatchClashConfig patchConfig =
+          patchConfigOverride ?? ref.read(patchClashConfigProvider);
+      late final bool realTunEnable;
+      if (requestAdmin) {
+        final res = await _requestAdmin(patchConfig.tun.enable);
+        if (res.isError) {
+          return _runtimeConfigCommitOwner.isLatest(requestGeneration)
+              ? SetupConfigOutcome.failed
+              : SetupConfigOutcome.superseded;
         }
+        realTunEnable = ref.read(realTunEnableProvider);
+      } else {
+        realTunEnable = false;
+      }
+      final realPatchConfig = patchConfig.copyWith.tun(enable: realTunEnable);
+      final setupState = await ref.read(setupStateProvider(profile?.id).future);
+      if (system.isAndroid) {
+        globalState.lastVpnState = ref.read(vpnStateProvider);
+        final sharedState = ref.read(sharedStateProvider);
+        preferences.saveShareState(sharedState);
+      }
+      final vm2 = await getProfile(
+        setupState: setupState,
+        patchConfig: realPatchConfig,
+      );
+      StartupTrace.mark('getProfile');
+      final yamlString = vm2.a;
+      final yamlMd5 = vm2.b;
+      final configFilePath = await appPath.configFilePath;
+      var outcome = SetupConfigOutcome.failed;
+      await globalState.loadingRun(
+        () async {
+          final commitOutcome = await _runtimeConfigCommitOwner.commit(
+            generation: requestGeneration,
+            transaction: () async {
+              if (yamlMd5 == globalState.lastConfigMd5 && force == false) {
+                outcome = SetupConfigOutcome.unchanged;
+                return;
+              }
+              await File(configFilePath).safeWriteAsString(yamlString);
+              final message = await coreController.setupConfig(
+                setupState: setupState,
+                params: _setupParams,
+                preloadInvoke: preloadInvoke,
+              );
+              StartupTrace.mark('setupConfig');
 
-        globalState.lastConfigMd5 = yamlMd5;
-        ref.read(checkIpNumProvider.notifier).add();
-        NetworkDiagnosticsRevision.bump(reason: 'profile_apply');
-        await onUpdated?.call();
-        success = true;
-        StartupTrace.mark('applyProfile');
-      },
-      silence: true,
-      tag: !silence ? LoadingTag.proxies : null,
-    );
-    return success;
+              if (message.isNotEmpty) {
+                commonPrint.log(
+                  'setupConfig failed: profileId=${setupState.profileId}, '
+                  'message="$message", ignoredIsEmpty=${message.endsWith('is empty')}',
+                  logLevel: LogLevel.warning,
+                );
+
+                if (message.endsWith('is empty')) {
+                  outcome = SetupConfigOutcome.failed;
+                  return;
+                }
+
+                throw message;
+              }
+
+              globalState.lastConfigMd5 = yamlMd5;
+              ref.read(checkIpNumProvider.notifier).add();
+              NetworkDiagnosticsRevision.bump(reason: 'profile_apply');
+              await onUpdated?.call();
+              outcome = SetupConfigOutcome.applied;
+              StartupTrace.mark('applyProfile');
+            },
+          );
+          if (commitOutcome == RuntimeConfigCommitOutcome.superseded) {
+            commonPrint.log(
+              'setupConfig superseded before commit: '
+              'profileId=${setupState.profileId}, generation=$requestGeneration',
+            );
+            outcome = SetupConfigOutcome.superseded;
+          }
+        },
+        silence: true,
+        tag: !silence ? LoadingTag.proxies : null,
+      );
+      return outcome;
+    } catch (error, stackTrace) {
+      if (!_runtimeConfigCommitOwner.isLatest(requestGeneration)) {
+        commonPrint.log(
+          'setupConfig superseded during materialization: '
+          'generation=$requestGeneration, error=$error',
+        );
+        return SetupConfigOutcome.superseded;
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 }
 
