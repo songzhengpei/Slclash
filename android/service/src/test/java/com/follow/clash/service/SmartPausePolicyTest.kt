@@ -85,4 +85,47 @@ class SmartPausePolicyTest {
             policy.evaluate(enabled, SessionState.RUNNING, false, true),
         )
     }
+
+    @Test
+    fun retryScheduleCountsOnlyExecutedRetries() {
+        val retries = BoundedRetrySchedule(longArrayOf(500L, 1_500L, 3_000L))
+
+        // Repeated UNKNOWN events merely observe the same pending delay.
+        repeat(4) { assertEquals(500L, retries.nextDelay()) }
+        assertEquals(0, retries.executedAttempts)
+
+        retries.markExecuted()
+        assertEquals(1_500L, retries.nextDelay())
+        retries.markExecuted()
+        assertEquals(3_000L, retries.nextDelay())
+        retries.markExecuted()
+        assertEquals(null, retries.nextDelay())
+    }
+
+    @Test
+    fun onlyUserResumeEnablesManualOverride() {
+        assertTrue(PausedResumeSource.USER.enablesManualOverride())
+        assertFalse(PausedResumeSource.POLICY.enablesManualOverride())
+        assertFalse(PausedResumeSource.RECOVERY.enablesManualOverride())
+    }
+
+    @Test
+    fun transientTransitionFailureGetsOneBoundedReevaluationAndThenSucceeds() {
+        val retries = BoundedRetrySchedule(longArrayOf(500L, 1_500L, 3_000L))
+        var transitionCalls = 0
+
+        fun evaluateLatestPolicy(): Boolean {
+            transitionCalls += 1
+            return transitionCalls > 1
+        }
+
+        assertFalse(evaluateLatestPolicy())
+        assertEquals(500L, retries.nextDelay())
+        retries.markExecuted()
+        assertTrue(evaluateLatestPolicy())
+        retries.reset()
+
+        assertEquals(2, transitionCalls)
+        assertEquals(0, retries.executedAttempts)
+    }
 }

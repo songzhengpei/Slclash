@@ -10,6 +10,31 @@ data class SmartPauseConfig(
 
 enum class SmartPauseDecision { NONE, PAUSE, RESUME }
 
+enum class PausedResumeSource { USER, POLICY, RECOVERY }
+
+/** Counts retries only after their delayed execution actually starts. */
+internal class BoundedRetrySchedule(private val delays: LongArray) {
+    @Volatile
+    var executedAttempts: Int = 0
+        private set
+
+    @Synchronized
+    fun nextDelay(): Long? = delays.getOrNull(executedAttempts)
+
+    @Synchronized
+    fun markExecuted() {
+        if (executedAttempts < delays.size) executedAttempts += 1
+    }
+
+    @Synchronized
+    fun reset() {
+        executedAttempts = 0
+    }
+}
+
+internal fun PausedResumeSource.enablesManualOverride(): Boolean =
+    this == PausedResumeSource.USER
+
 object TrustedNetworkMatcher {
     fun matchesAny(addresses: List<String>, networks: List<String>): Boolean =
         addresses.any { address -> networks.any { matches(address, it) } }

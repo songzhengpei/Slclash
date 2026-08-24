@@ -15,6 +15,7 @@ import com.follow.clash.core.Core
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
@@ -24,6 +25,13 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.util.concurrent.ConcurrentHashMap
+
+private data class NetworkUpdateRequest(
+    val generation: Long,
+    val refreshFromSystem: Boolean = false,
+    val completion: CompletableDeferred<PhysicalNetworkSnapshot?>? = null,
+    val mutation: (() -> Unit)? = null,
+)
 
 private data class NetworkInfo(
     @Volatile var losingMs: Long = 0,
@@ -41,36 +49,37 @@ class NetworkObserveModule(private val service: Service) : Module() {
     }
     private var preDnsList = listOf<String>()
     private val generation = NetworkUpdateGeneration()
-    private val updates = Channel<Long>(Channel.CONFLATED)
+    private val updates = Channel<NetworkUpdateRequest>(Channel.UNLIMITED)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var updateJob: Job? = null
+    private val refreshWaiters = mutableListOf<CompletableDeferred<PhysicalNetworkSnapshot?>>()
 
+    // Smart Pause follows physical local-link addresses, including captive or
+    // no-internet trusted LANs. DNS eligibility is filtered separately.
     private val request = NetworkRequest.Builder().apply {
         addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-        addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+        removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
     }.build()
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             Phase4Mark.emit("network_callback", mapOf("callback" to "available"))
-            networkInfos[network] = NetworkInfo()
-            enqueueNetworkUpdate()
+            enqueueNetworkUpdate { networkInfos[network] = NetworkInfo() }
             super.onAvailable(network)
         }
 
         override fun onLosing(network: Network, maxMsToLive: Int) {
             Phase4Mark.emit("network_callback", mapOf("callback" to "losing"))
-            networkInfos[network]?.losingMs = System.currentTimeMillis() + maxMsToLive
-            enqueueNetworkUpdate()
+            enqueueNetworkUpdate {
+                networkInfos[network]?.losingMs = System.currentTimeMillis() + maxMsToLive
+            }
             setUnderlyingNetworks(network)
             super.onLosing(network, maxMsToLive)
         }
 
         override fun onLost(network: Network) {
             Phase4Mark.emit("network_callback", mapOf("callback" to "lost"))
-            networkInfos.remove(network)
-            enqueueNetworkUpdate()
+            enqueueNetworkUpdate { networkInfos.remove(network) }
             setUnderlyingNetworks(network)
             super.onLost(network)
         }
@@ -80,39 +89,50 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 "network_callback",
                 mapOf("callback" to "link_properties", "dns_count" to linkProperties.dnsServers.size),
             )
-            networkInfos[network]?.apply {
-                dnsList = linkProperties.dnsServers
-                ipv4List = linkProperties.linkAddresses.mapNotNull {
-                    (it.address as? Inet4Address)?.hostAddress
+            enqueueNetworkUpdate {
+                networkInfos.getOrPut(network, ::NetworkInfo).apply {
+                    dnsList = linkProperties.dnsServers
+                    ipv4List = linkProperties.linkAddresses.mapNotNull {
+                        (it.address as? Inet4Address)?.hostAddress
+                    }
                 }
             }
-            enqueueNetworkUpdate()
             setUnderlyingNetworks(network)
             super.onLinkPropertiesChanged(network, linkProperties)
+        }
+
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+            Phase4Mark.emit("network_callback", mapOf("callback" to "capabilities"))
+            enqueueNetworkUpdate()
+            super.onCapabilitiesChanged(network, capabilities)
         }
     }
 
 
     override suspend fun onInstall() {
         updateJob = scope.launch {
-            for (eventGeneration in updates) {
-                applyNetworkUpdate(eventGeneration)
+            for (update in updates) {
+                update.completion?.let(refreshWaiters::add)
+                update.mutation?.invoke()
+                if (update.refreshFromSystem) refreshNetworkInfosFromSystem()
+                val snapshot = applyNetworkUpdate(update.generation)
+                if (snapshot != null) {
+                    refreshWaiters.forEach { it.complete(snapshot) }
+                    refreshWaiters.clear()
+                }
             }
         }
         connectivity?.registerNetworkCallback(request, callback)
-        PhysicalNetworkControlPlane.setRefresher(::refreshPhysicalNetworks)
-        refreshPhysicalNetworks()
+        PhysicalNetworkControlPlane.setRefresher(::requestPhysicalNetworkRefresh)
+        requestPhysicalNetworkRefresh()
     }
 
-    private fun refreshPhysicalNetworks() {
+    private fun refreshNetworkInfosFromSystem() {
         val manager = connectivity ?: return
         val current = ConcurrentHashMap<Network, NetworkInfo>()
         manager.allNetworks.forEach { network ->
             val capabilities = manager.getNetworkCapabilities(network) ?: return@forEach
-            if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) ||
-                !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ||
-                !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-            ) return@forEach
+            if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) return@forEach
             val properties = manager.getLinkProperties(network)
             current[network] = NetworkInfo(
                 dnsList = properties?.dnsServers.orEmpty(),
@@ -123,69 +143,86 @@ class NetworkObserveModule(private val service: Service) : Module() {
         }
         networkInfos.clear()
         networkInfos.putAll(current)
-        applyNetworkUpdate(generation.next())
     }
 
-    private fun enqueueNetworkUpdate() {
+    private suspend fun requestPhysicalNetworkRefresh(): PhysicalNetworkSnapshot? {
+        val completion = CompletableDeferred<PhysicalNetworkSnapshot?>()
+        val eventGeneration = generation.next()
+        updates.send(NetworkUpdateRequest(eventGeneration, refreshFromSystem = true, completion))
+        return completion.await()
+    }
+
+    private fun enqueueNetworkUpdate(mutation: (() -> Unit)? = null) {
         Phase4Mark.emit("network_update_enqueued")
-        updates.trySend(generation.next())
+        updates.trySend(NetworkUpdateRequest(generation.next(), mutation = mutation))
     }
 
     private fun networkToInt(entry: Map.Entry<Network, NetworkInfo>): Int {
-        val capabilities = connectivity?.getNetworkCapabilities(entry.key)
-        return when {
-            capabilities == null -> 100
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> 90
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> 0
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> 1
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && capabilities.hasTransport(
-                TRANSPORT_USB
-            ) -> 2
-
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> 3
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> 4
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM && capabilities.hasTransport(
-                TRANSPORT_SATELLITE
-            ) -> 5
-
-            else -> 20
-        } + (if (entry.value.isAvailable()) 0 else 10)
+        return physicalNetworkRank(networkTransport(entry.key), entry.value.isAvailable())
     }
 
-    private fun applyNetworkUpdate(eventGeneration: Long) {
-        if (!generation.isCurrent(eventGeneration)) {
-            Phase4Mark.emit("network_update_skipped", mapOf("reason" to "stale_generation"))
-            return
-        }
-        val primary = networkInfos.asSequence().minByOrNull { networkToInt(it) }
-        val dnsList = (primary?.value?.dnsList ?: emptyList()).map { it.asSocketAddressText(53) }
-        val capabilities = primary?.key?.let { connectivity?.getNetworkCapabilities(it) }
-        val transport = when {
-            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> "wifi"
-            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "cellular"
-            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "ethernet"
+    private fun networkTransport(network: Network): String {
+        val capabilities = connectivity?.getNetworkCapabilities(network) ?: return "other"
+        return when {
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && capabilities.hasTransport(
+                TRANSPORT_USB
+            ) -> "usb"
+
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> "bluetooth"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM && capabilities.hasTransport(
+                TRANSPORT_SATELLITE
+            ) -> "satellite"
+
             else -> "other"
         }
-        PhysicalNetworkControlPlane.publish(
-            PhysicalNetworkSnapshot(
-                generation = eventGeneration,
-                networkId = primary?.key?.networkHandle,
-                transport = transport,
-                ipv4Addresses = primary?.value?.ipv4List ?: emptyList(),
-                dnsServers = dnsList,
-            )
+    }
+
+    private fun isDnsEligible(network: Network): Boolean {
+        val capabilities = connectivity?.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+    }
+
+    private fun applyNetworkUpdate(eventGeneration: Long): PhysicalNetworkSnapshot? {
+        if (!generation.isCurrent(eventGeneration)) {
+            Phase4Mark.emit("network_update_skipped", mapOf("reason" to "stale_generation"))
+            return null
+        }
+        val physicalPrimary = networkInfos.asSequence().minByOrNull { networkToInt(it) }
+        val dnsPrimary = networkInfos.asSequence()
+            .filter { isDnsEligible(it.key) }
+            .minByOrNull { networkToInt(it) }
+        val dnsList = (dnsPrimary?.value?.dnsList ?: emptyList()).map { it.asSocketAddressText(53) }
+        val transport = physicalPrimary?.key?.let(::networkTransport) ?: "other"
+        val snapshot = PhysicalNetworkSnapshot(
+            generation = eventGeneration,
+            networkId = physicalPrimary?.key?.networkHandle,
+            transport = transport,
+            ipv4Addresses = physicalPrimary?.value?.ipv4List ?: emptyList(),
+            dnsServers = dnsList,
         )
+        // A callback can update generation while the snapshot is assembled.
+        // Never publish that stale intermediate view.
+        if (!generation.isCurrent(eventGeneration)) {
+            Phase4Mark.emit("network_update_skipped", mapOf("reason" to "changed_during_apply"))
+            return null
+        }
+        PhysicalNetworkControlPlane.publish(snapshot)
         if (dnsList.isEmpty() || normalizeDnsServers(dnsList) == preDnsList) {
             Phase4Mark.emit(
                 "network_update_skipped",
                 mapOf("reason" to if (dnsList.isEmpty()) "empty_dns" else "unchanged_dns"),
             )
-            return
+            return snapshot
         }
         preDnsList = normalizeDnsServers(dnsList)
         Phase4Mark.emit("network_update_applied", mapOf("dns_count" to preDnsList.size))
         Phase4Mark.emit("core_update_dns", mapOf("dns_count" to preDnsList.size))
         Core.updateDNS(preDnsList.joinToString(","))
+        return snapshot
     }
 
     fun setUnderlyingNetworks(network: Network) {
@@ -201,6 +238,8 @@ class NetworkObserveModule(private val service: Service) : Module() {
         updates.close()
         updateJob?.cancelAndJoin()
         updateJob = null
+        refreshWaiters.forEach { it.cancel() }
+        refreshWaiters.clear()
         scope.cancel()
         networkInfos.clear()
         if (preDnsList.isNotEmpty()) {

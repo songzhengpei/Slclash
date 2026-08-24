@@ -12,6 +12,19 @@ data class PhysicalNetworkSnapshot(
     val isKnown: Boolean get() = networkId != null && ipv4Addresses.isNotEmpty()
 }
 
+internal fun physicalNetworkRank(transport: String, available: Boolean): Int {
+    val transportRank = when (transport) {
+        "wifi" -> 0
+        "ethernet" -> 1
+        "usb" -> 2
+        "bluetooth" -> 3
+        "cellular" -> 4
+        "satellite" -> 5
+        else -> 20
+    }
+    return transportRank + if (available) 0 else 10
+}
+
 /**
  * Process-local fan-out for the single ConnectivityManager observer.
  * The remote service registers the lifecycle consumer; DNS remains local to
@@ -20,7 +33,7 @@ data class PhysicalNetworkSnapshot(
 object PhysicalNetworkControlPlane {
     @Volatile private var latest: PhysicalNetworkSnapshot? = null
     @Volatile private var consumer: ((PhysicalNetworkSnapshot) -> Unit)? = null
-    @Volatile private var refresher: (() -> Unit)? = null
+    @Volatile private var refresher: (suspend () -> PhysicalNetworkSnapshot?)? = null
 
     fun publish(snapshot: PhysicalNetworkSnapshot) {
         latest = snapshot
@@ -36,12 +49,9 @@ object PhysicalNetworkControlPlane {
         consumer = null
     }
 
-    fun setRefresher(next: (() -> Unit)?) {
+    fun setRefresher(next: (suspend () -> PhysicalNetworkSnapshot?)?) {
         refresher = next
     }
 
-    fun reevaluate() {
-        refresher?.invoke()
-        latest?.let { consumer?.invoke(it) }
-    }
+    suspend fun refresh(): PhysicalNetworkSnapshot? = refresher?.invoke() ?: latest
 }
