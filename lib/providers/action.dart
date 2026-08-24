@@ -2290,6 +2290,9 @@ class ThemeAction extends _$ThemeAction {
 class ProxiesAction extends _$ProxiesAction {
   final Map<int, Future<void>> _runningUpdateGroups = {};
   final ProxySelectionSession _selectionTxn = ProxySelectionSession();
+  final Set<String> _runtimeLoadingProviderKeys = {};
+  int _runtimeEpoch = 0;
+  int? _runtimeProfileId;
 
   late final ProviderReadinessService<ExternalProvider, Group>
   _providerReadiness = ProviderReadinessService(
@@ -2309,7 +2312,44 @@ class ProxiesAction extends _$ProxiesAction {
   );
 
   @override
-  void build() {}
+  void build() {
+    _runtimeProfileId = ref.read(currentProfileIdProvider);
+    ref.listen(currentProfileIdProvider, (previous, next) {
+      if (previous == next) return;
+      _advanceRuntimeProfile(next);
+    });
+  }
+
+  void _advanceRuntimeProfile(int? profileId) {
+    if (_runtimeProfileId == profileId) return;
+    _runtimeProfileId = profileId;
+    _runtimeEpoch++;
+    ref.read(delayDataSourceProvider.notifier).clear();
+    for (final key in _runtimeLoadingProviderKeys) {
+      ref.read(isUpdatingProvider(key).notifier).value = false;
+    }
+    _runtimeLoadingProviderKeys.clear();
+  }
+
+  RuntimeProfileIdentity? captureRuntimeProfileIdentity() {
+    final profileId = ref.read(currentProfileIdProvider);
+    if (_runtimeProfileId != profileId) {
+      _advanceRuntimeProfile(profileId);
+    }
+    if (profileId == null) return null;
+    return RuntimeProfileIdentity(profileId: profileId, epoch: _runtimeEpoch);
+  }
+
+  bool isRuntimeIdentityCurrent(RuntimeProfileIdentity identity) {
+    return isRuntimeProfileIdentityCurrent(
+      identity: identity,
+      currentProfileId: ref.read(currentProfileIdProvider),
+      currentEpoch: _runtimeEpoch,
+    );
+  }
+
+  Object _selectionKey(RuntimeProfileIdentity identity, String groupName) =>
+      (identity, groupName);
 
   Future<ProviderReadinessResult> ensureCurrentProfileReady({
     bool forceApply = false,
@@ -2438,10 +2478,14 @@ class ProxiesAction extends _$ProxiesAction {
 
   bool _groupsEqual(List<Group> a, List<Group> b) => groupsListsEqual(a, b);
 
-  void captureSelectionBaseline(String groupName) {
+  void captureSelectionBaseline(
+    RuntimeProfileIdentity identity,
+    String groupName,
+  ) {
+    final profile = _findProfileById(identity.profileId);
     _selectionTxn.captureBaseline(
-      groupName,
-      ref.read(currentProfileProvider)?.selectedMap[groupName],
+      _selectionKey(identity, groupName),
+      profile?.selectedMap[groupName],
     );
   }
 
@@ -2466,8 +2510,14 @@ class ProxiesAction extends _$ProxiesAction {
     );
   }
 
-  void changeProxyDebounce(String groupName, String proxyName, {int gen = 0}) {
+  void changeProxyDebounce(
+    RuntimeProfileIdentity identity,
+    String groupName,
+    String proxyName, {
+    int gen = 0,
+  }) {
     _scheduleSelectionDebounce(
+      identity: identity,
       groupName: groupName,
       proxyName: proxyName,
       unfix: false,
@@ -2475,8 +2525,13 @@ class ProxiesAction extends _$ProxiesAction {
     );
   }
 
-  void unfixProxyDebounce(String groupName, {int gen = 0}) {
+  void unfixProxyDebounce(
+    RuntimeProfileIdentity identity,
+    String groupName, {
+    int gen = 0,
+  }) {
     _scheduleSelectionDebounce(
+      identity: identity,
       groupName: groupName,
       proxyName: '',
       unfix: true,
@@ -2485,29 +2540,47 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   void _scheduleSelectionDebounce({
+    required RuntimeProfileIdentity identity,
     required String groupName,
     required String proxyName,
     required bool unfix,
     int gen = 0,
   }) {
-    debouncer.call(proxySelectionDebounceTag(groupName), (
-      String groupName,
-      String proxyName,
-      bool unfix,
-      int gen,
-    ) async {
-      ProxyTrace.noteSelectDispatch(
-        gen: gen,
-        group: groupName,
-        proxy: proxyName,
-      );
-      if (unfix) {
-        await unfixProxy(groupName: groupName, gen: gen);
-      } else {
-        await changeProxy(groupName: groupName, proxyName: proxyName, gen: gen);
-      }
-      updateGroupsDebounce();
-    }, args: [groupName, proxyName, unfix, gen]);
+    debouncer.call(
+      proxySelectionDebounceTag(groupName, identity),
+      (
+        RuntimeProfileIdentity identity,
+        String groupName,
+        String proxyName,
+        bool unfix,
+        int gen,
+      ) async {
+        final selectionKey = _selectionKey(identity, groupName);
+        if (!isRuntimeIdentityCurrent(identity)) {
+          _selectionTxn.complete(selectionKey);
+          return;
+        }
+        ProxyTrace.noteSelectDispatch(
+          gen: gen,
+          group: groupName,
+          proxy: proxyName,
+        );
+        if (unfix) {
+          await unfixProxy(identity: identity, groupName: groupName, gen: gen);
+        } else {
+          await changeProxy(
+            identity: identity,
+            groupName: groupName,
+            proxyName: proxyName,
+            gen: gen,
+          );
+        }
+        if (isRuntimeIdentityCurrent(identity)) {
+          updateGroupsDebounce(expectedProfileId: identity.profileId);
+        }
+      },
+      args: [identity, groupName, proxyName, unfix, gen],
+    );
   }
 
   Future<String?> _computeProfileFingerprint(Profile? profile) async {
@@ -2970,6 +3043,8 @@ class ProxiesAction extends _$ProxiesAction {
   DateTime? _lastPreheatGroupsRefreshAt;
 
   Future<void> preheatComputedGroups({required int targetProfileId}) async {
+    final identity = captureRuntimeProfileIdentity();
+    if (identity == null || identity.profileId != targetProfileId) return;
     final groups = ref.read(groupsProvider);
     if (groups.isEmpty) return;
     final testUrl = ref.read(
@@ -2979,7 +3054,7 @@ class ProxiesAction extends _$ProxiesAction {
       final remainsCurrent = await warmUpRuntimeDelaysForProfile(
         targetProfileId: targetProfileId,
         currentProfileId: () => ref.read(currentProfileIdProvider),
-        publish: setDelay,
+        publish: (delay) => setDelayForRuntimeIdentity(identity, delay),
         warmUp: (onDelay) => warmUpComputedGroupDelays(
           groups: groups,
           defaultTestUrl: testUrl,
@@ -2987,7 +3062,7 @@ class ProxiesAction extends _$ProxiesAction {
           onDelay: onDelay,
         ),
       );
-      if (!remainsCurrent) return;
+      if (!remainsCurrent || !isRuntimeIdentityCurrent(identity)) return;
       // Throttle: skip if last refresh was < 5s ago
       final now = DateTime.now();
       if (_lastPreheatGroupsRefreshAt != null &&
@@ -3022,32 +3097,67 @@ class ProxiesAction extends _$ProxiesAction {
     ref.read(delayDataSourceProvider.notifier).setDelay(delay);
   }
 
+  bool setDelayForRuntimeIdentity(
+    RuntimeProfileIdentity identity,
+    Delay delay,
+  ) {
+    if (!isRuntimeIdentityCurrent(identity)) return false;
+    setDelay(delay);
+    return true;
+  }
+
   Future<void> changeProxy({
+    required RuntimeProfileIdentity identity,
     required String groupName,
     required String proxyName,
     int gen = 0,
   }) async {
-    final previous = _selectionTxn.peek(groupName);
-    final result = await coreController.changeProxy(
-      ChangeProxyParams(groupName: groupName, proxyName: proxyName),
+    final selectionKey = _selectionKey(identity, groupName);
+    final previous = _selectionTxn.peek(selectionKey);
+    final mutation = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityCurrent,
+      mutation: () async => coreController.changeProxy(
+        ChangeProxyParams(groupName: groupName, proxyName: proxyName),
+      ),
     );
+    if (!mutation.current) {
+      _selectionTxn.complete(selectionKey);
+      return;
+    }
+    final result = mutation.value!;
     ProxyTrace.noteSelectCoreAck(gen: gen, group: groupName, result: result);
     await _finishSelection(
       groupName: groupName,
+      identity: identity,
       failedIntent: proxyName,
       previousIntent: previous,
       result: result,
     );
   }
 
-  Future<void> unfixProxy({required String groupName, int gen = 0}) async {
-    final previous = _selectionTxn.peek(groupName);
-    final result = await coreController.unfixProxy(
-      UnfixProxyParams(groupName: groupName),
+  Future<void> unfixProxy({
+    required RuntimeProfileIdentity identity,
+    required String groupName,
+    int gen = 0,
+  }) async {
+    final selectionKey = _selectionKey(identity, groupName);
+    final previous = _selectionTxn.peek(selectionKey);
+    final mutation = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityCurrent,
+      mutation: () async =>
+          coreController.unfixProxy(UnfixProxyParams(groupName: groupName)),
     );
+    if (!mutation.current) {
+      _selectionTxn.complete(selectionKey);
+      return;
+    }
+    final result = mutation.value!;
     ProxyTrace.noteSelectCoreAck(gen: gen, group: groupName, result: result);
     await _finishSelection(
       groupName: groupName,
+      identity: identity,
       failedIntent: '',
       previousIntent: previous,
       result: result,
@@ -3055,32 +3165,41 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   Future<void> _finishSelection({
+    required RuntimeProfileIdentity identity,
     required String groupName,
     required String failedIntent,
     required String? previousIntent,
     required String result,
   }) async {
+    final selectionKey = _selectionKey(identity, groupName);
+    if (!isRuntimeIdentityCurrent(identity)) {
+      _selectionTxn.complete(selectionKey);
+      return;
+    }
+    final targetProfile = _findProfileById(identity.profileId);
+    if (targetProfile == null) {
+      _selectionTxn.complete(selectionKey);
+      return;
+    }
     if (isCoreSelectionSuccess(result)) {
-      final currentIntent = ref
-          .read(currentProfileProvider)
-          ?.selectedMap[groupName];
+      final currentIntent = targetProfile.selectedMap[groupName];
       _selectionTxn.commitWithNewerIntent(
-        groupName: groupName,
+        groupName: selectionKey,
         committedValue: failedIntent,
         currentIntent: currentIntent,
       );
+      if (!isRuntimeIdentityCurrent(identity)) return;
       if (ref.read(appSettingProvider).closeConnections) {
         await coreController.closeConnections();
       } else {
         await coreController.resetConnections();
       }
+      if (!isRuntimeIdentityCurrent(identity)) return;
       ref.read(checkIpNumProvider.notifier).add();
       NetworkDiagnosticsRevision.bump(reason: 'selection_success');
       return;
     }
-    final currentIntent = ref
-        .read(currentProfileProvider)
-        ?.selectedMap[groupName];
+    final currentIntent = targetProfile.selectedMap[groupName];
     final rollback = shouldRollbackOptimisticIntent(
       currentIntent: currentIntent,
       failedIntent: failedIntent,
@@ -3088,36 +3207,96 @@ class ProxiesAction extends _$ProxiesAction {
     if (rollback) {
       ref
           .read(profilesActionProvider.notifier)
-          .restoreSelectedMapEntry(groupName, previousIntent);
+          .restoreSelectedMapEntryForProfile(
+            identity.profileId,
+            groupName,
+            failedIntent: failedIntent,
+            previousIntent: previousIntent,
+          );
     }
     _selectionTxn.completeUnlessNewerIntent(
-      groupName: groupName,
+      groupName: selectionKey,
       newerIntentPending: !rollback && currentIntent != failedIntent,
     );
-    updateGroupsDebounce();
     globalState.showNotifier(result);
   }
 
-  Future<String> updateProvider(
+  Future<String?> updateProvider(
     ExternalProvider provider, {
+    RuntimeProfileIdentity? identity,
     bool showLoading = false,
   }) async {
+    final targetIdentity = identity ?? captureRuntimeProfileIdentity();
+    if (targetIdentity == null || !isRuntimeIdentityCurrent(targetIdentity)) {
+      return null;
+    }
+    final loadingKey = provider.updatingKey;
     try {
       if (showLoading) {
-        ref.read(isUpdatingProvider(provider.updatingKey).notifier).value =
-            true;
+        _runtimeLoadingProviderKeys.add(loadingKey);
+        ref.read(isUpdatingProvider(loadingKey).notifier).value = true;
       }
-      final message = await coreController.updateExternalProvider(
-        providerName: provider.name,
+      final update = await runRuntimeMutationIfCurrent(
+        identity: targetIdentity,
+        isCurrent: isRuntimeIdentityCurrent,
+        mutation: () =>
+            coreController.updateExternalProvider(providerName: provider.name),
       );
+      if (!update.current) return null;
+      final message = update.value!;
       if (message.isNotEmpty) return message;
-      ref
-          .read(providersProvider.notifier)
-          .setProvider(await coreController.getExternalProvider(provider.name));
+      final projection = await runRuntimeMutationIfCurrent(
+        identity: targetIdentity,
+        isCurrent: isRuntimeIdentityCurrent,
+        mutation: () => coreController.getExternalProvider(provider.name),
+      );
+      if (!projection.current) return null;
+      ref.read(providersProvider.notifier).setProvider(projection.value);
       return '';
     } finally {
-      ref.read(isUpdatingProvider(provider.updatingKey).notifier).value = false;
+      if (showLoading && isRuntimeIdentityCurrent(targetIdentity)) {
+        _runtimeLoadingProviderKeys.remove(loadingKey);
+        ref.read(isUpdatingProvider(loadingKey).notifier).value = false;
+      }
     }
+  }
+
+  Future<String?> sideLoadProvider({
+    required RuntimeProfileIdentity identity,
+    required ExternalProvider provider,
+    required List<int> bytes,
+  }) async {
+    if (!isRuntimeIdentityCurrent(identity)) return null;
+    final path = provider.path;
+    if (path == null) return 'Provider path is unavailable';
+
+    final fileWrite = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityCurrent,
+      mutation: () => File(path).safeWriteAsBytes(bytes),
+    );
+    if (!fileWrite.current) return null;
+
+    final sideLoad = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityCurrent,
+      mutation: () => coreController.sideLoadExternalProvider(
+        providerName: provider.name,
+        data: utf8.decode(bytes),
+      ),
+    );
+    if (!sideLoad.current) return null;
+    final message = sideLoad.value!;
+    if (message.isNotEmpty) return message;
+
+    final projection = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityCurrent,
+      mutation: () => coreController.getExternalProvider(provider.name),
+    );
+    if (!projection.current) return null;
+    ref.read(providersProvider.notifier).setProvider(projection.value);
+    return '';
   }
 }
 
@@ -3126,31 +3305,43 @@ class ProfilesAction extends _$ProfilesAction {
   @override
   void build() {}
 
-  void updateCurrentSelectedMap(String groupName, String proxyName) {
-    final currentProfile = ref.read(currentProfileProvider);
-    if (currentProfile != null &&
-        currentProfile.selectedMap[groupName] != proxyName) {
-      final selectedMap = Map<String, String>.from(currentProfile.selectedMap)
+  void updateSelectedMapEntryForProfile(
+    int profileId,
+    String groupName,
+    String proxyName,
+  ) {
+    final targetProfile = ref.read(profilesProvider).getProfile(profileId);
+    if (targetProfile != null &&
+        targetProfile.selectedMap[groupName] != proxyName) {
+      final selectedMap = Map<String, String>.from(targetProfile.selectedMap)
         ..[groupName] = proxyName;
       ref
           .read(profilesProvider.notifier)
-          .put(currentProfile.copyWith(selectedMap: selectedMap));
+          .put(targetProfile.copyWith(selectedMap: selectedMap));
     }
   }
 
   /// Restores [groupName] after a failed Core write. Null [value] removes the key.
-  void restoreSelectedMapEntry(String groupName, String? value) {
-    final currentProfile = ref.read(currentProfileProvider);
-    if (currentProfile == null) return;
-    final selectedMap = Map<String, String>.from(currentProfile.selectedMap);
-    if (value == null) {
+  void restoreSelectedMapEntryForProfile(
+    int profileId,
+    String groupName, {
+    required String failedIntent,
+    required String? previousIntent,
+  }) {
+    final targetProfile = ref.read(profilesProvider).getProfile(profileId);
+    if (targetProfile == null ||
+        targetProfile.selectedMap[groupName] != failedIntent) {
+      return;
+    }
+    final selectedMap = Map<String, String>.from(targetProfile.selectedMap);
+    if (previousIntent == null) {
       selectedMap.remove(groupName);
     } else {
-      selectedMap[groupName] = value;
+      selectedMap[groupName] = previousIntent;
     }
     ref
         .read(profilesProvider.notifier)
-        .put(currentProfile.copyWith(selectedMap: selectedMap));
+        .put(targetProfile.copyWith(selectedMap: selectedMap));
   }
 
   void updateCurrentComputedSelectedMap(

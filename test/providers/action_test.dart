@@ -10,6 +10,109 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  group('runtime mutation identity', () {
+    test(
+      'provider update captured under A does not dispatch under B',
+      () async {
+        const identity = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+        var coreCalls = 0;
+
+        final result = await runRuntimeMutationIfCurrent(
+          identity: identity,
+          isCurrent: (_) => false,
+          mutation: () async {
+            coreCalls++;
+            return '';
+          },
+        );
+
+        expect(result.current, isFalse);
+        expect(coreCalls, 0);
+      },
+    );
+
+    test(
+      'provider completion from A cannot publish same-name DTO to B',
+      () async {
+        const identity = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+        var currentProfileId = 1;
+        var currentEpoch = 0;
+        var publications = 0;
+        final completion = Completer<String>();
+
+        final resultFuture = runRuntimeMutationIfCurrent(
+          identity: identity,
+          isCurrent: (value) => isRuntimeProfileIdentityCurrent(
+            identity: value,
+            currentProfileId: currentProfileId,
+            currentEpoch: currentEpoch,
+          ),
+          mutation: () => completion.future,
+        );
+        currentProfileId = 2;
+        currentEpoch = 1;
+        completion.complete('same-provider');
+        final result = await resultFuture;
+        if (result.current) publications++;
+
+        expect(publications, 0);
+      },
+    );
+
+    test(
+      'side-load captured before picker cannot dispatch after switch',
+      () async {
+        const identity = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+        var currentProfileId = 1;
+        var currentEpoch = 0;
+        var sideLoadCalls = 0;
+        final picker = Completer<void>();
+
+        final operation = () async {
+          await picker.future;
+          return runRuntimeMutationIfCurrent(
+            identity: identity,
+            isCurrent: (value) => isRuntimeProfileIdentityCurrent(
+              identity: value,
+              currentProfileId: currentProfileId,
+              currentEpoch: currentEpoch,
+            ),
+            mutation: () async {
+              sideLoadCalls++;
+              return '';
+            },
+          );
+        }();
+        currentProfileId = 2;
+        currentEpoch = 1;
+        picker.complete();
+
+        expect((await operation).current, isFalse);
+        expect(sideLoadCalls, 0);
+      },
+    );
+
+    test('manual delay completion from old A epoch is discarded', () async {
+      const identity = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+      var currentEpoch = 0;
+      final completion = Completer<Delay>();
+
+      final resultFuture = runRuntimeMutationIfCurrent(
+        identity: identity,
+        isCurrent: (value) => isRuntimeProfileIdentityCurrent(
+          identity: value,
+          currentProfileId: 1,
+          currentEpoch: currentEpoch,
+        ),
+        mutation: () => completion.future,
+      );
+      currentEpoch = 2;
+      completion.complete(const Delay(url: 'u', name: 'x', value: 80));
+
+      expect((await resultFuture).current, isFalse);
+    });
+  });
+
   group('UI stats timer desired state', () {
     const cases =
         <

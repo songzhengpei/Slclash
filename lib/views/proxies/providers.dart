@@ -1,8 +1,4 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:fl_clash/common/common.dart';
-import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/models/core.dart';
 import 'package:fl_clash/providers/action.dart';
@@ -25,18 +21,23 @@ class ProvidersView extends ConsumerStatefulWidget {
 class _ProvidersViewState extends ConsumerState<ProvidersView> {
   Future<void> _updateProviders() async {
     final ref = globalState.container;
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final identity = proxiesAction.captureRuntimeProfileIdentity();
+    if (identity == null) return;
     final providers = ref.read(providersProvider);
     final messages = <UpdatingMessage>[];
     final updateProviders = providers.map<Future>((provider) async {
-      final message = await ref
-          .read(proxiesActionProvider.notifier)
-          .updateProvider(provider);
-      if (message.isNotEmpty) {
-        messages.add(UpdatingMessage(label: provider.name, message: message));
+      final message = await proxiesAction.updateProvider(
+        provider,
+        identity: identity,
+      );
+      if (message?.isNotEmpty == true) {
+        messages.add(UpdatingMessage(label: provider.name, message: message!));
       }
     });
     await Future.wait(updateProviders);
-    ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+    if (!proxiesAction.isRuntimeIdentityCurrent(identity)) return;
+    proxiesAction.updateGroupsDebounce(expectedProfileId: identity.profileId);
     if (messages.isNotEmpty) {
       globalState.showAllUpdatingMessagesDialog(messages);
     }
@@ -145,32 +146,46 @@ class ProviderItem extends StatelessWidget {
   Future<void> _handleUpdateProvider() async {
     if (provider.vehicleType != 'HTTP') return;
     final ref = globalState.container;
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final identity = proxiesAction.captureRuntimeProfileIdentity();
+    if (identity == null) return;
+    var shouldRefresh = false;
     await globalState.safeRun(() async {
-      final message = await ref
-          .read(proxiesActionProvider.notifier)
-          .updateProvider(provider);
+      final message = await proxiesAction.updateProvider(
+        provider,
+        identity: identity,
+      );
+      if (message == null) return;
       if (message.isNotEmpty) throw message;
+      shouldRefresh = true;
     }, silence: false);
-    ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+    if (shouldRefresh && proxiesAction.isRuntimeIdentityCurrent(identity)) {
+      proxiesAction.updateGroupsDebounce(expectedProfileId: identity.profileId);
+    }
   }
 
   Future<void> _handleSideLoadProvider() async {
     final ref = globalState.container;
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final identity = proxiesAction.captureRuntimeProfileIdentity();
+    if (identity == null) return;
+    var shouldRefresh = false;
     await globalState.safeRun<void>(() async {
       final platformFile = await picker.pickerFile();
       final bytes = platformFile?.bytes;
-      if (bytes == null || provider.path == null) return;
-      await File(provider.path!).safeWriteAsBytes(bytes);
-      final message = await coreController.sideLoadExternalProvider(
-        providerName: provider.name,
-        data: utf8.decode(bytes),
+      if (bytes == null) return;
+      final message = await proxiesAction.sideLoadProvider(
+        identity: identity,
+        provider: provider,
+        bytes: bytes,
       );
+      if (message == null) return;
       if (message.isNotEmpty) throw message;
-      ref
-          .read(providersProvider.notifier)
-          .setProvider(await coreController.getExternalProvider(provider.name));
+      shouldRefresh = true;
     });
-    ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+    if (shouldRefresh && proxiesAction.isRuntimeIdentityCurrent(identity)) {
+      proxiesAction.updateGroupsDebounce(expectedProfileId: identity.profileId);
+    }
   }
 
   String _providerDesc(BuildContext context) {

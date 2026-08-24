@@ -345,6 +345,10 @@ class DelayDataSource extends _$DelayDataSource with AutoDisposeNotifierMixin {
     return {};
   }
 
+  void clear() {
+    state = {};
+  }
+
   void setDelay(Delay delay) {
     if (state[delay.url]?[delay.name] != delay.value) {
       final DelayMap newDelayMap = Map.from(state);

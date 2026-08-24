@@ -23,6 +23,19 @@ void main() {
     container.dispose();
   });
 
+  group('DelayDataSource', () {
+    test('clear removes same URL and proxy cache from prior lifetime', () {
+      final notifier = container.read(delayDataSourceProvider.notifier);
+      notifier.setDelay(
+        const Delay(url: 'https://example.com', name: 'same', value: 80),
+      );
+
+      notifier.clear();
+
+      expect(container.read(delayDataSourceProvider), isEmpty);
+    });
+  });
+
   group('RealTunEnable provider', () {
     test('default is false', () {
       expect(container.read(realTunEnableProvider), false);

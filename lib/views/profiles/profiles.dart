@@ -1343,18 +1343,24 @@ class _ProfileDelayBadge extends ConsumerWidget {
 
   Future<void> _handleTest(WidgetRef ref) async {
     final testUrl = ref.read(realTestUrlProvider(null));
-    ref
-        .read(proxiesActionProvider.notifier)
-        .setDelay(Delay(url: testUrl, name: proxy.name, value: 0));
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final identity = proxiesAction.captureRuntimeProfileIdentity();
+    if (identity == null) return;
+    proxiesAction.setDelayForRuntimeIdentity(
+      identity,
+      Delay(url: testUrl, name: proxy.name, value: 0),
+    );
     try {
-      ref
-          .read(proxiesActionProvider.notifier)
-          .setDelay(await coreController.getDelay(testUrl, proxy.name));
+      proxiesAction.setDelayForRuntimeIdentity(
+        identity,
+        await coreController.getDelay(testUrl, proxy.name),
+      );
     } catch (e) {
       commonPrint.log('_ProfileDelayBadge test failed for ${proxy.name}: $e');
-      ref
-          .read(proxiesActionProvider.notifier)
-          .setDelay(Delay(url: testUrl, name: proxy.name, value: -1));
+      proxiesAction.setDelayForRuntimeIdentity(
+        identity,
+        Delay(url: testUrl, name: proxy.name, value: -1),
+      );
     }
   }
 
