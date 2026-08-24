@@ -66,6 +66,39 @@ Future<bool> fetchAndPublishRuntimeProjection<T>({
   return true;
 }
 
+@visibleForTesting
+Future<bool> warmUpRuntimeDelaysForProfile({
+  required int targetProfileId,
+  required int? Function() currentProfileId,
+  required Future<void> Function(void Function(Delay delay) onDelay) warmUp,
+  required void Function(Delay delay) publish,
+}) async {
+  if (currentProfileId() != targetProfileId) return false;
+  await warmUp((delay) {
+    if (currentProfileId() == targetProfileId) {
+      publish(delay);
+    }
+  });
+  return currentProfileId() == targetProfileId;
+}
+
+@visibleForTesting
+void scheduleRuntimeProjectionRefresh({
+  required Debouncer scheduler,
+  required Object tag,
+  required int? expectedProfileId,
+  required int? Function() currentProfileId,
+  required void Function() refresh,
+  Duration? duration,
+}) {
+  scheduler.call(tag, () {
+    if (expectedProfileId != null && currentProfileId() != expectedProfileId) {
+      return;
+    }
+    refresh();
+  }, duration: duration);
+}
+
 class BackupRestoreOutcome {
   const BackupRestoreOutcome({
     required this.committed,
@@ -1292,7 +1325,9 @@ class SetupAction extends _$SetupAction {
         await proxiesAction.updateGroups(commitContext: context);
         if (ref.read(currentProfileIdProvider) != targetProfileId) return;
         StartupTrace.mark('applyProfile.groups');
-        await proxiesAction.preheatComputedGroups();
+        await proxiesAction.preheatComputedGroups(
+          targetProfileId: targetProfileId,
+        );
         if (ref.read(currentProfileIdProvider) != targetProfileId) return;
         final published = await fetchAndPublishRuntimeProjection(
           targetProfileId: targetProfileId,
@@ -2346,8 +2381,15 @@ class ProxiesAction extends _$ProxiesAction {
         .updateCurrentComputedSelectedMap(map);
   }
 
-  void updateGroupsDebounce([Duration? duration]) {
-    debouncer.call(FunctionTag.updateGroups, updateGroups, duration: duration);
+  void updateGroupsDebounce({Duration? duration, int? expectedProfileId}) {
+    scheduleRuntimeProjectionRefresh(
+      scheduler: debouncer,
+      tag: FunctionTag.updateGroups,
+      expectedProfileId: expectedProfileId,
+      currentProfileId: () => ref.read(currentProfileIdProvider),
+      refresh: updateGroups,
+      duration: duration,
+    );
   }
 
   void changeProxyDebounce(String groupName, String proxyName, {int gen = 0}) {
@@ -2845,19 +2887,25 @@ class ProxiesAction extends _$ProxiesAction {
 
   DateTime? _lastPreheatGroupsRefreshAt;
 
-  Future<void> preheatComputedGroups() async {
+  Future<void> preheatComputedGroups({required int targetProfileId}) async {
     final groups = ref.read(groupsProvider);
     if (groups.isEmpty) return;
     final testUrl = ref.read(
       appSettingProvider.select((state) => state.testUrl),
     );
     try {
-      await warmUpComputedGroupDelays(
-        groups: groups,
-        defaultTestUrl: testUrl,
-        delayLoader: coreController.getDelay,
-        onDelay: setDelay,
+      final remainsCurrent = await warmUpRuntimeDelaysForProfile(
+        targetProfileId: targetProfileId,
+        currentProfileId: () => ref.read(currentProfileIdProvider),
+        publish: setDelay,
+        warmUp: (onDelay) => warmUpComputedGroupDelays(
+          groups: groups,
+          defaultTestUrl: testUrl,
+          delayLoader: coreController.getDelay,
+          onDelay: onDelay,
+        ),
       );
+      if (!remainsCurrent) return;
       // Throttle: skip if last refresh was < 5s ago
       final now = DateTime.now();
       if (_lastPreheatGroupsRefreshAt != null &&
@@ -2866,7 +2914,7 @@ class ProxiesAction extends _$ProxiesAction {
         return;
       }
       _lastPreheatGroupsRefreshAt = now;
-      updateGroupsDebounce();
+      updateGroupsDebounce(expectedProfileId: targetProfileId);
     } catch (e) {
       commonPrint.log('preheatComputedGroups error: $e');
     }

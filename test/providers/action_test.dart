@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/config.dart';
@@ -464,6 +465,81 @@ proxies:
         expect(published, ['providers-A']);
       },
     );
+  });
+
+  group('preheat runtime projection identity', () {
+    test(
+      'switching A to B during warm-up drops late delay and post-refresh',
+      () async {
+        var currentProfileId = 1;
+        final warmUpStarted = Completer<void>();
+        final releaseWarmUp = Completer<void>();
+        final published = <Delay>[];
+        var scheduledRefreshes = 0;
+
+        final remainsCurrent = warmUpRuntimeDelaysForProfile(
+          targetProfileId: 1,
+          currentProfileId: () => currentProfileId,
+          publish: published.add,
+          warmUp: (onDelay) async {
+            onDelay(const Delay(url: 'test', name: 'A', value: 0));
+            warmUpStarted.complete();
+            await releaseWarmUp.future;
+            onDelay(const Delay(url: 'test', name: 'A', value: 88));
+          },
+        );
+        await warmUpStarted.future;
+        currentProfileId = 2;
+        releaseWarmUp.complete();
+
+        if (await remainsCurrent) scheduledRefreshes++;
+        expect(
+          published.map((delay) => delay.value),
+          [0],
+          reason: 'the late A result must not enter B delay projection',
+        );
+        expect(scheduledRefreshes, 0);
+      },
+    );
+
+    test(
+      'A debounce becomes inert when current changes before callback',
+      () async {
+        final scheduler = Debouncer();
+        var currentProfileId = 1;
+        var refreshes = 0;
+
+        scheduleRuntimeProjectionRefresh(
+          scheduler: scheduler,
+          tag: Object(),
+          expectedProfileId: 1,
+          currentProfileId: () => currentProfileId,
+          refresh: () => refreshes++,
+          duration: const Duration(milliseconds: 10),
+        );
+        currentProfileId = 2;
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+
+        expect(refreshes, 0);
+      },
+    );
+
+    test('A debounce refreshes normally while A remains current', () async {
+      final scheduler = Debouncer();
+      final refreshed = Completer<void>();
+
+      scheduleRuntimeProjectionRefresh(
+        scheduler: scheduler,
+        tag: Object(),
+        expectedProfileId: 1,
+        currentProfileId: () => 1,
+        refresh: refreshed.complete,
+        duration: const Duration(milliseconds: 10),
+      );
+
+      await refreshed.future.timeout(const Duration(seconds: 1));
+      expect(refreshed.isCompleted, isTrue);
+    });
   });
 
   group('ProfilesAction', () {
