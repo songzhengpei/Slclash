@@ -1256,9 +1256,9 @@ class SetupAction extends _$SetupAction {
       force: force,
       silence: silence,
       preloadInvoke: preloadInvoke,
-      onUpdated: () async {
+      onUpdated: (commitLease) async {
         final proxiesAction = ref.read(proxiesActionProvider.notifier);
-        await proxiesAction.updateGroups();
+        await proxiesAction.updateGroups(commitLease: commitLease);
         StartupTrace.mark('applyProfile.groups');
         await proxiesAction.preheatComputedGroups();
         await ref.read(providersProvider.notifier).syncProviders();
@@ -1268,15 +1268,23 @@ class SetupAction extends _$SetupAction {
   }
 
   Future<void> applyProfileForDisplay({bool silence = true}) async {
+    await _applyProfileForDisplayOutcome(silence: silence);
+  }
+
+  Future<SetupConfigOutcome> _applyProfileForDisplayOutcome({
+    bool silence = true,
+    RuntimeConfigCommitLease? commitLease,
+  }) async {
     final patchConfig = ref
         .read(patchClashConfigProvider)
         .copyWith
         .tun(enable: false);
-    await _setupConfig(
+    return _setupConfig(
       force: true,
       silence: silence,
       patchConfigOverride: patchConfig,
       requestAdmin: false,
+      inheritedCommitLease: commitLease,
     );
   }
 
@@ -1452,11 +1460,15 @@ class SetupAction extends _$SetupAction {
     bool force = false,
     bool silence = false,
     FutureOr<void> Function()? preloadInvoke,
-    FutureOr Function()? onUpdated,
+    FutureOr Function(RuntimeConfigCommitLease lease)? onUpdated,
     PatchClashConfig? patchConfigOverride,
     bool requestAdmin = true,
+    RuntimeConfigCommitLease? inheritedCommitLease,
   }) async {
-    final requestGeneration = _runtimeConfigCommitOwner.beginRequest();
+    final isExternalRequest = inheritedCommitLease == null;
+    final requestGeneration =
+        inheritedCommitLease?.generation ??
+        _runtimeConfigCommitOwner.beginRequest();
     try {
       var profile = ref.read(currentProfileProvider);
       final nextProfile = await profile?.checkAndUpdateAndCopy();
@@ -1471,7 +1483,8 @@ class SetupAction extends _$SetupAction {
       if (requestAdmin) {
         final res = await _requestAdmin(patchConfig.tun.enable);
         if (res.isError) {
-          return _runtimeConfigCommitOwner.isLatest(requestGeneration)
+          return !isExternalRequest ||
+                  _runtimeConfigCommitOwner.isLatest(requestGeneration)
               ? SetupConfigOutcome.failed
               : SetupConfigOutcome.superseded;
         }
@@ -1497,44 +1510,57 @@ class SetupAction extends _$SetupAction {
       var outcome = SetupConfigOutcome.failed;
       await globalState.loadingRun(
         () async {
-          final commitOutcome = await _runtimeConfigCommitOwner.commit(
-            generation: requestGeneration,
-            transaction: () async {
-              if (yamlMd5 == globalState.lastConfigMd5 && force == false) {
-                outcome = SetupConfigOutcome.unchanged;
+          Future<void> commitTransaction(
+            RuntimeConfigCommitLease activeLease,
+          ) async {
+            if (yamlMd5 == globalState.lastConfigMd5 && force == false) {
+              outcome = SetupConfigOutcome.unchanged;
+              return;
+            }
+            await File(configFilePath).safeWriteAsString(yamlString);
+            final message = await coreController.setupConfig(
+              setupState: setupState,
+              params: _setupParams,
+              preloadInvoke: preloadInvoke,
+            );
+            StartupTrace.mark('setupConfig');
+
+            if (message.isNotEmpty) {
+              commonPrint.log(
+                'setupConfig failed: profileId=${setupState.profileId}, '
+                'message="$message", ignoredIsEmpty=${message.endsWith('is empty')}',
+                logLevel: LogLevel.warning,
+              );
+
+              if (message.endsWith('is empty')) {
+                outcome = SetupConfigOutcome.failed;
                 return;
               }
-              await File(configFilePath).safeWriteAsString(yamlString);
-              final message = await coreController.setupConfig(
-                setupState: setupState,
-                params: _setupParams,
-                preloadInvoke: preloadInvoke,
-              );
-              StartupTrace.mark('setupConfig');
 
-              if (message.isNotEmpty) {
-                commonPrint.log(
-                  'setupConfig failed: profileId=${setupState.profileId}, '
-                  'message="$message", ignoredIsEmpty=${message.endsWith('is empty')}',
-                  logLevel: LogLevel.warning,
-                );
+              throw message;
+            }
 
-                if (message.endsWith('is empty')) {
-                  outcome = SetupConfigOutcome.failed;
-                  return;
-                }
+            globalState.lastConfigMd5 = yamlMd5;
+            ref.read(checkIpNumProvider.notifier).add();
+            NetworkDiagnosticsRevision.bump(reason: 'profile_apply');
+            await onUpdated?.call(activeLease);
+            outcome = SetupConfigOutcome.applied;
+            StartupTrace.mark('applyProfile');
+          }
 
-                throw message;
-              }
-
-              globalState.lastConfigMd5 = yamlMd5;
-              ref.read(checkIpNumProvider.notifier).add();
-              NetworkDiagnosticsRevision.bump(reason: 'profile_apply');
-              await onUpdated?.call();
-              outcome = SetupConfigOutcome.applied;
-              StartupTrace.mark('applyProfile');
-            },
-          );
+          late final RuntimeConfigCommitOutcome commitOutcome;
+          if (inheritedCommitLease != null) {
+            await _runtimeConfigCommitOwner.continueCommit(
+              lease: inheritedCommitLease,
+              transaction: commitTransaction,
+            );
+            commitOutcome = RuntimeConfigCommitOutcome.committed;
+          } else {
+            commitOutcome = await _runtimeConfigCommitOwner.commit(
+              generation: requestGeneration,
+              transaction: commitTransaction,
+            );
+          }
           if (commitOutcome == RuntimeConfigCommitOutcome.superseded) {
             commonPrint.log(
               'setupConfig superseded before commit: '
@@ -1548,7 +1574,8 @@ class SetupAction extends _$SetupAction {
       );
       return outcome;
     } catch (error, stackTrace) {
-      if (!_runtimeConfigCommitOwner.isLatest(requestGeneration)) {
+      if (isExternalRequest &&
+          !_runtimeConfigCommitOwner.isLatest(requestGeneration)) {
         commonPrint.log(
           'setupConfig superseded during materialization: '
           'generation=$requestGeneration, error=$error',
@@ -2451,11 +2478,17 @@ class ProxiesAction extends _$ProxiesAction {
     );
   }
 
-  Future<void> updateGroups() {
+  Future<void> updateGroups({RuntimeConfigCommitLease? commitLease}) {
     final profileId = ref.read(currentProfileProvider)?.id;
     if (profileId == null) {
       commonPrint.log('update-groups:skipped reason=no-profile');
       return Future.value();
+    }
+    if (commitLease != null) {
+      // This refresh is part of an active config commit. It must use its own
+      // continuation-aware fallback rather than await a possibly unrelated
+      // in-flight refresh that may itself be waiting for config ownership.
+      return _updateGroups(profileId, commitLease: commitLease);
     }
     final running = _runningUpdateGroups[profileId];
     if (running != null) {
@@ -2472,7 +2505,10 @@ class ProxiesAction extends _$ProxiesAction {
     return future;
   }
 
-  Future<void> _updateGroups(int profileId) async {
+  Future<void> _updateGroups(
+    int profileId, {
+    RuntimeConfigCommitLease? commitLease,
+  }) async {
     final watch = Stopwatch()..start();
 
     try {
@@ -2561,7 +2597,10 @@ class ProxiesAction extends _$ProxiesAction {
 
       var groups = await loadGroups();
       if (!_isSnapshotWritableGroups(groups)) {
-        await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
+        final displayOutcome = await ref
+            .read(setupActionProvider.notifier)
+            ._applyProfileForDisplayOutcome(commitLease: commitLease);
+        if (displayOutcome == SetupConfigOutcome.superseded) return;
         groups = await loadGroups();
       }
 

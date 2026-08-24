@@ -5,6 +5,104 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('runtime config commit ownership', () {
+    test(
+      'outer apply updateGroups display fallback does not wait on itself',
+      () async {
+        final owner = RuntimeConfigCommitOwner();
+        final a = owner.beginRequest();
+        final events = <String>[];
+
+        final outcome = await owner
+            .commit(
+              generation: a,
+              transaction: (lease) async {
+                events.add('A-setup');
+                Future<void> applyProfileForDisplay() => owner.continueCommit(
+                  lease: lease,
+                  transaction: (_) async {
+                    events.add('A-display-write-setup');
+                  },
+                );
+                Future<void> updateGroupsWithInvalidFallback() =>
+                    applyProfileForDisplay();
+                await updateGroupsWithInvalidFallback();
+                events.add('A-onUpdated-done');
+              },
+            )
+            .timeout(const Duration(seconds: 1));
+
+        expect(outcome, RuntimeConfigCommitOutcome.committed);
+        expect(events, [
+          'A-setup',
+          'A-display-write-setup',
+          'A-onUpdated-done',
+        ]);
+      },
+    );
+
+    test(
+      'active A continuation finishes before waiting B and does not supersede B',
+      () async {
+        final owner = RuntimeConfigCommitOwner();
+        final a = owner.beginRequest();
+        final events = <String>[];
+        late Future<RuntimeConfigCommitOutcome> bCommit;
+
+        final aCommit = owner.commit(
+          generation: a,
+          transaction: (lease) async {
+            events.add('A-setup');
+            final b = owner.beginRequest();
+            bCommit = owner.commit(
+              generation: b,
+              transaction: (_) async => events.add('B-setup'),
+            );
+            await owner.continueCommit(
+              lease: lease,
+              transaction: (_) async {
+                events.add('A-display-write-setup');
+              },
+            );
+            events.add('A-done');
+          },
+        );
+
+        expect(await aCommit, RuntimeConfigCommitOutcome.committed);
+        expect(await bCommit, RuntimeConfigCommitOutcome.committed);
+        expect(events, [
+          'A-setup',
+          'A-display-write-setup',
+          'A-done',
+          'B-setup',
+        ]);
+        expect(owner.beginRequest(), 3);
+      },
+    );
+
+    test('nested failure releases ownership for future applies', () async {
+      final owner = RuntimeConfigCommitOwner();
+      final a = owner.beginRequest();
+
+      await expectLater(
+        owner.commit(
+          generation: a,
+          transaction: (lease) => owner.continueCommit(
+            lease: lease,
+            transaction: (_) async => throw StateError('display failed'),
+          ),
+        ),
+        throwsStateError,
+      );
+
+      final b = owner.beginRequest();
+      final events = <String>[];
+      final outcome = await owner
+          .commit(generation: b, transaction: (_) async => events.add('B'))
+          .timeout(const Duration(seconds: 1));
+      expect(outcome, RuntimeConfigCommitOutcome.committed);
+      expect(events, ['B']);
+    });
+
     test('slow A materializing after fast B is superseded', () async {
       final owner = RuntimeConfigCommitOwner();
       final a = owner.beginRequest();
@@ -13,11 +111,11 @@ void main() {
 
       final bOutcome = await owner.commit(
         generation: b,
-        transaction: () async => commits.add('B'),
+        transaction: (_) async => commits.add('B'),
       );
       final aOutcome = await owner.commit(
         generation: a,
-        transaction: () async => commits.add('A'),
+        transaction: (_) async => commits.add('A'),
       );
 
       expect(bOutcome, RuntimeConfigCommitOutcome.committed);
@@ -34,11 +132,11 @@ void main() {
 
       final oldOutcome = await owner.commit(
         generation: oldA,
-        transaction: () async => commits.add('old-A'),
+        transaction: (_) async => commits.add('old-A'),
       );
       final newOutcome = await owner.commit(
         generation: newA,
-        transaction: () async => commits.add('new-A'),
+        transaction: (_) async => commits.add('new-A'),
       );
 
       expect(oldOutcome, RuntimeConfigCommitOutcome.superseded);
@@ -56,7 +154,7 @@ void main() {
 
       final aCommit = owner.commit(
         generation: a,
-        transaction: () async {
+        transaction: (_) async {
           sharedConfig = 'A';
           aWritten.complete();
           await releaseA.future;
@@ -68,7 +166,7 @@ void main() {
       final b = owner.beginRequest();
       final bCommit = owner.commit(
         generation: b,
-        transaction: () async {
+        transaction: (_) async {
           sharedConfig = 'B';
           setupReads.add('B:$sharedConfig');
         },
@@ -88,13 +186,15 @@ void main() {
       owner.beginRequest();
       var writes = 0;
       var setups = 0;
+      var preloads = 0;
       var updates = 0;
 
       final outcome = await owner.commit(
         generation: stale,
-        transaction: () async {
+        transaction: (_) async {
           writes++;
           setups++;
+          preloads++;
           updates++;
         },
       );
@@ -102,6 +202,7 @@ void main() {
       expect(outcome, RuntimeConfigCommitOutcome.superseded);
       expect(writes, 0);
       expect(setups, 0);
+      expect(preloads, 0);
       expect(updates, 0);
     });
 
@@ -114,7 +215,7 @@ void main() {
 
       final aCommit = owner.commit(
         generation: a,
-        transaction: () async {
+        transaction: (_) async {
           aStarted.complete();
           await releaseA.future;
           commits.add('A');
@@ -125,7 +226,7 @@ void main() {
       final b = owner.beginRequest();
       final bCommit = owner.commit(
         generation: b,
-        transaction: () async => commits.add('B'),
+        transaction: (_) async => commits.add('B'),
       );
       await Future<void>.delayed(Duration.zero);
       expect(commits, isEmpty);
@@ -145,7 +246,7 @@ void main() {
 
       final aCommit = owner.commit(
         generation: a,
-        transaction: () async {
+        transaction: (_) async {
           events.add('A-setup');
           aSetupDone.complete();
           await releaseAUpdate.future;
@@ -157,7 +258,7 @@ void main() {
       final b = owner.beginRequest();
       final bCommit = owner.commit(
         generation: b,
-        transaction: () async {
+        transaction: (_) async {
           events.add('B-setup');
           events.add('B-onUpdated');
         },
@@ -180,7 +281,7 @@ void main() {
 
         final outcome = await owner.commit(
           generation: stale,
-          transaction: () async => fail('stale transaction must not run'),
+          transaction: (_) async => fail('stale transaction must not run'),
         );
         if (outcome != RuntimeConfigCommitOutcome.superseded) {
           failureEffects++;
