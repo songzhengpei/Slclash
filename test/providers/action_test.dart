@@ -32,6 +32,208 @@ void main() {
     });
   });
 
+  group('runtime projection scheduling', () {
+    test('production schedules preheat only after setup commit returns', () {
+      final source = File('lib/providers/action.dart').readAsStringSync();
+      final start = source.indexOf(
+        'Future<SetupConfigOutcome> _applyProfileOutcome',
+      );
+      final end = source.indexOf(
+        'Future<void> applyProfileForDisplay',
+        start,
+      );
+      final method = source.substring(start, end);
+      final commitAwait = method.indexOf('final outcome = await _setupConfig');
+      final releaseTrace = method.indexOf('runtime_config_commit_released');
+      final preheatSchedule = method.indexOf('schedulePostActivationPreheat');
+
+      expect(commitAwait, greaterThanOrEqualTo(0));
+      expect(releaseTrace, greaterThan(commitAwait));
+      expect(preheatSchedule, greaterThan(releaseTrace));
+      expect(
+        method.substring(commitAwait, releaseTrace),
+        isNot(contains('preheatComputedGroups')),
+      );
+    });
+
+    test('commit completes before a blocked post-commit preheat', () async {
+      final owner = RuntimeConfigCommitOwner();
+      final preheatStarted = Completer<void>();
+      final releasePreheat = Completer<void>();
+      final generation = owner.beginRequest();
+
+      final commit = owner.commit(
+        generation: generation,
+        transaction: (_) async {},
+      );
+      await commit;
+      final preheat = Future<void>(() async {
+        preheatStarted.complete();
+        await releasePreheat.future;
+      });
+      await preheatStarted.future;
+
+      final nextGeneration = owner.beginRequest();
+      final nextCommit = owner.commit(
+        generation: nextGeneration,
+        transaction: (_) async {},
+      );
+      await expectLater(
+        nextCommit.timeout(const Duration(seconds: 1)),
+        completion(RuntimeConfigCommitOutcome.committed),
+      );
+
+      releasePreheat.complete();
+      await preheat;
+    });
+
+    test('running refresh coalesces multiple requests into one trailing run', () async {
+      var active = true;
+      var dirty = false;
+      var calls = 0;
+      var trailing = 0;
+      final firstStarted = Completer<void>();
+      final releaseFirst = Completer<void>();
+
+      bool takeDirty() {
+        final value = dirty;
+        dirty = false;
+        return value;
+      }
+
+      final loop = runTrailingRuntimeRefreshLoop(
+        isActive: () => active,
+        takeDirty: takeDirty,
+        refresh: () async {
+          calls++;
+          if (calls == 1) {
+            firstStarted.complete();
+            await releaseFirst.future;
+          }
+        },
+        onTrailing: () => trailing++,
+      );
+      await firstStarted.future;
+      dirty = true;
+      dirty = true;
+      releaseFirst.complete();
+      await loop;
+
+      expect(calls, 2);
+      expect(trailing, 1);
+      active = false;
+    });
+
+    test('stale identity suppresses its dirty trailing refresh', () async {
+      var active = true;
+      var dirty = false;
+      var calls = 0;
+      final firstStarted = Completer<void>();
+      final releaseFirst = Completer<void>();
+
+      final loop = runTrailingRuntimeRefreshLoop(
+        isActive: () => active,
+        takeDirty: () {
+          final value = dirty;
+          dirty = false;
+          return value;
+        },
+        refresh: () async {
+          calls++;
+          firstStarted.complete();
+          await releaseFirst.future;
+        },
+      );
+      await firstStarted.future;
+      dirty = true;
+      active = false;
+      releaseFirst.complete();
+      await loop;
+
+      expect(calls, 1);
+    });
+
+    test('old A dirty state cannot run in a new A epoch', () async {
+      const oldA = RuntimeProfileIdentity(profileId: 1, epoch: 1);
+      const newA = RuntimeProfileIdentity(profileId: 1, epoch: 3);
+      var activeIdentity = oldA;
+      var dirty = false;
+      var calls = 0;
+      final firstStarted = Completer<void>();
+      final releaseFirst = Completer<void>();
+
+      final loop = runTrailingRuntimeRefreshLoop(
+        isActive: () => activeIdentity == oldA,
+        takeDirty: () {
+          final value = dirty;
+          dirty = false;
+          return value;
+        },
+        refresh: () async {
+          calls++;
+          firstStarted.complete();
+          await releaseFirst.future;
+        },
+      );
+      await firstStarted.future;
+      dirty = true;
+      activeIdentity = newA;
+      releaseFirst.complete();
+      await loop;
+
+      expect(calls, 1);
+    });
+
+    test('provider projection read is singleflight per identity and name', () async {
+      const identity = RuntimeProfileIdentity(profileId: 1, epoch: 1);
+      final singleflight = RuntimeProviderProjectionSingleflight<String>();
+      final fetchResult = Completer<String>();
+      final published = <String?>[];
+      var reads = 0;
+
+      Future<String?> refresh() => singleflight.refresh(
+        identity: identity,
+        providerName: 'P',
+        isActive: (_) => true,
+        fetch: () {
+          reads++;
+          return fetchResult.future;
+        },
+        publish: published.add,
+      );
+
+      final updateCompletion = refresh();
+      final loadedEvent = refresh();
+      fetchResult.complete('mihomo-current');
+
+      expect(await updateCompletion, 'mihomo-current');
+      expect(await loadedEvent, 'mihomo-current');
+      expect(reads, 1);
+      expect(published, ['mihomo-current']);
+    });
+
+    test('stale provider projection is not published', () async {
+      const identity = RuntimeProfileIdentity(profileId: 1, epoch: 1);
+      final singleflight = RuntimeProviderProjectionSingleflight<String>();
+      final fetchResult = Completer<String>();
+      final published = <String?>[];
+      var active = true;
+
+      final refresh = singleflight.refresh(
+        identity: identity,
+        providerName: 'P',
+        isActive: (_) => active,
+        fetch: () => fetchResult.future,
+        publish: published.add,
+      );
+      active = false;
+      fetchResult.complete('stale-A');
+
+      expect(await refresh, isNull);
+      expect(published, isEmpty);
+    });
+  });
+
   group('runtime mutation identity', () {
     test(
       'provider update captured under A does not dispatch under B',

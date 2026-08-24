@@ -346,6 +346,36 @@ void main() {
         'BAD01:-1',
       ]);
     });
+
+    test('stale warm-up does not launch another delay batch', () async {
+      var active = true;
+      final calls = <String>[];
+
+      await warmUpComputedGroupDelays(
+        concurrency: 1,
+        defaultTestUrl: 'https://default.test/generate_204',
+        groups: const [
+          Group(
+            name: 'Auto',
+            type: GroupType.URLTest,
+            all: [
+              Proxy(name: 'A', type: 'Vless'),
+              Proxy(name: 'B', type: 'Vless'),
+              Proxy(name: 'C', type: 'Vless'),
+            ],
+          ),
+        ],
+        shouldContinue: () => active,
+        delayLoader: (url, proxyName) async {
+          calls.add(proxyName);
+          active = false;
+          return Delay(url: url, name: proxyName, value: 80);
+        },
+        onDelay: (_) {},
+      );
+
+      expect(calls, ['A']);
+    });
   });
 
   group('MediaCheckObserveSettings', () {

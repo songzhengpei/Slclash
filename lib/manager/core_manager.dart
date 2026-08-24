@@ -207,11 +207,11 @@ class _CoreContainerState extends ConsumerState<CoreManager>
     if (identity == null || !proxiesAction.isRuntimeIdentityActive(identity)) {
       return;
     }
-    final provider = await coreController.getExternalProvider(providerName);
+    await proxiesAction.refreshExternalProviderProjection(
+      identity,
+      providerName,
+    );
     if (!proxiesAction.isRuntimeIdentityActive(identity)) return;
-    ref
-        .read(providersProvider.notifier)
-        .setProvider(provider);
     debouncer.call(FunctionTag.loadedProvider, () async {
       if (proxiesAction.isRuntimeIdentityActive(identity)) {
         proxiesAction.updateGroupsDebounce(

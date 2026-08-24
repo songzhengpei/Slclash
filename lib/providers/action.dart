@@ -1388,28 +1388,30 @@ class SetupAction extends _$SetupAction {
     bool silence = false,
     bool force = false,
     FutureOr<void> Function()? preloadInvoke,
-  }) {
-    return _setupConfig(
+  }) async {
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final runtimeIdentity = proxiesAction.captureRuntimeProfileIdentity();
+    final outcome = await _setupConfig(
       force: force,
       silence: silence,
       preloadInvoke: preloadInvoke,
       onUpdated: (context) async {
         final targetProfileId = context.targetProfileId;
         if (targetProfileId == null ||
-            ref.read(currentProfileIdProvider) != targetProfileId) {
+            runtimeIdentity == null ||
+            runtimeIdentity.profileId != targetProfileId ||
+            !proxiesAction.isRuntimeIdentityActive(runtimeIdentity)) {
           return;
         }
-        final proxiesAction = ref.read(proxiesActionProvider.notifier);
         await proxiesAction.updateGroups(commitContext: context);
-        if (ref.read(currentProfileIdProvider) != targetProfileId) return;
+        if (!proxiesAction.isRuntimeIdentityActive(runtimeIdentity)) return;
         StartupTrace.mark('applyProfile.groups');
-        await proxiesAction.preheatComputedGroups(
-          targetProfileId: targetProfileId,
-        );
-        if (ref.read(currentProfileIdProvider) != targetProfileId) return;
         final published = await fetchAndPublishRuntimeProjection(
           targetProfileId: targetProfileId,
-          currentProfileId: () => ref.read(currentProfileIdProvider),
+          currentProfileId: () =>
+              proxiesAction.isRuntimeIdentityActive(runtimeIdentity)
+              ? runtimeIdentity.profileId
+              : null,
           fetch: coreController.getExternalProviders,
           publish: (providers) {
             ref.read(providersProvider.notifier).value = providers;
@@ -1418,6 +1420,20 @@ class SetupAction extends _$SetupAction {
         if (published) StartupTrace.mark('syncProviders');
       },
     );
+    StartupTrace.mark(
+      'runtime_config_commit_released',
+      extras: {
+        'profileId': runtimeIdentity?.profileId,
+        'epoch': runtimeIdentity?.epoch,
+        'outcome': outcome.name,
+      },
+    );
+    if (runtimeIdentity != null &&
+        setupOutcomeConfirmsRuntimeActivation(outcome) &&
+        proxiesAction.isRuntimeIdentityActive(runtimeIdentity)) {
+      proxiesAction.schedulePostActivationPreheat(runtimeIdentity);
+    }
+    return outcome;
   }
 
   Future<void> applyProfileForDisplay({bool silence = true}) async {
@@ -1432,17 +1448,36 @@ class SetupAction extends _$SetupAction {
     bool silence = true,
     RuntimeConfigPostUpdateContext? inheritedContext,
   }) async {
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final runtimeIdentity = proxiesAction.captureRuntimeProfileIdentity();
     final patchConfig = ref
         .read(patchClashConfigProvider)
         .copyWith
         .tun(enable: false);
-    return _setupConfig(
+    final outcome = await _setupConfig(
       force: true,
       silence: silence,
       patchConfigOverride: patchConfig,
       requestAdmin: false,
       inheritedContext: inheritedContext,
     );
+    if (inheritedContext == null) {
+      StartupTrace.mark(
+        'runtime_config_commit_released',
+        extras: {
+          'profileId': runtimeIdentity?.profileId,
+          'epoch': runtimeIdentity?.epoch,
+          'outcome': outcome.name,
+          'displayOnly': true,
+        },
+      );
+      if (runtimeIdentity != null &&
+          setupOutcomeConfirmsRuntimeActivation(outcome) &&
+          proxiesAction.isRuntimeIdentityActive(runtimeIdentity)) {
+        proxiesAction.schedulePostActivationPreheat(runtimeIdentity);
+      }
+    }
+    return outcome;
   }
 
   Future<VM2<String, String>> getProfile({
@@ -2344,8 +2379,12 @@ class ThemeAction extends _$ThemeAction {
 @Riverpod(keepAlive: true)
 class ProxiesAction extends _$ProxiesAction {
   final Map<RuntimeProfileIdentity, Future<void>> _runningUpdateGroups = {};
+  final Set<RuntimeProfileIdentity> _dirtyUpdateGroups = {};
   final ProxySelectionSession _selectionTxn = ProxySelectionSession();
   final PendingProxySelections _pendingSelections = PendingProxySelections();
+  final RuntimeProviderProjectionSingleflight<ExternalProvider>
+  _providerProjection = RuntimeProviderProjectionSingleflight();
+  final Map<RuntimeProfileIdentity, Future<void>> _runningPreheats = {};
   final Set<String> _runtimeLoadingProviderKeys = {};
   int _runtimeEpoch = 0;
   int? _runtimeProfileId;
@@ -2387,6 +2426,7 @@ class ProxiesAction extends _$ProxiesAction {
     _runtimeProfileId = profileId;
     _runtimeEpoch++;
     _activeRuntimeIdentity = null;
+    _dirtyUpdateGroups.clear();
     ref.read(delayDataSourceProvider.notifier).clear();
     for (final key in _runtimeLoadingProviderKeys) {
       ref.read(isUpdatingProvider(key).notifier).value = false;
@@ -2596,6 +2636,7 @@ class ProxiesAction extends _$ProxiesAction {
     }
     if (isRuntimeIdentityActive(identity)) {
       _syncComputedSelectedMap(groups);
+      schedulePostActivationPreheat(identity);
     }
   }
 
@@ -2623,11 +2664,19 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   void updateGroupsDebounce({Duration? duration, int? expectedProfileId}) {
+    final identity = captureRuntimeProfileIdentity();
+    if (identity == null ||
+        (expectedProfileId != null &&
+            expectedProfileId != identity.profileId)) {
+      return;
+    }
     scheduleRuntimeProjectionRefresh(
       scheduler: debouncer,
       tag: FunctionTag.updateGroups,
-      expectedProfileId: expectedProfileId,
-      currentProfileId: () => ref.read(currentProfileIdProvider),
+      expectedProfileId: identity.profileId,
+      currentProfileId: () => isRuntimeIdentityActive(identity)
+          ? identity.profileId
+          : null,
       refresh: updateGroups,
       duration: duration,
     );
@@ -2892,14 +2941,26 @@ class ProxiesAction extends _$ProxiesAction {
     }
     final running = _runningUpdateGroups[identity];
     if (running != null) {
+      _dirtyUpdateGroups.add(identity);
       commonPrint.log('update-groups:reuse profileId=$profileId');
       return running;
     }
-    final future = _updateGroups(profile, identity: identity);
+    final future = runTrailingRuntimeRefreshLoop(
+      isActive: () => isRuntimeIdentityActive(identity),
+      takeDirty: () => _dirtyUpdateGroups.remove(identity),
+      refresh: () => _updateGroups(profile, identity: identity),
+      onTrailing: () {
+        StartupTrace.mark(
+          'proxy_groups_trailing_refresh',
+          extras: {'profileId': identity.profileId, 'epoch': identity.epoch},
+        );
+      },
+    );
     _runningUpdateGroups[identity] = future;
     future.whenComplete(() {
       if (identical(_runningUpdateGroups[identity], future)) {
         _runningUpdateGroups.remove(identity);
+        _dirtyUpdateGroups.remove(identity);
       }
     });
     return future;
@@ -3196,31 +3257,62 @@ class ProxiesAction extends _$ProxiesAction {
 
   DateTime? _lastPreheatGroupsRefreshAt;
 
-  Future<void> preheatComputedGroups({required int targetProfileId}) async {
-    final identity = captureRuntimeProfileIdentity();
-    if (identity == null ||
-        identity.profileId != targetProfileId ||
-        !isRuntimeIdentityActive(identity)) {
+  void schedulePostActivationPreheat(RuntimeProfileIdentity identity) {
+    if (!isRuntimeIdentityActive(identity) ||
+        _runningPreheats.containsKey(identity)) {
       return;
     }
+    final future = Future<void>(() => _preheatComputedGroups(identity));
+    _runningPreheats[identity] = future;
+    future.whenComplete(() {
+      if (identical(_runningPreheats[identity], future)) {
+        _runningPreheats.remove(identity);
+      }
+    });
+  }
+
+  Future<void> _preheatComputedGroups(
+    RuntimeProfileIdentity identity,
+  ) async {
+    if (!isRuntimeIdentityActive(identity)) return;
+    StartupTrace.mark(
+      'proxy_preheat_started',
+      extras: {'profileId': identity.profileId, 'epoch': identity.epoch},
+    );
     final groups = ref.read(groupsProvider);
-    if (groups.isEmpty) return;
+    if (groups.isEmpty) {
+      StartupTrace.mark(
+        'proxy_preheat_finished',
+        extras: {
+          'profileId': identity.profileId,
+          'epoch': identity.epoch,
+          'empty': true,
+        },
+      );
+      return;
+    }
     final testUrl = ref.read(
       appSettingProvider.select((state) => state.testUrl),
     );
     try {
-      final remainsCurrent = await warmUpRuntimeDelaysForProfile(
-        targetProfileId: targetProfileId,
-        currentProfileId: () => ref.read(currentProfileIdProvider),
-        publish: (delay) => setDelayForRuntimeIdentity(identity, delay),
-        warmUp: (onDelay) => warmUpComputedGroupDelays(
-          groups: groups,
-          defaultTestUrl: testUrl,
-          delayLoader: coreController.getDelay,
-          onDelay: onDelay,
-        ),
+      await warmUpComputedGroupDelays(
+        groups: groups,
+        defaultTestUrl: testUrl,
+        delayLoader: coreController.getDelay,
+        onDelay: (delay) => setDelayForRuntimeIdentity(identity, delay),
+        shouldContinue: () => isRuntimeIdentityActive(identity),
       );
-      if (!remainsCurrent || !isRuntimeIdentityActive(identity)) return;
+      if (!isRuntimeIdentityActive(identity)) {
+        StartupTrace.mark(
+          'proxy_preheat_cancelled',
+          extras: {'profileId': identity.profileId, 'epoch': identity.epoch},
+        );
+        return;
+      }
+      StartupTrace.mark(
+        'proxy_preheat_finished',
+        extras: {'profileId': identity.profileId, 'epoch': identity.epoch},
+      );
       // Throttle: skip if last refresh was < 5s ago
       final now = DateTime.now();
       if (_lastPreheatGroupsRefreshAt != null &&
@@ -3229,7 +3321,7 @@ class ProxiesAction extends _$ProxiesAction {
         return;
       }
       _lastPreheatGroupsRefreshAt = now;
-      updateGroupsDebounce(expectedProfileId: targetProfileId);
+      updateGroupsDebounce(expectedProfileId: identity.profileId);
     } catch (e) {
       commonPrint.log('preheatComputedGroups error: $e');
     }
@@ -3379,6 +3471,21 @@ class ProxiesAction extends _$ProxiesAction {
     globalState.showNotifier(result);
   }
 
+  Future<ExternalProvider?> refreshExternalProviderProjection(
+    RuntimeProfileIdentity identity,
+    String providerName,
+  ) {
+    return _providerProjection.refresh(
+      identity: identity,
+      providerName: providerName,
+      isActive: isRuntimeIdentityActive,
+      fetch: () => coreController.getExternalProvider(providerName),
+      publish: (provider) {
+        ref.read(providersProvider.notifier).setProvider(provider);
+      },
+    );
+  }
+
   Future<String?> updateProvider(
     ExternalProvider provider, {
     RuntimeProfileIdentity? identity,
@@ -3403,13 +3510,8 @@ class ProxiesAction extends _$ProxiesAction {
       if (!update.current) return null;
       final message = update.value!;
       if (message.isNotEmpty) return message;
-      final projection = await runRuntimeMutationIfCurrent(
-        identity: targetIdentity,
-        isCurrent: isRuntimeIdentityActive,
-        mutation: () => coreController.getExternalProvider(provider.name),
-      );
-      if (!projection.current) return null;
-      ref.read(providersProvider.notifier).setProvider(projection.value);
+      await refreshExternalProviderProjection(targetIdentity, provider.name);
+      if (!isRuntimeIdentityActive(targetIdentity)) return null;
       return '';
     } finally {
       if (showLoading && isRuntimeIdentityActive(targetIdentity)) {
@@ -3447,13 +3549,8 @@ class ProxiesAction extends _$ProxiesAction {
     final message = sideLoad.value!;
     if (message.isNotEmpty) return message;
 
-    final projection = await runRuntimeMutationIfCurrent(
-      identity: identity,
-      isCurrent: isRuntimeIdentityActive,
-      mutation: () => coreController.getExternalProvider(provider.name),
-    );
-    if (!projection.current) return null;
-    ref.read(providersProvider.notifier).setProvider(projection.value);
+    await refreshExternalProviderProjection(identity, provider.name);
+    if (!isRuntimeIdentityActive(identity)) return null;
     return '';
   }
 }
