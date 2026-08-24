@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/network_matcher.dart';
-import 'package:fl_clash/common/perf_trace.dart';
 import 'package:fl_clash/plugins/service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'action.dart';
+import 'app.dart';
 import 'config.dart';
 import 'state.dart';
 
@@ -143,6 +144,10 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
 
       if (!configChanged) return;
 
+      if (system.isAndroid) {
+        unawaited(_syncNativeConfig());
+      }
+
       // Clear manual resume override when Smart Auto Stop is disabled,
       // trusted networks are emptied, or the network list is modified.
       // This prevents stale override from persisting across config cycles.
@@ -159,20 +164,38 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
       // If smartAutoStop was just disabled or networks emptied while
       // VPN was auto-stopped, resume immediately without waiting for
       // connectivity change.
-      if ((!nextEnabled || nextNetworks.isEmpty) &&
+      if (!system.isAndroid &&
+          (!nextEnabled || nextNetworks.isEmpty) &&
           ref.read(isSmartStoppedProvider)) {
         _resumeFromSmartStop();
         return;
       }
 
       // Otherwise trigger a debounced check with the new config.
-      if (nextEnabled && nextNetworks.isNotEmpty) {
+      if (!system.isAndroid && nextEnabled && nextNetworks.isNotEmpty) {
         _debouncedCheck();
       }
     });
 
+    ref.listen(appSettingProvider, (previous, next) {
+      if (system.isAndroid &&
+          previous?.closeConnections != next.closeConnections) {
+        unawaited(_syncNativeConfig());
+      }
+    });
+
+    ref.listen(initProvider, (previous, next) {
+      if (system.isAndroid && previous != true && next) {
+        unawaited(_syncNativeConfig());
+      }
+    });
+
     // Initial check on manager startup (debounced so providers are settled).
-    _debouncedCheck();
+    if (system.isAndroid) {
+      unawaited(_syncNativeConfig());
+    } else {
+      _debouncedCheck();
+    }
 
     return false;
   }
@@ -184,8 +207,38 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
         'smart_auto_connectivity_event',
         extras: {'results': results.map((value) => value.name).join(',')},
       );
-      _debouncedCheck();
+      if (system.isAndroid) {
+        // Native owns the decision. This foreground listener only refreshes
+        // the Flutter projection when the UI process happens to be alive.
+        unawaited(reevaluateNow());
+      } else {
+        _debouncedCheck();
+      }
     });
+  }
+
+  Future<void> _syncNativeConfig() async {
+    if (!ref.read(initProvider)) return;
+    final native = service;
+    if (native == null) return;
+    final vpn = ref.read(vpnSettingProvider);
+    await native.updateSmartPauseConfig(
+      enabled: vpn.smartAutoStop,
+      trustedNetworks: vpn.smartAutoStopNetworks,
+      closeConnections: ref.read(appSettingProvider).closeConnections,
+    );
+  }
+
+  /// Re-evaluates native policy against the latest physical-network truth.
+  /// The caller must reconcile the native session before invoking this method.
+  Future<void> reevaluateNow() async {
+    if (!system.isAndroid) {
+      await _checkAndToggle();
+      return;
+    }
+    await _syncNativeConfig();
+    await service?.reevaluateSmartPause();
+    await ref.read(setupActionProvider.notifier).reconcileNativeSession();
   }
 
   void _debouncedCheck() {

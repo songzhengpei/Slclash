@@ -102,7 +102,9 @@ class Service {
   }
 
   Future<List<String>> getLocalIpAddresses() async {
-    final result = await methodChannel.invokeMethod<List>('getLocalIpAddresses');
+    final result = await methodChannel.invokeMethod<List>(
+      'getLocalIpAddresses',
+    );
     return result?.cast<String>() ?? [];
   }
 
@@ -120,6 +122,24 @@ class Service {
 
   Future<bool> isSmartStopped() async {
     return await methodChannel.invokeMethod<bool>('isSmartStopped') ?? false;
+  }
+
+  Future<bool> updateSmartPauseConfig({
+    required bool enabled,
+    required List<String> trustedNetworks,
+    required bool closeConnections,
+  }) async {
+    return await methodChannel.invokeMethod<bool>('updateSmartPauseConfig', {
+          'enabled': enabled,
+          'trustedNetworks': trustedNetworks,
+          'closeConnections': closeConnections,
+        }) ??
+        false;
+  }
+
+  Future<bool> reevaluateSmartPause() async {
+    return await methodChannel.invokeMethod<bool>('reevaluateSmartPause') ??
+        false;
   }
 
   bool get hasListeners {

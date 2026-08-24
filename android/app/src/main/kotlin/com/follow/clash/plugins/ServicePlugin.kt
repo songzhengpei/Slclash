@@ -91,6 +91,8 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         "isSmartStopped" -> {
             handleIsSmartStopped(result)
         }
+        "updateSmartPauseConfig" -> handleUpdateSmartPauseConfig(call, result)
+        "reevaluateSmartPause" -> handleReevaluateSmartPause(result)
 
         else -> {
             result.notImplemented()
@@ -264,5 +266,19 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             val value = Service.isSmartStopped()
             result.success(value)
         }
+    }
+
+    private fun handleUpdateSmartPauseConfig(call: MethodCall, result: MethodChannel.Result) {
+        launch {
+            val args = call.arguments<Map<String, Any?>>() ?: emptyMap()
+            val enabled = args["enabled"] as? Boolean ?: false
+            val networks = (args["trustedNetworks"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            val closeConnections = args["closeConnections"] as? Boolean ?: true
+            result.success(Service.updateSmartPauseConfig(enabled, networks, closeConnections))
+        }
+    }
+
+    private fun handleReevaluateSmartPause(result: MethodChannel.Result) {
+        launch { result.success(Service.reevaluateSmartPause()) }
     }
 }

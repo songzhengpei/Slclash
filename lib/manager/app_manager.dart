@@ -22,6 +22,7 @@ class AppStateManager extends ConsumerStatefulWidget {
 class _AppStateManagerState extends ConsumerState<AppStateManager>
     with WidgetsBindingObserver {
   DateTime? _lastGcOnBackground;
+  DateTime? _lastProfileCatchUp;
 
   @override
   void initState() {
@@ -109,11 +110,24 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       container.read(appForegroundProvider.notifier).set(true);
       if (container.read(initProvider)) {
         await setupAction.reconcileNativeSession();
+        if (system.isAndroid) {
+          await container
+              .read(smartAutoStopManagerProvider.notifier)
+              .reevaluateNow();
+        }
       }
       render?.resume();
       container
           .read(healthObservationSchedulerProvider.notifier)
           .onLifecycleChanged(DateTime.now());
+      final now = DateTime.now();
+      if (_lastProfileCatchUp == null ||
+          now.difference(_lastProfileCatchUp!) > const Duration(minutes: 5)) {
+        _lastProfileCatchUp = now;
+        unawaited(
+          container.read(profilesActionProvider.notifier).autoUpdateProfiles(),
+        );
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setupAction.resumeUiStatsTimerIfNeeded();
         setupAction.tryCheckIp();

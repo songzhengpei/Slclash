@@ -401,7 +401,8 @@ class ApplicationState extends ConsumerState<Application> {
             final autoCloseConnections = ref.read(
               appSettingProvider.select((state) => state.closeConnections),
             );
-            if (!hasVpn &&
+            if (!system.isAndroid &&
+                !hasVpn &&
                 (isStart || isSmartStopped) &&
                 autoCloseConnections) {
               final now = DateTime.now();

@@ -1,6 +1,7 @@
 package com.follow.clash.service
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import com.follow.clash.common.GlobalState
@@ -19,10 +20,14 @@ import com.follow.clash.service.models.SessionTransitions
 import com.follow.clash.service.models.ServiceErrorCode
 import com.follow.clash.service.models.ServiceOperationResult
 import com.follow.clash.service.models.VpnOptions
+import com.follow.clash.service.modules.PhysicalNetworkControlPlane
+import com.follow.clash.service.modules.PhysicalNetworkSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -30,6 +35,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 
 internal fun canReuseRunningSession(state: String, operational: Boolean): Boolean =
@@ -43,6 +49,170 @@ class RemoteService : Service(), CoroutineScope {
     override val coroutineContext = serviceJob + Dispatchers.Default
     private val sessionCounter = AtomicLong(System.currentTimeMillis())
     private var delegateGeneration = 0L
+    private val smartPausePolicy = SmartPausePolicy()
+    @Volatile private var smartPauseConfig = SmartPauseConfig()
+    @Volatile private var latestPhysicalNetwork: PhysicalNetworkSnapshot? = null
+    private val policyWorkerRunning = AtomicBoolean(false)
+    private val policyEvaluationPending = AtomicBoolean(false)
+    private var unknownRetryAttempt = 0
+    private var unknownRetryJob: Job? = null
+    private var lastStableNetworkId: Long? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        val preferences = getSharedPreferences(SMART_PAUSE_PREFERENCES, Context.MODE_PRIVATE)
+        smartPauseConfig = SmartPauseConfig(
+            enabled = preferences.getBoolean(KEY_ENABLED, false),
+            trustedNetworks = preferences.getStringSet(KEY_NETWORKS, emptySet()).orEmpty().toList(),
+            closeConnections = preferences.getBoolean(KEY_CLOSE_CONNECTIONS, true),
+        )
+        PhysicalNetworkControlPlane.attach(::onPhysicalNetworkSnapshot)
+    }
+
+    private fun onPhysicalNetworkSnapshot(snapshot: PhysicalNetworkSnapshot) {
+        latestPhysicalNetwork = snapshot
+        unknownRetryJob?.cancel()
+        if (snapshot.isKnown) unknownRetryAttempt = 0
+        Phase4Mark.emit(
+            "smart_pause_network_snapshot",
+            mapOf(
+                "network_generation" to snapshot.generation,
+                "network_type" to snapshot.transport,
+                "ip_count" to snapshot.ipv4Addresses.size,
+                "known" to snapshot.isKnown,
+            ),
+        )
+        requestSmartPauseEvaluation("network")
+    }
+
+    private fun requestSmartPauseEvaluation(reason: String) {
+        policyEvaluationPending.set(true)
+        if (!policyWorkerRunning.compareAndSet(false, true)) return
+        launch {
+            try {
+                do {
+                    policyEvaluationPending.set(false)
+                    evaluateSmartPause(reason)
+                } while (policyEvaluationPending.get())
+            } finally {
+                policyWorkerRunning.set(false)
+                if (policyEvaluationPending.get()) requestSmartPauseEvaluation("pending")
+            }
+        }
+    }
+
+    private suspend fun evaluateSmartPause(reason: String) {
+        val network = latestPhysicalNetwork
+        val currentConfig = smartPauseConfig
+        if (currentConfig.enabled && currentConfig.trustedNetworks.isNotEmpty() &&
+            (network == null || !network.isKnown)
+        ) scheduleUnknownRetry()
+        runLock.withLock {
+            val current = State.snapshot
+            val config = smartPauseConfig
+            val trusted = network?.let {
+                it.isKnown && TrustedNetworkMatcher.matchesAny(it.ipv4Addresses, config.trustedNetworks)
+            } == true
+            val previousOverride = smartPausePolicy.manualOverride
+            val policyConfig = config.copy(
+                enabled = config.enabled && State.options?.enable == true,
+            )
+            val decision = smartPausePolicy.evaluate(
+                policyConfig, current.state, network?.isKnown == true, trusted,
+            )
+            if (previousOverride != smartPausePolicy.manualOverride) {
+                Phase4Mark.emit(
+                    "smart_pause_override_changed",
+                    mapOf(
+                        "manual_override" to smartPausePolicy.manualOverride,
+                        "source" to "policy",
+                    ),
+                )
+            }
+            Phase4Mark.emit(
+                "smart_pause_evaluate",
+                mapOf(
+                    "session_state" to current.state,
+                    "network_generation" to (network?.generation ?: 0L),
+                    "trusted" to trusted,
+                    "ip_count" to (network?.ipv4Addresses?.size ?: 0),
+                    "reason" to reason,
+                    "manual_override" to smartPausePolicy.manualOverride,
+                    "decision" to decision.name,
+                ),
+            )
+            maybeCloseConnectionsForHandover(network, config, current)
+            when (decision) {
+                SmartPauseDecision.PAUSE -> transitionSmartPauseLocked(current, true, "native_policy")
+                SmartPauseDecision.RESUME -> transitionSmartPauseLocked(current, false, "native_policy")
+                SmartPauseDecision.NONE -> Unit
+            }
+        }
+    }
+
+    private fun scheduleUnknownRetry() {
+        if (unknownRetryJob?.isActive == true || unknownRetryAttempt >= UNKNOWN_RETRY_DELAYS.size) return
+        val attempt = unknownRetryAttempt++
+        val retryDelay = UNKNOWN_RETRY_DELAYS[attempt]
+        Phase4Mark.emit("smart_pause_retry", mapOf("attempt" to attempt + 1, "delay_ms" to retryDelay))
+        unknownRetryJob = launch {
+            delay(retryDelay)
+            unknownRetryJob = null
+            PhysicalNetworkControlPlane.reevaluate()
+            requestSmartPauseEvaluation("unknown_retry")
+        }
+    }
+
+    private fun maybeCloseConnectionsForHandover(
+        network: PhysicalNetworkSnapshot?, config: SmartPauseConfig, session: SessionSnapshot,
+    ) {
+        val networkId = network?.takeIf { it.isKnown }?.networkId ?: return
+        val previous = lastStableNetworkId
+        lastStableNetworkId = networkId
+        if (previous == null || previous == networkId || !config.closeConnections ||
+            (session.state != SessionState.RUNNING && session.state != SessionState.PAUSED)
+        ) return
+        Phase4Mark.emit(
+            "network_handover_close_connections",
+            mapOf("network_generation" to network.generation, "network_type" to network.transport),
+        )
+        val action = "{\"id\":\"native-network-${network.generation}\",\"method\":\"closeConnections\",\"data\":null}"
+        Core.invokeAction(action) { result ->
+            Phase4Mark.emit(
+                "network_handover_close_connections_complete",
+                mapOf("result" to (result != null)),
+            )
+        }
+    }
+
+    private suspend fun transitionSmartPauseLocked(
+        current: SessionSnapshot, pause: Boolean, source: String,
+    ): Boolean {
+        Phase4Mark.emit(
+            "smart_pause_transition_requested",
+            mapOf("session_state" to current.state, "action" to if (pause) "pause" else "resume", "source" to source),
+        )
+        val active = delegate
+        if (active == null) {
+            Phase4Mark.emit(
+                "smart_pause_transition_complete",
+                mapOf("result" to false, "session_state" to State.snapshot.state, "source" to source),
+            )
+            return false
+        }
+        val success = active.useService { service ->
+            if (pause) service.smartStop() && !service.isOperational()
+            else service.smartResume() && service.isOperational()
+        }.getOrNull() == true
+        if (success) applySession(
+            if (pause) SessionTransitions.paused(current) else SessionTransitions.running(current),
+        )
+        Phase4Mark.emit(
+            "smart_pause_transition_complete",
+            mapOf("result" to success, "session_state" to State.snapshot.state, "source" to source),
+        )
+        return success
+    }
 
     private fun clearDelegate() {
         delegate?.unbind()
@@ -228,6 +398,7 @@ class RemoteService : Service(), CoroutineScope {
                     }
 
                     applySession(SessionTransitions.running(State.snapshot))
+                    requestSmartPauseEvaluation("session_started")
                     replyOperation(result, ServiceOperationResult.success(startedAt))
                 } catch (e: Exception) {
                     GlobalState.log("Start service internal error: ${e.message}")
@@ -415,16 +586,8 @@ class RemoteService : Service(), CoroutineScope {
                         result.onResult(0)
                         return@withLock
                     }
-                    val d = delegate
-                    if (d == null) {
-                        result.onResult(0)
-                        return@withLock
-                    }
-                    val success = d.useService { service ->
-                        service.smartStop() && !service.isOperational()
-                    }.getOrNull() == true
+                    val success = transitionSmartPauseLocked(current, true, "manual")
                     if (success) {
-                        applySession(SessionTransitions.paused(current))
                         Phase4Mark.emit(
                             "smart_stop_complete",
                             mapOf("result_class" to "success", "state" to State.snapshot.state),
@@ -478,16 +641,21 @@ class RemoteService : Service(), CoroutineScope {
                         return@withLock
                     }
                     val options = State.options
-                    val d = delegate
-                    if (options == null || d == null) {
+                    if (options == null || delegate == null) {
                         result.onResult(0)
                         return@withLock
                     }
-                    val success = d.useService { service ->
-                        service.smartResume() && service.isOperational()
-                    }.getOrNull() == true
+                    val success = transitionSmartPauseLocked(current, false, "manual")
                     if (success) {
-                        applySession(SessionTransitions.running(current))
+                        // A PAUSED session was created on a trusted network.
+                        // Preserve the user's resume through a temporary
+                        // UNKNOWN snapshot; a definitive untrusted snapshot
+                        // clears it.
+                        smartPausePolicy.markManualResume(true)
+                        Phase4Mark.emit(
+                            "smart_pause_override_changed",
+                            mapOf("manual_override" to smartPausePolicy.manualOverride, "source" to "manual_resume"),
+                        )
                         Phase4Mark.emit(
                             "smart_resume_complete",
                             mapOf("result_class" to "success", "state" to State.snapshot.state),
@@ -513,6 +681,29 @@ class RemoteService : Service(), CoroutineScope {
         override fun isSmartStopped(): Boolean {
             return State.snapshot.smartPaused
         }
+
+        override fun updateSmartPauseConfig(
+            enabled: Boolean,
+            trustedNetworks: MutableList<String>?,
+            closeConnections: Boolean,
+        ) {
+            val networks = trustedNetworks.orEmpty().map(String::trim).filter(String::isNotEmpty)
+            smartPauseConfig = SmartPauseConfig(enabled, networks, closeConnections)
+            getSharedPreferences(SMART_PAUSE_PREFERENCES, Context.MODE_PRIVATE).edit()
+                .putBoolean(KEY_ENABLED, enabled)
+                .putStringSet(KEY_NETWORKS, networks.toSet())
+                .putBoolean(KEY_CLOSE_CONNECTIONS, closeConnections)
+                .apply()
+            requestSmartPauseEvaluation("config_change")
+        }
+
+        override fun reevaluateSmartPause(result: IResultInterface) {
+            launch {
+                PhysicalNetworkControlPlane.reevaluate()
+                evaluateSmartPause("foreground_reevaluate")
+                result.onResult(1L)
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -524,6 +715,8 @@ class RemoteService : Service(), CoroutineScope {
     }
 
     override fun onDestroy() {
+        PhysicalNetworkControlPlane.detach()
+        unknownRetryJob?.cancel()
         if (SessionState.keepsRemoteService(State.snapshot.state)) {
             GlobalState.log(
                 "RemoteService onDestroy with active session ${State.snapshot.state}; keeping VPN"
@@ -562,5 +755,13 @@ class RemoteService : Service(), CoroutineScope {
         serviceJob.cancel()
         GlobalState.log("Remote service destroy")
         super.onDestroy()
+    }
+
+    companion object {
+        private const val SMART_PAUSE_PREFERENCES = "smart_pause_control"
+        private const val KEY_ENABLED = "enabled"
+        private const val KEY_NETWORKS = "trusted_networks"
+        private const val KEY_CLOSE_CONNECTIONS = "close_connections"
+        private val UNKNOWN_RETRY_DELAYS = longArrayOf(500L, 1_500L, 3_000L)
     }
 }

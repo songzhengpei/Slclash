@@ -217,4 +217,17 @@ object Service {
             it.isSmartStopped
         }.getOrNull() ?: false
     }
+
+    suspend fun updateSmartPauseConfig(
+        enabled: Boolean,
+        trustedNetworks: List<String>,
+        closeConnections: Boolean,
+    ): Boolean = delegate.useService {
+        it.updateSmartPauseConfig(enabled, trustedNetworks, closeConnections)
+        true
+    }.getOrDefault(false)
+
+    suspend fun reevaluateSmartPause(): Boolean = delegate.useService {
+        awaitIResultInterface { callback -> it.reevaluateSmartPause(callback) } > 0L
+    }.getOrDefault(false)
 }
