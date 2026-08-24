@@ -40,6 +40,32 @@ part 'generated/action.g.dart';
 /// Updated every 1s. Separate from [trafficsProvider] (chart data, 2-3s).
 final currentSpeedNotifier = ValueNotifier<Traffic>(const Traffic());
 
+final class RuntimeConfigPostUpdateContext {
+  const RuntimeConfigPostUpdateContext({
+    required this.lease,
+    required this.targetProfile,
+  });
+
+  final RuntimeConfigCommitLease lease;
+  final Profile? targetProfile;
+
+  int? get targetProfileId => targetProfile?.id;
+}
+
+@visibleForTesting
+Future<bool> fetchAndPublishRuntimeProjection<T>({
+  required int targetProfileId,
+  required int? Function() currentProfileId,
+  required Future<T> Function() fetch,
+  required void Function(T value) publish,
+}) async {
+  if (currentProfileId() != targetProfileId) return false;
+  final value = await fetch();
+  if (currentProfileId() != targetProfileId) return false;
+  publish(value);
+  return true;
+}
+
 class BackupRestoreOutcome {
   const BackupRestoreOutcome({
     required this.committed,
@@ -1256,13 +1282,27 @@ class SetupAction extends _$SetupAction {
       force: force,
       silence: silence,
       preloadInvoke: preloadInvoke,
-      onUpdated: (commitLease) async {
+      onUpdated: (context) async {
+        final targetProfileId = context.targetProfileId;
+        if (targetProfileId == null ||
+            ref.read(currentProfileIdProvider) != targetProfileId) {
+          return;
+        }
         final proxiesAction = ref.read(proxiesActionProvider.notifier);
-        await proxiesAction.updateGroups(commitLease: commitLease);
+        await proxiesAction.updateGroups(commitContext: context);
+        if (ref.read(currentProfileIdProvider) != targetProfileId) return;
         StartupTrace.mark('applyProfile.groups');
         await proxiesAction.preheatComputedGroups();
-        await ref.read(providersProvider.notifier).syncProviders();
-        StartupTrace.mark('syncProviders');
+        if (ref.read(currentProfileIdProvider) != targetProfileId) return;
+        final published = await fetchAndPublishRuntimeProjection(
+          targetProfileId: targetProfileId,
+          currentProfileId: () => ref.read(currentProfileIdProvider),
+          fetch: coreController.getExternalProviders,
+          publish: (providers) {
+            ref.read(providersProvider.notifier).value = providers;
+          },
+        );
+        if (published) StartupTrace.mark('syncProviders');
       },
     );
   }
@@ -1273,7 +1313,7 @@ class SetupAction extends _$SetupAction {
 
   Future<SetupConfigOutcome> _applyProfileForDisplayOutcome({
     bool silence = true,
-    RuntimeConfigCommitLease? commitLease,
+    RuntimeConfigPostUpdateContext? inheritedContext,
   }) async {
     final patchConfig = ref
         .read(patchClashConfigProvider)
@@ -1284,7 +1324,7 @@ class SetupAction extends _$SetupAction {
       silence: silence,
       patchConfigOverride: patchConfig,
       requestAdmin: false,
-      inheritedCommitLease: commitLease,
+      inheritedContext: inheritedContext,
     );
   }
 
@@ -1460,17 +1500,19 @@ class SetupAction extends _$SetupAction {
     bool force = false,
     bool silence = false,
     FutureOr<void> Function()? preloadInvoke,
-    FutureOr Function(RuntimeConfigCommitLease lease)? onUpdated,
+    FutureOr Function(RuntimeConfigPostUpdateContext context)? onUpdated,
     PatchClashConfig? patchConfigOverride,
     bool requestAdmin = true,
-    RuntimeConfigCommitLease? inheritedCommitLease,
+    RuntimeConfigPostUpdateContext? inheritedContext,
   }) async {
-    final isExternalRequest = inheritedCommitLease == null;
+    final isExternalRequest = inheritedContext == null;
     final requestGeneration =
-        inheritedCommitLease?.generation ??
+        inheritedContext?.lease.generation ??
         _runtimeConfigCommitOwner.beginRequest();
+    final frozenTargetProfile =
+        inheritedContext?.targetProfile ?? ref.read(currentProfileProvider);
     try {
-      var profile = ref.read(currentProfileProvider);
+      var profile = frozenTargetProfile;
       final nextProfile = await profile?.checkAndUpdateAndCopy();
       if (nextProfile != null) {
         profile = nextProfile;
@@ -1543,15 +1585,20 @@ class SetupAction extends _$SetupAction {
             globalState.lastConfigMd5 = yamlMd5;
             ref.read(checkIpNumProvider.notifier).add();
             NetworkDiagnosticsRevision.bump(reason: 'profile_apply');
-            await onUpdated?.call(activeLease);
+            await onUpdated?.call(
+              RuntimeConfigPostUpdateContext(
+                lease: activeLease,
+                targetProfile: profile,
+              ),
+            );
             outcome = SetupConfigOutcome.applied;
             StartupTrace.mark('applyProfile');
           }
 
           late final RuntimeConfigCommitOutcome commitOutcome;
-          if (inheritedCommitLease != null) {
+          if (inheritedContext != null) {
             await _runtimeConfigCommitOwner.continueCommit(
-              lease: inheritedCommitLease,
+              lease: inheritedContext.lease,
               transaction: commitTransaction,
             );
             commitOutcome = RuntimeConfigCommitOutcome.committed;
@@ -2413,9 +2460,9 @@ class ProxiesAction extends _$ProxiesAction {
         return false;
       }
 
-      // profileId guard（只在无参调用时校验）
-      if (profileId == null &&
-          ref.read(currentProfileProvider)?.id != targetProfileId) {
+      // Snapshot hydration publishes global projection state, so an explicit
+      // target must still be the profile currently selected by the UI.
+      if (ref.read(currentProfileProvider)?.id != targetProfileId) {
         return false;
       }
 
@@ -2433,6 +2480,9 @@ class ProxiesAction extends _$ProxiesAction {
         return false;
       }
       final currentFingerprint = await _computeProfileFingerprint(profile);
+      if (ref.read(currentProfileIdProvider) != targetProfileId) {
+        return false;
+      }
       if (snapshot.profileFingerprint == null ||
           snapshot.profileFingerprint != currentFingerprint) {
         commonPrint.log(
@@ -2455,7 +2505,9 @@ class ProxiesAction extends _$ProxiesAction {
       return true;
     } catch (e) {
       commonPrint.log('hydrateProxyGroupsSnapshot failed: $e');
-      ref.read(proxyGroupsSnapshotProvider.notifier).none();
+      if (ref.read(currentProfileIdProvider) == targetProfileId) {
+        ref.read(proxyGroupsSnapshotProvider.notifier).none();
+      }
       return false;
     }
   }
@@ -2478,24 +2530,26 @@ class ProxiesAction extends _$ProxiesAction {
     );
   }
 
-  Future<void> updateGroups({RuntimeConfigCommitLease? commitLease}) {
-    final profileId = ref.read(currentProfileProvider)?.id;
-    if (profileId == null) {
+  Future<void> updateGroups({RuntimeConfigPostUpdateContext? commitContext}) {
+    final profile =
+        commitContext?.targetProfile ?? ref.read(currentProfileProvider);
+    if (profile == null) {
       commonPrint.log('update-groups:skipped reason=no-profile');
       return Future.value();
     }
-    if (commitLease != null) {
+    final profileId = profile.id;
+    if (commitContext != null) {
       // This refresh is part of an active config commit. It must use its own
       // continuation-aware fallback rather than await a possibly unrelated
       // in-flight refresh that may itself be waiting for config ownership.
-      return _updateGroups(profileId, commitLease: commitLease);
+      return _updateGroups(profile, commitContext: commitContext);
     }
     final running = _runningUpdateGroups[profileId];
     if (running != null) {
       commonPrint.log('update-groups:reuse profileId=$profileId');
       return running;
     }
-    final future = _updateGroups(profileId);
+    final future = _updateGroups(profile);
     _runningUpdateGroups[profileId] = future;
     future.whenComplete(() {
       if (identical(_runningUpdateGroups[profileId], future)) {
@@ -2506,16 +2560,21 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   Future<void> _updateGroups(
-    int profileId, {
-    RuntimeConfigCommitLease? commitLease,
+    Profile targetProfile, {
+    RuntimeConfigPostUpdateContext? commitContext,
   }) async {
+    final profileId = targetProfile.id;
+    final selectedMap = Map<String, String>.from(targetProfile.selectedMap);
+    bool targetIsCurrent() => ref.read(currentProfileIdProvider) == profileId;
     final watch = Stopwatch()..start();
 
     try {
+      if (!targetIsCurrent()) return;
       ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
 
       commonPrint.log('update-groups:start profileId=$profileId');
       final coreReady = await _ensureCoreReadyForDisplay();
+      if (!targetIsCurrent()) return;
       if (!coreReady) {
         final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
         final oldGroups = ref.read(groupsProvider);
@@ -2537,6 +2596,7 @@ class ProxiesAction extends _$ProxiesAction {
           profileId: profileId,
           allowStaleOnFingerprintMismatch: true,
         );
+        if (!targetIsCurrent()) return;
 
         if (hydrated) {
           StartupTrace.mark(
@@ -2579,11 +2639,6 @@ class ProxiesAction extends _$ProxiesAction {
             final testUrl = ref.read(
               appSettingProvider.select((state) => state.testUrl),
             );
-            final selectedMap = ref.read(
-              currentProfileProvider.select(
-                (state) => state?.selectedMap ?? {},
-              ),
-            );
             return coreController.getProxiesGroups(
               selectedMap: selectedMap,
               sortType: sortType,
@@ -2596,12 +2651,15 @@ class ProxiesAction extends _$ProxiesAction {
       }
 
       var groups = await loadGroups();
+      if (!targetIsCurrent()) return;
       if (!_isSnapshotWritableGroups(groups)) {
         final displayOutcome = await ref
             .read(setupActionProvider.notifier)
-            ._applyProfileForDisplayOutcome(commitLease: commitLease);
+            ._applyProfileForDisplayOutcome(inheritedContext: commitContext);
         if (displayOutcome == SetupConfigOutcome.superseded) return;
+        if (!targetIsCurrent()) return;
         groups = await loadGroups();
+        if (!targetIsCurrent()) return;
       }
 
       if (!_isSnapshotWritableGroups(groups)) {
@@ -2622,6 +2680,7 @@ class ProxiesAction extends _$ProxiesAction {
           profileId: profileId,
           allowStaleOnFingerprintMismatch: true,
         );
+        if (!targetIsCurrent()) return;
 
         if (hydrated) {
           commonPrint.log(
@@ -2645,7 +2704,7 @@ class ProxiesAction extends _$ProxiesAction {
       }
 
       // profileId guard: user may have switched profile during async refresh
-      if (ref.read(currentProfileProvider)?.id != profileId) {
+      if (!targetIsCurrent()) {
         StartupTrace.mark(
           'proxy_groups_owner_guard',
           extras: {
@@ -2673,14 +2732,13 @@ class ProxiesAction extends _$ProxiesAction {
       ref.read(lastGroupsRefreshAtProvider.notifier).update();
 
       // Save snapshot
-      final currentProfile = ref.read(currentProfileProvider);
-      if (currentProfile != null) {
-        await _putProxyGroupsSnapshot(profile: currentProfile, groups: groups);
-      }
+      await _putProxyGroupsSnapshot(profile: targetProfile, groups: groups);
 
+      if (!targetIsCurrent()) return;
       _syncComputedSelectedMap(groups);
       ProxyTrace.noteGroupsConsistent(groups);
     } catch (e) {
+      if (!targetIsCurrent()) return;
       commonPrint.log(
         'update-groups:error profileId=$profileId '
         'elapsedMs=${watch.elapsedMilliseconds} error=$e',
@@ -2701,6 +2759,7 @@ class ProxiesAction extends _$ProxiesAction {
         profileId: profileId,
         allowStaleOnFingerprintMismatch: true,
       );
+      if (!targetIsCurrent()) return;
 
       if (hydrated) {
         commonPrint.log(

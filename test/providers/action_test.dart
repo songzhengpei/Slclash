@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/config.dart';
@@ -392,6 +394,76 @@ proxies:
       expect(definitions.external, isFalse);
       expect(definitions.proxy, isFalse);
     });
+  });
+
+  group('runtime config projection identity', () {
+    test(
+      'provider result is discarded when A changes to B during fetch',
+      () async {
+        var currentProfileId = 1;
+        final fetchStarted = Completer<void>();
+        final releaseFetch = Completer<void>();
+        final published = <String>[];
+
+        final resultFuture = fetchAndPublishRuntimeProjection(
+          targetProfileId: 1,
+          currentProfileId: () => currentProfileId,
+          fetch: () async {
+            fetchStarted.complete();
+            await releaseFetch.future;
+            return 'providers-A';
+          },
+          publish: published.add,
+        );
+        await fetchStarted.future;
+        currentProfileId = 2;
+        releaseFetch.complete();
+
+        expect(await resultFuture, isFalse);
+        expect(published, isEmpty);
+      },
+    );
+
+    test('A result stays discarded after UI advances through B to C', () async {
+      var currentProfileId = 1;
+      final fetchStarted = Completer<void>();
+      final releaseFetch = Completer<void>();
+      final published = <String>[];
+
+      final resultFuture = fetchAndPublishRuntimeProjection(
+        targetProfileId: 1,
+        currentProfileId: () => currentProfileId,
+        fetch: () async {
+          fetchStarted.complete();
+          await releaseFetch.future;
+          return 'providers-A';
+        },
+        publish: published.add,
+      );
+      await fetchStarted.future;
+      currentProfileId = 2;
+      currentProfileId = 3;
+      releaseFetch.complete();
+
+      expect(await resultFuture, isFalse);
+      expect(published, isEmpty);
+    });
+
+    test(
+      'provider result publishes when target identity stays current',
+      () async {
+        final published = <String>[];
+        final result = await fetchAndPublishRuntimeProjection(
+          targetProfileId: 1,
+          currentProfileId: () => 1,
+          fetch: () async => 'providers-A',
+          publish: published.add,
+        );
+
+        expect(result, isTrue);
+        expect(published, ['providers-A']);
+      },
+    );
   });
 
   group('ProfilesAction', () {

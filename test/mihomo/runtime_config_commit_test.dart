@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/services/mihomo_config/runtime_config_commit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,6 +11,7 @@ void main() {
       'outer apply updateGroups display fallback does not wait on itself',
       () async {
         final owner = RuntimeConfigCommitOwner();
+        final targetA = Profile.normal(label: 'A', url: 'profile-a');
         final a = owner.beginRequest();
         final events = <String>[];
 
@@ -17,15 +20,24 @@ void main() {
               generation: a,
               transaction: (lease) async {
                 events.add('A-setup');
-                Future<void> applyProfileForDisplay() => owner.continueCommit(
+                final context = RuntimeConfigPostUpdateContext(
                   lease: lease,
+                  targetProfile: targetA,
+                );
+                Future<void> applyProfileForDisplay(
+                  RuntimeConfigPostUpdateContext inheritedContext,
+                ) => owner.continueCommit(
+                  lease: inheritedContext.lease,
                   transaction: (_) async {
-                    events.add('A-display-write-setup');
+                    events.add(
+                      '${inheritedContext.targetProfile?.label}-display-write-setup',
+                    );
                   },
                 );
-                Future<void> updateGroupsWithInvalidFallback() =>
-                    applyProfileForDisplay();
-                await updateGroupsWithInvalidFallback();
+                Future<void> updateGroupsWithInvalidFallback(
+                  RuntimeConfigPostUpdateContext inheritedContext,
+                ) => applyProfileForDisplay(inheritedContext);
+                await updateGroupsWithInvalidFallback(context);
                 events.add('A-onUpdated-done');
               },
             )
@@ -44,6 +56,8 @@ void main() {
       'active A continuation finishes before waiting B and does not supersede B',
       () async {
         final owner = RuntimeConfigCommitOwner();
+        final targetA = Profile.normal(label: 'A', url: 'profile-a');
+        final targetB = Profile.normal(label: 'B', url: 'profile-b');
         final a = owner.beginRequest();
         final events = <String>[];
         late Future<RuntimeConfigCommitOutcome> bCommit;
@@ -52,15 +66,23 @@ void main() {
           generation: a,
           transaction: (lease) async {
             events.add('A-setup');
+            final context = RuntimeConfigPostUpdateContext(
+              lease: lease,
+              targetProfile: targetA,
+            );
             final b = owner.beginRequest();
             bCommit = owner.commit(
               generation: b,
-              transaction: (_) async => events.add('B-setup'),
+              transaction: (_) async {
+                events.add('${targetB.label}-setup');
+              },
             );
             await owner.continueCommit(
-              lease: lease,
+              lease: context.lease,
               transaction: (_) async {
-                events.add('A-display-write-setup');
+                events.add(
+                  '${context.targetProfile?.label}-display-write-setup',
+                );
               },
             );
             events.add('A-done');
@@ -78,6 +100,116 @@ void main() {
         expect(owner.beginRequest(), 3);
       },
     );
+
+    test(
+      'stale A projection is discarded while queued B becomes final authority',
+      () async {
+        final owner = RuntimeConfigCommitOwner();
+        const targetA = Profile(
+          id: 1,
+          label: 'A',
+          autoUpdateDuration: Duration.zero,
+          selectedMap: {'group': 'proxy-A'},
+        );
+        const targetB = Profile(
+          id: 2,
+          label: 'B',
+          autoUpdateDuration: Duration.zero,
+          selectedMap: {'group': 'proxy-B'},
+        );
+        var currentProfileId = targetA.id;
+        var runtimeProfileId = 0;
+        int? groupsOwnerProfileId;
+        var providers = 'providers-initial';
+        final aSetupDone = Completer<void>();
+        final releaseAUpdate = Completer<void>();
+        final events = <String>[];
+
+        final a = owner.beginRequest();
+        final aCommit = owner.commit(
+          generation: a,
+          transaction: (lease) async {
+            final context = RuntimeConfigPostUpdateContext(
+              lease: lease,
+              targetProfile: targetA,
+            );
+            runtimeProfileId = context.targetProfileId!;
+            events.add('A-setup');
+            aSetupDone.complete();
+            await releaseAUpdate.future;
+
+            expect(context.targetProfileId, targetA.id);
+            expect(context.targetProfile?.selectedMap, {'group': 'proxy-A'});
+            if (currentProfileId == context.targetProfileId) {
+              groupsOwnerProfileId = context.targetProfileId;
+              providers = 'providers-A';
+              events.add('A-projection-published');
+            } else {
+              events.add('A-projection-discarded');
+            }
+          },
+        );
+        await aSetupDone.future;
+
+        currentProfileId = targetB.id;
+        final b = owner.beginRequest();
+        final bCommit = owner.commit(
+          generation: b,
+          transaction: (_) async {
+            runtimeProfileId = targetB.id;
+            groupsOwnerProfileId = targetB.id;
+            providers = 'providers-B';
+            events.add('B-setup-and-projection');
+          },
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(runtimeProfileId, targetA.id);
+        expect(events, ['A-setup']);
+        releaseAUpdate.complete();
+
+        expect(await aCommit, RuntimeConfigCommitOutcome.committed);
+        expect(await bCommit, RuntimeConfigCommitOutcome.committed);
+        expect(events, [
+          'A-setup',
+          'A-projection-discarded',
+          'B-setup-and-projection',
+        ]);
+        expect(runtimeProfileId, targetB.id);
+        expect(groupsOwnerProfileId, targetB.id);
+        expect(providers, 'providers-B');
+      },
+    );
+
+    test('A context never resolves dynamically to selected B or C', () async {
+      final owner = RuntimeConfigCommitOwner();
+      const targetA = Profile(
+        id: 1,
+        label: 'A',
+        autoUpdateDuration: Duration.zero,
+        selectedMap: {'group': 'proxy-A'},
+      );
+      var currentProfileId = targetA.id;
+      final a = owner.beginRequest();
+
+      final outcome = await owner.commit(
+        generation: a,
+        transaction: (lease) async {
+          final context = RuntimeConfigPostUpdateContext(
+            lease: lease,
+            targetProfile: targetA,
+          );
+          currentProfileId = 2;
+          expect(context.targetProfileId, targetA.id);
+          expect(context.targetProfile?.selectedMap['group'], 'proxy-A');
+          currentProfileId = 3;
+          expect(context.targetProfileId, targetA.id);
+          expect(currentProfileId, isNot(context.targetProfileId));
+        },
+      );
+
+      expect(outcome, RuntimeConfigCommitOutcome.committed);
+    });
 
     test('nested failure releases ownership for future applies', () async {
       final owner = RuntimeConfigCommitOwner();
