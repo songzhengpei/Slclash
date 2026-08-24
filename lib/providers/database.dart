@@ -56,6 +56,11 @@ class Profiles extends _$Profiles {
     state = List<Profile>.from(profiles);
   }
 
+  /// Applies an already-committed delete without issuing another DB mutation.
+  void applyCommittedDelete(int id) {
+    state = state.where((profile) => profile.id != id).toList();
+  }
+
   void put(Profile profile) {
     final previous = List<Profile>.from(state);
     final newProfile = previous.optimizeLabel(profile);

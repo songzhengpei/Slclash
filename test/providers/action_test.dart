@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/models/models.dart';
@@ -543,6 +544,111 @@ proxies:
   });
 
   group('ProfilesAction', () {
+    test(
+      'DB delete failure leaves projection and resources untouched',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'profile-delete-failure',
+        );
+        addTearDown(() => tempDir.delete(recursive: true));
+        final yaml = File('${tempDir.path}/profile.yaml')
+          ..writeAsStringSync('proxies: []');
+        final providers = Directory('${tempDir.path}/providers')..createSync();
+        var projectionDeleted = false;
+
+        await expectLater(
+          runAuthoritativeProfileDelete(
+            commitDatabaseDelete: () async {
+              throw StateError('database delete failed');
+            },
+            applyCommittedProjection: () {
+              projectionDeleted = true;
+            },
+            updateDesiredProfile: () {},
+            cleanupResources: () async {
+              await yaml.delete();
+              await providers.delete(recursive: true);
+            },
+          ),
+          throwsStateError,
+        );
+
+        expect(projectionDeleted, isFalse);
+        expect(await yaml.exists(), isTrue);
+        expect(await providers.exists(), isTrue);
+      },
+    );
+
+    test('cleanup failure never resurrects committed profile', () async {
+      final order = <String>[];
+      var projectionDeleted = false;
+
+      await expectLater(
+        runAuthoritativeProfileDelete(
+          commitDatabaseDelete: () async {
+            order.add('database');
+          },
+          applyCommittedProjection: () {
+            order.add('projection');
+            projectionDeleted = true;
+          },
+          updateDesiredProfile: () {
+            order.add('desired');
+          },
+          cleanupResources: () async {
+            order.add('cleanup');
+            throw const ProfileResourceCleanupException(
+              'provider cleanup failed',
+            );
+          },
+        ),
+        throwsA(isA<ProfileResourceCleanupException>()),
+      );
+
+      expect(projectionDeleted, isTrue);
+      expect(order, ['database', 'projection', 'desired', 'cleanup']);
+    });
+
+    test('deleting current profile selects an existing next profile', () async {
+      final next = Profile.normal(label: 'next');
+      int? desired = 1;
+      var stopCalls = 0;
+
+      await convergeDesiredProfileAfterDelete(
+        deletedProfileId: 1,
+        currentProfileId: desired,
+        remainingProfiles: [next],
+        setCurrentProfileId: (value) => desired = value,
+        stopLastProfile: () async {
+          stopCalls++;
+        },
+      );
+
+      expect(desired, next.id);
+      expect(stopCalls, 0);
+    });
+
+    test(
+      'deleting final profile clears desired id and requests stop',
+      () async {
+        int? desired = 1;
+        var stopCalls = 0;
+
+        await convergeDesiredProfileAfterDelete(
+          deletedProfileId: 1,
+          currentProfileId: desired,
+          remainingProfiles: const [],
+          setCurrentProfileId: (value) => desired = value,
+          stopLastProfile: () async {
+            stopCalls++;
+          },
+        );
+
+        expect(desired, isNull);
+        expect(stopCalls, 1);
+      },
+    );
+
     test('auto loop does not republish a stale captured profile', () async {
       final a = Profile.normal(label: 'A', url: 'https://a.example');
       final bOld = Profile.normal(label: 'B old', url: 'https://b.example');

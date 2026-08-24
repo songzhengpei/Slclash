@@ -135,7 +135,7 @@ extension ProfileExtension on Profile {
   String get updatingKey => 'profile_$id';
 
   Future<Profile?> checkAndUpdateAndCopy() async {
-    final mFile = await _getFile(false);
+    final mFile = await _getFile();
     final isExists = await mFile.exists();
     if (isExists || url.isEmpty) {
       return null;
@@ -143,34 +143,16 @@ extension ProfileExtension on Profile {
     return update();
   }
 
-  Future<File> _getFile([bool autoCreate = true]) async {
+  Future<File> _getFile() async {
     final path = await appPath.getProfilePath(id.toString());
-    final file = File(path);
-    final isExists = await file.exists();
-    if (!isExists && autoCreate) {
-      return file.create(recursive: true);
-    }
-    return file;
-    // final oldPath = await appPath.getProfilePath(id);
-    // final newPath = await appPath.getProfilePath(fileName);
-    // final oldFile = oldPath == newPath ? null : File(oldPath);
-    // final oldIsExists = await oldFile?.exists() ?? false;
-    // if (oldIsExists) {
-    //   return await oldFile!.rename(newPath);
-    // }
-    // final file = File(newPath);
-    // final isExists = await file.exists();
-    // if (!isExists && autoCreate) {
-    //   return await file.create(recursive: true);
-    // }
-    // return file;
+    return File(path);
   }
 
   Future<File> get file async {
     return _getFile();
   }
 
-  Future<bool> get sourceExists async => (await _getFile(false)).exists();
+  Future<bool> get sourceExists async => (await _getFile()).exists();
 
   Future<ProfileSourceResponse> downloadSource() async {
     final response = await request.getFileResponseForUrl(url);
@@ -192,7 +174,7 @@ extension ProfileExtension on Profile {
   }
 
   Future<Profile> saveFile(Uint8List bytes) async {
-    final mFile = await _getFile(false);
+    final mFile = await _getFile();
     final token = profileSourceMutationOwner.begin(id);
     late final StagedProfileFile staged;
     try {

@@ -64,6 +64,45 @@ Future<void> runAutoProfileRefreshLoop({
   }
 }
 
+@visibleForTesting
+Future<void> runAuthoritativeProfileDelete({
+  required Future<void> Function() commitDatabaseDelete,
+  required void Function() applyCommittedProjection,
+  required FutureOr<void> Function() updateDesiredProfile,
+  required Future<void> Function() cleanupResources,
+}) async {
+  await commitDatabaseDelete();
+  applyCommittedProjection();
+  await updateDesiredProfile();
+  await cleanupResources();
+}
+
+@visibleForTesting
+Future<void> convergeDesiredProfileAfterDelete({
+  required int deletedProfileId,
+  required int? currentProfileId,
+  required List<Profile> remainingProfiles,
+  required void Function(int? profileId) setCurrentProfileId,
+  required Future<void> Function() stopLastProfile,
+}) async {
+  if (currentProfileId != deletedProfileId) return;
+  if (remainingProfiles.isNotEmpty) {
+    setCurrentProfileId(remainingProfiles.first.id);
+    return;
+  }
+  setCurrentProfileId(null);
+  await stopLastProfile();
+}
+
+final class ProfileResourceCleanupException implements Exception {
+  const ProfileResourceCleanupException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 final class RuntimeConfigPostUpdateContext {
   const RuntimeConfigPostUpdateContext({
     required this.lease,
@@ -1370,6 +1409,10 @@ class SetupAction extends _$SetupAction {
     await _applyProfileForDisplayOutcome(silence: silence);
   }
 
+  Future<SetupConfigOutcome> applyProfileForReadiness({bool silence = true}) {
+    return _applyProfileForDisplayOutcome(silence: silence);
+  }
+
   Future<SetupConfigOutcome> _applyProfileForDisplayOutcome({
     bool silence = true,
     RuntimeConfigPostUpdateContext? inheritedContext,
@@ -2307,7 +2350,7 @@ class ProxiesAction extends _$ProxiesAction {
       },
       ensureCoreReady: _ensureCoreReadyForDisplay,
       applyProfileForDisplay: () =>
-          ref.read(setupActionProvider.notifier).applyProfileForDisplay(),
+          ref.read(setupActionProvider.notifier).applyProfileForReadiness(),
       syncProviders: coreController.getExternalProviders,
       isProxyProvider: (provider) => provider.type.toLowerCase() == 'proxy',
       readGroups: _readRuntimeGroups,
@@ -2589,14 +2632,18 @@ class ProxiesAction extends _$ProxiesAction {
     return groups.isNotEmpty && groups.every((g) => g.all.isNotEmpty);
   }
 
-  Future<void> _putProxyGroupsSnapshot({
+  Future<bool> _putProxyGroupsSnapshot({
     required Profile profile,
     required List<Group> groups,
   }) async {
-    if (!_isSnapshotWritableGroups(groups)) return;
+    if (!_isSnapshotWritableGroups(groups)) return false;
     final fingerprint = await _computeProfileFingerprint(profile);
-    if (fingerprint == null) return;
-    await database.proxyGroupsSnapshotsDao.putSnapshot(
+    if (fingerprint == null) return false;
+    final latestProfile = _findProfileById(profile.id);
+    if (latestProfile == null) return false;
+    final latestFingerprint = await _computeProfileFingerprint(latestProfile);
+    if (latestFingerprint != fingerprint) return false;
+    return database.putProfileSnapshotIfExists(
       profileId: profile.id,
       groups: groups,
       profileFingerprint: fingerprint,
@@ -2903,7 +2950,11 @@ class ProxiesAction extends _$ProxiesAction {
         return;
       }
 
-      await _putProxyGroupsSnapshot(profile: latestProfile, groups: groups);
+      final persisted = await _putProxyGroupsSnapshot(
+        profile: latestProfile,
+        groups: groups,
+      );
+      if (!persisted) return;
 
       commonPrint.log(
         'prefetchSnapshotForProfile success: '
@@ -3120,19 +3171,25 @@ class ProfilesAction extends _$ProfilesAction {
 
   Future<void> deleteProfile(int id) async {
     await profileSourceMutationOwner.invalidateAndCommit(id, () async {
-      ref.read(profilesProvider.notifier).del(id);
-      await clearEffect(id);
-      final currentProfileId = ref.read(currentProfileIdProvider);
-      if (currentProfileId == id) {
-        final profiles = ref.read(profilesProvider);
-        if (profiles.isNotEmpty) {
-          final updateId = profiles.first.id;
-          ref.read(currentProfileIdProvider.notifier).value = updateId;
-        } else {
-          ref.read(currentProfileIdProvider.notifier).value = null;
-          ref.read(setupActionProvider.notifier).updateStatus(false);
-        }
-      }
+      await runAuthoritativeProfileDelete(
+        commitDatabaseDelete: () => database.deleteProfileLifetime(id),
+        applyCommittedProjection: () {
+          ref.read(profilesProvider.notifier).applyCommittedDelete(id);
+        },
+        updateDesiredProfile: () async {
+          await convergeDesiredProfileAfterDelete(
+            deletedProfileId: id,
+            currentProfileId: ref.read(currentProfileIdProvider),
+            remainingProfiles: ref.read(profilesProvider),
+            setCurrentProfileId: (profileId) {
+              ref.read(currentProfileIdProvider.notifier).value = profileId;
+            },
+            stopLastProfile: () =>
+                ref.read(setupActionProvider.notifier).updateStatus(false),
+          );
+        },
+        cleanupResources: () => clearEffect(id),
+      );
     });
   }
 
@@ -3364,6 +3421,9 @@ class ProfilesAction extends _$ProfilesAction {
     if (isExists) {
       await profileFile.safeDelete(recursive: true);
     }
-    await coreController.deleteFile(providersDirPath);
+    final message = await coreController.deleteFile(providersDirPath);
+    if (message.isNotEmpty) {
+      throw ProfileResourceCleanupException(message);
+    }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_clash/common/app_localizations.dart';
+import 'package:fl_clash/services/mihomo_config/runtime_config_commit.dart';
 
 enum ProviderReadinessStatus {
   ready,
@@ -55,7 +56,7 @@ class ProviderReadinessService<P, G> {
   ProviderReadinessService({this.log});
 
   final ProviderReadinessLog? log;
-  final Map<int, Future<ProviderReadinessResult>> _runningTasks = {};
+  final Map<(int, bool), Future<ProviderReadinessResult>> _runningTasks = {};
 
   Future<ProviderReadinessResult> ensureCurrentProfileReady({
     required int? targetProfileId,
@@ -63,7 +64,7 @@ class ProviderReadinessService<P, G> {
     required Future<({bool external, bool proxy})> Function()
     readProviderDefinitions,
     required Future<bool> Function() ensureCoreReady,
-    required Future<void> Function() applyProfileForDisplay,
+    required Future<SetupConfigOutcome> Function() applyProfileForDisplay,
     required Future<List<P>> Function() syncProviders,
     required bool Function(P provider) isProxyProvider,
     required Future<List<G>> Function() readGroups,
@@ -81,7 +82,8 @@ class ProviderReadinessService<P, G> {
         ),
       );
     }
-    final running = _runningTasks[targetProfileId];
+    final taskKey = (targetProfileId, forceApply);
+    final running = _runningTasks[taskKey];
     if (running != null) return running;
     final future = _run(
       targetProfileId: targetProfileId,
@@ -97,10 +99,10 @@ class ProviderReadinessService<P, G> {
       forceApply: forceApply,
       timeout: timeout,
     );
-    _runningTasks[targetProfileId] = future;
+    _runningTasks[taskKey] = future;
     future.whenComplete(() {
-      if (_runningTasks[targetProfileId] == future) {
-        _runningTasks.remove(targetProfileId);
+      if (_runningTasks[taskKey] == future) {
+        _runningTasks.remove(taskKey);
       }
     });
     return future;
@@ -112,7 +114,7 @@ class ProviderReadinessService<P, G> {
     required Future<({bool external, bool proxy})> Function()
     readProviderDefinitions,
     required Future<bool> Function() ensureCoreReady,
-    required Future<void> Function() applyProfileForDisplay,
+    required Future<SetupConfigOutcome> Function() applyProfileForDisplay,
     required Future<List<P>> Function() syncProviders,
     required bool Function(P provider) isProxyProvider,
     required Future<List<G>> Function() readGroups,
@@ -142,12 +144,49 @@ class ProviderReadinessService<P, G> {
       return value;
     }
 
+    Future<ProviderReadinessResult?> applyProfile(String stage) async {
+      if (changed()) return changedResult();
+      final outcome = await applyProfileForDisplay();
+      if (outcome == SetupConfigOutcome.superseded || changed()) {
+        return changedResult();
+      }
+      if (outcome == SetupConfigOutcome.failed) {
+        lastError = StateError('Profile activation failed');
+        final value = result(ProviderReadinessStatus.failed);
+        log?.call('provider-readiness:activation-failed', value, watch.elapsed);
+        return value;
+      }
+      log?.call(stage, result(ProviderReadinessStatus.failed), watch.elapsed);
+      return null;
+    }
+
     log?.call(
       'provider-readiness:start',
       result(ProviderReadinessStatus.failed),
       watch.elapsed,
     );
     try {
+      var coreReady = false;
+      if (forceApply) {
+        if (changed()) return changedResult();
+        if (!await ensureCoreReady()) {
+          lastError = const ProviderReadinessCoreUnavailable();
+          final value = result(ProviderReadinessStatus.coreUnavailable);
+          log?.call(
+            'provider-readiness:core-unavailable',
+            value,
+            watch.elapsed,
+          );
+          return value;
+        }
+        coreReady = true;
+        if (changed()) return changedResult();
+        final activation = await applyProfile(
+          'provider-readiness:profile-applied',
+        );
+        if (activation != null) return activation;
+      }
+
       final definitions = await readProviderDefinitions();
       if (changed()) return changedResult();
       if (!definitions.external) {
@@ -155,7 +194,7 @@ class ProviderReadinessService<P, G> {
         log?.call('provider-readiness:no-providers', value, watch.elapsed);
         return value;
       }
-      if (!await ensureCoreReady()) {
+      if (!coreReady && !await ensureCoreReady()) {
         lastError = const ProviderReadinessCoreUnavailable();
         final value = result(ProviderReadinessStatus.coreUnavailable);
         log?.call('provider-readiness:core-unavailable', value, watch.elapsed);
@@ -167,16 +206,6 @@ class ProviderReadinessService<P, G> {
         result(ProviderReadinessStatus.failed),
         watch.elapsed,
       );
-
-      if (forceApply) {
-        await applyProfileForDisplay();
-        if (changed()) return changedResult();
-        log?.call(
-          'provider-readiness:profile-applied',
-          result(ProviderReadinessStatus.failed),
-          watch.elapsed,
-        );
-      }
 
       var appliedForMissingProviders = forceApply;
       var appliedAfterEmptyGroups = forceApply;
@@ -198,15 +227,12 @@ class ProviderReadinessService<P, G> {
               proxyProviders == 0 &&
               !appliedForMissingProviders) {
             if (changed()) return changedResult();
-            await applyProfileForDisplay();
+            final activation = await applyProfile(
+              'provider-readiness:profile-applied-for-missing-providers',
+            );
+            if (activation != null) return activation;
             appliedForMissingProviders = true;
             appliedAfterEmptyGroups = true;
-            if (changed()) return changedResult();
-            log?.call(
-              'provider-readiness:profile-applied-for-missing-providers',
-              result(ProviderReadinessStatus.failed),
-              watch.elapsed,
-            );
             continue;
           }
           if (!definitions.proxy || proxyProviders > 0) {
@@ -225,9 +251,11 @@ class ProviderReadinessService<P, G> {
               return value;
             }
             if (!appliedAfterEmptyGroups) {
-              await applyProfileForDisplay();
+              final activation = await applyProfile(
+                'provider-readiness:profile-applied-for-empty-groups',
+              );
+              if (activation != null) return activation;
               appliedAfterEmptyGroups = true;
-              if (changed()) return changedResult();
               continue;
             }
           }
