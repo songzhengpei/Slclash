@@ -59,6 +59,33 @@ internal fun canReuseRunningSession(state: String, operational: Boolean): Boolea
 internal fun disconnectedSessionSnapshot(message: String): SessionSnapshot =
     SessionSnapshot.stopped(ServiceErrorCode.SERVICE_DISCONNECTED, message)
 
+internal data class CleanupResolution(
+    val snapshot: SessionSnapshot,
+    val clearDelegate: Boolean,
+)
+
+internal fun cleanupResolution(
+    current: SessionSnapshot,
+    result: ServiceOperationResult,
+): CleanupResolution = if (result.success) {
+    CleanupResolution(
+        snapshot = SessionSnapshot.stopped(),
+        clearDelegate = true,
+    )
+} else {
+    CleanupResolution(
+        snapshot = current.copy(
+            state = SessionState.STOPPING,
+            lastErrorCode = result.errorCode,
+            lastErrorMessage = result.message,
+        ),
+        clearDelegate = false,
+    )
+}
+
+internal fun isCurrentDelegateGeneration(callbackGeneration: Long, currentGeneration: Long): Boolean =
+    callbackGeneration == currentGeneration
+
 class RemoteService : Service(), CoroutineScope {
     private val serviceJob = SupervisorJob()
     override val coroutineContext = serviceJob + Dispatchers.Default
@@ -342,18 +369,9 @@ class RemoteService : Service(), CoroutineScope {
                     ServiceErrorCode.SERVICE_DISCONNECTED,
                     "Background service is unavailable during stop",
                 )
-                clearDelegate()
-                applySession(
-                    if (stopResult.success) {
-                    SessionSnapshot.stopped()
-                } else {
-                    State.snapshot.copy(
-                        state = SessionState.STOPPING,
-                        lastErrorCode = stopResult.errorCode,
-                        lastErrorMessage = stopResult.message,
-                    )
-                }
-                )
+                val resolution = cleanupResolution(State.snapshot, stopResult)
+                if (resolution.clearDelegate) clearDelegate()
+                applySession(resolution.snapshot)
                 replyOperation(result, stopResult)
             }
         }
@@ -369,7 +387,7 @@ class RemoteService : Service(), CoroutineScope {
             runLock.withLock {
                 // A disconnect from a service discarded during handover must
                 // not overwrite the replacement session that is now RUNNING.
-                if (generation != delegateGeneration) return@withLock
+                if (!isCurrentDelegateGeneration(generation, delegateGeneration)) return@withLock
                 clearDelegate()
                 // The bound physical service is gone and this delegate does
                 // not reconnect automatically. STOPPING would therefore be a
@@ -501,24 +519,33 @@ class RemoteService : Service(), CoroutineScope {
 
     private suspend fun rollbackStart(errorCode: String?, message: String?) {
         val activeDelegate = delegate
-        val cleanupSucceeded = if (activeDelegate == null) {
-            true
+        val cleanupResult = if (activeDelegate == null) {
+            ServiceOperationResult.success()
         } else {
             activeDelegate.useService(timeoutMillis = 10_000L) { service ->
                 service.stop()
-            }.getOrNull()?.success == true
+            }.getOrElse {
+                ServiceOperationResult.failure(ServiceErrorCode.SERVICE_DISCONNECTED, it.message)
+            }
         }
-        clearDelegate()
+        val resolution = cleanupResolution(
+            current = State.snapshot,
+            result = if (cleanupResult.success) {
+                ServiceOperationResult.success()
+            } else {
+                ServiceOperationResult.failure(
+                    errorCode ?: cleanupResult.errorCode ?: ServiceErrorCode.INTERNAL_ERROR,
+                    message ?: cleanupResult.message,
+                )
+            },
+        )
+        if (resolution.clearDelegate) clearDelegate()
         applySession(
-            if (cleanupSucceeded) {
-            SessionSnapshot.stopped(errorCode, message)
-        } else {
-            State.snapshot.copy(
-                state = SessionState.STOPPING,
-                lastErrorCode = errorCode,
-                lastErrorMessage = message,
-            )
-        }
+            if (resolution.clearDelegate && (errorCode != null || message != null)) {
+                SessionSnapshot.stopped(errorCode, message)
+            } else {
+                resolution.snapshot
+            },
         )
     }
 

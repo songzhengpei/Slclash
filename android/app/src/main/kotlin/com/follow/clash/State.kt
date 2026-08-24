@@ -45,6 +45,15 @@ internal fun canFullStopSession(state: String): Boolean =
 internal fun canAttemptExplicitStart(runState: RunState): Boolean =
     runState != RunState.PENDING
 
+internal fun canAttemptExplicitStartAfterReconcile(
+    localState: RunState,
+    authoritativeState: String?,
+): Boolean {
+    if (localState != RunState.PENDING) return canAttemptExplicitStart(localState)
+    val reconciledState = authoritativeState?.let(::runStateForSessionState) ?: return false
+    return canAttemptExplicitStart(reconciledState)
+}
+
 internal fun isTerminalSessionState(state: String): Boolean =
     state != SessionState.STARTING && state != SessionState.STOPPING
 
@@ -115,13 +124,21 @@ object State {
         handleSyncState()
     }
 
-    suspend fun handleSyncState() {
-        runLock.withLock {
+    suspend fun handleSyncState(): SessionSnapshot? {
+        return runLock.withLock {
             Service.bind()
             Service.getSessionSnapshot()
                 .onSuccess(::applySnapshot)
                 .onFailure { GlobalState.log("Session snapshot unavailable: ${it.message}") }
+                .getOrNull()
         }
+    }
+
+    private suspend fun reconcilePendingBeforeExplicitStart(): Boolean {
+        val localState = runStateFlow.value
+        if (localState != RunState.PENDING) return canAttemptExplicitStart(localState)
+        val snapshot = handleSyncState()
+        return canAttemptExplicitStartAfterReconcile(localState, snapshot?.state)
     }
 
     suspend fun handleServiceLifecycleSignal() {
@@ -160,7 +177,7 @@ object State {
             "vpn_action_requested",
             mapOf("action" to "start", "source" to "android_action", "run_state" to runStateFlow.value),
         )
-        if (!canAttemptExplicitStart(runStateFlow.value)) {
+        if (!reconcilePendingBeforeExplicitStart()) {
             return
         }
         tilePlugin?.handleStart()
@@ -192,6 +209,7 @@ object State {
         // Always re-check VPN preparation. Android grants VPN ownership to only
         // one package at a time, so a cached RUNNING state does not prove that
         // this package is still the prepared VPN application.
+        if (!reconcilePendingBeforeExplicitStart()) return false
         runLock.withLock {
             if (!canAttemptExplicitStart(runStateFlow.value)) {
                 return false
