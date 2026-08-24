@@ -181,6 +181,9 @@ class _ProfilesViewState extends State<ProfilesView> {
                                     .read(groupsOwnerProfileIdProvider.notifier)
                                     .set(null);
                                 ref
+                                    .read(proxiesActionProvider.notifier)
+                                    .beginRuntimeProfileTransition(profileId);
+                                ref
                                         .read(currentProfileIdProvider.notifier)
                                         .value =
                                     profileId;
@@ -1345,7 +1348,9 @@ class _ProfileDelayBadge extends ConsumerWidget {
     final testUrl = ref.read(realTestUrlProvider(null));
     final proxiesAction = ref.read(proxiesActionProvider.notifier);
     final identity = proxiesAction.captureRuntimeProfileIdentity();
-    if (identity == null) return;
+    if (identity == null || !proxiesAction.isRuntimeIdentityActive(identity)) {
+      return;
+    }
     proxiesAction.setDelayForRuntimeIdentity(
       identity,
       Delay(url: testUrl, name: proxy.name, value: 0),

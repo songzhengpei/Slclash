@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/runtime_profile_identity.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 
@@ -106,6 +107,47 @@ class ProxySelectionSession {
     if (!newerIntentPending) {
       complete(groupName);
     }
+  }
+}
+
+typedef PendingProxySelection = ({
+  RuntimeProfileIdentity identity,
+  String groupName,
+  String proxyName,
+  bool unfix,
+  int gen,
+});
+
+class PendingProxySelections {
+  final Map<(RuntimeProfileIdentity, String), PendingProxySelection> _pending =
+      {};
+
+  void remember(PendingProxySelection selection) {
+    _pending[(selection.identity, selection.groupName)] = selection;
+  }
+
+  PendingProxySelection? takeForDispatch(PendingProxySelection selection) {
+    final key = (selection.identity, selection.groupName);
+    if (_pending[key] != selection) return null;
+    return _pending.remove(key);
+  }
+
+  List<PendingProxySelection> takeForActivation(
+    RuntimeProfileIdentity identity,
+  ) {
+    final selections = _pending.values
+        .where((selection) => selection.identity == identity)
+        .toList(growable: false);
+    for (final selection in selections) {
+      _pending.remove((selection.identity, selection.groupName));
+    }
+    return selections;
+  }
+
+  List<PendingProxySelection> clear() {
+    final selections = _pending.values.toList(growable: false);
+    _pending.clear();
+    return selections;
   }
 }
 

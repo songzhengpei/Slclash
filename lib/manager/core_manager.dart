@@ -146,9 +146,17 @@ class _CoreContainerState extends ConsumerState<CoreManager>
   Future<void> onDelay(Delay delay) async {
     super.onDelay(delay);
     final proxiesAction = ref.read(proxiesActionProvider.notifier);
-    proxiesAction.setDelay(delay);
+    final identity = proxiesAction.captureRuntimeProfileIdentity();
+    if (identity == null || !proxiesAction.isRuntimeIdentityActive(identity)) {
+      return;
+    }
+    proxiesAction.setDelayForRuntimeIdentity(identity, delay);
     debouncer.call(FunctionTag.updateDelay, () async {
-      proxiesAction.updateGroupsDebounce();
+      if (proxiesAction.isRuntimeIdentityActive(identity)) {
+        proxiesAction.updateGroupsDebounce(
+          expectedProfileId: identity.profileId,
+        );
+      }
     }, duration: const Duration(milliseconds: 5000));
   }
 
@@ -194,11 +202,22 @@ class _CoreContainerState extends ConsumerState<CoreManager>
   @override
   Future<void> onLoaded(String providerName) async {
     final ref = globalState.container;
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final identity = proxiesAction.captureRuntimeProfileIdentity();
+    if (identity == null || !proxiesAction.isRuntimeIdentityActive(identity)) {
+      return;
+    }
+    final provider = await coreController.getExternalProvider(providerName);
+    if (!proxiesAction.isRuntimeIdentityActive(identity)) return;
     ref
         .read(providersProvider.notifier)
-        .setProvider(await coreController.getExternalProvider(providerName));
+        .setProvider(provider);
     debouncer.call(FunctionTag.loadedProvider, () async {
-      ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
+      if (proxiesAction.isRuntimeIdentityActive(identity)) {
+        proxiesAction.updateGroupsDebounce(
+          expectedProfileId: identity.profileId,
+        );
+      }
     }, duration: const Duration(milliseconds: 1000));
     super.onLoaded(providerName);
   }

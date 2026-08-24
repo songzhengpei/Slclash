@@ -122,7 +122,7 @@ Future<void> proxyDelayTest(
   final proxiesAction = ref.read(proxiesActionProvider.notifier);
   final identity =
       runtimeIdentity ?? proxiesAction.captureRuntimeProfileIdentity();
-  if (identity == null || !proxiesAction.isRuntimeIdentityCurrent(identity)) {
+  if (identity == null || !proxiesAction.isRuntimeIdentityActive(identity)) {
     return;
   }
   final groups = getGroups();

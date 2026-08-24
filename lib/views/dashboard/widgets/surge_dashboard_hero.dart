@@ -986,6 +986,9 @@ class _SubscriptionSelectorBar extends ConsumerWidget {
                 child: SurgeSelectableRow(
                   selected: isSelected,
                   onTap: () {
+                    ref
+                        .read(proxiesActionProvider.notifier)
+                        .beginRuntimeProfileTransition(profile.id);
                     ref.read(currentProfileIdProvider.notifier).value =
                         profile.id;
                     Navigator.of(context).pop();

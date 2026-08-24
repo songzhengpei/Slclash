@@ -36,7 +36,7 @@ class _ProvidersViewState extends ConsumerState<ProvidersView> {
       }
     });
     await Future.wait(updateProviders);
-    if (!proxiesAction.isRuntimeIdentityCurrent(identity)) return;
+    if (!proxiesAction.isRuntimeIdentityActive(identity)) return;
     proxiesAction.updateGroupsDebounce(expectedProfileId: identity.profileId);
     if (messages.isNotEmpty) {
       globalState.showAllUpdatingMessagesDialog(messages);
@@ -159,7 +159,7 @@ class ProviderItem extends StatelessWidget {
       if (message.isNotEmpty) throw message;
       shouldRefresh = true;
     }, silence: false);
-    if (shouldRefresh && proxiesAction.isRuntimeIdentityCurrent(identity)) {
+    if (shouldRefresh && proxiesAction.isRuntimeIdentityActive(identity)) {
       proxiesAction.updateGroupsDebounce(expectedProfileId: identity.profileId);
     }
   }
@@ -183,7 +183,7 @@ class ProviderItem extends StatelessWidget {
       if (message.isNotEmpty) throw message;
       shouldRefresh = true;
     });
-    if (shouldRefresh && proxiesAction.isRuntimeIdentityCurrent(identity)) {
+    if (shouldRefresh && proxiesAction.isRuntimeIdentityActive(identity)) {
       proxiesAction.updateGroupsDebounce(expectedProfileId: identity.profileId);
     }
   }

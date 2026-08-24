@@ -27,6 +27,20 @@ bool isRuntimeProfileIdentityCurrent({
       currentEpoch == identity.epoch;
 }
 
+bool isRuntimeProfileIdentityActive({
+  required RuntimeProfileIdentity identity,
+  required RuntimeProfileIdentity? activeIdentity,
+  required int? currentProfileId,
+  required int currentEpoch,
+}) {
+  return activeIdentity == identity &&
+      isRuntimeProfileIdentityCurrent(
+        identity: identity,
+        currentProfileId: currentProfileId,
+        currentEpoch: currentEpoch,
+      );
+}
+
 Future<({bool current, T? value})> runRuntimeMutationIfCurrent<T>({
   required RuntimeProfileIdentity identity,
   required bool Function(RuntimeProfileIdentity identity) isCurrent,

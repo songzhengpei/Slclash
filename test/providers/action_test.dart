@@ -6,10 +6,32 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/database.dart';
+import 'package:fl_clash/services/mihomo_config/runtime_config_commit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  group('runtime activation authority', () {
+    test('applied and unchanged are the only confirming setup outcomes', () {
+      expect(
+        setupOutcomeConfirmsRuntimeActivation(SetupConfigOutcome.applied),
+        isTrue,
+      );
+      expect(
+        setupOutcomeConfirmsRuntimeActivation(SetupConfigOutcome.unchanged),
+        isTrue,
+      );
+      expect(
+        setupOutcomeConfirmsRuntimeActivation(SetupConfigOutcome.failed),
+        isFalse,
+      );
+      expect(
+        setupOutcomeConfirmsRuntimeActivation(SetupConfigOutcome.superseded),
+        isFalse,
+      );
+    });
+  });
+
   group('runtime mutation identity', () {
     test(
       'provider update captured under A does not dispatch under B',
@@ -347,7 +369,7 @@ void main() {
       expect(sessionRequiresFullSetup('PAUSED'), isFalse);
     });
 
-    test('PAUSED attaches Core without VPN setup or applyProfile', () {
+    test('PAUSED attaches Core without restarting VPN', () {
       expect(shouldAttachCoreWithoutVpnSetup('PAUSED'), isTrue);
       expect(shouldAttachCoreWithoutVpnSetup('RUNNING'), isFalse);
       expect(shouldAttachCoreWithoutVpnSetup('STOPPED'), isFalse);

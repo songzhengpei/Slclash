@@ -11,6 +11,80 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('runtime profile identity', () {
+    test('desired and snapshot-visible does not imply Core active', () {
+      const desiredB = RuntimeProfileIdentity(profileId: 2, epoch: 1);
+
+      expect(
+        isRuntimeProfileIdentityActive(
+          identity: desiredB,
+          activeIdentity: null,
+          currentProfileId: 2,
+          currentEpoch: 1,
+        ),
+        isFalse,
+      );
+    });
+
+    test('activation is exact to profile and epoch', () {
+      const oldA = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+      const newA = RuntimeProfileIdentity(profileId: 1, epoch: 2);
+
+      expect(
+        isRuntimeProfileIdentityActive(
+          identity: oldA,
+          activeIdentity: newA,
+          currentProfileId: 1,
+          currentEpoch: 2,
+        ),
+        isFalse,
+      );
+      expect(
+        isRuntimeProfileIdentityActive(
+          identity: newA,
+          activeIdentity: newA,
+          currentProfileId: 1,
+          currentEpoch: 2,
+        ),
+        isTrue,
+      );
+    });
+
+    test('pending activation replays only the latest group intent', () {
+      const identity = RuntimeProfileIdentity(profileId: 2, epoch: 1);
+      final pending = PendingProxySelections();
+
+      for (final proxyName in ['X', 'Y', 'Z']) {
+        pending.remember((
+          identity: identity,
+          groupName: 'G',
+          proxyName: proxyName,
+          unfix: false,
+          gen: proxyName.codeUnitAt(0),
+        ));
+      }
+
+      final replay = pending.takeForActivation(identity);
+      expect(replay, hasLength(1));
+      expect(replay.single.proxyName, 'Z');
+      expect(pending.takeForActivation(identity), isEmpty);
+    });
+
+    test('superseded profile pending intent is cleared, not replayed', () {
+      const b = RuntimeProfileIdentity(profileId: 2, epoch: 1);
+      const c = RuntimeProfileIdentity(profileId: 3, epoch: 2);
+      final pending = PendingProxySelections()
+        ..remember((
+          identity: b,
+          groupName: 'G',
+          proxyName: 'B-only',
+          unfix: false,
+          gen: 1,
+        ));
+
+      expect(pending.clear().single.identity, b);
+      expect(pending.takeForActivation(c), isEmpty);
+    });
+
     test('A to B to A never reactivates the old A epoch', () {
       const oldA = RuntimeProfileIdentity(profileId: 1, epoch: 0);
 
