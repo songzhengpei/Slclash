@@ -34,4 +34,16 @@ void main() {
       endsWith('lib/providers/action.dart'),
     );
   });
+
+  test(
+    'AppStateManager publishes lifecycle truth without owning stats timer',
+    () {
+      final source = File('lib/manager/app_manager.dart').readAsStringSync();
+
+      expect(source, contains('appForegroundProvider.notifier).set(true)'));
+      expect(source, contains('appForegroundProvider.notifier).set(false)'));
+      expect(source, isNot(contains('resumeUiStatsTimerIfNeeded')));
+      expect(source, isNot(contains('cancelUiStatsTimer')));
+    },
+  );
 }

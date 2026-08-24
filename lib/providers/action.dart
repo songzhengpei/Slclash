@@ -630,6 +630,22 @@ class _UpdateChangeItem extends StatelessWidget {
   }
 }
 
+bool shouldRunUiStatsTimer({
+  required bool appForeground,
+  required bool sessionRunning,
+  required bool smartPaused,
+}) => appForeground && sessionRunning && !smartPaused;
+
+enum UiStatsTimerEffect { none, start, stop }
+
+UiStatsTimerEffect uiStatsTimerEffect({
+  required bool shouldRun,
+  required bool isTimerActive,
+}) {
+  if (shouldRun == isTimerActive) return UiStatsTimerEffect.none;
+  return shouldRun ? UiStatsTimerEffect.start : UiStatsTimerEffect.stop;
+}
+
 @Riverpod(keepAlive: true)
 class SetupAction extends _$SetupAction {
   static const _tickInterval = Duration(seconds: 1);
@@ -654,11 +670,13 @@ class SetupAction extends _$SetupAction {
       }
     });
     ref.listen(appForegroundProvider, (prev, next) {
-      if (prev == true && next == false) {
-        cancelUiStatsTimer();
-      } else if (prev == false && next == true) {
-        resumeUiStatsTimerIfNeeded();
-      }
+      if (prev != next) reconcileUiStatsTimerIfNeeded();
+    });
+    ref.listen(isStartProvider, (prev, next) {
+      if (prev != next) reconcileUiStatsTimerIfNeeded();
+    });
+    ref.listen(isSmartStoppedProvider, (prev, next) {
+      if (prev != next) reconcileUiStatsTimerIfNeeded();
     });
     ref.onDispose(() {
       _updateTimer?.cancel();
@@ -707,8 +725,6 @@ class SetupAction extends _$SetupAction {
         return false;
       }
     }
-    unawaited(_updateUiStats());
-    _startUiStatsTimer();
     return true;
   }
 
@@ -788,16 +804,39 @@ class SetupAction extends _$SetupAction {
 
   void _restartUiStatsTimerIfNeeded() {
     if (_updateTimer == null) return;
-    if (!ref.read(isStartProvider) || ref.read(isSmartStoppedProvider)) {
-      cancelUiStatsTimer();
+    if (!_shouldUiStatsTimerRun) {
+      reconcileUiStatsTimerIfNeeded();
       return;
     }
     _startUiStatsTimer();
   }
 
-  /// Cancel the UI stats timer when app goes to background.
-  /// Does NOT reset startTime, traffic, or core listener.
-  void cancelUiStatsTimer() {
+  bool get _shouldUiStatsTimerRun => shouldRunUiStatsTimer(
+    appForeground: ref.read(appForegroundProvider),
+    sessionRunning: isStart,
+    smartPaused: ref.read(isSmartStoppedProvider),
+  );
+
+  /// Converges the UI-only stats timer from foreground and session truth.
+  /// Repeated calls are no-ops once the timer already matches the desired state.
+  void reconcileUiStatsTimerIfNeeded() {
+    switch (uiStatsTimerEffect(
+      shouldRun: _shouldUiStatsTimerRun,
+      isTimerActive: _updateTimer != null,
+    )) {
+      case UiStatsTimerEffect.none:
+        return;
+      case UiStatsTimerEffect.start:
+        StartupTrace.mark('ui_stats_timer_started');
+        unawaited(_updateUiStats());
+        _startUiStatsTimer();
+      case UiStatsTimerEffect.stop:
+        _cancelUiStatsTimer();
+    }
+  }
+
+  /// Stops the UI-only timer without resetting session, traffic, or Core state.
+  void _cancelUiStatsTimer() {
     if (_updateTimer != null) {
       StartupTrace.mark('ui_stats_timer_stopped');
     }
@@ -808,19 +847,9 @@ class SetupAction extends _$SetupAction {
     _lastRuntimeUpdateAt = null;
   }
 
-  /// Resume the UI stats timer when app returns to foreground.
-  /// Only resumes if VPN is running and not smart-paused.
+  /// Compatibility semantic entry point. Foreground remains a mandatory gate.
   void resumeUiStatsTimerIfNeeded() {
-    final isRunning = ref.read(isStartProvider);
-    final isSmartStopped = ref.read(isSmartStoppedProvider);
-    if (!isRunning || isSmartStopped) return;
-    // Refresh immediately
-    unawaited(_updateUiStats());
-    // Restore periodic timer (no-op if already running)
-    if (_updateTimer == null) {
-      StartupTrace.mark('ui_stats_timer_started');
-      _startUiStatsTimer();
-    }
+    reconcileUiStatsTimerIfNeeded();
   }
 
   Future _updateStartTime() async {
@@ -882,7 +911,6 @@ class SetupAction extends _$SetupAction {
         ref.read(isSmartStoppedProvider.notifier).set(false);
         if (startTime != null) {
           ref.read(commonActionProvider.notifier).updateRunTime();
-          resumeUiStatsTimerIfNeeded();
         }
         break;
       case NativeSessionUiState.paused:
@@ -891,7 +919,7 @@ class SetupAction extends _$SetupAction {
         break;
       case NativeSessionUiState.stopped:
         startTime = null;
-        cancelUiStatsTimer();
+        reconcileUiStatsTimerIfNeeded();
         await coreController.stopCoreListenerOnly();
         convergeFullStopProviders(
           clearManualOverride: () =>
@@ -908,6 +936,7 @@ class SetupAction extends _$SetupAction {
       case NativeSessionUiState.pending:
         break;
     }
+    reconcileUiStatsTimerIfNeeded();
   }
 
   Future<bool> handleStop() async {
@@ -928,8 +957,7 @@ class SetupAction extends _$SetupAction {
       return false;
     } else {
       startTime = null;
-      _updateTimer?.cancel();
-      _updateTimer = null;
+      reconcileUiStatsTimerIfNeeded();
     }
     // P0+P1: 停代理后先关连接释放 buffer，再 GC 释放 Go 堆
     // 顺序执行，不阻塞 handleStop 调用者的后续 UI 重置
@@ -944,8 +972,7 @@ class SetupAction extends _$SetupAction {
   Future handleSmartStopLocal() async {
     StartupTrace.mark('smart_stop_begin', extras: {'layer': 'flutter_local'});
     startTime = null;
-    _updateTimer?.cancel();
-    _updateTimer = null;
+    reconcileUiStatsTimerIfNeeded();
     final stopped = await coreController.stopCoreListenerOnly();
     StartupTrace.mark(
       'vpn_listener_stop',
@@ -971,7 +998,7 @@ class SetupAction extends _$SetupAction {
     startTime = nativeStartTime;
     ref.read(runTimeProvider.notifier).value =
         nativeStartTime.millisecondsSinceEpoch;
-    unawaited(_updateUiStats());
+    reconcileUiStatsTimerIfNeeded();
     final suspend = ref.read(suspendProvider);
     var coreReady = suspend;
     if (!suspend) {
@@ -993,7 +1020,7 @@ class SetupAction extends _$SetupAction {
         extras: {'success': started, 'source': 'smart_resume'},
       );
     }
-    _startUiStatsTimer();
+    reconcileUiStatsTimerIfNeeded();
     NetworkDiagnosticsRevision.bump(reason: 'smart_resume');
     StartupTrace.mark(
       'smart_resume_complete',

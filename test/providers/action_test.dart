@@ -6,6 +6,128 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod/riverpod.dart';
 
 void main() {
+  group('UI stats timer desired state', () {
+    const cases =
+        <
+          ({
+            String name,
+            bool foreground,
+            bool running,
+            bool smartPaused,
+            bool expected,
+          })
+        >[
+          (
+            name: 'A RUNNING foreground',
+            foreground: true,
+            running: true,
+            smartPaused: false,
+            expected: true,
+          ),
+          (
+            name: 'B RUNNING background',
+            foreground: false,
+            running: true,
+            smartPaused: false,
+            expected: false,
+          ),
+          (
+            name: 'C background session reconcile',
+            foreground: false,
+            running: true,
+            smartPaused: false,
+            expected: false,
+          ),
+          (
+            name: 'D RUNNING returns to foreground',
+            foreground: true,
+            running: true,
+            smartPaused: false,
+            expected: true,
+          ),
+          (
+            name: 'E PAUSED foreground',
+            foreground: true,
+            running: false,
+            smartPaused: true,
+            expected: false,
+          ),
+          (
+            name: 'F STOPPED foreground',
+            foreground: true,
+            running: false,
+            smartPaused: false,
+            expected: false,
+          ),
+          (
+            name: 'G foreground RUNNING to PAUSED',
+            foreground: true,
+            running: false,
+            smartPaused: true,
+            expected: false,
+          ),
+          (
+            name: 'H PAUSED to RUNNING in foreground',
+            foreground: true,
+            running: true,
+            smartPaused: false,
+            expected: true,
+          ),
+          (
+            name: 'H PAUSED to RUNNING in background',
+            foreground: false,
+            running: true,
+            smartPaused: false,
+            expected: false,
+          ),
+        ];
+
+    for (final testCase in cases) {
+      test(testCase.name, () {
+        expect(
+          shouldRunUiStatsTimer(
+            appForeground: testCase.foreground,
+            sessionRunning: testCase.running,
+            smartPaused: testCase.smartPaused,
+          ),
+          testCase.expected,
+        );
+      });
+    }
+
+    test('repeated convergence does not duplicate start, refresh, or stop', () {
+      var timerActive = false;
+      var starts = 0;
+      var immediateRefreshes = 0;
+      var stops = 0;
+
+      void converge(bool shouldRun) {
+        switch (uiStatsTimerEffect(
+          shouldRun: shouldRun,
+          isTimerActive: timerActive,
+        )) {
+          case UiStatsTimerEffect.none:
+            return;
+          case UiStatsTimerEffect.start:
+            starts++;
+            immediateRefreshes++;
+            timerActive = true;
+          case UiStatsTimerEffect.stop:
+            stops++;
+            timerActive = false;
+        }
+      }
+
+      converge(true);
+      converge(true);
+      expect((starts, immediateRefreshes, stops), (1, 1, 0));
+
+      converge(false);
+      converge(false);
+      expect((starts, immediateRefreshes, stops), (1, 1, 1));
+    });
+  });
+
   test('full stop clears smart pause and its manual override', () {
     final cleared = <String>[];
     convergeFullStopProviders(
