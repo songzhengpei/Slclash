@@ -1878,6 +1878,14 @@ class SystemAction extends _$SystemAction {
   }
 
   Future<void> handleExit([bool needSave = false]) async {
+    StartupTrace.mark(
+      'application_shutdown_requested',
+      extras: {
+        'owner': 'system_action',
+        'stop_proxy': proxy != null,
+        'destroy_core': true,
+      },
+    );
     Future.delayed(const Duration(seconds: 3), () {
       system.exit();
     });
@@ -1887,6 +1895,10 @@ class SystemAction extends _$SystemAction {
         if (proxy != null) proxy!.stopProxy(),
       ]);
       await coreController.destroy();
+      StartupTrace.mark(
+        'application_shutdown_complete',
+        extras: {'owner': 'system_action'},
+      );
       commonPrint.log('exit');
     } finally {
       system.exit();
