@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/services/backup/restore_bundle.dart';
+import 'package:fl_clash/services/profile_source_mutation.dart';
 import 'package:path/path.dart' as p;
 
 import 'backup_config.dart';
@@ -36,6 +37,7 @@ class RestoreService {
   final RestoreConfigReader? readConfig;
   final RestoreConfigWriter? writeConfig;
   final RestoreProgressCallback? onProgress;
+  final ProfileSourceMutationOwner? sourceMutationOwner;
 
   const RestoreService({
     required this.database,
@@ -44,6 +46,7 @@ class RestoreService {
     this.readConfig,
     this.writeConfig,
     this.onProgress,
+    this.sourceMutationOwner,
   });
 
   Future<RestoreCommitResult> restore(
@@ -96,52 +99,61 @@ class RestoreService {
     var configWritten = false;
 
     try {
-      await database.transaction(() async {
-        if (profilesOnly) {
-          await database.restoreProfilesOnly(
-            bundle.profiles,
-            isOverride: override,
+      await (sourceMutationOwner ?? profileSourceMutationOwner)
+          .invalidateAndCommitAll(
+            {
+              ...profileIds,
+              if (override) ...oldProfiles.map((profile) => profile.id),
+            },
+            () async {
+              await database.transaction(() async {
+                if (profilesOnly) {
+                  await database.restoreProfilesOnly(
+                    bundle.profiles,
+                    isOverride: override,
+                  );
+                  await database.proxyGroupsSnapshotsDao.deleteSnapshots({
+                    ...profileIds,
+                    if (override) ...oldProfiles.map((profile) => profile.id),
+                  });
+                } else {
+                  await database.restore(
+                    bundle.profiles,
+                    bundle.scripts,
+                    bundle.rules,
+                    bundle.links,
+                    bundle.proxyGroups,
+                    isOverride: override,
+                  );
+                }
+                onProgress?.call('database-restored', bundle.profiles.length);
+                try {
+                  await _commitFiles(
+                    bundle,
+                    override: override,
+                    oldProfiles: oldProfiles,
+                    oldScripts: oldScripts,
+                    replaceScripts: !profilesOnly,
+                  );
+                  onProgress?.call('files-committed', bundle.profiles.length);
+                  await _commitWorkerArchive(bundle);
+                  onProgress?.call('archive-committed', bundle.profiles.length);
+                  if (restoredConfig case final config?) {
+                    final writer = writeConfig;
+                    configWritten = writer != null;
+                    if (writer != null && !await writer(config)) {
+                      throw const RestoreValidationException(
+                        'failed to persist backup settings',
+                      );
+                    }
+                  }
+                } catch (_) {
+                  await snapshot.restore();
+                  rethrow;
+                }
+              });
+            },
           );
-          await database.proxyGroupsSnapshotsDao.deleteSnapshots({
-            ...profileIds,
-            if (override) ...oldProfiles.map((profile) => profile.id),
-          });
-        } else {
-          await database.restore(
-            bundle.profiles,
-            bundle.scripts,
-            bundle.rules,
-            bundle.links,
-            bundle.proxyGroups,
-            isOverride: override,
-          );
-        }
-        onProgress?.call('database-restored', bundle.profiles.length);
-        try {
-          await _commitFiles(
-            bundle,
-            override: override,
-            oldProfiles: oldProfiles,
-            oldScripts: oldScripts,
-            replaceScripts: !profilesOnly,
-          );
-          onProgress?.call('files-committed', bundle.profiles.length);
-          await _commitWorkerArchive(bundle);
-          onProgress?.call('archive-committed', bundle.profiles.length);
-          if (restoredConfig case final config?) {
-            final writer = writeConfig;
-            configWritten = writer != null;
-            if (writer != null && !await writer(config)) {
-              throw const RestoreValidationException(
-                'failed to persist backup settings',
-              );
-            }
-          }
-        } catch (_) {
-          await snapshot.restore();
-          rethrow;
-        }
-      });
     } catch (_) {
       // Also covers the unlikely case where committing the SQLite transaction
       // fails after the filesystem switch completed.

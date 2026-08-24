@@ -87,7 +87,7 @@ class _EditProfileViewState extends State<EditProfileView> {
           profile = profile.copyWith(autoUpdate: false);
         }
       }
-      profilesAction.putProfile(await profile.saveFile(_fileData!));
+      await profilesAction.replaceProfileSource(profile, _fileData!);
     } else if (!hasUpdate) {
       profilesAction.putProfile(profile);
     } else {

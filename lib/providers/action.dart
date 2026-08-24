@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
@@ -19,6 +20,7 @@ import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/services/mihomo_config/source_config.dart';
 import 'package:fl_clash/services/mihomo_config/runtime_config_commit.dart';
+import 'package:fl_clash/services/profile_source_mutation.dart';
 import 'package:fl_clash/services/providers/provider_readiness_service.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
@@ -1548,10 +1550,17 @@ class SetupAction extends _$SetupAction {
         inheritedContext?.targetProfile ?? ref.read(currentProfileProvider);
     try {
       var profile = frozenTargetProfile;
-      final nextProfile = await profile?.checkAndUpdateAndCopy();
-      if (nextProfile != null) {
-        profile = nextProfile;
-        ref.read(profilesProvider.notifier).put(nextProfile);
+      if (profile != null &&
+          profile.url.isNotEmpty &&
+          !await profile.sourceExists) {
+        await ref
+            .read(profilesActionProvider.notifier)
+            .updateProfile(
+              profile,
+              publishInput: false,
+              applyAfterCommit: false,
+            );
+        profile = ref.read(profilesProvider).getProfile(profile.id);
       }
       commonPrint.log('setup ===> ${profile?.id}');
       final PatchClashConfig patchConfig =
@@ -3088,19 +3097,21 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   Future<void> deleteProfile(int id) async {
-    ref.read(profilesProvider.notifier).del(id);
-    clearEffect(id);
-    final currentProfileId = ref.read(currentProfileIdProvider);
-    if (currentProfileId == id) {
-      final profiles = ref.read(profilesProvider);
-      if (profiles.isNotEmpty) {
-        final updateId = profiles.first.id;
-        ref.read(currentProfileIdProvider.notifier).value = updateId;
-      } else {
-        ref.read(currentProfileIdProvider.notifier).value = null;
-        ref.read(setupActionProvider.notifier).updateStatus(false);
+    await profileSourceMutationOwner.invalidateAndCommit(id, () async {
+      ref.read(profilesProvider.notifier).del(id);
+      await clearEffect(id);
+      final currentProfileId = ref.read(currentProfileIdProvider);
+      if (currentProfileId == id) {
+        final profiles = ref.read(profilesProvider);
+        if (profiles.isNotEmpty) {
+          final updateId = profiles.first.id;
+          ref.read(currentProfileIdProvider.notifier).value = updateId;
+        } else {
+          ref.read(currentProfileIdProvider.notifier).value = null;
+          ref.read(setupActionProvider.notifier).updateStatus(false);
+        }
       }
-    }
+    });
   }
 
   Future<void> autoUpdateProfiles() async {
@@ -3133,17 +3144,75 @@ class ProfilesAction extends _$ProfilesAction {
     }
   }
 
-  Future<void> updateProfile(
+  Future<ProfileSourceMutationOutcome> updateProfile(
     Profile profile, {
     bool showLoading = false,
+    bool publishInput = true,
+    bool applyAfterCommit = true,
   }) async {
+    final token = profileSourceMutationOwner.begin(profile.id);
+    final sourceUrl = profile.url;
     try {
       if (showLoading) {
         ref.read(isUpdatingProvider(profile.updatingKey).notifier).value = true;
       }
-      ref.read(profilesProvider.notifier).put(profile);
-      final newProfile = await profile.update();
-      ref.read(profilesProvider.notifier).put(newProfile);
+      if (publishInput) {
+        ref.read(profilesProvider.notifier).put(profile);
+      }
+      late final ProfileSourceResponse response;
+      try {
+        response = await profile.downloadSource();
+      } catch (_) {
+        if (!profileSourceMutationOwner.isCurrent(token)) {
+          return ProfileSourceMutationOutcome.superseded;
+        }
+        rethrow;
+      }
+      final profilePath = await appPath.getProfilePath(profile.id.toString());
+      late final StagedProfileFile staged;
+      try {
+        staged = await stageProfileFile(
+          targetPath: profilePath,
+          bytes: response.bytes,
+          validate: coreController.validateConfig,
+        );
+      } catch (_) {
+        if (!profileSourceMutationOwner.isCurrent(token)) {
+          return ProfileSourceMutationOutcome.superseded;
+        }
+        rethrow;
+      }
+      Profile? committedProfile;
+      var outcome = ProfileSourceMutationOutcome.superseded;
+      try {
+        outcome = await profileSourceMutationOwner.commit(token, () async {
+          final latest = ref.read(profilesProvider).getProfile(profile.id);
+          if (!isProfileSourceIdentityCurrent(
+            latest,
+            profileId: profile.id,
+            sourceUrl: sourceUrl,
+          )) {
+            throw const ProfileSourceMutationSuperseded();
+          }
+          await staged.commit();
+          committedProfile = mergeRemoteProfileResponse(
+            latest!,
+            response,
+            updatedAt: DateTime.now(),
+          );
+          ref.read(profilesProvider.notifier).put(committedProfile!);
+        });
+      } on ProfileSourceMutationSuperseded {
+        outcome = ProfileSourceMutationOutcome.superseded;
+      } finally {
+        await staged.dispose();
+      }
+      final newProfile = committedProfile;
+      if (outcome == ProfileSourceMutationOutcome.superseded ||
+          newProfile == null ||
+          !applyAfterCommit) {
+        return outcome;
+      }
       if (newProfile.id == ref.read(currentProfileIdProvider)) {
         ref
             .read(setupActionProvider.notifier)
@@ -3156,8 +3225,47 @@ class ProfilesAction extends _$ProfilesAction {
               .prefetchSnapshotForProfile(newProfile),
         );
       }
+      return outcome;
     } finally {
       ref.read(isUpdatingProvider(profile.updatingKey).notifier).value = false;
+    }
+  }
+
+  Future<ProfileSourceMutationOutcome> replaceProfileSource(
+    Profile profile,
+    Uint8List bytes,
+  ) async {
+    final token = profileSourceMutationOwner.begin(profile.id);
+    ref.read(profilesProvider.notifier).put(profile);
+    final profilePath = await appPath.getProfilePath(profile.id.toString());
+    late final StagedProfileFile staged;
+    try {
+      staged = await stageProfileFile(
+        targetPath: profilePath,
+        bytes: bytes,
+        validate: coreController.validateConfig,
+      );
+    } catch (_) {
+      if (!profileSourceMutationOwner.isCurrent(token)) {
+        return ProfileSourceMutationOutcome.superseded;
+      }
+      rethrow;
+    }
+    try {
+      return await profileSourceMutationOwner.commit(token, () async {
+        final latest = ref.read(profilesProvider).getProfile(profile.id);
+        if (latest == null) {
+          throw const ProfileSourceMutationSuperseded();
+        }
+        await staged.commit();
+        ref
+            .read(profilesProvider.notifier)
+            .put(latest.copyWith(lastUpdateDate: DateTime.now()));
+      });
+    } on ProfileSourceMutationSuperseded {
+      return ProfileSourceMutationOutcome.superseded;
+    } finally {
+      await staged.dispose();
     }
   }
 
