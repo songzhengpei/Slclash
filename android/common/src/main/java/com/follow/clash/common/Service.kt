@@ -46,6 +46,16 @@ internal class BindAttemptOwnership {
     }
 }
 
+internal fun unexpectedBindTerminalMessage(
+    ownership: BindAttemptOwnership,
+    attempt: Long,
+    terminalResult: Result<Unit>,
+): String? {
+    if (!ownership.release(attempt)) return null
+    return terminalResult.exceptionOrNull()?.message
+        ?: "Service binding ended unexpectedly"
+}
+
 class ServiceDelegate<T>(
     private val intent: Intent,
     private val onServiceDisconnected: ((String) -> Unit)? = null,
@@ -92,16 +102,14 @@ class ServiceDelegate<T>(
             job = null
             _serviceState.value = null
             job = launch {
-                try {
-                    runCatching {
-                        GlobalState.application.bindServiceFlow<IBinder>(intent)
-                            .takeWhile { handleBind(attempt, it) }
-                            .collect {}
-                    }
-                } finally {
-                    if (bindAttempts.release(attempt)) {
-                        _serviceState.value = null
-                    }
+                val terminalResult = runCatching {
+                    GlobalState.application.bindServiceFlow<IBinder>(intent)
+                        .takeWhile { handleBind(attempt, it) }
+                        .collect {}
+                }
+                unexpectedBindTerminalMessage(bindAttempts, attempt, terminalResult)?.let { message ->
+                    _serviceState.value = Pair(null, message)
+                    onServiceDisconnected?.invoke(message)
                 }
             }
         }

@@ -72,7 +72,7 @@
         <activity
             android:name="com.follow.clash.TempActivity"
             android:excludeFromRecents="true"
-            android:exported="true"
+            android:exported="false"
             android:theme="@style/TransparentTheme">
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT" />
