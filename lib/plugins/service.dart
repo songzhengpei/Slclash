@@ -69,20 +69,16 @@ class Service {
     return await methodChannel.invokeMethod<bool>('stop') ?? false;
   }
 
-  Future<String> init() async {
-    return await methodChannel.invokeMethod<String>('init') ?? '';
+  Future<String?> init() async {
+    return methodChannel.invokeMethod<String>('init');
   }
 
-  Future<String> syncState(SharedState state) async {
-    return await methodChannel.invokeMethod<String>(
-          'syncState',
-          json.encode(state),
-        ) ??
-        '';
+  Future<String?> syncState(SharedState state) async {
+    return methodChannel.invokeMethod<String>('syncState', json.encode(state));
   }
 
   Future<bool> shutdown() async {
-    return await methodChannel.invokeMethod<bool>('shutdown') ?? true;
+    return await methodChannel.invokeMethod<bool>('shutdown') ?? false;
   }
 
   Future<DateTime?> getRunTime() async {

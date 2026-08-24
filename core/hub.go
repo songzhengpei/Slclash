@@ -691,11 +691,20 @@ func handleUpdateConfig(bytes []byte) string {
 }
 
 func handleDelFile(path string, result ActionResult) {
+	handleDelFileWithStat(path, result, os.Stat)
+}
+
+func handleDelFileWithStat(
+	path string,
+	result ActionResult,
+	stat func(string) (os.FileInfo, error),
+) {
 	go func() {
-		fileInfo, err := os.Stat(path)
+		fileInfo, err := stat(path)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				result.success(err.Error())
+				return
 			}
 			result.success("")
 			return

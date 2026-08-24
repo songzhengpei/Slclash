@@ -37,6 +37,22 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 
+internal fun quickSetupOperationResult(message: String?): ServiceOperationResult = when {
+    message == null -> ServiceOperationResult.failure(
+        ServiceErrorCode.INTERNAL_ERROR,
+        "Core quick setup returned no result",
+    )
+    message.isEmpty() -> ServiceOperationResult.success()
+    message == "init failed" -> ServiceOperationResult.failure(
+        ServiceErrorCode.CORE_INIT_FAILED,
+        message,
+    )
+    else -> ServiceOperationResult.failure(
+        ServiceErrorCode.CONFIG_LOAD_FAILED,
+        message,
+    )
+}
+
 internal fun canReuseRunningSession(state: String, operational: Boolean): Boolean =
     state == SessionState.RUNNING && operational
 
@@ -511,7 +527,11 @@ class RemoteService : Service(), CoroutineScope {
             Core.invokeAction(data) {
                 launch {
                     runCatching {
-                        val chunks = it?.chunkedForAidl() ?: listOf()
+                        val chunks = it?.chunkedForAidl().orEmpty()
+                        if (chunks.isEmpty()) {
+                            callback.onResult(null, true, null)
+                            return@runCatching
+                        }
                         for ((index, chunk) in chunks.withIndex()) {
                             suspendCancellableCoroutine { cont ->
                                 callback.onResult(
@@ -538,18 +558,7 @@ class RemoteService : Service(), CoroutineScope {
             Core.quickSetup(initParamsString, setupParamsString) {
                 launch {
                     runLock.withLock {
-                        val message = it.orEmpty()
-                        val operationResult = when {
-                            message.isEmpty() -> ServiceOperationResult.success()
-                            message == "init failed" -> ServiceOperationResult.failure(
-                                ServiceErrorCode.CORE_INIT_FAILED,
-                                message,
-                            )
-                            else -> ServiceOperationResult.failure(
-                                ServiceErrorCode.CONFIG_LOAD_FAILED,
-                                message,
-                            )
-                        }
+                        val operationResult = quickSetupOperationResult(it)
                         if (!operationResult.success) {
                             applySession(
                                 SessionSnapshot.stopped(
