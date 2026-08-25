@@ -21,6 +21,15 @@ bool heroOutboundFillActive({
   return isStart || isSmartStopped;
 }
 
+/// Smart pause shares the flatter dynamic-color treatment so its warm state
+/// does not gain an extra static-theme gradient.
+bool heroUsesDynamicSurfaceTreatment({
+  required bool dynamicColor,
+  required bool isSmartPaused,
+}) {
+  return dynamicColor || isSmartPaused;
+}
+
 /// True only when the active-fill color actually changed. First mount with
 /// begin == end is a visual no-op and must not start the 1500ms ticker.
 bool heroActiveFillShouldAnimate({
@@ -473,13 +482,17 @@ class _HeroModeCardSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final progress = fillProgress.clamp(0.0, 1.0);
+    final useDynamicSurface = heroUsesDynamicSurfaceTreatment(
+      dynamicColor: dynamicColor,
+      isSmartPaused: isSmartPaused,
+    );
     final activeFill = isSmartPaused
         ? surge.semantic.paused
         : surge.semantic.dashboardDynamicActive;
     const foregroundColor = Colors.white;
     final secondaryAlpha = lerpDouble(
       0.82,
-      dynamicColor ? 0.92 : 0.82,
+      useDynamicSurface ? 0.92 : 0.82,
       progress,
     );
     final secondaryColor = foregroundColor.withValues(alpha: secondaryAlpha);
@@ -503,7 +516,7 @@ class _HeroModeCardSurface extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: fillColor,
-            gradient: !dynamicColor && progress > 0.001
+            gradient: !useDynamicSurface && progress > 0.001
                 ? LinearGradient(
                     colors: [
                       fillColor,
@@ -561,7 +574,7 @@ class _HeroModeCardSurface extends StatelessWidget {
             connecting: connecting,
             failed: failed,
             label: statusLabel,
-            dynamicColor: dynamicColor,
+            dynamicColor: useDynamicSurface,
             onBlue: onBlue,
             layout: layout,
           );
