@@ -3,12 +3,155 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:fl_clash/common/function.dart';
 import 'package:fl_clash/common/proxy_group_selection.dart';
+import 'package:fl_clash/common/runtime_profile_identity.dart';
 import 'package:fl_clash/core/command_outcome.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('runtime profile identity', () {
+    test('desired and snapshot-visible does not imply Core active', () {
+      const desiredB = RuntimeProfileIdentity(profileId: 2, epoch: 1);
+
+      expect(
+        isRuntimeProfileIdentityActive(
+          identity: desiredB,
+          activeIdentity: null,
+          currentProfileId: 2,
+          currentEpoch: 1,
+        ),
+        isFalse,
+      );
+    });
+
+    test('activation is exact to profile and epoch', () {
+      const oldA = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+      const newA = RuntimeProfileIdentity(profileId: 1, epoch: 2);
+
+      expect(
+        isRuntimeProfileIdentityActive(
+          identity: oldA,
+          activeIdentity: newA,
+          currentProfileId: 1,
+          currentEpoch: 2,
+        ),
+        isFalse,
+      );
+      expect(
+        isRuntimeProfileIdentityActive(
+          identity: newA,
+          activeIdentity: newA,
+          currentProfileId: 1,
+          currentEpoch: 2,
+        ),
+        isTrue,
+      );
+    });
+
+    test('pending activation replays only the latest group intent', () {
+      const identity = RuntimeProfileIdentity(profileId: 2, epoch: 1);
+      final pending = PendingProxySelections();
+
+      for (final proxyName in ['X', 'Y', 'Z']) {
+        pending.remember((
+          identity: identity,
+          groupName: 'G',
+          proxyName: proxyName,
+          unfix: false,
+          gen: proxyName.codeUnitAt(0),
+        ));
+      }
+
+      final replay = pending.takeForActivation(identity);
+      expect(replay, hasLength(1));
+      expect(replay.single.proxyName, 'Z');
+      expect(pending.takeForActivation(identity), isEmpty);
+    });
+
+    test('superseded profile pending intent is cleared, not replayed', () {
+      const b = RuntimeProfileIdentity(profileId: 2, epoch: 1);
+      const c = RuntimeProfileIdentity(profileId: 3, epoch: 2);
+      final pending = PendingProxySelections()
+        ..remember((
+          identity: b,
+          groupName: 'G',
+          proxyName: 'B-only',
+          unfix: false,
+          gen: 1,
+        ));
+
+      expect(pending.clear().single.identity, b);
+      expect(pending.takeForActivation(c), isEmpty);
+    });
+
+    test('A to B to A never reactivates the old A epoch', () {
+      const oldA = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+
+      expect(
+        isRuntimeProfileIdentityCurrent(
+          identity: oldA,
+          currentProfileId: 1,
+          currentEpoch: 2,
+        ),
+        isFalse,
+      );
+    });
+
+    test('stale debounce does not dispatch its Core mutation', () async {
+      const oldA = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+      var coreCalls = 0;
+
+      final result = await runRuntimeMutationIfCurrent(
+        identity: oldA,
+        isCurrent: (_) => false,
+        mutation: () async {
+          coreCalls++;
+          return '';
+        },
+      );
+
+      expect(result.current, isFalse);
+      expect(coreCalls, 0);
+    });
+
+    test('completion is discarded after identity changes in flight', () async {
+      const oldA = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+      var currentProfileId = 1;
+      var currentEpoch = 0;
+      final coreResult = Completer<String>();
+
+      final resultFuture = runRuntimeMutationIfCurrent(
+        identity: oldA,
+        isCurrent: (identity) => isRuntimeProfileIdentityCurrent(
+          identity: identity,
+          currentProfileId: currentProfileId,
+          currentEpoch: currentEpoch,
+        ),
+        mutation: () => coreResult.future,
+      );
+      currentProfileId = 2;
+      currentEpoch = 1;
+      coreResult.complete('');
+
+      expect((await resultFuture).current, isFalse);
+    });
+
+    test('same group name uses isolated profile lifetime sessions', () {
+      const a = RuntimeProfileIdentity(profileId: 1, epoch: 0);
+      const b = RuntimeProfileIdentity(profileId: 2, epoch: 1);
+      final session = ProxySelectionSession();
+      const aKey = (a, 'same-group');
+      const bKey = (b, 'same-group');
+
+      session.captureBaseline(aKey, 'A-old');
+      session.captureBaseline(bKey, 'B-old');
+
+      expect(session.peek(aKey), 'A-old');
+      expect(session.peek(bKey), 'B-old');
+    });
+  });
+
   group('capabilities', () {
     test('Selector', () {
       expect(GroupType.Selector.supportsManualSelection, isTrue);
@@ -92,7 +235,11 @@ void main() {
         all: [Proxy(name: 'A', type: 'ss')],
       );
       expect(
-        selectedNameForGroup(group, selectedMapValue: 'A', cachedComputedNow: 'A'),
+        selectedNameForGroup(
+          group,
+          selectedMapValue: 'A',
+          cachedComputedNow: 'A',
+        ),
         isNull,
       );
     });
@@ -103,10 +250,7 @@ void main() {
       expect(isCoreSelectionSuccess(''), isTrue);
       expect(isCoreSelectionSuccess('Must be a Selector'), isFalse);
       expect(isCoreSelectionSuccess('proxy not exist'), isFalse);
-      expect(
-        isCoreSelectionSuccess(CoreCommandOutcome.unconfirmed),
-        isFalse,
-      );
+      expect(isCoreSelectionSuccess(CoreCommandOutcome.unconfirmed), isFalse);
     });
 
     test('failed A does not rollback newer B', () {
@@ -181,27 +325,30 @@ void main() {
       expect(h.checkIp, 0);
     });
 
-    test('A then B then C in one burst only sends C and restores A on fail', () {
-      fakeAsync((async) {
-        final h = _SelectionHarness()..map['g'] = 'A';
-        h.coreSelect = (_, name) => name == 'C' ? 'proxy not exist' : '';
-        final debouncer = Debouncer();
-        void tap(String name) {
-          h.optimisticTap('g', name);
-          debouncer.call(proxySelectionDebounceTag('g'), () {
-            h.dispatchSelect('g', name);
-          });
-        }
+    test(
+      'A then B then C in one burst only sends C and restores A on fail',
+      () {
+        fakeAsync((async) {
+          final h = _SelectionHarness()..map['g'] = 'A';
+          h.coreSelect = (_, name) => name == 'C' ? 'proxy not exist' : '';
+          final debouncer = Debouncer();
+          void tap(String name) {
+            h.optimisticTap('g', name);
+            debouncer.call(proxySelectionDebounceTag('g'), () {
+              h.dispatchSelect('g', name);
+            });
+          }
 
-        tap('B');
-        async.elapse(const Duration(milliseconds: 300));
-        tap('C');
-        async.elapse(const Duration(milliseconds: 600));
-        expect(h.coreCalls, ['select:g:C']);
-        expect(h.map['g'], 'A');
-        expect(h.close + h.reset + h.checkIp, 0);
-      });
-    });
+          tap('B');
+          async.elapse(const Duration(milliseconds: 300));
+          tap('C');
+          async.elapse(const Duration(milliseconds: 600));
+          expect(h.coreCalls, ['select:g:C']);
+          expect(h.map['g'], 'A');
+          expect(h.close + h.reset + h.checkIp, 0);
+        });
+      },
+    );
 
     test('in-flight B success then C fail rolls back to B', () {
       fakeAsync((async) {
@@ -260,31 +407,31 @@ void main() {
       });
     });
 
-    test('changeProxy transport unconfirmed rolls back without close or checkIp', () {
-      fakeAsync((async) {
-        final h = _SelectionHarness()..map['g'] = 'A';
-        h.optimisticTap('g', 'B');
-        h.dispatchSelectAsync(
-          'g',
-          'B',
-          Future.value(CoreCommandOutcome.unconfirmed),
-        );
-        async.flushMicrotasks();
-        expect(h.map['g'], 'A');
-        expect(h.close, 0);
-        expect(h.checkIp, 0);
-        expect(h.session.peek('g'), isNull);
-      });
-    });
+    test(
+      'changeProxy transport unconfirmed rolls back without close or checkIp',
+      () {
+        fakeAsync((async) {
+          final h = _SelectionHarness()..map['g'] = 'A';
+          h.optimisticTap('g', 'B');
+          h.dispatchSelectAsync(
+            'g',
+            'B',
+            Future.value(CoreCommandOutcome.unconfirmed),
+          );
+          async.flushMicrotasks();
+          expect(h.map['g'], 'A');
+          expect(h.close, 0);
+          expect(h.checkIp, 0);
+          expect(h.session.peek('g'), isNull);
+        });
+      },
+    );
 
     test('unfix transport unconfirmed rolls back without close or checkIp', () {
       fakeAsync((async) {
         final h = _SelectionHarness()..map['g'] = 'A';
         h.optimisticUnfix('g');
-        h.dispatchUnfixAsync(
-          'g',
-          Future.value(CoreCommandOutcome.unconfirmed),
-        );
+        h.dispatchUnfixAsync('g', Future.value(CoreCommandOutcome.unconfirmed));
         async.flushMicrotasks();
         expect(h.map['g'], 'A');
         expect(h.close, 0);
@@ -354,24 +501,14 @@ class _SelectionHarness {
     coreCalls.add('select:$group:$name');
     final previous = session.peek(group);
     final result = await core;
-    _finish(
-      group: group,
-      submitted: name,
-      previous: previous,
-      result: result,
-    );
+    _finish(group: group, submitted: name, previous: previous, result: result);
   }
 
   Future<void> dispatchUnfixAsync(String group, Future<String> core) async {
     coreCalls.add('unfix:$group');
     final previous = session.peek(group);
     final result = await core;
-    _finish(
-      group: group,
-      submitted: '',
-      previous: previous,
-      result: result,
-    );
+    _finish(group: group, submitted: '', previous: previous, result: result);
   }
 
   void _finish({

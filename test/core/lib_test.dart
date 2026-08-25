@@ -1,4 +1,5 @@
 import 'package:fl_clash/core/lib.dart';
+import 'package:fl_clash/core/command_outcome.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -44,5 +45,52 @@ void main() {
 
     expect(nativeStopCalled, isTrue);
     expect(result, isTrue);
+  });
+
+  test(
+    'preload marks connected only after init and sync are confirmed',
+    () async {
+      var connected = 0;
+
+      final result = await runCorePreloadHandshake(
+        initTransport: () async => '',
+        syncState: () async => '',
+        markConnected: () => connected += 1,
+      );
+
+      expect(result, '');
+      expect(connected, 1);
+    },
+  );
+
+  test('preload init null stays unconfirmed and disconnected', () async {
+    var connected = false;
+    var syncCalled = false;
+
+    final result = await runCorePreloadHandshake(
+      initTransport: () async => null,
+      syncState: () async {
+        syncCalled = true;
+        return '';
+      },
+      markConnected: () => connected = true,
+    );
+
+    expect(result, CoreCommandOutcome.unconfirmed);
+    expect(syncCalled, isFalse);
+    expect(connected, isFalse);
+  });
+
+  test('preload sync null stays unconfirmed and disconnected', () async {
+    var connected = false;
+
+    final result = await runCorePreloadHandshake(
+      initTransport: () async => '',
+      syncState: () async => null,
+      markConnected: () => connected = true,
+    );
+
+    expect(result, CoreCommandOutcome.unconfirmed);
+    expect(connected, isFalse);
   });
 }

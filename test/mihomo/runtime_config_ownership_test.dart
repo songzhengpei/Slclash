@@ -58,6 +58,67 @@ Future<Map<String, dynamic>> _materialize(
 }
 
 void main() {
+  group('GeoX URL ownership contract', () {
+    const patch = GeoXUrl(
+      mmdb: 'app-mmdb',
+      asn: 'app-asn',
+      geoip: 'app-geoip',
+      geosite: 'app-geosite',
+    );
+
+    test('owned GeoX URL fields win while future siblings survive', () {
+      final result = applyOwnedGeoXUrlPatch({
+        'geox-url': {
+          'mmdb': 'source-mmdb',
+          'future-dataset': 'keep',
+          'future-nested': {
+            'enabled': true,
+            'mirrors': ['a', 'b'],
+          },
+        },
+      }, patch.toJson());
+      final geoXUrl = result['geox-url'] as Map;
+      expect(geoXUrl['mmdb'], 'app-mmdb');
+      expect(geoXUrl['asn'], 'app-asn');
+      expect(geoXUrl['geoip'], 'app-geoip');
+      expect(geoXUrl['geosite'], 'app-geosite');
+      expect(geoXUrl['future-dataset'], 'keep');
+      expect(geoXUrl['future-nested'], {
+        'enabled': true,
+        'mirrors': ['a', 'b'],
+      });
+    });
+
+    test('missing geox-url map is created with all owned fields', () {
+      final result = applyOwnedGeoXUrlPatch({'mode': 'rule'}, patch.toJson());
+      expect(result['geox-url'], patch.toJson());
+    });
+
+    test('ownership set matches the GeoXUrl model serialization keys', () {
+      expect(slclashOwnedGeoXUrlFields, const GeoXUrl().toJson().keys.toSet());
+    });
+
+    test(
+      'runtime materialization preserves unowned GeoX URL siblings',
+      () async {
+        final input = _fixture('dns_ownership.yaml')
+          ..['geox-url'] = {
+            'mmdb': 'source-mmdb',
+            'future-dataset': 'keep',
+            'future-nested': {'enabled': true},
+          };
+        final output = await _materialize(
+          input,
+          patch: const PatchClashConfig(geoXUrl: patch),
+        );
+        final geoXUrl = output['geox-url'] as Map;
+        expect(geoXUrl['mmdb'], 'app-mmdb');
+        expect(geoXUrl['future-dataset'], 'keep');
+        expect(geoXUrl['future-nested'], {'enabled': true});
+      },
+    );
+  });
+
   group('TUN ownership contract', () {
     const patch = PatchClashConfig(
       tun: Tun(

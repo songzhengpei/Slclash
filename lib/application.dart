@@ -401,7 +401,8 @@ class ApplicationState extends ConsumerState<Application> {
             final autoCloseConnections = ref.read(
               appSettingProvider.select((state) => state.closeConnections),
             );
-            if (!hasVpn &&
+            if (!system.isAndroid &&
+                !hasVpn &&
                 (isStart || isSmartStopped) &&
                 autoCloseConnections) {
               final now = DateTime.now();
@@ -443,11 +444,17 @@ class ApplicationState extends ConsumerState<Application> {
   }
 
   @override
-  Future<void> dispose() async {
+  void dispose() {
+    StartupTrace.mark(
+      'application_dispose',
+      extras: {
+        'scope': 'flutter_resources',
+        'proxy_lifecycle': 'retained',
+        'core_lifecycle': 'retained',
+      },
+    );
     linkManager.destroy();
     _autoUpdateProfilesTaskTimer?.cancel();
-    await coreController.destroy();
-    await ref.read(systemActionProvider.notifier).handleExit();
     super.dispose();
   }
 }

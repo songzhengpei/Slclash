@@ -189,6 +189,7 @@ Future<void> warmUpComputedGroupDelays({
   required String defaultTestUrl,
   required DelayLoader delayLoader,
   required DelaySink onDelay,
+  bool Function()? shouldContinue,
   int concurrency = 10,
 }) async {
   final targets = collectComputedGroupDelayTargets(
@@ -197,6 +198,7 @@ Future<void> warmUpComputedGroupDelays({
   );
   final limit = concurrency.clamp(1, 20);
   for (var index = 0; index < targets.length; index += limit) {
+    if (shouldContinue?.call() == false) break;
     final end = (index + limit).clamp(0, targets.length);
     final batch = targets.sublist(index, end);
     await Future.wait(
@@ -214,6 +216,7 @@ Future<void> warmUpComputedGroupDelays({
         }
       }),
     );
+    if (shouldContinue?.call() == false) break;
   }
 }
 

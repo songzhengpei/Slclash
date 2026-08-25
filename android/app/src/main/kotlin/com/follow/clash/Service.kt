@@ -20,6 +20,9 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+internal fun completedCorePayload(chunks: List<ByteArray>): String? =
+    chunks.formatString().ifEmpty { null }
+
 object Service {
     private val delegate by lazy {
         ServiceDelegate<IRemoteInterface>(
@@ -47,7 +50,7 @@ object Service {
         delegate.unbind()
     }
 
-    suspend fun invokeAction(data: String, cb: ((result: String) -> Unit)?): Result<Unit> {
+    suspend fun invokeAction(data: String, cb: ((result: String?) -> Unit)?): Result<Unit> {
         val res = mutableListOf<ByteArray>()
         return delegate.useService {
             it.invokeAction(
@@ -59,7 +62,7 @@ object Service {
                         ack?.onAck()
                         if (isSuccess) {
                             cb?.let { cb ->
-                                cb(res.formatString())
+                                cb(completedCorePayload(res))
                             }
                         }
                     }
@@ -217,4 +220,17 @@ object Service {
             it.isSmartStopped
         }.getOrNull() ?: false
     }
+
+    suspend fun updateSmartPauseConfig(
+        enabled: Boolean,
+        trustedNetworks: List<String>,
+        closeConnections: Boolean,
+    ): Boolean = delegate.useService {
+        it.updateSmartPauseConfig(enabled, trustedNetworks, closeConnections)
+        true
+    }.getOrDefault(false)
+
+    suspend fun reevaluateSmartPause(): Boolean = delegate.useService {
+        awaitIResultInterface { callback -> it.reevaluateSmartPause(callback) } > 0L
+    }.getOrDefault(false)
 }

@@ -70,24 +70,21 @@ bool applyProxyGroupMemberTap({
     return false;
   }
   final container = globalState.container;
-  container.read(proxiesActionProvider.notifier).captureSelectionBaseline(
-    group.name,
-  );
+  final proxiesAction = container.read(proxiesActionProvider.notifier);
+  final identity = proxiesAction.captureRuntimeProfileIdentity();
+  if (identity == null) return false;
+  proxiesAction.captureSelectionBaseline(identity, group.name);
   if (decision.kind == ProxyGroupTapKind.unfix) {
     final gen = ProxyTrace.noteSelectIntent(
       group: group.name,
       proxy: '',
       action: 'unfix',
     );
-    container.read(profilesActionProvider.notifier).updateCurrentSelectedMap(
-      group.name,
-      '',
-    );
+    container
+        .read(profilesActionProvider.notifier)
+        .updateSelectedMapEntryForProfile(identity.profileId, group.name, '');
     ProxyTrace.noteSelectVisual(gen: gen, group: group.name, proxy: '');
-    container.read(proxiesActionProvider.notifier).unfixProxyDebounce(
-      group.name,
-      gen: gen,
-    );
+    proxiesAction.unfixProxyDebounce(identity, group.name, gen: gen);
     return true;
   }
   final gen = ProxyTrace.noteSelectIntent(
@@ -95,16 +92,20 @@ bool applyProxyGroupMemberTap({
     proxy: decision.proxyName,
     action: 'select',
   );
-  container.read(profilesActionProvider.notifier).updateCurrentSelectedMap(
-    group.name,
-    decision.proxyName,
-  );
+  container
+      .read(profilesActionProvider.notifier)
+      .updateSelectedMapEntryForProfile(
+        identity.profileId,
+        group.name,
+        decision.proxyName,
+      );
   ProxyTrace.noteSelectVisual(
     gen: gen,
     group: group.name,
     proxy: decision.proxyName,
   );
-  container.read(proxiesActionProvider.notifier).changeProxyDebounce(
+  proxiesAction.changeProxyDebounce(
+    identity,
     group.name,
     decision.proxyName,
     gen: gen,
@@ -112,8 +113,18 @@ bool applyProxyGroupMemberTap({
   return true;
 }
 
-Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
+Future<void> proxyDelayTest(
+  Proxy proxy, [
+  String? testUrl,
+  RuntimeProfileIdentity? runtimeIdentity,
+]) async {
   final ref = globalState.container;
+  final proxiesAction = ref.read(proxiesActionProvider.notifier);
+  final identity =
+      runtimeIdentity ?? proxiesAction.captureRuntimeProfileIdentity();
+  if (identity == null || !proxiesAction.isRuntimeIdentityActive(identity)) {
+    return;
+  }
   final groups = getGroups();
   final selectedMap = ref.read(
     currentProfileProvider.select((state) => state?.selectedMap ?? {}),
@@ -134,35 +145,41 @@ Future<void> proxyDelayTest(Proxy proxy, [String? testUrl]) async {
     return;
   }
   ProxyTrace.delayStart(name: state.proxyName);
-  ref
-      .read(proxiesActionProvider.notifier)
-      .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: 0));
+  proxiesAction.setDelayForRuntimeIdentity(
+    identity,
+    Delay(url: currentTestUrl, name: state.proxyName, value: 0),
+  );
   try {
-    ref
-        .read(proxiesActionProvider.notifier)
-        .setDelay(
-          await coreController.getDelay(currentTestUrl, state.proxyName),
-        );
+    final delay = await coreController.getDelay(
+      currentTestUrl,
+      state.proxyName,
+    );
+    if (!proxiesAction.setDelayForRuntimeIdentity(identity, delay)) return;
     ProxyTrace.delayFinish(name: state.proxyName, ok: true);
   } catch (e) {
     commonPrint.log('proxyDelayTest failed for ${state.proxyName}: $e');
-    ref
-        .read(proxiesActionProvider.notifier)
-        .setDelay(Delay(url: currentTestUrl, name: state.proxyName, value: -1));
+    if (!proxiesAction.setDelayForRuntimeIdentity(
+      identity,
+      Delay(url: currentTestUrl, name: state.proxyName, value: -1),
+    )) {
+      return;
+    }
     ProxyTrace.delayFinish(name: state.proxyName, ok: false);
   }
 }
 
 Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
+  final proxiesAction = globalState.container.read(
+    proxiesActionProvider.notifier,
+  );
+  final identity = proxiesAction.captureRuntimeProfileIdentity();
+  if (identity == null) return;
   StartupTrace.mark(
     'delay_test_begin',
-    extras: {
-      'count': proxies.length,
-      ...CoreIpcTrace.identityExtras(),
-    },
+    extras: {'count': proxies.length, ...CoreIpcTrace.identityExtras()},
   );
   final delayProxies = proxies.map<Future>((proxy) async {
-    await proxyDelayTest(proxy, testUrl);
+    await proxyDelayTest(proxy, testUrl, identity);
   }).toList();
 
   StartupTrace.mark(

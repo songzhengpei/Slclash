@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart';
@@ -18,6 +19,8 @@ import 'package:fl_clash/services/backup/restore_service.dart';
 import 'package:fl_clash/services/backup/backup_file_guard.dart';
 import 'package:fl_clash/services/backup/unified_backup_service.dart';
 import 'package:fl_clash/services/mihomo_config/source_config.dart';
+import 'package:fl_clash/services/mihomo_config/runtime_config_commit.dart';
+import 'package:fl_clash/services/profile_source_mutation.dart';
 import 'package:fl_clash/services/providers/provider_readiness_service.dart';
 import 'package:fl_clash/services/unified_backup_export/exporter.dart';
 import 'package:fl_clash/services/unified_backup_export/models.dart';
@@ -38,6 +41,126 @@ part 'generated/action.g.dart';
 /// Real-time traffic speed for speed text display.
 /// Updated every 1s. Separate from [trafficsProvider] (chart data, 2-3s).
 final currentSpeedNotifier = ValueNotifier<Traffic>(const Traffic());
+
+@visibleForTesting
+Future<void> runAutoProfileRefreshLoop({
+  required Iterable<Profile> capturedProfiles,
+  required Future<void> Function(Profile profile) refresh,
+  required void Function(Object error) onError,
+}) async {
+  for (final profile in capturedProfiles) {
+    if (!profile.autoUpdate) continue;
+    final isNotNeedUpdate = profile.lastUpdateDate
+        ?.add(profile.autoUpdateDuration)
+        .isBeforeNow;
+    if (isNotNeedUpdate == false || profile.type == ProfileType.file) {
+      continue;
+    }
+    try {
+      await refresh(profile);
+    } catch (error) {
+      onError(error);
+    }
+  }
+}
+
+@visibleForTesting
+Future<void> runAuthoritativeProfileDelete({
+  required Future<void> Function() commitDatabaseDelete,
+  required void Function() applyCommittedProjection,
+  required FutureOr<void> Function() updateDesiredProfile,
+  required Future<void> Function() cleanupResources,
+}) async {
+  await commitDatabaseDelete();
+  applyCommittedProjection();
+  await updateDesiredProfile();
+  await cleanupResources();
+}
+
+@visibleForTesting
+Future<void> convergeDesiredProfileAfterDelete({
+  required int deletedProfileId,
+  required int? currentProfileId,
+  required List<Profile> remainingProfiles,
+  required void Function(int? profileId) setCurrentProfileId,
+  required Future<void> Function() stopLastProfile,
+}) async {
+  if (currentProfileId != deletedProfileId) return;
+  if (remainingProfiles.isNotEmpty) {
+    setCurrentProfileId(remainingProfiles.first.id);
+    return;
+  }
+  setCurrentProfileId(null);
+  await stopLastProfile();
+}
+
+final class ProfileResourceCleanupException implements Exception {
+  const ProfileResourceCleanupException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+final class RuntimeConfigPostUpdateContext {
+  const RuntimeConfigPostUpdateContext({
+    required this.lease,
+    required this.targetProfile,
+  });
+
+  final RuntimeConfigCommitLease lease;
+  final Profile? targetProfile;
+
+  int? get targetProfileId => targetProfile?.id;
+}
+
+@visibleForTesting
+Future<bool> fetchAndPublishRuntimeProjection<T>({
+  required int targetProfileId,
+  required int? Function() currentProfileId,
+  required Future<T> Function() fetch,
+  required void Function(T value) publish,
+}) async {
+  if (currentProfileId() != targetProfileId) return false;
+  final value = await fetch();
+  if (currentProfileId() != targetProfileId) return false;
+  publish(value);
+  return true;
+}
+
+@visibleForTesting
+Future<bool> warmUpRuntimeDelaysForProfile({
+  required int targetProfileId,
+  required int? Function() currentProfileId,
+  required Future<void> Function(void Function(Delay delay) onDelay) warmUp,
+  required void Function(Delay delay) publish,
+}) async {
+  if (currentProfileId() != targetProfileId) return false;
+  await warmUp((delay) {
+    if (currentProfileId() == targetProfileId) {
+      publish(delay);
+    }
+  });
+  return currentProfileId() == targetProfileId;
+}
+
+@visibleForTesting
+void scheduleRuntimeProjectionRefresh({
+  required Debouncer scheduler,
+  required Object tag,
+  required int? expectedProfileId,
+  required int? Function() currentProfileId,
+  required void Function() refresh,
+  Duration? duration,
+}) {
+  scheduler.call(tag, () {
+    if (expectedProfileId != null && currentProfileId() != expectedProfileId) {
+      return;
+    }
+    refresh();
+  }, duration: duration);
+}
 
 class BackupRestoreOutcome {
   const BackupRestoreOutcome({
@@ -106,6 +229,20 @@ bool shouldDeferInitCoreGroups(String? sessionState) {
   return sessionState == 'RUNNING';
 }
 
+@visibleForTesting
+bool shouldInitCoreForceApply({
+  required bool wasInitialized,
+  required bool deferGroupSetup,
+  required bool callerOwnsProfileActivation,
+  required bool hasCurrentProfile,
+  required bool groupsNeedRefresh,
+}) {
+  if (deferGroupSetup || callerOwnsProfileActivation || !hasCurrentProfile) {
+    return false;
+  }
+  return !wasInitialized || groupsNeedRefresh;
+}
+
 bool shouldRestoreSmartPaused(
   String? sessionState, {
   bool smartPaused = false,
@@ -127,6 +264,12 @@ bool shouldStartListenerAfterSmartResume({
 }
 
 enum NativeSessionUiState { running, paused, stopped, pending }
+
+@visibleForTesting
+bool setupOutcomeConfirmsRuntimeActivation(SetupConfigOutcome outcome) {
+  return outcome == SetupConfigOutcome.applied ||
+      outcome == SetupConfigOutcome.unchanged;
+}
 
 NativeSessionUiState nativeSessionUiStateFor(String? sessionState) {
   return switch (sessionState) {
@@ -630,8 +773,26 @@ class _UpdateChangeItem extends StatelessWidget {
   }
 }
 
+bool shouldRunUiStatsTimer({
+  required bool appForeground,
+  required bool sessionRunning,
+  required bool smartPaused,
+}) => appForeground && sessionRunning && !smartPaused;
+
+enum UiStatsTimerEffect { none, start, stop }
+
+UiStatsTimerEffect uiStatsTimerEffect({
+  required bool shouldRun,
+  required bool isTimerActive,
+}) {
+  if (shouldRun == isTimerActive) return UiStatsTimerEffect.none;
+  return shouldRun ? UiStatsTimerEffect.start : UiStatsTimerEffect.stop;
+}
+
 @Riverpod(keepAlive: true)
 class SetupAction extends _$SetupAction {
+  final RuntimeConfigCommitOwner _runtimeConfigCommitOwner =
+      RuntimeConfigCommitOwner();
   static const _tickInterval = Duration(seconds: 1);
   static const _chartUpdateInterval = Duration(seconds: 2);
   static const _totalTrafficUpdateInterval = Duration(seconds: 5);
@@ -654,11 +815,13 @@ class SetupAction extends _$SetupAction {
       }
     });
     ref.listen(appForegroundProvider, (prev, next) {
-      if (prev == true && next == false) {
-        cancelUiStatsTimer();
-      } else if (prev == false && next == true) {
-        resumeUiStatsTimerIfNeeded();
-      }
+      if (prev != next) reconcileUiStatsTimerIfNeeded();
+    });
+    ref.listen(isStartProvider, (prev, next) {
+      if (prev != next) reconcileUiStatsTimerIfNeeded();
+    });
+    ref.listen(isSmartStoppedProvider, (prev, next) {
+      if (prev != next) reconcileUiStatsTimerIfNeeded();
     });
     ref.onDispose(() {
       _updateTimer?.cancel();
@@ -707,8 +870,6 @@ class SetupAction extends _$SetupAction {
         return false;
       }
     }
-    unawaited(_updateUiStats());
-    _startUiStatsTimer();
     return true;
   }
 
@@ -788,16 +949,39 @@ class SetupAction extends _$SetupAction {
 
   void _restartUiStatsTimerIfNeeded() {
     if (_updateTimer == null) return;
-    if (!ref.read(isStartProvider) || ref.read(isSmartStoppedProvider)) {
-      cancelUiStatsTimer();
+    if (!_shouldUiStatsTimerRun) {
+      reconcileUiStatsTimerIfNeeded();
       return;
     }
     _startUiStatsTimer();
   }
 
-  /// Cancel the UI stats timer when app goes to background.
-  /// Does NOT reset startTime, traffic, or core listener.
-  void cancelUiStatsTimer() {
+  bool get _shouldUiStatsTimerRun => shouldRunUiStatsTimer(
+    appForeground: ref.read(appForegroundProvider),
+    sessionRunning: isStart,
+    smartPaused: ref.read(isSmartStoppedProvider),
+  );
+
+  /// Converges the UI-only stats timer from foreground and session truth.
+  /// Repeated calls are no-ops once the timer already matches the desired state.
+  void reconcileUiStatsTimerIfNeeded() {
+    switch (uiStatsTimerEffect(
+      shouldRun: _shouldUiStatsTimerRun,
+      isTimerActive: _updateTimer != null,
+    )) {
+      case UiStatsTimerEffect.none:
+        return;
+      case UiStatsTimerEffect.start:
+        StartupTrace.mark('ui_stats_timer_started');
+        unawaited(_updateUiStats());
+        _startUiStatsTimer();
+      case UiStatsTimerEffect.stop:
+        _cancelUiStatsTimer();
+    }
+  }
+
+  /// Stops the UI-only timer without resetting session, traffic, or Core state.
+  void _cancelUiStatsTimer() {
     if (_updateTimer != null) {
       StartupTrace.mark('ui_stats_timer_stopped');
     }
@@ -808,19 +992,9 @@ class SetupAction extends _$SetupAction {
     _lastRuntimeUpdateAt = null;
   }
 
-  /// Resume the UI stats timer when app returns to foreground.
-  /// Only resumes if VPN is running and not smart-paused.
+  /// Compatibility semantic entry point. Foreground remains a mandatory gate.
   void resumeUiStatsTimerIfNeeded() {
-    final isRunning = ref.read(isStartProvider);
-    final isSmartStopped = ref.read(isSmartStoppedProvider);
-    if (!isRunning || isSmartStopped) return;
-    // Refresh immediately
-    unawaited(_updateUiStats());
-    // Restore periodic timer (no-op if already running)
-    if (_updateTimer == null) {
-      StartupTrace.mark('ui_stats_timer_started');
-      _startUiStatsTimer();
-    }
+    reconcileUiStatsTimerIfNeeded();
   }
 
   Future _updateStartTime() async {
@@ -882,7 +1056,6 @@ class SetupAction extends _$SetupAction {
         ref.read(isSmartStoppedProvider.notifier).set(false);
         if (startTime != null) {
           ref.read(commonActionProvider.notifier).updateRunTime();
-          resumeUiStatsTimerIfNeeded();
         }
         break;
       case NativeSessionUiState.paused:
@@ -891,7 +1064,7 @@ class SetupAction extends _$SetupAction {
         break;
       case NativeSessionUiState.stopped:
         startTime = null;
-        cancelUiStatsTimer();
+        reconcileUiStatsTimerIfNeeded();
         await coreController.stopCoreListenerOnly();
         convergeFullStopProviders(
           clearManualOverride: () =>
@@ -908,6 +1081,7 @@ class SetupAction extends _$SetupAction {
       case NativeSessionUiState.pending:
         break;
     }
+    reconcileUiStatsTimerIfNeeded();
   }
 
   Future<bool> handleStop() async {
@@ -928,8 +1102,7 @@ class SetupAction extends _$SetupAction {
       return false;
     } else {
       startTime = null;
-      _updateTimer?.cancel();
-      _updateTimer = null;
+      reconcileUiStatsTimerIfNeeded();
     }
     // P0+P1: 停代理后先关连接释放 buffer，再 GC 释放 Go 堆
     // 顺序执行，不阻塞 handleStop 调用者的后续 UI 重置
@@ -944,8 +1117,7 @@ class SetupAction extends _$SetupAction {
   Future handleSmartStopLocal() async {
     StartupTrace.mark('smart_stop_begin', extras: {'layer': 'flutter_local'});
     startTime = null;
-    _updateTimer?.cancel();
-    _updateTimer = null;
+    reconcileUiStatsTimerIfNeeded();
     final stopped = await coreController.stopCoreListenerOnly();
     StartupTrace.mark(
       'vpn_listener_stop',
@@ -971,7 +1143,7 @@ class SetupAction extends _$SetupAction {
     startTime = nativeStartTime;
     ref.read(runTimeProvider.notifier).value =
         nativeStartTime.millisecondsSinceEpoch;
-    unawaited(_updateUiStats());
+    reconcileUiStatsTimerIfNeeded();
     final suspend = ref.read(suspendProvider);
     var coreReady = suspend;
     if (!suspend) {
@@ -993,7 +1165,7 @@ class SetupAction extends _$SetupAction {
         extras: {'success': started, 'source': 'smart_resume'},
       );
     }
-    _startUiStatsTimer();
+    reconcileUiStatsTimerIfNeeded();
     NetworkDiagnosticsRevision.bump(reason: 'smart_resume');
     StartupTrace.mark(
       'smart_resume_complete',
@@ -1057,8 +1229,17 @@ class SetupAction extends _$SetupAction {
         final coreAction = ref.read(coreActionProvider.notifier);
         final connected = await coreAction.connectCore(minDelay: Duration.zero);
         if (connected) {
-          await coreAction.ensureCoreReady();
-          StartupTrace.mark('paused_core_attached');
+          final coreReady = await coreAction.ensureCoreReady();
+          if (coreReady) {
+            // A native PAUSED session proves that Core is attachable, but not
+            // which Flutter Profile lifetime owns its current config. A
+            // display-only setup is the authoritative reattachment boundary;
+            // it keeps TUN paused while activating the selected Profile.
+            final outcome = await _applyProfileForDisplayOutcome();
+            if (outcome.mayContinueStart) {
+              StartupTrace.mark('paused_core_attached');
+            }
+          }
         } else {
           ref.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
         }
@@ -1093,7 +1274,7 @@ class SetupAction extends _$SetupAction {
       final policy = vpnStartPolicy(isInit: isInit);
       try {
         var started = true;
-        final applied = await applyProfile(
+        final outcome = await _applyProfileOutcome(
           force: true,
           silence: policy.silence,
           preloadInvoke: () async {
@@ -1101,7 +1282,8 @@ class SetupAction extends _$SetupAction {
           },
         );
 
-        if (!started || !applied) {
+        if (outcome == SetupConfigOutcome.superseded) return;
+        if (!started || !outcome.mayContinueStart) {
           if (policy.stopOnFailure) {
             final stopped = await handleStop();
             if (!stopped) return;
@@ -1208,32 +1390,108 @@ class SetupAction extends _$SetupAction {
     bool force = false,
     FutureOr<void> Function()? preloadInvoke,
   }) async {
-    return _setupConfig(
+    final outcome = await _applyProfileOutcome(
+      silence: silence,
+      force: force,
+      preloadInvoke: preloadInvoke,
+    );
+    return !outcome.isFailure;
+  }
+
+  Future<SetupConfigOutcome> _applyProfileOutcome({
+    bool silence = false,
+    bool force = false,
+    FutureOr<void> Function()? preloadInvoke,
+  }) async {
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final runtimeIdentity = proxiesAction.captureRuntimeProfileIdentity();
+    final outcome = await _setupConfig(
       force: force,
       silence: silence,
       preloadInvoke: preloadInvoke,
-      onUpdated: () async {
-        final proxiesAction = ref.read(proxiesActionProvider.notifier);
-        await proxiesAction.updateGroups();
+      onUpdated: (context) async {
+        final targetProfileId = context.targetProfileId;
+        if (targetProfileId == null ||
+            runtimeIdentity == null ||
+            runtimeIdentity.profileId != targetProfileId ||
+            !proxiesAction.isRuntimeIdentityActive(runtimeIdentity)) {
+          return;
+        }
+        await proxiesAction.updateGroups(commitContext: context);
+        if (!proxiesAction.isRuntimeIdentityActive(runtimeIdentity)) return;
         StartupTrace.mark('applyProfile.groups');
-        unawaited(proxiesAction.preheatComputedGroups());
-        await ref.read(providersProvider.notifier).syncProviders();
-        StartupTrace.mark('syncProviders');
+        final published = await fetchAndPublishRuntimeProjection(
+          targetProfileId: targetProfileId,
+          currentProfileId: () =>
+              proxiesAction.isRuntimeIdentityActive(runtimeIdentity)
+              ? runtimeIdentity.profileId
+              : null,
+          fetch: coreController.getExternalProviders,
+          publish: (providers) {
+            ref.read(providersProvider.notifier).value = providers;
+          },
+        );
+        if (published) StartupTrace.mark('syncProviders');
       },
     );
+    StartupTrace.mark(
+      'runtime_config_commit_released',
+      extras: {
+        'profileId': runtimeIdentity?.profileId,
+        'epoch': runtimeIdentity?.epoch,
+        'outcome': outcome.name,
+      },
+    );
+    if (runtimeIdentity != null &&
+        setupOutcomeConfirmsRuntimeActivation(outcome) &&
+        proxiesAction.isRuntimeIdentityActive(runtimeIdentity)) {
+      proxiesAction.schedulePostActivationPreheat(runtimeIdentity);
+    }
+    return outcome;
   }
 
   Future<void> applyProfileForDisplay({bool silence = true}) async {
+    await _applyProfileForDisplayOutcome(silence: silence);
+  }
+
+  Future<SetupConfigOutcome> applyProfileForReadiness({bool silence = true}) {
+    return _applyProfileForDisplayOutcome(silence: silence);
+  }
+
+  Future<SetupConfigOutcome> _applyProfileForDisplayOutcome({
+    bool silence = true,
+    RuntimeConfigPostUpdateContext? inheritedContext,
+  }) async {
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final runtimeIdentity = proxiesAction.captureRuntimeProfileIdentity();
     final patchConfig = ref
         .read(patchClashConfigProvider)
         .copyWith
         .tun(enable: false);
-    await _setupConfig(
+    final outcome = await _setupConfig(
       force: true,
       silence: silence,
       patchConfigOverride: patchConfig,
       requestAdmin: false,
+      inheritedContext: inheritedContext,
     );
+    if (inheritedContext == null) {
+      StartupTrace.mark(
+        'runtime_config_commit_released',
+        extras: {
+          'profileId': runtimeIdentity?.profileId,
+          'epoch': runtimeIdentity?.epoch,
+          'outcome': outcome.name,
+          'displayOnly': true,
+        },
+      );
+      if (runtimeIdentity != null &&
+          setupOutcomeConfirmsRuntimeActivation(outcome) &&
+          proxiesAction.isRuntimeIdentityActive(runtimeIdentity)) {
+        proxiesAction.schedulePostActivationPreheat(runtimeIdentity);
+      }
+    }
+    return outcome;
   }
 
   Future<VM2<String, String>> getProfile({
@@ -1404,84 +1662,182 @@ class SetupAction extends _$SetupAction {
     return Result.success(enableTun);
   }
 
-  Future<bool> _setupConfig({
+  Future<SetupConfigOutcome> _setupConfig({
     bool force = false,
     bool silence = false,
     FutureOr<void> Function()? preloadInvoke,
-    FutureOr Function()? onUpdated,
+    FutureOr Function(RuntimeConfigPostUpdateContext context)? onUpdated,
     PatchClashConfig? patchConfigOverride,
     bool requestAdmin = true,
+    RuntimeConfigPostUpdateContext? inheritedContext,
   }) async {
-    var profile = ref.read(currentProfileProvider);
-    final nextProfile = await profile?.checkAndUpdateAndCopy();
-    if (nextProfile != null) {
-      profile = nextProfile;
-      ref.read(profilesProvider.notifier).put(nextProfile);
-    }
-    commonPrint.log('setup ===> ${profile?.id}');
-    final PatchClashConfig patchConfig =
-        patchConfigOverride ?? ref.read(patchClashConfigProvider);
-    late final bool realTunEnable;
-    if (requestAdmin) {
-      final res = await _requestAdmin(patchConfig.tun.enable);
-      if (res.isError) return false;
-      realTunEnable = ref.read(realTunEnableProvider);
-    } else {
-      realTunEnable = false;
-    }
-    final realPatchConfig = patchConfig.copyWith.tun(enable: realTunEnable);
-    final setupState = await ref.read(setupStateProvider(profile?.id).future);
-    if (system.isAndroid) {
-      globalState.lastVpnState = ref.read(vpnStateProvider);
-      final sharedState = ref.read(sharedStateProvider);
-      preferences.saveShareState(sharedState);
-    }
-    final vm2 = await getProfile(
-      setupState: setupState,
-      patchConfig: realPatchConfig,
-    );
-    StartupTrace.mark('getProfile');
-    final yamlString = vm2.a;
-    final yamlMd5 = vm2.b;
-    if (yamlMd5 == globalState.lastConfigMd5 && force == false) return true;
-    var success = false;
-    await globalState.loadingRun(
-      () async {
-        final configFilePath = await appPath.configFilePath;
-        await File(configFilePath).safeWriteAsString(yamlString);
-        final message = await coreController.setupConfig(
-          setupState: setupState,
-          params: _setupParams,
-          preloadInvoke: preloadInvoke,
-        );
-        StartupTrace.mark('setupConfig');
+    final isExternalRequest = inheritedContext == null;
+    final requestGeneration =
+        inheritedContext?.lease.generation ??
+        _runtimeConfigCommitOwner.beginRequest();
+    final frozenTargetProfile =
+        inheritedContext?.targetProfile ?? ref.read(currentProfileProvider);
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final frozenRuntimeIdentity =
+        frozenTargetProfile?.id == ref.read(currentProfileIdProvider)
+        ? proxiesAction.captureRuntimeProfileIdentity()
+        : null;
+    try {
+      var profile = frozenTargetProfile;
+      if (profile != null &&
+          profile.url.isNotEmpty &&
+          !await profile.sourceExists) {
+        await ref
+            .read(profilesActionProvider.notifier)
+            .updateProfile(
+              profile,
+              publishInput: false,
+              applyAfterCommit: false,
+            );
+        profile = ref.read(profilesProvider).getProfile(profile.id);
+      }
+      commonPrint.log('setup ===> ${profile?.id}');
+      final PatchClashConfig patchConfig =
+          patchConfigOverride ?? ref.read(patchClashConfigProvider);
+      late final bool realTunEnable;
+      if (requestAdmin) {
+        final res = await _requestAdmin(patchConfig.tun.enable);
+        if (res.isError) {
+          return !isExternalRequest ||
+                  _runtimeConfigCommitOwner.isLatest(requestGeneration)
+              ? SetupConfigOutcome.failed
+              : SetupConfigOutcome.superseded;
+        }
+        realTunEnable = ref.read(realTunEnableProvider);
+      } else {
+        realTunEnable = false;
+      }
+      final realPatchConfig = patchConfig.copyWith.tun(enable: realTunEnable);
+      final setupState = await ref.read(setupStateProvider(profile?.id).future);
+      if (system.isAndroid) {
+        globalState.lastVpnState = ref.read(vpnStateProvider);
+        final sharedState = ref.read(sharedStateProvider);
+        preferences.saveShareState(sharedState);
+      }
+      final vm2 = await getProfile(
+        setupState: setupState,
+        patchConfig: realPatchConfig,
+      );
+      StartupTrace.mark('getProfile');
+      final yamlString = vm2.a;
+      final yamlMd5 = vm2.b;
+      final configFilePath = await appPath.configFilePath;
+      var outcome = SetupConfigOutcome.failed;
+      await globalState.loadingRun(
+        () async {
+          Future<void> commitTransaction(
+            RuntimeConfigCommitLease activeLease,
+          ) async {
+            Future<bool> acknowledgeRuntimeActivation(
+              SetupConfigOutcome confirmedOutcome,
+            ) {
+              if (!setupOutcomeConfirmsRuntimeActivation(confirmedOutcome)) {
+                return Future.value(false);
+              }
+              if (frozenTargetProfile == null) {
+                return Future.value(
+                  ref.read(currentProfileIdProvider) == null,
+                );
+              }
+              if (frozenRuntimeIdentity == null) return Future.value(false);
+              return proxiesAction.activateRuntimeIdentity(
+                frozenRuntimeIdentity,
+              );
+            }
 
-        if (message.isNotEmpty) {
-          commonPrint.log(
-            'setupConfig failed: profileId=${setupState.profileId}, '
-            'message="$message", ignoredIsEmpty=${message.endsWith('is empty')}',
-            logLevel: LogLevel.warning,
-          );
+            if (yamlMd5 == globalState.lastConfigMd5 && force == false) {
+              if (!await acknowledgeRuntimeActivation(
+                SetupConfigOutcome.unchanged,
+              )) {
+                outcome = SetupConfigOutcome.superseded;
+                return;
+              }
+              outcome = SetupConfigOutcome.unchanged;
+              return;
+            }
+            await File(configFilePath).safeWriteAsString(yamlString);
+            final message = await coreController.setupConfig(
+              setupState: setupState,
+              params: _setupParams,
+              preloadInvoke: preloadInvoke,
+            );
+            StartupTrace.mark('setupConfig');
 
-          if (message.endsWith('is empty')) {
-            success = false;
-            return;
+            if (message.isNotEmpty) {
+              commonPrint.log(
+                'setupConfig failed: profileId=${setupState.profileId}, '
+                'message="$message", ignoredIsEmpty=${message.endsWith('is empty')}',
+                logLevel: LogLevel.warning,
+              );
+
+              if (message.endsWith('is empty')) {
+                outcome = SetupConfigOutcome.failed;
+                return;
+              }
+
+              throw message;
+            }
+
+            globalState.lastConfigMd5 = yamlMd5;
+            if (!await acknowledgeRuntimeActivation(
+              SetupConfigOutcome.applied,
+            )) {
+              outcome = SetupConfigOutcome.superseded;
+              return;
+            }
+            ref.read(checkIpNumProvider.notifier).add();
+            NetworkDiagnosticsRevision.bump(reason: 'profile_apply');
+            await onUpdated?.call(
+              RuntimeConfigPostUpdateContext(
+                lease: activeLease,
+                targetProfile: profile,
+              ),
+            );
+            outcome = SetupConfigOutcome.applied;
+            StartupTrace.mark('applyProfile');
           }
 
-          throw message;
-        }
-
-        globalState.lastConfigMd5 = yamlMd5;
-        ref.read(checkIpNumProvider.notifier).add();
-        NetworkDiagnosticsRevision.bump(reason: 'profile_apply');
-        await onUpdated?.call();
-        success = true;
-        StartupTrace.mark('applyProfile');
-      },
-      silence: true,
-      tag: !silence ? LoadingTag.proxies : null,
-    );
-    return success;
+          late final RuntimeConfigCommitOutcome commitOutcome;
+          if (inheritedContext != null) {
+            await _runtimeConfigCommitOwner.continueCommit(
+              lease: inheritedContext.lease,
+              transaction: commitTransaction,
+            );
+            commitOutcome = RuntimeConfigCommitOutcome.committed;
+          } else {
+            commitOutcome = await _runtimeConfigCommitOwner.commit(
+              generation: requestGeneration,
+              transaction: commitTransaction,
+            );
+          }
+          if (commitOutcome == RuntimeConfigCommitOutcome.superseded) {
+            commonPrint.log(
+              'setupConfig superseded before commit: '
+              'profileId=${setupState.profileId}, generation=$requestGeneration',
+            );
+            outcome = SetupConfigOutcome.superseded;
+          }
+        },
+        silence: true,
+        tag: !silence ? LoadingTag.proxies : null,
+      );
+      return outcome;
+    } catch (error, stackTrace) {
+      if (isExternalRequest &&
+          !_runtimeConfigCommitOwner.isLatest(requestGeneration)) {
+        commonPrint.log(
+          'setupConfig superseded during materialization: '
+          'generation=$requestGeneration, error=$error',
+        );
+        return SetupConfigOutcome.superseded;
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 }
 
@@ -1637,6 +1993,9 @@ class BackupAction extends _$BackupAction {
     ref.read(groupsOwnerProfileIdProvider.notifier).set(null);
     ref.read(proxyGroupsSnapshotProvider.notifier).none();
     ref.read(delayDataSourceProvider.notifier).value = const {};
+    ref
+        .read(proxiesActionProvider.notifier)
+        .beginRuntimeProfileTransition(result.currentProfileId);
     ref.read(currentProfileIdProvider.notifier).value = result.currentProfileId;
     if (result.config case final restoredConfig?) {
       ref.read(appSettingProvider.notifier).value =
@@ -1688,7 +2047,10 @@ class CoreAction extends _$CoreAction {
   @override
   void build() {}
 
-  Future<void> initCore({bool deferGroupSetup = false}) async {
+  Future<void> initCore({
+    bool deferGroupSetup = false,
+    bool callerOwnsProfileActivation = false,
+  }) async {
     final wasInitialized = await coreController.isInit;
     final ready = await ensureCoreReady();
     StartupTrace.mark('ensureCoreReady');
@@ -1698,8 +2060,14 @@ class CoreAction extends _$CoreAction {
     }
     if (!wasInitialized) {
       final profileId = ref.read(currentProfileIdProvider);
-      if (profileId != null) {
-        ref.invalidate(clashConfigProvider(profileId));
+      if (shouldInitCoreForceApply(
+        wasInitialized: false,
+        deferGroupSetup: false,
+        callerOwnsProfileActivation: callerOwnsProfileActivation,
+        hasCurrentProfile: profileId != null,
+        groupsNeedRefresh: true,
+      )) {
+        ref.invalidate(clashConfigProvider(profileId!));
         unawaited(
           ref
               .read(proxiesActionProvider.notifier)
@@ -1709,9 +2077,17 @@ class CoreAction extends _$CoreAction {
     } else {
       final profileId = ref.read(currentProfileIdProvider);
       final ownerId = ref.read(groupsOwnerProfileIdProvider);
-      if (profileId != null &&
-          (ownerId != profileId || ref.read(groupsProvider).isEmpty)) {
-        ref.invalidate(clashConfigProvider(profileId));
+      final groupsNeedRefresh =
+          profileId != null &&
+          (ownerId != profileId || ref.read(groupsProvider).isEmpty);
+      if (shouldInitCoreForceApply(
+        wasInitialized: true,
+        deferGroupSetup: false,
+        callerOwnsProfileActivation: callerOwnsProfileActivation,
+        hasCurrentProfile: profileId != null,
+        groupsNeedRefresh: groupsNeedRefresh,
+      )) {
+        ref.invalidate(clashConfigProvider(profileId!));
         unawaited(
           ref
               .read(proxiesActionProvider.notifier)
@@ -1840,8 +2216,9 @@ class CoreAction extends _$CoreAction {
     await coreController.shutdown(!isDisconnected);
     final connected = await connectCore();
     if (!connected) return false;
-    await initCore();
-    if (start || ref.read(isStartProvider)) {
+    final callerOwnsProfileActivation = start || ref.read(isStartProvider);
+    await initCore(callerOwnsProfileActivation: callerOwnsProfileActivation);
+    if (callerOwnsProfileActivation) {
       await ref
           .read(setupActionProvider.notifier)
           .updateStatus(true, isInit: true);
@@ -1878,6 +2255,14 @@ class SystemAction extends _$SystemAction {
   }
 
   Future<void> handleExit([bool needSave = false]) async {
+    StartupTrace.mark(
+      'application_shutdown_requested',
+      extras: {
+        'owner': 'system_action',
+        'stop_proxy': proxy != null,
+        'destroy_core': true,
+      },
+    );
     Future.delayed(const Duration(seconds: 3), () {
       system.exit();
     });
@@ -1887,6 +2272,10 @@ class SystemAction extends _$SystemAction {
         if (proxy != null) proxy!.stopProxy(),
       ]);
       await coreController.destroy();
+      StartupTrace.mark(
+        'application_shutdown_complete',
+        extras: {'owner': 'system_action'},
+      );
       commonPrint.log('exit');
     } finally {
       system.exit();
@@ -1978,6 +2367,9 @@ class StoreAction extends _$StoreAction {
     ref.read(vpnSettingProvider.notifier).value = defaultVpnProps;
     ref.read(networkSettingProvider.notifier).value = defaultNetworkProps;
     ref.read(themeSettingProvider.notifier).value = defaultThemeProps;
+    ref
+        .read(proxiesActionProvider.notifier)
+        .beginRuntimeProfileTransition(null);
     ref.read(currentProfileIdProvider.notifier).value = null;
     ref.read(davSettingProvider.notifier).value = null;
     ref.read(overrideDnsProvider.notifier).value = false;
@@ -2018,8 +2410,17 @@ class ThemeAction extends _$ThemeAction {
 
 @Riverpod(keepAlive: true)
 class ProxiesAction extends _$ProxiesAction {
-  final Map<int, Future<void>> _runningUpdateGroups = {};
+  final Map<RuntimeProfileIdentity, Future<void>> _runningUpdateGroups = {};
+  final Set<RuntimeProfileIdentity> _dirtyUpdateGroups = {};
   final ProxySelectionSession _selectionTxn = ProxySelectionSession();
+  final PendingProxySelections _pendingSelections = PendingProxySelections();
+  final RuntimeProviderProjectionSingleflight<ExternalProvider>
+  _providerProjection = RuntimeProviderProjectionSingleflight();
+  final Map<RuntimeProfileIdentity, Future<void>> _runningPreheats = {};
+  final Set<String> _runtimeLoadingProviderKeys = {};
+  int _runtimeEpoch = 0;
+  int? _runtimeProfileId;
+  RuntimeProfileIdentity? _activeRuntimeIdentity;
 
   late final ProviderReadinessService<ExternalProvider, Group>
   _providerReadiness = ProviderReadinessService(
@@ -2039,13 +2440,94 @@ class ProxiesAction extends _$ProxiesAction {
   );
 
   @override
-  void build() {}
+  void build() {
+    _runtimeProfileId = ref.read(currentProfileIdProvider);
+    ref.listen(currentProfileIdProvider, (previous, next) {
+      if (previous == next) return;
+      _advanceRuntimeProfile(next);
+    });
+  }
+
+  void _advanceRuntimeProfile(int? profileId) {
+    if (_runtimeProfileId == profileId) return;
+    for (final selection in _pendingSelections.clear()) {
+      _selectionTxn.complete(
+        _selectionKey(selection.identity, selection.groupName),
+      );
+    }
+    _runtimeProfileId = profileId;
+    _runtimeEpoch++;
+    _activeRuntimeIdentity = null;
+    _dirtyUpdateGroups.clear();
+    ref.read(delayDataSourceProvider.notifier).clear();
+    for (final key in _runtimeLoadingProviderKeys) {
+      ref.read(isUpdatingProvider(key).notifier).value = false;
+    }
+    _runtimeLoadingProviderKeys.clear();
+  }
+
+  void beginRuntimeProfileTransition(int? profileId) {
+    if (ref.read(currentProfileIdProvider) == profileId) return;
+    _advanceRuntimeProfile(profileId);
+  }
+
+  RuntimeProfileIdentity? captureRuntimeProfileIdentity() {
+    final profileId = ref.read(currentProfileIdProvider);
+    if (_runtimeProfileId != profileId) {
+      _advanceRuntimeProfile(profileId);
+    }
+    if (profileId == null) return null;
+    return RuntimeProfileIdentity(profileId: profileId, epoch: _runtimeEpoch);
+  }
+
+  bool isRuntimeIdentityCurrent(RuntimeProfileIdentity identity) {
+    return isRuntimeProfileIdentityCurrent(
+      identity: identity,
+      currentProfileId: ref.read(currentProfileIdProvider),
+      currentEpoch: _runtimeEpoch,
+    );
+  }
+
+  bool isRuntimeIdentityActive(RuntimeProfileIdentity identity) {
+    return isRuntimeProfileIdentityActive(
+      identity: identity,
+      activeIdentity: _activeRuntimeIdentity,
+      currentProfileId: ref.read(currentProfileIdProvider),
+      currentEpoch: _runtimeEpoch,
+    );
+  }
+
+  Future<bool> activateRuntimeIdentity(
+    RuntimeProfileIdentity identity,
+  ) async {
+    if (!isRuntimeIdentityCurrent(identity)) return false;
+    _activeRuntimeIdentity = identity;
+    final pending = _pendingSelections.takeForActivation(identity);
+    for (final selection in pending) {
+      if (!isRuntimeIdentityActive(identity)) return false;
+      try {
+        await _dispatchSelection(selection);
+      } catch (error) {
+        commonPrint.log(
+          'runtime-selection:activation-replay-failed '
+          'profileId=${identity.profileId} group=${selection.groupName} '
+          'error=$error',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
+    return isRuntimeIdentityActive(identity);
+  }
+
+  Object _selectionKey(RuntimeProfileIdentity identity, String groupName) =>
+      (identity, groupName);
 
   Future<ProviderReadinessResult> ensureCurrentProfileReady({
     bool forceApply = false,
     Duration timeout = const Duration(seconds: 10),
   }) async {
     final profileId = ref.read(currentProfileIdProvider);
+    final identity = captureRuntimeProfileIdentity();
     ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
     if (profileId != null && !coreController.isCompleted) {
       final connected = await ref
@@ -2073,21 +2555,34 @@ class ProxiesAction extends _$ProxiesAction {
     }
     final result = await _providerReadiness.ensureCurrentProfileReady(
       targetProfileId: profileId,
-      currentProfileId: () => ref.read(currentProfileIdProvider),
+      currentProfileId: () => identity != null &&
+              isRuntimeIdentityCurrent(identity)
+          ? identity.profileId
+          : null,
       readProviderDefinitions: () async {
         if (profileId == null) return (external: false, proxy: false);
         return readProfileProviderDefinitions(profileId);
       },
       ensureCoreReady: _ensureCoreReadyForDisplay,
       applyProfileForDisplay: () =>
-          ref.read(setupActionProvider.notifier).applyProfileForDisplay(),
-      syncProviders: coreController.getExternalProviders,
+          ref.read(setupActionProvider.notifier).applyProfileForReadiness(),
+      syncProviders: () async {
+        if (identity == null || !isRuntimeIdentityActive(identity)) {
+          throw StateError('Runtime profile is not active');
+        }
+        final providers = await coreController.getExternalProviders();
+        if (!isRuntimeIdentityActive(identity)) {
+          throw StateError('Runtime profile activation changed');
+        }
+        return providers;
+      },
       isProxyProvider: (provider) => provider.type.toLowerCase() == 'proxy',
-      readGroups: _readRuntimeGroups,
+      readGroups: () => _readRuntimeGroups(identity),
       groupsAreValid: _isSnapshotWritableGroups,
       commitReady: (providers, groups) =>
-          _commitReady(profileId, providers, groups),
-      forceApply: forceApply,
+          _commitReady(identity, providers, groups),
+      forceApply:
+          forceApply || identity == null || !isRuntimeIdentityActive(identity),
       timeout: timeout,
     );
     if (ref.read(currentProfileIdProvider) != profileId) return result;
@@ -2123,7 +2618,12 @@ class ProxiesAction extends _$ProxiesAction {
     return ref.read(coreActionProvider.notifier).ensureCoreReady();
   }
 
-  Future<List<Group>> _readRuntimeGroups() {
+  Future<List<Group>> _readRuntimeGroups(
+    RuntimeProfileIdentity? identity,
+  ) async {
+    if (identity == null || !isRuntimeIdentityActive(identity)) {
+      throw StateError('Runtime profile is not active');
+    }
     final sortType = ref.read(
       proxiesStyleSettingProvider.select((state) => state.sortType),
     );
@@ -2134,24 +2634,29 @@ class ProxiesAction extends _$ProxiesAction {
     final selectedMap = ref.read(
       currentProfileProvider.select((state) => state?.selectedMap ?? {}),
     );
-    return coreController.getProxiesGroups(
+    final groups = await coreController.getProxiesGroups(
       selectedMap: selectedMap,
       sortType: sortType,
       delayMap: delayMap,
       defaultTestUrl: testUrl,
     );
+    if (!isRuntimeIdentityActive(identity)) {
+      throw StateError('Runtime profile activation changed');
+    }
+    return groups;
   }
 
   Future<void> _commitReady(
-    int? profileId,
+    RuntimeProfileIdentity? identity,
     List<ExternalProvider> providers,
     List<Group> groups,
   ) async {
-    if (profileId == null ||
-        ref.read(currentProfileIdProvider) != profileId ||
+    if (identity == null ||
+        !isRuntimeIdentityActive(identity) ||
         !_isSnapshotWritableGroups(groups)) {
       return;
     }
+    final profileId = identity.profileId;
     ref.read(providersProvider.notifier).value = providers;
     ref.read(groupsProvider.notifier).value = groups;
     ref.read(groupsOwnerProfileIdProvider.notifier).set(profileId);
@@ -2161,17 +2666,22 @@ class ProxiesAction extends _$ProxiesAction {
     if (profile != null) {
       await _putProxyGroupsSnapshot(profile: profile, groups: groups);
     }
-    if (ref.read(currentProfileIdProvider) == profileId) {
+    if (isRuntimeIdentityActive(identity)) {
       _syncComputedSelectedMap(groups);
+      schedulePostActivationPreheat(identity);
     }
   }
 
   bool _groupsEqual(List<Group> a, List<Group> b) => groupsListsEqual(a, b);
 
-  void captureSelectionBaseline(String groupName) {
+  void captureSelectionBaseline(
+    RuntimeProfileIdentity identity,
+    String groupName,
+  ) {
+    final profile = _findProfileById(identity.profileId);
     _selectionTxn.captureBaseline(
-      groupName,
-      ref.read(currentProfileProvider)?.selectedMap[groupName],
+      _selectionKey(identity, groupName),
+      profile?.selectedMap[groupName],
     );
   }
 
@@ -2185,12 +2695,33 @@ class ProxiesAction extends _$ProxiesAction {
         .updateCurrentComputedSelectedMap(map);
   }
 
-  void updateGroupsDebounce([Duration? duration]) {
-    debouncer.call(FunctionTag.updateGroups, updateGroups, duration: duration);
+  void updateGroupsDebounce({Duration? duration, int? expectedProfileId}) {
+    final identity = captureRuntimeProfileIdentity();
+    if (identity == null ||
+        (expectedProfileId != null &&
+            expectedProfileId != identity.profileId)) {
+      return;
+    }
+    scheduleRuntimeProjectionRefresh(
+      scheduler: debouncer,
+      tag: FunctionTag.updateGroups,
+      expectedProfileId: identity.profileId,
+      currentProfileId: () => isRuntimeIdentityActive(identity)
+          ? identity.profileId
+          : null,
+      refresh: updateGroups,
+      duration: duration,
+    );
   }
 
-  void changeProxyDebounce(String groupName, String proxyName, {int gen = 0}) {
+  void changeProxyDebounce(
+    RuntimeProfileIdentity identity,
+    String groupName,
+    String proxyName, {
+    int gen = 0,
+  }) {
     _scheduleSelectionDebounce(
+      identity: identity,
       groupName: groupName,
       proxyName: proxyName,
       unfix: false,
@@ -2198,8 +2729,13 @@ class ProxiesAction extends _$ProxiesAction {
     );
   }
 
-  void unfixProxyDebounce(String groupName, {int gen = 0}) {
+  void unfixProxyDebounce(
+    RuntimeProfileIdentity identity,
+    String groupName, {
+    int gen = 0,
+  }) {
     _scheduleSelectionDebounce(
+      identity: identity,
       groupName: groupName,
       proxyName: '',
       unfix: true,
@@ -2208,29 +2744,64 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   void _scheduleSelectionDebounce({
+    required RuntimeProfileIdentity identity,
     required String groupName,
     required String proxyName,
     required bool unfix,
     int gen = 0,
   }) {
-    debouncer.call(proxySelectionDebounceTag(groupName), (
-      String groupName,
-      String proxyName,
-      bool unfix,
-      int gen,
-    ) async {
-      ProxyTrace.noteSelectDispatch(
-        gen: gen,
-        group: groupName,
-        proxy: proxyName,
+    final selection = (
+      identity: identity,
+      groupName: groupName,
+      proxyName: proxyName,
+      unfix: unfix,
+      gen: gen,
+    );
+    _pendingSelections.remember(selection);
+    debouncer.call(
+      proxySelectionDebounceTag(groupName, identity),
+      (PendingProxySelection selection) async {
+        final identity = selection.identity;
+        final selectionKey = _selectionKey(identity, selection.groupName);
+        if (!isRuntimeIdentityCurrent(identity)) {
+          _pendingSelections.takeForDispatch(selection);
+          _selectionTxn.complete(selectionKey);
+          return;
+        }
+        if (!isRuntimeIdentityActive(identity)) return;
+        final latest = _pendingSelections.takeForDispatch(selection);
+        if (latest == null) return;
+        await _dispatchSelection(latest);
+      },
+      args: [selection],
+    );
+  }
+
+  Future<void> _dispatchSelection(PendingProxySelection selection) async {
+    final identity = selection.identity;
+    if (!isRuntimeIdentityActive(identity)) return;
+    ProxyTrace.noteSelectDispatch(
+      gen: selection.gen,
+      group: selection.groupName,
+      proxy: selection.proxyName,
+    );
+    if (selection.unfix) {
+      await unfixProxy(
+        identity: identity,
+        groupName: selection.groupName,
+        gen: selection.gen,
       );
-      if (unfix) {
-        await unfixProxy(groupName: groupName, gen: gen);
-      } else {
-        await changeProxy(groupName: groupName, proxyName: proxyName, gen: gen);
-      }
-      updateGroupsDebounce();
-    }, args: [groupName, proxyName, unfix, gen]);
+    } else {
+      await changeProxy(
+        identity: identity,
+        groupName: selection.groupName,
+        proxyName: selection.proxyName,
+        gen: selection.gen,
+      );
+    }
+    if (isRuntimeIdentityActive(identity)) {
+      updateGroupsDebounce(expectedProfileId: identity.profileId);
+    }
   }
 
   Future<String?> _computeProfileFingerprint(Profile? profile) async {
@@ -2299,9 +2870,9 @@ class ProxiesAction extends _$ProxiesAction {
         return false;
       }
 
-      // profileId guard（只在无参调用时校验）
-      if (profileId == null &&
-          ref.read(currentProfileProvider)?.id != targetProfileId) {
+      // Snapshot hydration publishes global projection state, so an explicit
+      // target must still be the profile currently selected by the UI.
+      if (ref.read(currentProfileProvider)?.id != targetProfileId) {
         return false;
       }
 
@@ -2319,6 +2890,9 @@ class ProxiesAction extends _$ProxiesAction {
         return false;
       }
       final currentFingerprint = await _computeProfileFingerprint(profile);
+      if (ref.read(currentProfileIdProvider) != targetProfileId) {
+        return false;
+      }
       if (snapshot.profileFingerprint == null ||
           snapshot.profileFingerprint != currentFingerprint) {
         commonPrint.log(
@@ -2341,7 +2915,9 @@ class ProxiesAction extends _$ProxiesAction {
       return true;
     } catch (e) {
       commonPrint.log('hydrateProxyGroupsSnapshot failed: $e');
-      ref.read(proxyGroupsSnapshotProvider.notifier).none();
+      if (ref.read(currentProfileIdProvider) == targetProfileId) {
+        ref.read(proxyGroupsSnapshotProvider.notifier).none();
+      }
       return false;
     }
   }
@@ -2350,49 +2926,95 @@ class ProxiesAction extends _$ProxiesAction {
     return groups.isNotEmpty && groups.every((g) => g.all.isNotEmpty);
   }
 
-  Future<void> _putProxyGroupsSnapshot({
+  Future<bool> _putProxyGroupsSnapshot({
     required Profile profile,
     required List<Group> groups,
   }) async {
-    if (!_isSnapshotWritableGroups(groups)) return;
+    if (!_isSnapshotWritableGroups(groups)) return false;
     final fingerprint = await _computeProfileFingerprint(profile);
-    if (fingerprint == null) return;
-    await database.proxyGroupsSnapshotsDao.putSnapshot(
+    if (fingerprint == null) return false;
+    final latestProfile = _findProfileById(profile.id);
+    if (latestProfile == null) return false;
+    final latestFingerprint = await _computeProfileFingerprint(latestProfile);
+    if (latestFingerprint != fingerprint) return false;
+    return database.putProfileSnapshotIfExists(
       profileId: profile.id,
       groups: groups,
       profileFingerprint: fingerprint,
     );
   }
 
-  Future<void> updateGroups() {
-    final profileId = ref.read(currentProfileProvider)?.id;
-    if (profileId == null) {
+  Future<void> updateGroups({RuntimeConfigPostUpdateContext? commitContext}) {
+    final profile =
+        commitContext?.targetProfile ?? ref.read(currentProfileProvider);
+    if (profile == null) {
       commonPrint.log('update-groups:skipped reason=no-profile');
       return Future.value();
     }
-    final running = _runningUpdateGroups[profileId];
+    final profileId = profile.id;
+    final identity = captureRuntimeProfileIdentity();
+    if (identity == null ||
+        identity.profileId != profileId ||
+        !isRuntimeIdentityActive(identity)) {
+      commonPrint.log(
+        'update-groups:skipped reason=runtime-not-active profileId=$profileId',
+      );
+      return Future.value();
+    }
+    if (commitContext != null) {
+      // This refresh is part of an active config commit. It must use its own
+      // continuation-aware fallback rather than await a possibly unrelated
+      // in-flight refresh that may itself be waiting for config ownership.
+      return _updateGroups(
+        profile,
+        identity: identity,
+        commitContext: commitContext,
+      );
+    }
+    final running = _runningUpdateGroups[identity];
     if (running != null) {
+      _dirtyUpdateGroups.add(identity);
       commonPrint.log('update-groups:reuse profileId=$profileId');
       return running;
     }
-    final future = _updateGroups(profileId);
-    _runningUpdateGroups[profileId] = future;
+    final future = runTrailingRuntimeRefreshLoop(
+      isActive: () => isRuntimeIdentityActive(identity),
+      takeDirty: () => _dirtyUpdateGroups.remove(identity),
+      refresh: () => _updateGroups(profile, identity: identity),
+      onTrailing: () {
+        StartupTrace.mark(
+          'proxy_groups_trailing_refresh',
+          extras: {'profileId': identity.profileId, 'epoch': identity.epoch},
+        );
+      },
+    );
+    _runningUpdateGroups[identity] = future;
     future.whenComplete(() {
-      if (identical(_runningUpdateGroups[profileId], future)) {
-        _runningUpdateGroups.remove(profileId);
+      if (identical(_runningUpdateGroups[identity], future)) {
+        _runningUpdateGroups.remove(identity);
+        _dirtyUpdateGroups.remove(identity);
       }
     });
     return future;
   }
 
-  Future<void> _updateGroups(int profileId) async {
+  Future<void> _updateGroups(
+    Profile targetProfile, {
+    required RuntimeProfileIdentity identity,
+    RuntimeConfigPostUpdateContext? commitContext,
+  }) async {
+    final profileId = targetProfile.id;
+    final selectedMap = Map<String, String>.from(targetProfile.selectedMap);
+    bool targetIsCurrent() => isRuntimeIdentityActive(identity);
     final watch = Stopwatch()..start();
 
     try {
+      if (!targetIsCurrent()) return;
       ref.read(proxyGroupsSnapshotProvider.notifier).refreshing();
 
       commonPrint.log('update-groups:start profileId=$profileId');
       final coreReady = await _ensureCoreReadyForDisplay();
+      if (!targetIsCurrent()) return;
       if (!coreReady) {
         final ownerProfileId = ref.read(groupsOwnerProfileIdProvider);
         final oldGroups = ref.read(groupsProvider);
@@ -2414,6 +3036,7 @@ class ProxiesAction extends _$ProxiesAction {
           profileId: profileId,
           allowStaleOnFingerprintMismatch: true,
         );
+        if (!targetIsCurrent()) return;
 
         if (hydrated) {
           StartupTrace.mark(
@@ -2456,11 +3079,6 @@ class ProxiesAction extends _$ProxiesAction {
             final testUrl = ref.read(
               appSettingProvider.select((state) => state.testUrl),
             );
-            final selectedMap = ref.read(
-              currentProfileProvider.select(
-                (state) => state?.selectedMap ?? {},
-              ),
-            );
             return coreController.getProxiesGroups(
               selectedMap: selectedMap,
               sortType: sortType,
@@ -2473,9 +3091,15 @@ class ProxiesAction extends _$ProxiesAction {
       }
 
       var groups = await loadGroups();
+      if (!targetIsCurrent()) return;
       if (!_isSnapshotWritableGroups(groups)) {
-        await ref.read(setupActionProvider.notifier).applyProfileForDisplay();
+        final displayOutcome = await ref
+            .read(setupActionProvider.notifier)
+            ._applyProfileForDisplayOutcome(inheritedContext: commitContext);
+        if (displayOutcome == SetupConfigOutcome.superseded) return;
+        if (!targetIsCurrent()) return;
         groups = await loadGroups();
+        if (!targetIsCurrent()) return;
       }
 
       if (!_isSnapshotWritableGroups(groups)) {
@@ -2496,6 +3120,7 @@ class ProxiesAction extends _$ProxiesAction {
           profileId: profileId,
           allowStaleOnFingerprintMismatch: true,
         );
+        if (!targetIsCurrent()) return;
 
         if (hydrated) {
           commonPrint.log(
@@ -2519,7 +3144,7 @@ class ProxiesAction extends _$ProxiesAction {
       }
 
       // profileId guard: user may have switched profile during async refresh
-      if (ref.read(currentProfileProvider)?.id != profileId) {
+      if (!targetIsCurrent()) {
         StartupTrace.mark(
           'proxy_groups_owner_guard',
           extras: {
@@ -2547,14 +3172,13 @@ class ProxiesAction extends _$ProxiesAction {
       ref.read(lastGroupsRefreshAtProvider.notifier).update();
 
       // Save snapshot
-      final currentProfile = ref.read(currentProfileProvider);
-      if (currentProfile != null) {
-        await _putProxyGroupsSnapshot(profile: currentProfile, groups: groups);
-      }
+      await _putProxyGroupsSnapshot(profile: targetProfile, groups: groups);
 
+      if (!targetIsCurrent()) return;
       _syncComputedSelectedMap(groups);
       ProxyTrace.noteGroupsConsistent(groups);
     } catch (e) {
+      if (!targetIsCurrent()) return;
       commonPrint.log(
         'update-groups:error profileId=$profileId '
         'elapsedMs=${watch.elapsedMilliseconds} error=$e',
@@ -2575,6 +3199,7 @@ class ProxiesAction extends _$ProxiesAction {
         profileId: profileId,
         allowStaleOnFingerprintMismatch: true,
       );
+      if (!targetIsCurrent()) return;
 
       if (hydrated) {
         commonPrint.log(
@@ -2645,7 +3270,11 @@ class ProxiesAction extends _$ProxiesAction {
         return;
       }
 
-      await _putProxyGroupsSnapshot(profile: latestProfile, groups: groups);
+      final persisted = await _putProxyGroupsSnapshot(
+        profile: latestProfile,
+        groups: groups,
+      );
+      if (!persisted) return;
 
       commonPrint.log(
         'prefetchSnapshotForProfile success: '
@@ -2660,9 +3289,40 @@ class ProxiesAction extends _$ProxiesAction {
 
   DateTime? _lastPreheatGroupsRefreshAt;
 
-  Future<void> preheatComputedGroups() async {
+  void schedulePostActivationPreheat(RuntimeProfileIdentity identity) {
+    if (!isRuntimeIdentityActive(identity) ||
+        _runningPreheats.containsKey(identity)) {
+      return;
+    }
+    final future = Future<void>(() => _preheatComputedGroups(identity));
+    _runningPreheats[identity] = future;
+    future.whenComplete(() {
+      if (identical(_runningPreheats[identity], future)) {
+        _runningPreheats.remove(identity);
+      }
+    });
+  }
+
+  Future<void> _preheatComputedGroups(
+    RuntimeProfileIdentity identity,
+  ) async {
+    if (!isRuntimeIdentityActive(identity)) return;
+    StartupTrace.mark(
+      'proxy_preheat_started',
+      extras: {'profileId': identity.profileId, 'epoch': identity.epoch},
+    );
     final groups = ref.read(groupsProvider);
-    if (groups.isEmpty) return;
+    if (groups.isEmpty) {
+      StartupTrace.mark(
+        'proxy_preheat_finished',
+        extras: {
+          'profileId': identity.profileId,
+          'epoch': identity.epoch,
+          'empty': true,
+        },
+      );
+      return;
+    }
     final testUrl = ref.read(
       appSettingProvider.select((state) => state.testUrl),
     );
@@ -2671,7 +3331,19 @@ class ProxiesAction extends _$ProxiesAction {
         groups: groups,
         defaultTestUrl: testUrl,
         delayLoader: coreController.getDelay,
-        onDelay: setDelay,
+        onDelay: (delay) => setDelayForRuntimeIdentity(identity, delay),
+        shouldContinue: () => isRuntimeIdentityActive(identity),
+      );
+      if (!isRuntimeIdentityActive(identity)) {
+        StartupTrace.mark(
+          'proxy_preheat_cancelled',
+          extras: {'profileId': identity.profileId, 'epoch': identity.epoch},
+        );
+        return;
+      }
+      StartupTrace.mark(
+        'proxy_preheat_finished',
+        extras: {'profileId': identity.profileId, 'epoch': identity.epoch},
       );
       // Throttle: skip if last refresh was < 5s ago
       final now = DateTime.now();
@@ -2681,7 +3353,7 @@ class ProxiesAction extends _$ProxiesAction {
         return;
       }
       _lastPreheatGroupsRefreshAt = now;
-      updateGroupsDebounce();
+      updateGroupsDebounce(expectedProfileId: identity.profileId);
     } catch (e) {
       commonPrint.log('preheatComputedGroups error: $e');
     }
@@ -2707,32 +3379,67 @@ class ProxiesAction extends _$ProxiesAction {
     ref.read(delayDataSourceProvider.notifier).setDelay(delay);
   }
 
+  bool setDelayForRuntimeIdentity(
+    RuntimeProfileIdentity identity,
+    Delay delay,
+  ) {
+    if (!isRuntimeIdentityActive(identity)) return false;
+    setDelay(delay);
+    return true;
+  }
+
   Future<void> changeProxy({
+    required RuntimeProfileIdentity identity,
     required String groupName,
     required String proxyName,
     int gen = 0,
   }) async {
-    final previous = _selectionTxn.peek(groupName);
-    final result = await coreController.changeProxy(
-      ChangeProxyParams(groupName: groupName, proxyName: proxyName),
+    final selectionKey = _selectionKey(identity, groupName);
+    final previous = _selectionTxn.peek(selectionKey);
+    final mutation = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityActive,
+      mutation: () async => coreController.changeProxy(
+        ChangeProxyParams(groupName: groupName, proxyName: proxyName),
+      ),
     );
+    if (!mutation.current) {
+      _selectionTxn.complete(selectionKey);
+      return;
+    }
+    final result = mutation.value!;
     ProxyTrace.noteSelectCoreAck(gen: gen, group: groupName, result: result);
     await _finishSelection(
       groupName: groupName,
+      identity: identity,
       failedIntent: proxyName,
       previousIntent: previous,
       result: result,
     );
   }
 
-  Future<void> unfixProxy({required String groupName, int gen = 0}) async {
-    final previous = _selectionTxn.peek(groupName);
-    final result = await coreController.unfixProxy(
-      UnfixProxyParams(groupName: groupName),
+  Future<void> unfixProxy({
+    required RuntimeProfileIdentity identity,
+    required String groupName,
+    int gen = 0,
+  }) async {
+    final selectionKey = _selectionKey(identity, groupName);
+    final previous = _selectionTxn.peek(selectionKey);
+    final mutation = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityActive,
+      mutation: () async =>
+          coreController.unfixProxy(UnfixProxyParams(groupName: groupName)),
     );
+    if (!mutation.current) {
+      _selectionTxn.complete(selectionKey);
+      return;
+    }
+    final result = mutation.value!;
     ProxyTrace.noteSelectCoreAck(gen: gen, group: groupName, result: result);
     await _finishSelection(
       groupName: groupName,
+      identity: identity,
       failedIntent: '',
       previousIntent: previous,
       result: result,
@@ -2740,32 +3447,41 @@ class ProxiesAction extends _$ProxiesAction {
   }
 
   Future<void> _finishSelection({
+    required RuntimeProfileIdentity identity,
     required String groupName,
     required String failedIntent,
     required String? previousIntent,
     required String result,
   }) async {
+    final selectionKey = _selectionKey(identity, groupName);
+    if (!isRuntimeIdentityActive(identity)) {
+      _selectionTxn.complete(selectionKey);
+      return;
+    }
+    final targetProfile = _findProfileById(identity.profileId);
+    if (targetProfile == null) {
+      _selectionTxn.complete(selectionKey);
+      return;
+    }
     if (isCoreSelectionSuccess(result)) {
-      final currentIntent = ref
-          .read(currentProfileProvider)
-          ?.selectedMap[groupName];
+      final currentIntent = targetProfile.selectedMap[groupName];
       _selectionTxn.commitWithNewerIntent(
-        groupName: groupName,
+        groupName: selectionKey,
         committedValue: failedIntent,
         currentIntent: currentIntent,
       );
+      if (!isRuntimeIdentityActive(identity)) return;
       if (ref.read(appSettingProvider).closeConnections) {
         await coreController.closeConnections();
       } else {
         await coreController.resetConnections();
       }
+      if (!isRuntimeIdentityActive(identity)) return;
       ref.read(checkIpNumProvider.notifier).add();
       NetworkDiagnosticsRevision.bump(reason: 'selection_success');
       return;
     }
-    final currentIntent = ref
-        .read(currentProfileProvider)
-        ?.selectedMap[groupName];
+    final currentIntent = targetProfile.selectedMap[groupName];
     final rollback = shouldRollbackOptimisticIntent(
       currentIntent: currentIntent,
       failedIntent: failedIntent,
@@ -2773,36 +3489,101 @@ class ProxiesAction extends _$ProxiesAction {
     if (rollback) {
       ref
           .read(profilesActionProvider.notifier)
-          .restoreSelectedMapEntry(groupName, previousIntent);
+          .restoreSelectedMapEntryForProfile(
+            identity.profileId,
+            groupName,
+            failedIntent: failedIntent,
+            previousIntent: previousIntent,
+          );
     }
     _selectionTxn.completeUnlessNewerIntent(
-      groupName: groupName,
+      groupName: selectionKey,
       newerIntentPending: !rollback && currentIntent != failedIntent,
     );
-    updateGroupsDebounce();
     globalState.showNotifier(result);
   }
 
-  Future<String> updateProvider(
+  Future<ExternalProvider?> refreshExternalProviderProjection(
+    RuntimeProfileIdentity identity,
+    String providerName,
+  ) {
+    return _providerProjection.refresh(
+      identity: identity,
+      providerName: providerName,
+      isActive: isRuntimeIdentityActive,
+      fetch: () => coreController.getExternalProvider(providerName),
+      publish: (provider) {
+        ref.read(providersProvider.notifier).setProvider(provider);
+      },
+    );
+  }
+
+  Future<String?> updateProvider(
     ExternalProvider provider, {
+    RuntimeProfileIdentity? identity,
     bool showLoading = false,
   }) async {
+    final targetIdentity = identity ?? captureRuntimeProfileIdentity();
+    if (targetIdentity == null || !isRuntimeIdentityActive(targetIdentity)) {
+      return null;
+    }
+    final loadingKey = provider.updatingKey;
     try {
       if (showLoading) {
-        ref.read(isUpdatingProvider(provider.updatingKey).notifier).value =
-            true;
+        _runtimeLoadingProviderKeys.add(loadingKey);
+        ref.read(isUpdatingProvider(loadingKey).notifier).value = true;
       }
-      final message = await coreController.updateExternalProvider(
-        providerName: provider.name,
+      final update = await runRuntimeMutationIfCurrent(
+        identity: targetIdentity,
+        isCurrent: isRuntimeIdentityActive,
+        mutation: () =>
+            coreController.updateExternalProvider(providerName: provider.name),
       );
+      if (!update.current) return null;
+      final message = update.value!;
       if (message.isNotEmpty) return message;
-      ref
-          .read(providersProvider.notifier)
-          .setProvider(await coreController.getExternalProvider(provider.name));
+      await refreshExternalProviderProjection(targetIdentity, provider.name);
+      if (!isRuntimeIdentityActive(targetIdentity)) return null;
       return '';
     } finally {
-      ref.read(isUpdatingProvider(provider.updatingKey).notifier).value = false;
+      if (showLoading && isRuntimeIdentityActive(targetIdentity)) {
+        _runtimeLoadingProviderKeys.remove(loadingKey);
+        ref.read(isUpdatingProvider(loadingKey).notifier).value = false;
+      }
     }
+  }
+
+  Future<String?> sideLoadProvider({
+    required RuntimeProfileIdentity identity,
+    required ExternalProvider provider,
+    required List<int> bytes,
+  }) async {
+    if (!isRuntimeIdentityActive(identity)) return null;
+    final path = provider.path;
+    if (path == null) return 'Provider path is unavailable';
+
+    final fileWrite = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityActive,
+      mutation: () => File(path).safeWriteAsBytes(bytes),
+    );
+    if (!fileWrite.current) return null;
+
+    final sideLoad = await runRuntimeMutationIfCurrent(
+      identity: identity,
+      isCurrent: isRuntimeIdentityActive,
+      mutation: () => coreController.sideLoadExternalProvider(
+        providerName: provider.name,
+        data: utf8.decode(bytes),
+      ),
+    );
+    if (!sideLoad.current) return null;
+    final message = sideLoad.value!;
+    if (message.isNotEmpty) return message;
+
+    await refreshExternalProviderProjection(identity, provider.name);
+    if (!isRuntimeIdentityActive(identity)) return null;
+    return '';
   }
 }
 
@@ -2811,31 +3592,43 @@ class ProfilesAction extends _$ProfilesAction {
   @override
   void build() {}
 
-  void updateCurrentSelectedMap(String groupName, String proxyName) {
-    final currentProfile = ref.read(currentProfileProvider);
-    if (currentProfile != null &&
-        currentProfile.selectedMap[groupName] != proxyName) {
-      final selectedMap = Map<String, String>.from(currentProfile.selectedMap)
+  void updateSelectedMapEntryForProfile(
+    int profileId,
+    String groupName,
+    String proxyName,
+  ) {
+    final targetProfile = ref.read(profilesProvider).getProfile(profileId);
+    if (targetProfile != null &&
+        targetProfile.selectedMap[groupName] != proxyName) {
+      final selectedMap = Map<String, String>.from(targetProfile.selectedMap)
         ..[groupName] = proxyName;
       ref
           .read(profilesProvider.notifier)
-          .put(currentProfile.copyWith(selectedMap: selectedMap));
+          .put(targetProfile.copyWith(selectedMap: selectedMap));
     }
   }
 
   /// Restores [groupName] after a failed Core write. Null [value] removes the key.
-  void restoreSelectedMapEntry(String groupName, String? value) {
-    final currentProfile = ref.read(currentProfileProvider);
-    if (currentProfile == null) return;
-    final selectedMap = Map<String, String>.from(currentProfile.selectedMap);
-    if (value == null) {
+  void restoreSelectedMapEntryForProfile(
+    int profileId,
+    String groupName, {
+    required String failedIntent,
+    required String? previousIntent,
+  }) {
+    final targetProfile = ref.read(profilesProvider).getProfile(profileId);
+    if (targetProfile == null ||
+        targetProfile.selectedMap[groupName] != failedIntent) {
+      return;
+    }
+    final selectedMap = Map<String, String>.from(targetProfile.selectedMap);
+    if (previousIntent == null) {
       selectedMap.remove(groupName);
     } else {
-      selectedMap[groupName] = value;
+      selectedMap[groupName] = previousIntent;
     }
     ref
         .read(profilesProvider.notifier)
-        .put(currentProfile.copyWith(selectedMap: selectedMap));
+        .put(targetProfile.copyWith(selectedMap: selectedMap));
   }
 
   void updateCurrentComputedSelectedMap(
@@ -2855,62 +3648,129 @@ class ProfilesAction extends _$ProfilesAction {
   }
 
   Future<void> deleteProfile(int id) async {
-    ref.read(profilesProvider.notifier).del(id);
-    clearEffect(id);
-    final currentProfileId = ref.read(currentProfileIdProvider);
-    if (currentProfileId == id) {
-      final profiles = ref.read(profilesProvider);
-      if (profiles.isNotEmpty) {
-        final updateId = profiles.first.id;
-        ref.read(currentProfileIdProvider.notifier).value = updateId;
-      } else {
-        ref.read(currentProfileIdProvider.notifier).value = null;
-        ref.read(setupActionProvider.notifier).updateStatus(false);
-      }
-    }
+    await profileSourceMutationOwner.invalidateAndCommit(id, () async {
+      await runAuthoritativeProfileDelete(
+        commitDatabaseDelete: () => database.deleteProfileLifetime(id),
+        applyCommittedProjection: () {
+          ref.read(profilesProvider.notifier).applyCommittedDelete(id);
+        },
+        updateDesiredProfile: () async {
+          await convergeDesiredProfileAfterDelete(
+            deletedProfileId: id,
+            currentProfileId: ref.read(currentProfileIdProvider),
+            remainingProfiles: ref.read(profilesProvider),
+            setCurrentProfileId: (profileId) {
+              ref
+                  .read(proxiesActionProvider.notifier)
+                  .beginRuntimeProfileTransition(profileId);
+              ref.read(currentProfileIdProvider.notifier).value = profileId;
+            },
+            stopLastProfile: () =>
+                ref.read(setupActionProvider.notifier).updateStatus(false),
+          );
+        },
+        cleanupResources: () => clearEffect(id),
+      );
+    });
   }
 
   Future<void> autoUpdateProfiles() async {
-    for (final profile in ref.read(profilesProvider)) {
-      if (!profile.autoUpdate) continue;
-      final isNotNeedUpdate = profile.lastUpdateDate
-          ?.add(profile.autoUpdateDuration)
-          .isBeforeNow;
-      if (isNotNeedUpdate == false || profile.type == ProfileType.file) {
-        continue;
-      }
-      try {
-        await updateProfile(profile);
-      } catch (e) {
-        commonPrint.log(e.toString(), logLevel: LogLevel.warning);
-      }
-    }
+    await runAutoProfileRefreshLoop(
+      capturedProfiles: ref.read(profilesProvider),
+      refresh: (profile) async {
+        await updateProfile(profile, publishInput: false);
+      },
+      onError: (error) {
+        commonPrint.log(error.toString(), logLevel: LogLevel.warning);
+      },
+    );
   }
 
   void putProfile(Profile profile) {
     ref.read(profilesProvider.notifier).put(profile);
     if (ref.read(currentProfileIdProvider) != null) return;
+    ref
+        .read(proxiesActionProvider.notifier)
+        .beginRuntimeProfileTransition(profile.id);
     ref.read(currentProfileIdProvider.notifier).value = profile.id;
   }
 
   Future<void> updateProfiles() async {
     for (final profile in ref.read(profilesProvider)) {
       if (profile.type == ProfileType.file) continue;
-      await updateProfile(profile);
+      await updateProfile(profile, publishInput: false);
     }
   }
 
-  Future<void> updateProfile(
+  Future<ProfileSourceMutationOutcome> updateProfile(
     Profile profile, {
     bool showLoading = false,
+    required bool publishInput,
+    bool applyAfterCommit = true,
   }) async {
+    final token = profileSourceMutationOwner.begin(profile.id);
+    final sourceUrl = profile.url;
     try {
       if (showLoading) {
         ref.read(isUpdatingProvider(profile.updatingKey).notifier).value = true;
       }
-      ref.read(profilesProvider.notifier).put(profile);
-      final newProfile = await profile.update();
-      ref.read(profilesProvider.notifier).put(newProfile);
+      if (publishInput) {
+        ref.read(profilesProvider.notifier).put(profile);
+      }
+      late final ProfileSourceResponse response;
+      try {
+        response = await profile.downloadSource();
+      } catch (_) {
+        if (!profileSourceMutationOwner.isCurrent(token)) {
+          return ProfileSourceMutationOutcome.superseded;
+        }
+        rethrow;
+      }
+      final profilePath = await appPath.getProfilePath(profile.id.toString());
+      late final StagedProfileFile staged;
+      try {
+        staged = await stageProfileFile(
+          targetPath: profilePath,
+          bytes: response.bytes,
+          validate: coreController.validateConfig,
+        );
+      } catch (_) {
+        if (!profileSourceMutationOwner.isCurrent(token)) {
+          return ProfileSourceMutationOutcome.superseded;
+        }
+        rethrow;
+      }
+      Profile? committedProfile;
+      var outcome = ProfileSourceMutationOutcome.superseded;
+      try {
+        outcome = await profileSourceMutationOwner.commit(token, () async {
+          final latest = ref.read(profilesProvider).getProfile(profile.id);
+          if (!isProfileSourceIdentityCurrent(
+            latest,
+            profileId: profile.id,
+            sourceUrl: sourceUrl,
+          )) {
+            throw const ProfileSourceMutationSuperseded();
+          }
+          await staged.commit();
+          committedProfile = mergeRemoteProfileResponse(
+            latest!,
+            response,
+            updatedAt: DateTime.now(),
+          );
+          ref.read(profilesProvider.notifier).put(committedProfile!);
+        });
+      } on ProfileSourceMutationSuperseded {
+        outcome = ProfileSourceMutationOutcome.superseded;
+      } finally {
+        await staged.dispose();
+      }
+      final newProfile = committedProfile;
+      if (outcome == ProfileSourceMutationOutcome.superseded ||
+          newProfile == null ||
+          !applyAfterCommit) {
+        return outcome;
+      }
       if (newProfile.id == ref.read(currentProfileIdProvider)) {
         ref
             .read(setupActionProvider.notifier)
@@ -2923,8 +3783,47 @@ class ProfilesAction extends _$ProfilesAction {
               .prefetchSnapshotForProfile(newProfile),
         );
       }
+      return outcome;
     } finally {
       ref.read(isUpdatingProvider(profile.updatingKey).notifier).value = false;
+    }
+  }
+
+  Future<ProfileSourceMutationOutcome> replaceProfileSource(
+    Profile profile,
+    Uint8List bytes,
+  ) async {
+    final token = profileSourceMutationOwner.begin(profile.id);
+    ref.read(profilesProvider.notifier).put(profile);
+    final profilePath = await appPath.getProfilePath(profile.id.toString());
+    late final StagedProfileFile staged;
+    try {
+      staged = await stageProfileFile(
+        targetPath: profilePath,
+        bytes: bytes,
+        validate: coreController.validateConfig,
+      );
+    } catch (_) {
+      if (!profileSourceMutationOwner.isCurrent(token)) {
+        return ProfileSourceMutationOutcome.superseded;
+      }
+      rethrow;
+    }
+    try {
+      return await profileSourceMutationOwner.commit(token, () async {
+        final latest = ref.read(profilesProvider).getProfile(profile.id);
+        if (latest == null) {
+          throw const ProfileSourceMutationSuperseded();
+        }
+        await staged.commit();
+        ref
+            .read(profilesProvider.notifier)
+            .put(latest.copyWith(lastUpdateDate: DateTime.now()));
+      });
+    } on ProfileSourceMutationSuperseded {
+      return ProfileSourceMutationOutcome.superseded;
+    } finally {
+      await staged.dispose();
     }
   }
 
@@ -3006,6 +3905,9 @@ class ProfilesAction extends _$ProfilesAction {
     if (isExists) {
       await profileFile.safeDelete(recursive: true);
     }
-    await coreController.deleteFile(providersDirPath);
+    final message = await coreController.deleteFile(providersDirPath);
+    if (message.isNotEmpty) {
+      throw ProfileResourceCleanupException(message);
+    }
   }
 }

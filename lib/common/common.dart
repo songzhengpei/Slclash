@@ -46,6 +46,8 @@ export 'print.dart';
 export 'profile_proxy_resolver.dart';
 export 'proxy.dart';
 export 'proxy_group_selection.dart';
+export 'runtime_profile_identity.dart';
+export 'runtime_provider_projection.dart';
 export 'proxy_page_entry.dart';
 export 'proxy_trace.dart';
 export 'render.dart';

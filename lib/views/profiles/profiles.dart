@@ -62,7 +62,7 @@ class _ProfilesViewState extends State<ProfilesView> {
       try {
         await globalState.container
             .read(profilesActionProvider.notifier)
-            .updateProfile(profile, showLoading: true);
+            .updateProfile(profile, showLoading: true, publishInput: false);
       } catch (e) {
         messages.add(
           UpdatingMessage(label: profile.realLabel, message: e.toString()),
@@ -180,6 +180,9 @@ class _ProfilesViewState extends State<ProfilesView> {
                                 ref
                                     .read(groupsOwnerProfileIdProvider.notifier)
                                     .set(null);
+                                ref
+                                    .read(proxiesActionProvider.notifier)
+                                    .beginRuntimeProfileTransition(profileId);
                                 ref
                                         .read(currentProfileIdProvider.notifier)
                                         .value =
@@ -1343,18 +1346,26 @@ class _ProfileDelayBadge extends ConsumerWidget {
 
   Future<void> _handleTest(WidgetRef ref) async {
     final testUrl = ref.read(realTestUrlProvider(null));
-    ref
-        .read(proxiesActionProvider.notifier)
-        .setDelay(Delay(url: testUrl, name: proxy.name, value: 0));
+    final proxiesAction = ref.read(proxiesActionProvider.notifier);
+    final identity = proxiesAction.captureRuntimeProfileIdentity();
+    if (identity == null || !proxiesAction.isRuntimeIdentityActive(identity)) {
+      return;
+    }
+    proxiesAction.setDelayForRuntimeIdentity(
+      identity,
+      Delay(url: testUrl, name: proxy.name, value: 0),
+    );
     try {
-      ref
-          .read(proxiesActionProvider.notifier)
-          .setDelay(await coreController.getDelay(testUrl, proxy.name));
+      proxiesAction.setDelayForRuntimeIdentity(
+        identity,
+        await coreController.getDelay(testUrl, proxy.name),
+      );
     } catch (e) {
       commonPrint.log('_ProfileDelayBadge test failed for ${proxy.name}: $e');
-      ref
-          .read(proxiesActionProvider.notifier)
-          .setDelay(Delay(url: testUrl, name: proxy.name, value: -1));
+      proxiesAction.setDelayForRuntimeIdentity(
+        identity,
+        Delay(url: testUrl, name: proxy.name, value: -1),
+      );
     }
   }
 
@@ -1440,7 +1451,7 @@ class _ProfileListItem extends StatelessWidget {
     await globalState.loadingRun(() async {
       await globalState.container
           .read(profilesActionProvider.notifier)
-          .updateProfile(profile, showLoading: true);
+          .updateProfile(profile, showLoading: true, publishInput: false);
     }, tag: LoadingTag.profiles);
   }
 
@@ -1625,7 +1636,7 @@ class ProfileItem extends StatelessWidget {
     await globalState.loadingRun(() async {
       await globalState.container
           .read(profilesActionProvider.notifier)
-          .updateProfile(profile, showLoading: true);
+          .updateProfile(profile, showLoading: true, publishInput: false);
     }, tag: LoadingTag.profiles);
   }
 

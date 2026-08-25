@@ -22,6 +22,29 @@ Future<bool> stopListenerAndNativeService({
   return stopNativeService();
 }
 
+Future<String> runCorePreloadHandshake({
+  required Future<String?> Function() initTransport,
+  required Future<String?> Function() syncState,
+  required void Function() markConnected,
+}) async {
+  final initResult = await initTransport();
+  if (initResult == null) {
+    return CoreCommandOutcome.unconfirmed;
+  }
+  if (initResult.isNotEmpty) {
+    return initResult;
+  }
+  final syncResult = await syncState();
+  if (syncResult == null) {
+    return CoreCommandOutcome.unconfirmed;
+  }
+  if (syncResult.isNotEmpty) {
+    return syncResult;
+  }
+  markConnected();
+  return '';
+}
+
 class CoreLib extends CoreHandlerInterface {
   static CoreLib? _instance;
 
@@ -34,22 +57,16 @@ class CoreLib extends CoreHandlerInterface {
     if (_connectedCompleter.isCompleted) {
       return '';
     }
-    final res = await service?.init().withTimeout(
-      timeout: const Duration(seconds: 8),
-      tag: 'service init',
-      onTimeout: () => 'service init timeout',
+    return runCorePreloadHandshake(
+      initTransport: () async => service?.init().withTimeout(
+        timeout: const Duration(seconds: 8),
+        tag: 'service init',
+        onTimeout: () => 'service init timeout',
+      ),
+      syncState: () async =>
+          service?.syncState(globalState.container.read(sharedStateProvider)),
+      markConnected: () => _connectedCompleter.safeCompleter(true),
     );
-    if (res == null) {
-      return CoreCommandOutcome.unconfirmed;
-    }
-    if (res.isNotEmpty) {
-      return res;
-    }
-    _connectedCompleter.safeCompleter(true);
-    final syncRes = await service?.syncState(
-      globalState.container.read(sharedStateProvider),
-    );
-    return syncRes ?? CoreCommandOutcome.unconfirmed;
   }
 
   factory CoreLib() {

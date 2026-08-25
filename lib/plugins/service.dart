@@ -69,20 +69,16 @@ class Service {
     return await methodChannel.invokeMethod<bool>('stop') ?? false;
   }
 
-  Future<String> init() async {
-    return await methodChannel.invokeMethod<String>('init') ?? '';
+  Future<String?> init() async {
+    return methodChannel.invokeMethod<String>('init');
   }
 
-  Future<String> syncState(SharedState state) async {
-    return await methodChannel.invokeMethod<String>(
-          'syncState',
-          json.encode(state),
-        ) ??
-        '';
+  Future<String?> syncState(SharedState state) async {
+    return methodChannel.invokeMethod<String>('syncState', json.encode(state));
   }
 
   Future<bool> shutdown() async {
-    return await methodChannel.invokeMethod<bool>('shutdown') ?? true;
+    return await methodChannel.invokeMethod<bool>('shutdown') ?? false;
   }
 
   Future<DateTime?> getRunTime() async {
@@ -102,7 +98,9 @@ class Service {
   }
 
   Future<List<String>> getLocalIpAddresses() async {
-    final result = await methodChannel.invokeMethod<List>('getLocalIpAddresses');
+    final result = await methodChannel.invokeMethod<List>(
+      'getLocalIpAddresses',
+    );
     return result?.cast<String>() ?? [];
   }
 
@@ -120,6 +118,24 @@ class Service {
 
   Future<bool> isSmartStopped() async {
     return await methodChannel.invokeMethod<bool>('isSmartStopped') ?? false;
+  }
+
+  Future<bool> updateSmartPauseConfig({
+    required bool enabled,
+    required List<String> trustedNetworks,
+    required bool closeConnections,
+  }) async {
+    return await methodChannel.invokeMethod<bool>('updateSmartPauseConfig', {
+          'enabled': enabled,
+          'trustedNetworks': trustedNetworks,
+          'closeConnections': closeConnections,
+        }) ??
+        false;
+  }
+
+  Future<bool> reevaluateSmartPause() async {
+    return await methodChannel.invokeMethod<bool>('reevaluateSmartPause') ??
+        false;
   }
 
   bool get hasListeners {

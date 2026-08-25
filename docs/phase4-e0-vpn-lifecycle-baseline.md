@@ -44,11 +44,11 @@ Direct answers to the required questions:
 6. The mapping itself is accepted, but two consumers expose real bugs: explicit STOP while PAUSED is ignored, and TOGGLE resumes native while Flutter can retain its paused provider.
 7. No duplicate native start was observed. Several high-level start intents/marks converged to exactly one `vpn_service_dispatch action=start` per start window.
 8. STOP during STARTING was not safely reproduced. Current PENDING guards ignore the stop/toggle rather than queue or cancel it; classify this as a source-level watch, not a reproduced stuck state.
-9. A binder disconnect is not fabricated as STOPPED. UI-side disconnect rebinds/reconciles; remote background-service disconnect moves an active snapshot to STOPPING with an error. Remote death itself also destroys the co-located VPN/TUN.
+9. At the 4E.0 capture point, UI-side disconnect re-bound/reconciled while a remote background-service disconnect moved an active snapshot to STOPPING with an error. Subsequent Phase 4 hardening changed the current remote contract: a generation-matched, confirmed physical delegate disconnect clears the unavailable delegate and publishes authoritative STOPPED with the disconnect error, because no cleanup actor remains. Remote process death itself also destroys the co-located VPN/TUN.
 10. sessionId stayed stable through RUNNING reattach and SMART_STOP/RESUME. Navigation, node selection, and Dashboard diagnostics contain no lifecycle dispatch and retained continuity in their closed-phase evidence; they were not re-stressed in 4E.0. A true STOP followed by START created a new identity as designed.
 11. Yes. Every confirmed full STOP removed `tun0`; `STOPPING -> STOPPED` followed the TUN stop-complete mark.
 12. QuickAction/TempActivity START and STOP converged correctly. Tile derives from a fresh snapshot on `onStartListening`; actual system-shade clicking was not automated. PAUSED STOP/TOGGLE consumer defects are separately recorded.
-13. Current mutexes/guards prevented duplicate native starts and serialized remote/TUN operations. They also make PENDING actions no-ops; no evidence justifies changing lock behavior in 4E.0.
+13. The 4E.0 mutexes/guards prevented duplicate native starts and serialized remote/TUN operations. At that capture point PENDING actions were no-ops. Subsequent Phase 4 hardening changed explicit START only: it now reconciles one authoritative snapshot before deciding whether the command remains blocked; STOP/TOGGLE PENDING behavior is unchanged.
 14. Duplicated cached/derived state causes user-visible convergence issues only in the three P1 SMART/PAUSED paths below. Normal START, STOP, restart, and reattach converged.
 
 ## 5. Native State Machine
@@ -86,11 +86,15 @@ Entry points are Flutter `updateStatus(true)`, TempActivity START/TOGGLE, Tile T
 
 Failure/unknown points include missing VPN options, permission cancellation, setup failure, binder failure, unsuccessful service result, and a snapshot that remains unavailable/STARTING. The code retains PENDING or reconciles rather than converting an unknown result into success.
 
-Idempotency: RUNNING start returns the existing session; PAUSED start routes to smart resume and preserves identity; STARTING/PENDING app guards do not dispatch another start. Device windows each recorded one native start dispatch and one `tun0`.
+Idempotency at the 4E.0 capture point: RUNNING start returned the existing session; PAUSED start routed to smart resume and preserved identity; STARTING/PENDING app guards did not dispatch another start. Device windows each recorded one native start dispatch and one `tun0`.
+
+Subsequent Phase 4 hardening changed the current explicit-START recovery contract. When explicit START sees a local PENDING projection, it reads the authoritative snapshot once. STOPPED, RUNNING, and PAUSED may continue through the existing start/reuse/resume path; STARTING and STOPPING remain blocked; an unavailable snapshot fails closed and leaves PENDING. An authoritative RUNNING snapshot still reaches the remote physical-operational probe, so this recovery does not create a second session or TUN. STOP and TOGGLE did not receive this new PENDING behavior.
 
 ## 8. STOP Lifecycle
 
 Flutter stop first stops its listener and clears derived UI runtime, then the Android app dispatches remote stop. Remote RUNNING becomes STOPPING, presence is updated, `VpnService.shutdown` stops TUN/unloads modules/stops itself, and remote state becomes STOPPED with presence deleted. Failed/unconfirmed shutdown does not fabricate STOPPED.
+
+Subsequent Phase 4 hardening made the current cleanup ownership explicit: cleanup success clears the physical delegate and publishes STOPPED; cleanup failure retains the delegate, intent, and generation as the recovery actor while publishing STOPPING with the error; a later confirmed generation-matched physical disconnect clears that actor and publishes STOPPED with a disconnect error. No automatic retry was added.
 
 Duplicate STOP and STOP while already STOPPED are guarded. STOP/TOGGLE while app `RunState=PENDING` is ignored; there is no cancellation queue. Explicit STOP while PAUSED is also ignored because PAUSED projects to STOP and the stop guard requires START—this is a reproduced P1 consumer defect.
 
@@ -108,6 +112,8 @@ While Flutter was already alive, external SMART_STOP did not update its provider
 
 Tile calls `State.handleSyncState()` on start-listening and then collects `runStateFlow`: START is active, PENDING unavailable, STOP inactive. TempActivity dispatches START, STOP, TOGGLE, SMART_STOP, and SMART_RESUME into the same app/native control plane.
 
+Subsequent Phase 4 product hardening defined TempActivity/QuickAction as an app-internal lifecycle control surface and set the activity to `exported=false`. Same-app explicit component intents used by Tile, notification actions, and internal PendingIntent paths remain supported; Slclash does not expose these actions as a third-party automation API.
+
 Live QuickAction evidence proved STOPPED START, RUNNING STOP, external SMART_STOP, explicit SMART_RESUME, PAUSED STOP, and PAUSED TOGGLE. Normal START/STOP converged. PAUSED STOP was a no-op; PAUSED TOGGLE resumed native but left Flutter smart-paused. Actual QS shade rendering/click automation was not available, so Tile display is source/pure-mapping evidence plus eventual sync, not a claim of an automated visual test.
 
 ## 12. SessionSnapshot
@@ -122,7 +128,7 @@ The same-UID file `files/remote_session_presence.txt` is atomically written via 
 
 ## 14. Binder / Remote Process
 
-Flutter UI process, Android app process, remote service/Core process, VPN/TUN, binder, and snapshot state are six distinct facts. App `ServiceDelegate` reconnects and requests a snapshot after transport loss. Remote background delegate disconnect sets an active snapshot to STOPPING with an error instead of claiming confirmed STOPPED. `RemoteService.onDestroy` avoids tearing down a non-STOPPED VPN merely because its wrapper is being destroyed. The remote PID may remain alive after a normal STOP and must not be treated as proof of an active session.
+Flutter UI process, Android app process, remote service/Core process, VPN/TUN, binder, and snapshot state are six distinct facts. App `ServiceDelegate` reconnects and requests a snapshot after transport loss. At the 4E.0 capture point, a remote background delegate disconnect set an active snapshot to STOPPING. Subsequent Phase 4 hardening changed the current contract: normal emitted disconnect and unexpected bind-flow termination notify the owner exactly once; a generation-matched physical disconnect clears the delegate and publishes authoritative STOPPED with the disconnect error, while stale generations and explicit unbind remain silent. Cleanup failure alone remains STOPPING only while its delegate still owns an active transport attempt. `RemoteService.onDestroy` avoids tearing down a non-STOPPED VPN merely because its wrapper is being destroyed. The remote PID may remain alive after a normal STOP and must not be treated as proof of an active session.
 
 ## 15. TUN Invariants
 
@@ -141,6 +147,7 @@ Flutter UI process, Android app process, remote service/Core process, VPN/TUN, b
 | START from PAUSED | resumes same session | ACCEPTED, except stale Flutter smart flag via TOGGLE |
 | duplicate STOP / STOP while STOPPED | guarded | ACCEPTED |
 | STOP or TOGGLE while PENDING | ignored, not queued | KNOWN RISK / WATCH |
+| explicit START while local PENDING | subsequent hardening reads one authoritative snapshot; terminal RUNNING/PAUSED/STOPPED may proceed, transitions/unavailable remain blocked | CURRENT CONTRACT |
 | START then STOP before RUNNING | not safely reproduced | KNOWN RISK / WATCH |
 | STOP then START before completion | PENDING guard; not safely reproduced | KNOWN RISK / WATCH |
 | permission cancel/background | source audited, not exercised | KNOWN RISK / WATCH |
@@ -185,7 +192,7 @@ None promoted. Timing includes harness overhead and all correct transitions comp
 
 ## 22. Known Risks / Watch
 
-- PENDING actions are ignored rather than cancelled/queued.
+- STOP/TOGGLE while PENDING are ignored rather than cancelled/queued. Subsequent hardening allows explicit START to reconcile one authoritative snapshot before deciding; unavailable or transitional truth remains blocked.
 - STARTING/STOPPING recreation and permission-dialog races were audited in source but not intentionally destabilized.
 - RUNNING reattach performs setup/profile reconciliation; evidence proves it does not restart VPN, but future work may measure whether any part is redundant.
 - `RunState` cannot express transport-unknown or distinguish PAUSED from STOPPED; consumers must use `SessionSnapshot` when that distinction matters.

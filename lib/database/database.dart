@@ -240,6 +240,44 @@ class Database extends _$Database {
       rulesDao.setCustomRulesWithBatch(profileId, b, rules);
     });
   }
+
+  /// Deletes one complete profile-owned database lifetime without relying on
+  /// SQLite foreign-key enforcement.
+  Future<void> deleteProfileLifetime(int profileId) {
+    return transaction(() async {
+      await (delete(
+        profileRuleLinks,
+      )..where((row) => row.profileId.equals(profileId))).go();
+      await (delete(
+        proxyGroups,
+      )..where((row) => row.profileId.equals(profileId))).go();
+      await proxyGroupsSnapshotsDao.deleteSnapshot(profileId);
+      await profiles.remove((row) => row.id.equals(profileId));
+    });
+  }
+
+  /// Persists a snapshot only while its owning profile row still exists.
+  Future<bool> putProfileSnapshotIfExists({
+    required int profileId,
+    required List<Group> groups,
+    required String profileFingerprint,
+  }) {
+    return transaction(() async {
+      final profileExists =
+          await (selectOnly(profiles)
+                ..addColumns([profiles.id])
+                ..where(profiles.id.equals(profileId)))
+              .getSingleOrNull() !=
+          null;
+      if (!profileExists) return false;
+      await proxyGroupsSnapshotsDao.putSnapshot(
+        profileId: profileId,
+        groups: groups,
+        profileFingerprint: profileFingerprint,
+      );
+      return true;
+    });
+  }
 }
 
 extension TableInfoExt<Tbl extends Table, Row> on TableInfo<Tbl, Row> {

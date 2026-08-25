@@ -1,3 +1,4 @@
+import 'package:fl_clash/common/runtime_profile_identity.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 
@@ -72,22 +73,22 @@ String? selectedNameForGroup(Group group, {required String? selectedMapValue, St
 /// First tap records the committed [selectedMap] value. Later taps in the
 /// same burst keep that baseline so A→B→C failure restores A, not B.
 class ProxySelectionSession {
-  final Map<String, String?> _baseline = {};
+  final Map<Object, String?> _baseline = {};
 
-  void captureBaseline(String groupName, String? committed) {
-    _baseline.putIfAbsent(groupName, () => committed);
+  void captureBaseline(Object selectionKey, String? committed) {
+    _baseline.putIfAbsent(selectionKey, () => committed);
   }
 
-  String? peek(String groupName) => _baseline[groupName];
+  String? peek(Object selectionKey) => _baseline[selectionKey];
 
-  void complete(String groupName) {
-    _baseline.remove(groupName);
+  void complete(Object selectionKey) {
+    _baseline.remove(selectionKey);
   }
 
   /// After a successful Core write. If the UI already moved on, keep the
   /// session and advance the rollback target to [committedValue].
   void commitWithNewerIntent({
-    required String groupName,
+    required Object groupName,
     required String committedValue,
     required String? currentIntent,
   }) {
@@ -100,12 +101,53 @@ class ProxySelectionSession {
 
   /// Drop baseline only when this request still owns the optimistic intent.
   void completeUnlessNewerIntent({
-    required String groupName,
+    required Object groupName,
     required bool newerIntentPending,
   }) {
     if (!newerIntentPending) {
       complete(groupName);
     }
+  }
+}
+
+typedef PendingProxySelection = ({
+  RuntimeProfileIdentity identity,
+  String groupName,
+  String proxyName,
+  bool unfix,
+  int gen,
+});
+
+class PendingProxySelections {
+  final Map<(RuntimeProfileIdentity, String), PendingProxySelection> _pending =
+      {};
+
+  void remember(PendingProxySelection selection) {
+    _pending[(selection.identity, selection.groupName)] = selection;
+  }
+
+  PendingProxySelection? takeForDispatch(PendingProxySelection selection) {
+    final key = (selection.identity, selection.groupName);
+    if (_pending[key] != selection) return null;
+    return _pending.remove(key);
+  }
+
+  List<PendingProxySelection> takeForActivation(
+    RuntimeProfileIdentity identity,
+  ) {
+    final selections = _pending.values
+        .where((selection) => selection.identity == identity)
+        .toList(growable: false);
+    for (final selection in selections) {
+      _pending.remove((selection.identity, selection.groupName));
+    }
+    return selections;
+  }
+
+  List<PendingProxySelection> clear() {
+    final selections = _pending.values.toList(growable: false);
+    _pending.clear();
+    return selections;
   }
 }
 
@@ -134,5 +176,5 @@ bool groupsListsEqual(List<Group> a, List<Group> b) {
   return true;
 }
 
-Object proxySelectionDebounceTag(String groupName) =>
-    (FunctionTag.changeProxy, groupName);
+Object proxySelectionDebounceTag(String groupName, [Object? runtimeScope]) =>
+    (FunctionTag.changeProxy, runtimeScope, groupName);

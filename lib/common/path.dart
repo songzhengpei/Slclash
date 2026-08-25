@@ -29,6 +29,22 @@ class AppPath {
     });
   }
 
+  AppPath._testing(Directory directory) {
+    appDirPath = directory.path;
+    dataDir.complete(directory);
+    downloadDir.complete(directory);
+    tempDir.complete(directory);
+    cacheDir.complete(directory);
+  }
+
+  static void useDirectoryForTesting(Directory directory) {
+    _instance = AppPath._testing(directory);
+  }
+
+  static void resetForTesting() {
+    _instance = null;
+  }
+
   factory AppPath() {
     _instance ??= AppPath._internal();
     return _instance!;

@@ -68,6 +68,16 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            if (!skipAbiFilters) {
+                // Some transitive AARs bundle every ABI and are not pruned by
+                // ndk.abiFilters on recent AGP versions. Keep the shipped APK
+                // aligned with this Android arm64-only fork.
+                excludes += setOf(
+                    "**/armeabi-v7a/*.so",
+                    "**/x86/*.so",
+                    "**/x86_64/*.so",
+                )
+            }
         }
     }
 

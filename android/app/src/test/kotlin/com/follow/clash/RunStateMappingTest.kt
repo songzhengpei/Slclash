@@ -41,6 +41,46 @@ class RunStateMappingTest {
     }
 
     @Test
+    fun pendingExplicitStartUsesAuthoritativeReconciliation() {
+        assertEquals(
+            true,
+            canAttemptExplicitStartAfterReconcile(RunState.PENDING, SessionState.STOPPED),
+        )
+        assertEquals(
+            true,
+            canAttemptExplicitStartAfterReconcile(RunState.PENDING, SessionState.RUNNING),
+        )
+        assertEquals(
+            true,
+            canAttemptExplicitStartAfterReconcile(RunState.PENDING, SessionState.PAUSED),
+        )
+        assertEquals(
+            false,
+            canAttemptExplicitStartAfterReconcile(RunState.PENDING, SessionState.STARTING),
+        )
+        assertEquals(
+            false,
+            canAttemptExplicitStartAfterReconcile(RunState.PENDING, SessionState.STOPPING),
+        )
+        assertEquals(
+            false,
+            canAttemptExplicitStartAfterReconcile(RunState.PENDING, null),
+        )
+    }
+
+    @Test
+    fun normalExplicitStartProjectionBehaviorIsUnchanged() {
+        assertEquals(
+            true,
+            canAttemptExplicitStartAfterReconcile(RunState.START, null),
+        )
+        assertEquals(
+            true,
+            canAttemptExplicitStartAfterReconcile(RunState.STOP, null),
+        )
+    }
+
+    @Test
     fun lifecycleSignalsWaitForATerminalSnapshot() {
         assertEquals(false, isTerminalSessionState(SessionState.STARTING))
         assertEquals(false, isTerminalSessionState(SessionState.STOPPING))

@@ -228,6 +228,8 @@ func handleAction(action *Action, result ActionResult) {
 		handleDelFile(path, result)
 		return
 	default:
-		nextHandle(action, result)
+		if !nextHandle(action, result) {
+			result.error(fmt.Sprintf("unsupported action method: %s", action.Method))
+		}
 	}
 }

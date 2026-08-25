@@ -22,6 +22,7 @@ class AppStateManager extends ConsumerStatefulWidget {
 class _AppStateManagerState extends ConsumerState<AppStateManager>
     with WidgetsBindingObserver {
   DateTime? _lastGcOnBackground;
+  DateTime? _lastProfileCatchUp;
 
   @override
   void initState() {
@@ -109,13 +110,25 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       container.read(appForegroundProvider.notifier).set(true);
       if (container.read(initProvider)) {
         await setupAction.reconcileNativeSession();
+        if (system.isAndroid) {
+          await container
+              .read(smartAutoStopManagerProvider.notifier)
+              .reevaluateNow();
+        }
       }
       render?.resume();
       container
           .read(healthObservationSchedulerProvider.notifier)
           .onLifecycleChanged(DateTime.now());
+      final now = DateTime.now();
+      if (_lastProfileCatchUp == null ||
+          now.difference(_lastProfileCatchUp!) > const Duration(minutes: 5)) {
+        _lastProfileCatchUp = now;
+        unawaited(
+          container.read(profilesActionProvider.notifier).autoUpdateProfiles(),
+        );
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        setupAction.resumeUiStatsTimerIfNeeded();
         setupAction.tryCheckIp();
         final isStart = container.read(isStartProvider);
         final hasGroups = container.read(groupsProvider).isNotEmpty;
@@ -147,7 +160,6 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       container
           .read(healthObservationSchedulerProvider.notifier)
           .onLifecycleChanged(DateTime.now());
-      setupAction.cancelUiStatsTimer();
       // P0: 真正切到后台时触发 Go GC 释放堆内存（60s 节流）
       // inactive/hidden 是瞬态（如来电、通知栏），不触发
       if (state == AppLifecycleState.paused) {

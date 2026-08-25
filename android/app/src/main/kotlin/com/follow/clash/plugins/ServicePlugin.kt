@@ -22,6 +22,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.net.NetworkInterface
+import java.util.concurrent.atomic.AtomicBoolean
+
+internal suspend fun forwardCoreInvocation(
+    invoke: suspend (((String?) -> Unit)) -> Result<Unit>,
+    complete: (String?) -> Unit,
+) {
+    val completed = AtomicBoolean(false)
+    val completeOnce: (String?) -> Unit = { value ->
+        if (completed.compareAndSet(false, true)) complete(value)
+    }
+    runCatching { invoke(completeOnce) }.fold(
+        onSuccess = { it.onFailure { completeOnce(null) } },
+        onFailure = { completeOnce(null) },
+    )
+}
 
 class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
@@ -91,6 +106,8 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         "isSmartStopped" -> {
             handleIsSmartStopped(result)
         }
+        "updateSmartPauseConfig" -> handleUpdateSmartPauseConfig(call, result)
+        "reevaluateSmartPause" -> handleReevaluateSmartPause(result)
 
         else -> {
             result.notImplemented()
@@ -100,9 +117,10 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     private fun handleInvokeAction(call: MethodCall, result: MethodChannel.Result) {
         launch {
             val data = call.arguments<String>()!!
-            Service.invokeAction(data) {
-                result.success(it)
-            }
+            forwardCoreInvocation(
+                invoke = { callback -> Service.invokeAction(data, callback) },
+                complete = result::success,
+            )
         }
     }
 
@@ -264,5 +282,19 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             val value = Service.isSmartStopped()
             result.success(value)
         }
+    }
+
+    private fun handleUpdateSmartPauseConfig(call: MethodCall, result: MethodChannel.Result) {
+        launch {
+            val args = call.arguments<Map<String, Any?>>() ?: emptyMap()
+            val enabled = args["enabled"] as? Boolean ?: false
+            val networks = (args["trustedNetworks"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            val closeConnections = args["closeConnections"] as? Boolean ?: true
+            result.success(Service.updateSmartPauseConfig(enabled, networks, closeConnections))
+        }
+    }
+
+    private fun handleReevaluateSmartPause(result: MethodChannel.Result) {
+        launch { result.success(Service.reevaluateSmartPause()) }
     }
 }

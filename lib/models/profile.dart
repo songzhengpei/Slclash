@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/services/profile_source_mutation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:path/path.dart' as p;
 
@@ -134,7 +135,7 @@ extension ProfileExtension on Profile {
   String get updatingKey => 'profile_$id';
 
   Future<Profile?> checkAndUpdateAndCopy() async {
-    final mFile = await _getFile(false);
+    final mFile = await _getFile();
     final isExists = await mFile.exists();
     if (isExists || url.isEmpty) {
       return null;
@@ -142,73 +143,122 @@ extension ProfileExtension on Profile {
     return update();
   }
 
-  Future<File> _getFile([bool autoCreate = true]) async {
+  Future<File> _getFile() async {
     final path = await appPath.getProfilePath(id.toString());
-    final file = File(path);
-    final isExists = await file.exists();
-    if (!isExists && autoCreate) {
-      return file.create(recursive: true);
-    }
-    return file;
-    // final oldPath = await appPath.getProfilePath(id);
-    // final newPath = await appPath.getProfilePath(fileName);
-    // final oldFile = oldPath == newPath ? null : File(oldPath);
-    // final oldIsExists = await oldFile?.exists() ?? false;
-    // if (oldIsExists) {
-    //   return await oldFile!.rename(newPath);
-    // }
-    // final file = File(newPath);
-    // final isExists = await file.exists();
-    // if (!isExists && autoCreate) {
-    //   return await file.create(recursive: true);
-    // }
-    // return file;
+    return File(path);
   }
 
   Future<File> get file async {
     return _getFile();
   }
 
-  Future<Profile> update() async {
+  Future<bool> get sourceExists async => (await _getFile()).exists();
+
+  Future<ProfileSourceResponse> downloadSource() async {
     final response = await request.getFileResponseForUrl(url);
     final disposition = response.headers.value('content-disposition');
     final userinfo = response.headers.value('subscription-userinfo');
-    return copyWith(
-      label: label.takeFirstValid([
-        utils.getFileNameForDisposition(disposition),
-        id.toString(),
-      ]),
+    return ProfileSourceResponse(
+      bytes: response.data ?? Uint8List.fromList([]),
       subscriptionInfo: SubscriptionInfo.formHString(userinfo),
-    ).saveFile(response.data ?? Uint8List.fromList([]));
+      fallbackLabel: utils.getFileNameForDisposition(disposition),
+    );
+  }
+
+  Future<Profile> update() async {
+    final response = await downloadSource();
+    return copyWith(
+      label: label.takeFirstValid([response.fallbackLabel, id.toString()]),
+      subscriptionInfo: response.subscriptionInfo,
+    ).saveFile(response.bytes);
   }
 
   Future<Profile> saveFile(Uint8List bytes) async {
-    final mFile = await _getFile(false);
-    await atomicReplaceProfileFile(
-      targetPath: mFile.path,
-      bytes: bytes,
-      validate: coreController.validateConfig,
-    );
+    final mFile = await _getFile();
+    final token = profileSourceMutationOwner.begin(id);
+    late final StagedProfileFile staged;
+    try {
+      staged = await stageProfileFile(
+        targetPath: mFile.path,
+        bytes: bytes,
+        validate: coreController.validateConfig,
+      );
+    } catch (_) {
+      if (!profileSourceMutationOwner.isCurrent(token)) {
+        throw const ProfileSourceMutationSuperseded();
+      }
+      rethrow;
+    }
+    try {
+      final outcome = await profileSourceMutationOwner.commit(
+        token,
+        staged.commit,
+      );
+      if (outcome == ProfileSourceMutationOutcome.superseded) {
+        throw const ProfileSourceMutationSuperseded();
+      }
+    } finally {
+      await staged.dispose();
+    }
     return copyWith(lastUpdateDate: DateTime.now());
   }
 
   Future<Profile> saveFileWithPath(String path) async {
-    final mFile = await _getFile(false);
-    await atomicReplaceProfileFile(
-      targetPath: mFile.path,
-      bytes: await File(path).readAsBytes(),
-      validate: coreController.validateConfig,
-    );
-    return copyWith(lastUpdateDate: DateTime.now());
+    return saveFile(await File(path).readAsBytes());
   }
 }
 
-/// Atomically replaces [targetPath] with [bytes] via a unique staging file in
-/// the same directory: write, flush, Core-validate the staged copy, then
-/// rename it over the target (atomic on POSIX/Android). A failed validation
-/// or replacement leaves the existing target untouched and never truncates it
-/// early; the staging file is always cleaned up.
-Future<void> atomicReplaceProfileFile({
+final class ProfileSourceResponse {
+  const ProfileSourceResponse({
+    required this.bytes,
+    required this.subscriptionInfo,
+    required this.fallbackLabel,
+  });
+
+  final Uint8List bytes;
+  final SubscriptionInfo subscriptionInfo;
+  final String? fallbackLabel;
+}
+
+final class ProfileSourceMutationSuperseded implements Exception {
+  const ProfileSourceMutationSuperseded();
+}
+
+bool isProfileSourceIdentityCurrent(
+  Profile? latest, {
+  required int profileId,
+  required String sourceUrl,
+}) => latest != null && latest.id == profileId && latest.url == sourceUrl;
+
+Profile mergeRemoteProfileResponse(
+  Profile latest,
+  ProfileSourceResponse response, {
+  required DateTime updatedAt,
+}) {
+  return latest.copyWith(
+    label: latest.label.takeFirstValid([
+      response.fallbackLabel,
+      latest.id.toString(),
+    ]),
+    subscriptionInfo: response.subscriptionInfo,
+    lastUpdateDate: updatedAt,
+  );
+}
+
+final class StagedProfileFile {
+  const StagedProfileFile._(this._staging, this._targetPath);
+
+  final File _staging;
+  final String _targetPath;
+
+  Future<void> commit() => _staging.rename(_targetPath);
+
+  Future<void> dispose() async {
+    if (await _staging.exists()) await _staging.delete();
+  }
+}
+
+Future<StagedProfileFile> stageProfileFile({
   required String targetPath,
   required List<int> bytes,
   required Future<String> Function(String path) validate,
@@ -227,13 +277,32 @@ Future<void> atomicReplaceProfileFile({
   try {
     await staging.writeAsBytes(bytes, flush: true);
     final message = await validate(staging.path);
-    if (message.isNotEmpty) {
-      throw message;
-    }
-    await staging.rename(target.path);
+    if (message.isNotEmpty) throw message;
+    return StagedProfileFile._(staging, target.path);
+  } catch (_) {
+    if (await staging.exists()) await staging.delete();
+    rethrow;
+  }
+}
+
+/// Atomically replaces [targetPath] with [bytes] via a unique staging file in
+/// the same directory: write, flush, Core-validate the staged copy, then
+/// rename it over the target (atomic on POSIX/Android). A failed validation
+/// or replacement leaves the existing target untouched and never truncates it
+/// early; the staging file is always cleaned up.
+Future<void> atomicReplaceProfileFile({
+  required String targetPath,
+  required List<int> bytes,
+  required Future<String> Function(String path) validate,
+}) async {
+  final staged = await stageProfileFile(
+    targetPath: targetPath,
+    bytes: bytes,
+    validate: validate,
+  );
+  try {
+    await staged.commit();
   } finally {
-    if (await staging.exists()) {
-      await staging.delete();
-    }
+    await staged.dispose();
   }
 }

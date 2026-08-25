@@ -40,6 +40,32 @@ MihomoConfigMap applyOwnedTunPatch(
   return config;
 }
 
+/// Slclash-owned geox-url fields, matching the GeoXUrl model exactly. Every
+/// other current or future Mihomo geox-url sibling belongs to the source and
+/// must be preserved.
+const Set<String> slclashOwnedGeoXUrlFields = {
+  'mmdb',
+  'asn',
+  'geoip',
+  'geosite',
+};
+
+/// Applies Slclash-owned geox-url values without replacing the whole map.
+/// The map is created when absent and unowned siblings remain untouched.
+MihomoConfigMap applyOwnedGeoXUrlPatch(
+  MihomoConfigMap config,
+  MihomoConfigMap geoXUrlPatch,
+) {
+  final geoXUrl = _asStringMap(config['geox-url']);
+  for (final entry in geoXUrlPatch.entries) {
+    if (slclashOwnedGeoXUrlFields.contains(entry.key)) {
+      geoXUrl[entry.key] = entry.value;
+    }
+  }
+  config['geox-url'] = geoXUrl;
+  return config;
+}
+
 /// Slclash-owned DNS fields, matching the Dns model exactly. Every other
 /// Mihomo DNS field (cache-algorithm, direct-nameserver, fake-ip-ttl, future
 /// fields, ...) is kernel/profile-owned and must be preserved.

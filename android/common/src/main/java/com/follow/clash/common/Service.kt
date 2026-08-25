@@ -10,10 +10,51 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.atomic.AtomicBoolean
+
+internal class BindAttemptOwnership {
+    private var nextGeneration = 0L
+    private var currentGeneration = 0L
+
+    @Synchronized
+    fun begin(): Long? {
+        if (currentGeneration != 0L) return null
+        nextGeneration += 1L
+        currentGeneration = nextGeneration
+        return currentGeneration
+    }
+
+    @Synchronized
+    fun isCurrent(generation: Long): Boolean =
+        currentGeneration == generation
+
+    @Synchronized
+    fun release(generation: Long): Boolean {
+        if (currentGeneration != generation) return false
+        currentGeneration = 0L
+        return true
+    }
+
+    @Synchronized
+    fun invalidate(): Boolean {
+        if (currentGeneration == 0L) return false
+        currentGeneration = 0L
+        return true
+    }
+}
+
+internal fun unexpectedBindTerminalMessage(
+    ownership: BindAttemptOwnership,
+    attempt: Long,
+    terminalResult: Result<Unit>,
+): String? {
+    if (!ownership.release(attempt)) return null
+    return terminalResult.exceptionOrNull()?.message
+        ?: "Service binding ended unexpectedly"
+}
 
 class ServiceDelegate<T>(
     private val intent: Intent,
@@ -21,34 +62,38 @@ class ServiceDelegate<T>(
     private val interfaceCreator: (IBinder) -> T,
 ) : CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
 
-    private val _bindingState = AtomicBoolean(false)
+    private val bindAttempts = BindAttemptOwnership()
 
     private var _serviceState = MutableStateFlow<Pair<T?, String>?>(null)
 
     val serviceState: StateFlow<Pair<T?, String>?> = _serviceState
     private var job: Job? = null
 
-    private fun handleBind(data: Pair<IBinder?, String>) {
+    private fun handleBind(attempt: Long, data: Pair<IBinder?, String>): Boolean {
+        if (!bindAttempts.isCurrent(attempt)) return false
         data.first?.let {
             _serviceState.value = Pair(interfaceCreator(it), data.second)
             Phase4Mark.emit(
                 "vpn_remote_connected",
                 mapOf("service" to intent.component?.className),
             )
+            return true
         } ?: run {
             Phase4Mark.emit(
                 "vpn_remote_disconnected",
                 mapOf("service" to intent.component?.className, "message" to data.second),
             )
-            _serviceState.value = Pair(null, data.second)
-            unbind()
-            onServiceDisconnected?.invoke(data.second)
-            _bindingState.set(false)
+            if (bindAttempts.release(attempt)) {
+                _serviceState.value = Pair(null, data.second)
+                onServiceDisconnected?.invoke(data.second)
+            }
+            return false
         }
     }
 
     fun bind() {
-        if (_bindingState.compareAndSet(false, true)) {
+        val attempt = bindAttempts.begin()
+        if (attempt != null) {
             Phase4Mark.emit(
                 "vpn_remote_bind_begin",
                 mapOf("service" to intent.component?.className),
@@ -57,9 +102,14 @@ class ServiceDelegate<T>(
             job = null
             _serviceState.value = null
             job = launch {
-                runCatching {
+                val terminalResult = runCatching {
                     GlobalState.application.bindServiceFlow<IBinder>(intent)
-                        .collect { handleBind(it) }
+                        .takeWhile { handleBind(attempt, it) }
+                        .collect {}
+                }
+                unexpectedBindTerminalMessage(bindAttempts, attempt, terminalResult)?.let { message ->
+                    _serviceState.value = Pair(null, message)
+                    onServiceDisconnected?.invoke(message)
                 }
             }
         }
@@ -81,14 +131,15 @@ class ServiceDelegate<T>(
     }
 
     fun unbind() {
-        if (_bindingState.compareAndSet(true, false)) {
+        val invalidated = bindAttempts.invalidate()
+        if (invalidated) {
             Phase4Mark.emit(
                 "vpn_remote_unbound",
                 mapOf("service" to intent.component?.className),
             )
-            job?.cancel()
-            job = null
-            _serviceState.value = null
         }
+        job?.cancel()
+        job = null
+        _serviceState.value = null
     }
 }

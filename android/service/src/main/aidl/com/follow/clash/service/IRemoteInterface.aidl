@@ -23,4 +23,6 @@ interface IRemoteInterface {
     void smartResume(in IResultInterface result);
     void setSmartStopped(boolean value);
     boolean isSmartStopped();
+    void updateSmartPauseConfig(boolean enabled, in List<String> trustedNetworks, boolean closeConnections);
+    void reevaluateSmartPause(in IResultInterface result);
 }
