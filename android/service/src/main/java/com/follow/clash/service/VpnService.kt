@@ -216,6 +216,10 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
     private fun handleStart(options: VpnOptions) {
         Phase4Mark.emit(
             "vpn_tun_observed",
+            mapOf("phase" to "handle_start_begin", "tun_present" to tunEstablished),
+        )
+        Phase4Mark.emit(
+            "vpn_tun_observed",
             mapOf("phase" to "establish_begin", "tun_present" to false),
         )
         val fd = with(Builder()) {
@@ -317,6 +321,7 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
                     )
                 )
             }
+            Phase4Mark.emit("vpn_tun_observed", mapOf("phase" to "builder_establish_begin"))
             establish()?.detachFd()
                 ?: throw NullPointerException("Establish VPN rejected by system")
         }
@@ -345,6 +350,10 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             )
         }
         tunEstablished = true
+        Phase4Mark.emit(
+            "vpn_tun_observed",
+            mapOf("phase" to "tun_operational", "tun_present" to true),
+        )
     }
 
     override suspend fun start(): ServiceOperationResult = lifecycleMutex.withLock {

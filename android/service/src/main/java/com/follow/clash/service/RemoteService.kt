@@ -173,12 +173,18 @@ class RemoteService : Service(), CoroutineScope {
                 "smart_pause_evaluate",
                 mapOf(
                     "session_state" to current.state,
+                    "session_id" to current.sessionId,
+                    "smart_paused" to current.smartPaused,
+                    "state_options_enable" to State.options?.enable,
+                    "config_enabled" to config.enabled,
+                    "network_known" to (network?.isKnown == true),
                     "network_generation" to (network?.generation ?: 0L),
                     "trusted" to trusted,
                     "ip_count" to (network?.ipv4Addresses?.size ?: 0),
                     "reason" to reason,
                     "manual_override" to smartPausePolicy.manualOverride,
                     "decision" to decision.name,
+                    "attempt" to (transitionRetrySchedule.executedAttempts + 1),
                 ),
             )
             maybeCloseConnectionsForHandover(network, config, current)
@@ -285,16 +291,53 @@ class RemoteService : Service(), CoroutineScope {
         )
         val active = delegate
         if (active == null) {
+            if (!pause) {
+                Phase4Mark.emit(
+                    "smart_pause_resume",
+                    mapOf(
+                        "phase" to "vpn_service_result",
+                        "result" to false,
+                        "tun_operational" to false,
+                        "failure" to "delegate_absent",
+                    ),
+                )
+            }
             Phase4Mark.emit(
                 "smart_pause_transition_complete",
                 mapOf("result" to false, "session_state" to State.snapshot.state, "source" to source),
             )
             return false
         }
-        val success = active.useService { service ->
-            if (pause) service.smartStop() && !service.isOperational()
-            else service.smartResume() && service.isOperational()
-        }.getOrNull() == true
+        val serviceResult = active.useService { service ->
+            if (pause) {
+                service.smartStop() && !service.isOperational()
+            } else {
+                Phase4Mark.emit("smart_pause_resume", mapOf("phase" to "vpn_service_begin"))
+                val resumed = service.smartResume()
+                val operational = resumed && service.isOperational()
+                Phase4Mark.emit(
+                    "smart_pause_resume",
+                    mapOf(
+                        "phase" to "vpn_service_result",
+                        "result" to resumed,
+                        "tun_operational" to operational,
+                    ),
+                )
+                operational
+            }
+        }
+        if (!pause && serviceResult.isFailure) {
+            Phase4Mark.emit(
+                "smart_pause_resume",
+                mapOf(
+                    "phase" to "vpn_service_result",
+                    "result" to false,
+                    "tun_operational" to false,
+                    "failure" to "service_call_failed",
+                ),
+            )
+        }
+        val success = serviceResult.getOrNull() == true
         if (success) applySession(
             if (pause) SessionTransitions.paused(current) else SessionTransitions.running(current),
         )
@@ -309,12 +352,33 @@ class RemoteService : Service(), CoroutineScope {
         current: SessionSnapshot,
         source: PausedResumeSource,
     ): Boolean {
+        Phase4Mark.emit(
+            "smart_pause_resume",
+            mapOf(
+                "phase" to "begin",
+                "source" to source.name.lowercase(),
+                "session_state" to current.state,
+                "session_id" to current.sessionId,
+                "attempt" to (transitionRetrySchedule.executedAttempts + 1),
+            ),
+        )
         val success = transitionSmartPauseLocked(
             current = current,
             pause = false,
             source = source.name.lowercase(),
         )
-        if (!success) return false
+        if (!success) {
+            Phase4Mark.emit(
+                "smart_pause_resume",
+                mapOf(
+                    "phase" to "final",
+                    "result" to false,
+                    "final_state" to State.snapshot.state,
+                    "session_id" to State.snapshot.sessionId,
+                ),
+            )
+            return false
+        }
         smartPausePolicy.markManualResume(
             manualResumeTrusted(source, latestPhysicalNetwork, smartPauseConfig),
         )
@@ -323,6 +387,17 @@ class RemoteService : Service(), CoroutineScope {
             mapOf(
                 "manual_override" to smartPausePolicy.manualOverride,
                 "source" to source.name.lowercase(),
+            ),
+        )
+        Phase4Mark.emit(
+            "smart_pause_resume",
+            mapOf(
+                "phase" to "final",
+                "result" to true,
+                "tun_operational" to true,
+                "final_state" to State.snapshot.state,
+                "session_id" to State.snapshot.sessionId,
+                "smart_paused" to State.snapshot.smartPaused,
             ),
         )
         return true

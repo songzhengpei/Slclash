@@ -63,13 +63,19 @@ class NetworkObserveModule(private val service: Service) : Module() {
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            Phase4Mark.emit("network_callback", mapOf("callback" to "available"))
+            Phase4Mark.emit(
+                "network_callback",
+                mapOf("callback" to "available", "network_id" to network.networkHandle),
+            )
             enqueueNetworkUpdate { networkInfos[network] = NetworkInfo() }
             super.onAvailable(network)
         }
 
         override fun onLosing(network: Network, maxMsToLive: Int) {
-            Phase4Mark.emit("network_callback", mapOf("callback" to "losing"))
+            Phase4Mark.emit(
+                "network_callback",
+                mapOf("callback" to "losing", "network_id" to network.networkHandle),
+            )
             enqueueNetworkUpdate {
                 networkInfos[network]?.losingMs = System.currentTimeMillis() + maxMsToLive
             }
@@ -78,7 +84,10 @@ class NetworkObserveModule(private val service: Service) : Module() {
         }
 
         override fun onLost(network: Network) {
-            Phase4Mark.emit("network_callback", mapOf("callback" to "lost"))
+            Phase4Mark.emit(
+                "network_callback",
+                mapOf("callback" to "lost", "network_id" to network.networkHandle),
+            )
             enqueueNetworkUpdate { networkInfos.remove(network) }
             setUnderlyingNetworks(network)
             super.onLost(network)
@@ -87,7 +96,11 @@ class NetworkObserveModule(private val service: Service) : Module() {
         override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
             Phase4Mark.emit(
                 "network_callback",
-                mapOf("callback" to "link_properties", "dns_count" to linkProperties.dnsServers.size),
+                mapOf(
+                    "callback" to "link_properties",
+                    "network_id" to network.networkHandle,
+                    "dns_count" to linkProperties.dnsServers.size,
+                ),
             )
             enqueueNetworkUpdate {
                 networkInfos.getOrPut(network, ::NetworkInfo).apply {
@@ -102,7 +115,10 @@ class NetworkObserveModule(private val service: Service) : Module() {
         }
 
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-            Phase4Mark.emit("network_callback", mapOf("callback" to "capabilities"))
+            Phase4Mark.emit(
+                "network_callback",
+                mapOf("callback" to "capabilities", "network_id" to network.networkHandle),
+            )
             enqueueNetworkUpdate()
             super.onCapabilitiesChanged(network, capabilities)
         }
@@ -210,6 +226,17 @@ class NetworkObserveModule(private val service: Service) : Module() {
             Phase4Mark.emit("network_update_skipped", mapOf("reason" to "changed_during_apply"))
             return null
         }
+        Phase4Mark.emit(
+            "physical_network_selected",
+            mapOf(
+                "network_generation" to snapshot.generation,
+                "network_id" to snapshot.networkId,
+                "network_type" to snapshot.transport,
+                "network_known" to snapshot.isKnown,
+                "ip_count" to snapshot.ipv4Addresses.size,
+                "candidate_count" to networkInfos.size,
+            ),
+        )
         PhysicalNetworkControlPlane.publish(snapshot)
         if (dnsList.isEmpty() || normalizeDnsServers(dnsList) == preDnsList) {
             Phase4Mark.emit(
