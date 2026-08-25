@@ -385,6 +385,28 @@ void main() {
     });
   });
 
+  group('heroUsesDynamicSurfaceTreatment', () {
+    test('uses flat dynamic-color treatment while smart paused', () {
+      expect(
+        heroUsesDynamicSurfaceTreatment(
+          dynamicColor: false,
+          isSmartPaused: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('keeps static gradient for ordinary connected state', () {
+      expect(
+        heroUsesDynamicSurfaceTreatment(
+          dynamicColor: false,
+          isSmartPaused: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group('heroActiveFillShouldAnimate', () {
     test('skips the first-mount no-op ticker when begin equals end', () {
       expect(

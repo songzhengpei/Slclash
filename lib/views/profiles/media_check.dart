@@ -629,29 +629,50 @@ class _MediaCheckControlCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.appLocalizations.nodeCheckup,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.typography.mediaCheckTitle.copyWith(
-                    color: surge.textPrimary,
+          SizedBox(
+            height: 48,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  key: const Key('media-check-header-icon'),
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: surge.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    SurgeIcons.mediaCheck,
+                    size: 16,
+                    color: surge.primary.withValues(alpha: 0.82),
                   ),
                 ),
-              ),
-              _MediaCheckRunButton(
-                checking: checking,
-                onTap: loading || targetCount == 0
-                    ? null
-                    : checking
-                    ? onCancel
-                    : onStart,
-              ),
-            ],
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    context.appLocalizations.nodeCheckup,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.typography.mediaCheckTitle.copyWith(
+                      color: surge.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _MediaCheckRunButton(
+                  checking: checking,
+                  onTap: loading || targetCount == 0
+                      ? null
+                      : checking
+                      ? onCancel
+                      : onStart,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -1484,15 +1505,17 @@ class _MediaCheckRunButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     return SurgeStatusButton(
+      key: const Key('media-check-run-button'),
       isActive: checking,
       activeLabel: context.appLocalizations.stop,
       inactiveLabel: context.appLocalizations.start,
       activeColor: surge.red,
       inactiveColor: surge.primary,
       compact: true,
-      height: 30,
-      horizontalPadding: 10,
-      minWidth: 56,
+      height: 28,
+      horizontalPadding: 3,
+      minWidth: 48,
+      scaleMetrics: false,
       textStyle: context.typography.mediaRunButtonLabel,
       onPressed: onTap,
     );

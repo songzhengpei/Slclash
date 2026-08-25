@@ -21,6 +21,7 @@ class SurgeStatusButton extends StatelessWidget {
     this.horizontalPadding,
     this.minWidth,
     this.textStyle,
+    this.scaleMetrics = true,
   });
 
   final bool isActive;
@@ -38,17 +39,20 @@ class SurgeStatusButton extends StatelessWidget {
   final double? horizontalPadding;
   final double? minWidth;
   final TextStyle? textStyle;
+  final bool scaleMetrics;
 
   @override
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final metrics = SoftOsMetrics.of(context);
+    double resolveSize(double value) =>
+        scaleMetrics ? metrics.value(value) : value;
     final background = isActive
         ? activeColor ?? surge.green
         : inactiveColor ?? surge.primary;
     final text = label ?? (isActive ? activeLabel : inactiveLabel);
     final icon = isActive ? activeIcon : inactiveIcon;
-    final effectiveHeight = metrics.value(height ?? (compact ? 34 : 40));
+    final effectiveHeight = resolveSize(height ?? (compact ? 34 : 40));
 
     return FilledButton(
       onPressed: loading ? null : onPressed,
@@ -58,12 +62,12 @@ class SurgeStatusButton extends StatelessWidget {
         foregroundColor: surge.onPrimary,
         disabledForegroundColor: surge.onPrimary.withValues(alpha: 0.8),
         minimumSize: Size(
-          metrics.value(minWidth ?? (compact ? 0 : 96)),
+          resolveSize(minWidth ?? (compact ? 0 : 96)),
           effectiveHeight,
         ),
         maximumSize: Size(double.infinity, effectiveHeight),
         padding: EdgeInsets.symmetric(
-          horizontal: metrics.value(horizontalPadding ?? (compact ? 12 : 16)),
+          horizontal: resolveSize(horizontalPadding ?? (compact ? 12 : 16)),
           vertical: 0,
         ),
         shape: RoundedRectangleBorder(
@@ -77,7 +81,7 @@ class SurgeStatusButton extends StatelessWidget {
         children: [
           if (loading) ...[
             SizedBox.square(
-              dimension: metrics.value(compact ? 13 : 15),
+              dimension: resolveSize(compact ? 13 : 15),
               child: CircularProgressIndicator(
                 color: surge.onPrimary,
                 strokeWidth: 2,
@@ -85,8 +89,8 @@ class SurgeStatusButton extends StatelessWidget {
             ),
             const SizedBox(width: 8),
           ] else if (icon != null) ...[
-            Icon(icon, size: metrics.value(compact ? 14 : 16)),
-            SizedBox(width: metrics.value(6)),
+            Icon(icon, size: resolveSize(compact ? 14 : 16)),
+            SizedBox(width: resolveSize(6)),
           ],
           Text(
             text,

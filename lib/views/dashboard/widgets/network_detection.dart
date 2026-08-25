@@ -1,6 +1,6 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
-import 'package:fl_clash/providers/app.dart';
+import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -31,6 +31,7 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
   Widget build(BuildContext context) {
     final appLocalizations = context.appLocalizations;
     final surge = SurgeTheme.of(context);
+    final isStart = ref.watch(isStartProvider);
     final ipInfo = ref.watch(networkDetectionProvider.select((s) => s.ipInfo));
     final isLoading = ref.watch(
       networkDetectionProvider.select((s) => s.isLoading),
@@ -53,6 +54,7 @@ class _NetworkDetectionState extends ConsumerState<NetworkDetection> {
         title: appLocalizations.networkDetection,
         subtitle: appLocalizations.network,
         icon: SurgeIcons.networkCheck,
+        iconColor: isStart ? surge.primary : surge.inactive,
         height: getWidgetHeight(1),
         trailing: SizedBox.square(
           dimension: 28,

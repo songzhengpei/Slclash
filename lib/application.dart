@@ -12,6 +12,7 @@ import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/phase4_perf.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/theme/static_theme.dart';
 import 'package:fl_clash/theme/typography/text_theme.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/changelog_dialog.dart';
@@ -46,16 +47,15 @@ class ApplicationState extends ConsumerState<Application> {
     required Brightness brightness,
     required ThemeProps themeProps,
   }) {
-    final useDynamic = themeProps.dynamicColor;
-    final primaryColor = themeProps.primaryColor;
-    return ref.read(
-      genColorSchemeProvider(
+    if (!themeProps.dynamicColor) {
+      return StaticThemeSpec.resolve(
+        themeProps.primaryColor == legacyGraySeedColor
+            ? StaticThemePreset.grayBlack
+            : StaticThemePreset.blueWhite,
         brightness,
-        color: useDynamic
-            ? null
-            : (primaryColor == null ? null : Color(primaryColor)),
-      ),
-    );
+      ).colorScheme;
+    }
+    return ref.read(genColorSchemeProvider(brightness, color: null));
   }
 
   SurgeTheme _getSurgeTheme({
@@ -63,13 +63,16 @@ class ApplicationState extends ConsumerState<Application> {
     required ThemeProps themeProps,
     required ColorScheme colorScheme,
   }) {
-    if (themeProps.dynamicColor ||
-        themeProps.primaryColor == legacyGraySeedColor) {
+    if (themeProps.dynamicColor) {
       return SurgeTheme.fromColorScheme(colorScheme);
     }
-    return brightness == Brightness.dark
-        ? SurgeTheme.dark()
-        : SurgeTheme.light();
+    final spec = StaticThemeSpec.resolve(
+      themeProps.primaryColor == legacyGraySeedColor
+          ? StaticThemePreset.grayBlack
+          : StaticThemePreset.blueWhite,
+      brightness,
+    );
+    return SurgeTheme.fromColors(spec.colors, stateColors: spec.stateColors);
   }
 
   SystemUiOverlayStyle _getSystemUiOverlayStyle(SurgeTheme surge) {
@@ -116,14 +119,17 @@ class ApplicationState extends ConsumerState<Application> {
         if (states.contains(WidgetState.disabled)) {
           return surge.textSecondary.withValues(alpha: 0.45);
         }
-        return Colors.white;
+        if (states.contains(WidgetState.selected)) {
+          return surge.semantic.state.onToggleActive;
+        }
+        return surge.elevatedCard;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {
           return surge.textSecondary.withValues(alpha: 0.1);
         }
         if (states.contains(WidgetState.selected)) {
-          return surge.primary;
+          return surge.semantic.state.toggleActive;
         }
         return surge.fill;
       }),
@@ -164,43 +170,13 @@ class ApplicationState extends ConsumerState<Application> {
     required Brightness brightness,
     required ThemeProps themeProps,
   }) {
-    final useFixedSurge =
-        !themeProps.dynamicColor &&
-        themeProps.primaryColor != legacyGraySeedColor;
-    final fixedSurge = brightness == Brightness.dark
-        ? SurgeTheme.dark()
-        : SurgeTheme.light();
     final baseColorScheme = _getAppColorScheme(
       brightness: brightness,
       themeProps: themeProps,
     );
-    final colorScheme =
-        (brightness == Brightness.dark
-                ? baseColorScheme.toPureBlack(themeProps.pureBlack)
-                : baseColorScheme)
-            .copyWith(
-              primary: useFixedSurge ? fixedSurge.primary : null,
-              onPrimary: useFixedSurge ? fixedSurge.onPrimary : null,
-              primaryContainer: useFixedSurge ? fixedSurge.fill : null,
-              onPrimaryContainer: useFixedSurge ? fixedSurge.textPrimary : null,
-              secondary: useFixedSurge ? fixedSurge.textSecondary : null,
-              secondaryContainer: useFixedSurge ? fixedSurge.fill : null,
-              onSecondaryContainer: useFixedSurge
-                  ? fixedSurge.textPrimary
-                  : null,
-              tertiaryContainer: useFixedSurge ? fixedSurge.fill : null,
-              onTertiaryContainer: useFixedSurge
-                  ? fixedSurge.textPrimary
-                  : null,
-              surface: useFixedSurge ? fixedSurge.card : null,
-              surfaceContainerLowest: useFixedSurge ? fixedSurge.card : null,
-              surfaceContainerLow: useFixedSurge ? fixedSurge.card : null,
-              surfaceContainer: useFixedSurge ? fixedSurge.background : null,
-              surfaceContainerHigh: useFixedSurge ? fixedSurge.card : null,
-              surfaceContainerHighest: useFixedSurge ? fixedSurge.fill : null,
-              outline: useFixedSurge ? fixedSurge.separator : null,
-              outlineVariant: useFixedSurge ? fixedSurge.separator : null,
-            );
+    final colorScheme = brightness == Brightness.dark && themeProps.dynamicColor
+        ? baseColorScheme.toPureBlack(themeProps.pureBlack)
+        : baseColorScheme;
     final textTheme = buildSlclashTextTheme();
     final typography = SurgeTypography.fromTextTheme(textTheme);
     final surge = _getSurgeTheme(
@@ -248,7 +224,8 @@ class ApplicationState extends ConsumerState<Application> {
           brightness: currentBrightness,
           themeProps: themeProps,
         );
-        final overlayColorScheme = currentBrightness == Brightness.dark
+        final overlayColorScheme =
+            currentBrightness == Brightness.dark && themeProps.dynamicColor
             ? overlayBaseColorScheme.toPureBlack(themeProps.pureBlack)
             : overlayBaseColorScheme;
         final overlaySurge = _getSurgeTheme(

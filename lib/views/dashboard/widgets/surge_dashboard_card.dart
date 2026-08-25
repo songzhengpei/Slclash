@@ -8,6 +8,7 @@ class SurgeDashboardCard extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.icon,
+    this.iconColor,
     this.trailing,
     this.height,
     this.padding = const EdgeInsets.all(12),
@@ -16,6 +17,7 @@ class SurgeDashboardCard extends StatelessWidget {
   final String title;
   final String? subtitle;
   final IconData? icon;
+  final Color? iconColor;
   final Widget? trailing;
   final Widget child;
   final double? height;
@@ -37,7 +39,7 @@ class SurgeDashboardCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 17, color: surge.textSecondary),
+                  Icon(icon, size: 17, color: iconColor ?? surge.primary),
                   const SizedBox(width: 7),
                 ],
                 Expanded(

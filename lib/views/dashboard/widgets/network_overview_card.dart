@@ -484,7 +484,7 @@ class _OverviewTrafficTotals extends ConsumerWidget {
                 child: Icon(
                   SurgeIcons.traffic,
                   size: layout.textIcon(18),
-                  color: surge.textSecondary,
+                  color: isStart ? surge.primary : surge.inactive,
                 ),
               ),
             ),

@@ -56,6 +56,7 @@ class _ProvidersViewState extends ConsumerState<ProvidersView> {
         .toList();
 
     return AdaptiveSheetScaffold(
+      surfaceColor: surge.background,
       appBarActions: [
         SlAppBarIconAction(
           icon: SurgeIcons.sync,

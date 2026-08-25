@@ -1,7 +1,12 @@
 import 'dart:io';
 import 'dart:ui' show Tristate;
+import 'package:fl_clash/widgets/app_bar/sl_app_bar_action.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/theme/static_theme.dart';
 import 'package:fl_clash/theme/typography/text_theme.dart';
+import 'package:fl_clash/widgets/inherited.dart';
+import 'package:fl_clash/widgets/list.dart';
+import 'package:fl_clash/widgets/sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +35,7 @@ void main() {
       expect(surge.semantic.dashboardDynamicActive, const Color(0xFFA06B3B));
       expect(surge.semantic.dashboardActiveGreen, const Color(0xFF5BA66A));
       expect(surge.semantic.paused, const Color(0xFFDC851B));
+      expect(surge.semantic.state.profileActive, const Color(0xFF34C759));
       expect(surge.semantic.latencyGood, const Color(0xFFADDFAD));
       expect(surge.semantic.latencyMedium, const Color(0xFFF1C892));
       expect(surge.semantic.latencyBad, const Color(0xFFFFBBBD));
@@ -100,13 +106,16 @@ void main() {
       final dynamic = SurgeTheme.fromColorScheme(dynamicScheme);
 
       expect(dark.background, const Color(0xFF08090B));
-      expect(dark.primary, const Color(0xFF4DA3FF));
+      expect(dark.card, const Color(0xFF17191D));
+      expect(dark.elevatedCard, const Color(0xFF202328));
+      expect(dark.primary, const Color(0xFF67B0FF));
       expect(_typography().cardTitle.color, isNull);
       expect(dynamic.background, dynamicScheme.surface);
       expect(dynamic.card, dynamicScheme.surfaceContainerLow);
       expect(dynamic.primary, dynamicScheme.primary);
       expect(dynamic.textPrimary, dynamicScheme.onSurface);
       expect(dynamic.semantic.error, const Color(0xFFFF453A));
+      expect(dynamic.semantic.state.profileActive, dynamic.green);
       expect(dynamic.controls.minimumTapExtent, 44);
       expect(SurgeMotion.press, const Duration(milliseconds: 110));
       expect(SurgeMotion.container, const Duration(milliseconds: 220));
@@ -114,6 +123,139 @@ void main() {
   });
 
   group('Surge reusable controls', () {
+    testWidgets('custom switch consumes centralized active state colors', (
+      tester,
+    ) async {
+      for (final spec in StaticThemeSpec.values) {
+        final surge = SurgeTheme.fromColors(
+          spec.colors,
+          stateColors: spec.stateColors,
+        );
+        await tester.pumpWidget(
+          _host(SurgeSwitch(value: true, onChanged: (_) {}), surge: surge),
+        );
+        await tester.pumpAndSettle();
+
+        final decorations = tester
+            .widgetList<Container>(find.byType(Container))
+            .map((widget) => widget.decoration)
+            .whereType<BoxDecoration>()
+            .toList();
+        expect(
+          decorations.any(
+            (decoration) =>
+                decoration.color == surge.semantic.state.toggleActive,
+          ),
+          isTrue,
+        );
+        expect(
+          decorations.any(
+            (decoration) =>
+                decoration.color == surge.semantic.state.onToggleActive,
+          ),
+          isTrue,
+        );
+      }
+    });
+
+    testWidgets('bottom navigation retains the mainline selected capsule', (
+      tester,
+    ) async {
+      for (final spec in StaticThemeSpec.values) {
+        final surge = SurgeTheme.fromColors(
+          spec.colors,
+          stateColors: spec.stateColors,
+        );
+        await tester.pumpWidget(
+          _host(
+            SizedBox(
+              width: 360,
+              height: 100,
+              child: SurgeBottomNav(
+                currentIndex: 0,
+                items: const [
+                  SurgeBottomNavItem(
+                    icon: SurgeIcons.dashboardFilled,
+                    iconOutlined: SurgeIcons.dashboard,
+                    label: '仪表盘',
+                  ),
+                  SurgeBottomNavItem(
+                    icon: SurgeIcons.proxiesFilled,
+                    iconOutlined: SurgeIcons.proxiesOutlined,
+                    label: '代理',
+                  ),
+                ],
+                onTap: (_) {},
+              ),
+            ),
+            surge: surge,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AnimatedPositioned), findsOneWidget);
+        expect(
+          tester.widget<Icon>(find.byIcon(SurgeIcons.dashboardFilled)).color,
+          surge.primary,
+        );
+        expect(
+          tester.widget<Icon>(find.byIcon(SurgeIcons.proxiesOutlined)).color,
+          surge.textSecondary,
+        );
+        final navDecoration = tester
+            .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+            .map((widget) => widget.decoration)
+            .whereType<BoxDecoration>()
+            .singleWhere(
+              (decoration) =>
+                  decoration.color ==
+                  Color.alphaBlend(surge.navBar, surge.background),
+            );
+        expect(navDecoration.border!.top.color, surge.separator);
+      }
+    });
+
+    testWidgets('adaptive sheet can align its app bar and body surface', (
+      tester,
+    ) async {
+      const surface = Color(0xFF123456);
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(
+            height: 320,
+            child: SheetProvider(
+              type: SheetType.bottomSheet,
+              child: AdaptiveSheetScaffold(
+                title: 'Provider',
+                surfaceColor: surface,
+                appBarActions: [
+                  SlAppBarIconAction(icon: SurgeIcons.info, tooltip: 'Info'),
+                ],
+                body: ColoredBox(color: surface),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<AppBar>(find.byType(AppBar)).backgroundColor,
+        surface,
+      );
+      expect(
+        tester
+            .widgetList<ColoredBox>(find.byType(ColoredBox))
+            .where((widget) => widget.color == surface),
+        hasLength(2),
+      );
+      final sheetActionDecorations = tester
+          .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+          .map((widget) => widget.decoration)
+          .whereType<BoxDecoration>()
+          .where((decoration) => decoration.color == surface);
+      expect(sheetActionDecorations, hasLength(2));
+    });
+
     testWidgets('list surface keeps the established card geometry', (
       tester,
     ) async {
@@ -420,6 +562,57 @@ void main() {
       ).readAsStringSync();
       expect(themeSource, isNot(contains('class SurgeTextStyles')));
       expect(themeSource, isNot(contains('SurgeTypography typography')));
+
+      final bottomNav = File(
+        'lib/widgets/surge/surge_bottom_nav.dart',
+      ).readAsStringSync();
+      expect(bottomNav, contains('AnimatedPositioned'));
+      expect(bottomNav, contains('selected ? surge.primary'));
+
+      final profiles = File(
+        'lib/views/profiles/profiles.dart',
+      ).readAsStringSync();
+      expect(profiles, contains('color = surge.semantic.state.profileActive'));
+
+      final providers = File(
+        'lib/views/proxies/providers.dart',
+      ).readAsStringSync();
+      expect(providers, contains('surfaceColor: surge.background'));
+
+      final application = File('lib/application.dart').readAsStringSync();
+      expect(application, contains('semantic.state.toggleActive'));
+      expect(application, contains('semantic.state.onToggleActive'));
+
+      expect(dashboard, contains('semantic.state.heroStart'));
+      expect(dashboard, contains('semantic.state.heroPause'));
+      expect(dashboard, contains('semantic.state.heroStop'));
+      expect(dashboard, contains('semantic.state.onHeroAction'));
+
+      final dashboardCard = File(
+        'lib/views/dashboard/widgets/surge_dashboard_card.dart',
+      ).readAsStringSync();
+      final overviewCard = File(
+        'lib/views/dashboard/widgets/network_overview_card.dart',
+      ).readAsStringSync();
+      expect(
+        dashboardCard,
+        contains('Icon(icon, size: 17, color: iconColor ?? surge.primary)'),
+      );
+      expect(
+        overviewCard,
+        contains('color: isStart ? surge.primary : surge.inactive'),
+      );
+      final networkDetection = File(
+        'lib/views/dashboard/widgets/network_detection.dart',
+      ).readAsStringSync();
+      expect(
+        networkDetection,
+        contains('final isStart = ref.watch(isStartProvider)'),
+      );
+      expect(
+        networkDetection,
+        contains('iconColor: isStart ? surge.primary : surge.inactive'),
+      );
     },
   );
 }
