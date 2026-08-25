@@ -74,6 +74,20 @@ class SmartPausePolicyTest {
     }
 
     @Test
+    fun manualOverrideEndsWithSessionAndNextTrustedStartPauses() {
+        val policy = SmartPausePolicy()
+        policy.markManualResume(trusted = true)
+
+        policy.onSessionStopped()
+
+        assertFalse(policy.manualOverride)
+        assertEquals(
+            SmartPauseDecision.PAUSE,
+            policy.evaluate(enabled, SessionState.RUNNING, networkKnown = true, trusted = true),
+        )
+    }
+
+    @Test
     fun disablingOrClearingRulesResumesPausedSession() {
         val policy = SmartPausePolicy()
         assertEquals(

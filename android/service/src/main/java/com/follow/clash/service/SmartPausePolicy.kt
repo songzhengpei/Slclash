@@ -82,6 +82,10 @@ class SmartPausePolicy {
         manualOverride = trusted
     }
 
+    fun onSessionStopped() {
+        manualOverride = false
+    }
+
     fun evaluate(
         config: SmartPauseConfig,
         sessionState: String,

@@ -411,6 +411,16 @@ class RemoteService : Service(), CoroutineScope {
     }
 
     private fun applySession(snapshot: SessionSnapshot) {
+        if (snapshot.state == SessionState.STOPPED && smartPausePolicy.manualOverride) {
+            smartPausePolicy.onSessionStopped()
+            Phase4Mark.emit(
+                "smart_pause_override_changed",
+                mapOf(
+                    "manual_override" to false,
+                    "source" to "session_stopped",
+                ),
+            )
+        }
         State.snapshot = snapshot
         if (SessionState.keepsRemoteService(snapshot.state)) {
             runCatching { startService(Intent(this, RemoteService::class.java)) }
