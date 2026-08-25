@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/theme/static_theme.dart';
 import 'package:fl_clash/theme/typography/text_theme.dart';
+import 'package:fl_clash/widgets/inherited.dart';
 import 'package:fl_clash/widgets/list.dart';
 import 'package:fl_clash/widgets/sheet.dart';
 import 'package:flutter/material.dart';
@@ -192,7 +193,7 @@ void main() {
         expect(find.byType(AnimatedPositioned), findsOneWidget);
         expect(
           tester.widget<Icon>(find.byIcon(SurgeIcons.dashboardFilled)).color,
-          surge.textPrimary,
+          surge.primary,
         );
         expect(
           tester.widget<Icon>(find.byIcon(SurgeIcons.proxiesOutlined)).color,
@@ -217,10 +218,16 @@ void main() {
       const surface = Color(0xFF123456);
       await tester.pumpWidget(
         _host(
-          const AdaptiveSheetScaffold(
-            title: 'Provider',
-            surfaceColor: surface,
-            body: ColoredBox(color: surface),
+          const SizedBox(
+            height: 320,
+            child: SheetProvider(
+              type: SheetType.bottomSheet,
+              child: AdaptiveSheetScaffold(
+                title: 'Provider',
+                surfaceColor: surface,
+                body: ColoredBox(color: surface),
+              ),
+            ),
           ),
         ),
       );
@@ -232,8 +239,8 @@ void main() {
       expect(
         tester
             .widgetList<ColoredBox>(find.byType(ColoredBox))
-            .any((widget) => widget.color == surface),
-        isTrue,
+            .where((widget) => widget.color == surface),
+        hasLength(2),
       );
     });
 
@@ -548,7 +555,7 @@ void main() {
         'lib/widgets/surge/surge_bottom_nav.dart',
       ).readAsStringSync();
       expect(bottomNav, contains('AnimatedPositioned'));
-      expect(bottomNav, contains('selected ? surge.textPrimary'));
+      expect(bottomNav, contains('selected ? surge.primary'));
 
       final profiles = File(
         'lib/views/profiles/profiles.dart',
@@ -564,10 +571,10 @@ void main() {
       expect(application, contains('semantic.state.toggleActive'));
       expect(application, contains('semantic.state.onToggleActive'));
 
-      expect(dashboard, contains('baseColor = surge.green'));
-      expect(dashboard, contains('baseColor = surge.orange'));
-      expect(dashboard, contains('baseColor = surge.red'));
-      expect(dashboard, contains('color: Colors.white'));
+      expect(dashboard, contains('semantic.state.heroStart'));
+      expect(dashboard, contains('semantic.state.heroPause'));
+      expect(dashboard, contains('semantic.state.heroStop'));
+      expect(dashboard, contains('semantic.state.onHeroAction'));
 
       final dashboardCard = File(
         'lib/views/dashboard/widgets/surge_dashboard_card.dart',
@@ -579,7 +586,10 @@ void main() {
         dashboardCard,
         contains('Icon(icon, size: 17, color: surge.primary)'),
       );
-      expect(overviewCard, contains('color: surge.primary'));
+      expect(
+        overviewCard,
+        contains('color: isStart ? surge.primary : surge.inactive'),
+      );
     },
   );
 }

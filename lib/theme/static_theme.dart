@@ -104,7 +104,7 @@ class StaticThemeSpec {
       separator: Color(0xFFD8DBE0),
       fill: Color(0xFFEDEFF3),
       selectedFill: Color(0xFFE2EEFC),
-      navBar: Color(0xFFF8FBFF),
+      navBar: Color(0xFFE2EEFC),
       navBorder: Color(0xFFD3D7DD),
       shadow: Color(0x14000000),
       inactive: Color(0xFF6B7078),
@@ -116,7 +116,7 @@ class StaticThemeSpec {
       heroStart: Color(0xFF34C759),
       heroPause: Color(0xFFFF9500),
       heroStop: Color(0xFFFF3B30),
-      onHeroAction: Color(0xFF1C1C1E),
+      onHeroAction: Color(0xFFFFFFFF),
     ),
   );
 
@@ -138,7 +138,7 @@ class StaticThemeSpec {
       separator: Color(0xFF34383E),
       fill: Color(0xFF292D32),
       selectedFill: Color(0xFF35414D),
-      navBar: Color(0xFF17191D),
+      navBar: Color(0xFF35414D),
       navBorder: Color(0xFF363B42),
       shadow: Color(0x66000000),
       inactive: Color(0xFF7C8189),
@@ -150,7 +150,7 @@ class StaticThemeSpec {
       heroStart: Color(0xFF30D158),
       heroPause: Color(0xFFFF9F0A),
       heroStop: Color(0xFFFF453A),
-      onHeroAction: Color(0xFF08090B),
+      onHeroAction: Color(0xFFFFFFFF),
     ),
   );
 
@@ -172,7 +172,7 @@ class StaticThemeSpec {
       separator: Color(0xFFD6D5D0),
       fill: Color(0xFFF0EFEC),
       selectedFill: Color(0xFFE4E3DE),
-      navBar: Color(0xFFFFFFFF),
+      navBar: Color(0xFFF0EFEC),
       navBorder: Color(0xFFC8C7C1),
       shadow: Color(0x18000000),
       inactive: Color(0xFF6F6F6A),
@@ -184,7 +184,7 @@ class StaticThemeSpec {
       heroStart: Color(0xFF34C759),
       heroPause: Color(0xFFFF9500),
       heroStop: Color(0xFFFF3B30),
-      onHeroAction: Color(0xFF1F1F1D),
+      onHeroAction: Color(0xFFFFFFFF),
     ),
   );
 
@@ -206,7 +206,7 @@ class StaticThemeSpec {
       separator: Color(0xFF454543),
       fill: Color(0xFF313131),
       selectedFill: Color(0xFF3A3A39),
-      navBar: Color(0xFF20201F),
+      navBar: Color(0xFF2B2B2A),
       navBorder: Color(0xFF4B4B48),
       shadow: Color(0x8A000000),
       inactive: Color(0xFF91918C),
@@ -218,7 +218,7 @@ class StaticThemeSpec {
       heroStart: Color(0xFF30D158),
       heroPause: Color(0xFFFF9F0A),
       heroStop: Color(0xFFFF453A),
-      onHeroAction: Color(0xFF151515),
+      onHeroAction: Color(0xFFFFFFFF),
     ),
   );
 }
