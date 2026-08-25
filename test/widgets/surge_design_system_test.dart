@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' show Tristate;
+import 'package:fl_clash/widgets/app_bar/sl_app_bar_action.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/theme/static_theme.dart';
 import 'package:fl_clash/theme/typography/text_theme.dart';
@@ -34,6 +35,8 @@ void main() {
       expect(surge.semantic.dashboardDynamicActive, const Color(0xFFA06B3B));
       expect(surge.semantic.dashboardActiveGreen, const Color(0xFF5BA66A));
       expect(surge.semantic.paused, const Color(0xFFDC851B));
+      expect(surge.semantic.state.profileActive, const Color(0xFF31A864));
+      expect(surge.semantic.state.sheetActionTint, surge.primary);
       expect(surge.semantic.latencyGood, const Color(0xFFADDFAD));
       expect(surge.semantic.latencyMedium, const Color(0xFFF1C892));
       expect(surge.semantic.latencyBad, const Color(0xFFFFBBBD));
@@ -113,6 +116,8 @@ void main() {
       expect(dynamic.primary, dynamicScheme.primary);
       expect(dynamic.textPrimary, dynamicScheme.onSurface);
       expect(dynamic.semantic.error, const Color(0xFFFF453A));
+      expect(dynamic.semantic.state.profileActive, dynamic.green);
+      expect(dynamic.semantic.state.sheetActionTint, dynamic.textPrimary);
       expect(dynamic.controls.minimumTapExtent, 44);
       expect(SurgeMotion.press, const Duration(milliseconds: 110));
       expect(SurgeMotion.container, const Duration(milliseconds: 220));
@@ -225,6 +230,9 @@ void main() {
               child: AdaptiveSheetScaffold(
                 title: 'Provider',
                 surfaceColor: surface,
+                appBarActions: [
+                  SlAppBarIconAction(icon: SurgeIcons.info, tooltip: 'Info'),
+                ],
                 body: ColoredBox(color: surface),
               ),
             ),
@@ -242,6 +250,19 @@ void main() {
             .where((widget) => widget.color == surface),
         hasLength(2),
       );
+      final surge = SurgeTheme.light();
+      final expectedActionSurface = Color.alphaBlend(
+        surge.semantic.state.sheetActionTint.withValues(
+          alpha: surge.opacity.actionSurfaceLight,
+        ),
+        surge.card,
+      );
+      final sheetActionDecorations = tester
+          .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+          .map((widget) => widget.decoration)
+          .whereType<BoxDecoration>()
+          .where((decoration) => decoration.color == expectedActionSurface);
+      expect(sheetActionDecorations, hasLength(2));
     });
 
     testWidgets('list surface keeps the established card geometry', (
@@ -560,7 +581,7 @@ void main() {
       final profiles = File(
         'lib/views/profiles/profiles.dart',
       ).readAsStringSync();
-      expect(profiles, contains('color = surge.primary'));
+      expect(profiles, contains('color = surge.semantic.state.profileActive'));
 
       final providers = File(
         'lib/views/proxies/providers.dart',
@@ -584,11 +605,22 @@ void main() {
       ).readAsStringSync();
       expect(
         dashboardCard,
-        contains('Icon(icon, size: 17, color: surge.primary)'),
+        contains('Icon(icon, size: 17, color: iconColor ?? surge.primary)'),
       );
       expect(
         overviewCard,
         contains('color: isStart ? surge.primary : surge.inactive'),
+      );
+      final networkDetection = File(
+        'lib/views/dashboard/widgets/network_detection.dart',
+      ).readAsStringSync();
+      expect(
+        networkDetection,
+        contains('final isStart = ref.watch(isStartProvider)'),
+      );
+      expect(
+        networkDetection,
+        contains('iconColor: isStart ? surge.primary : surge.inactive'),
       );
     },
   );

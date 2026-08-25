@@ -298,6 +298,8 @@ class SurgeStateColors {
     required this.heroPause,
     required this.heroStop,
     required this.onHeroAction,
+    required this.profileActive,
+    required this.sheetActionTint,
   });
 
   final Color toggleActive;
@@ -306,6 +308,8 @@ class SurgeStateColors {
   final Color heroPause;
   final Color heroStop;
   final Color onHeroAction;
+  final Color profileActive;
+  final Color sheetActionTint;
 
   static SurgeStateColors lerp(
     SurgeStateColors a,
@@ -319,6 +323,8 @@ class SurgeStateColors {
       heroPause: Color.lerp(a.heroPause, b.heroPause, t)!,
       heroStop: Color.lerp(a.heroStop, b.heroStop, t)!,
       onHeroAction: Color.lerp(a.onHeroAction, b.onHeroAction, t)!,
+      profileActive: Color.lerp(a.profileActive, b.profileActive, t)!,
+      sheetActionTint: Color.lerp(a.sheetActionTint, b.sheetActionTint, t)!,
     );
   }
 }
@@ -373,6 +379,8 @@ class SurgeSemanticColors {
             heroPause: colors.orange,
             heroStop: colors.red,
             onHeroAction: Colors.white,
+            profileActive: colors.green,
+            sheetActionTint: colors.textPrimary,
           ),
     );
   }

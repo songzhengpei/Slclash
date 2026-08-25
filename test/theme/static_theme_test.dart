@@ -83,7 +83,7 @@ void main() {
       0xFFD8DBE0,
       0xFFEDEFF3,
       0xFFE2EEFC,
-      0xFFE2EEFC,
+      0xFFFFFFFF,
       0xFFD3D7DD,
       0x14000000,
       0xFF6B7078,
@@ -104,7 +104,7 @@ void main() {
       0xFF34383E,
       0xFF292D32,
       0xFF35414D,
-      0xFF35414D,
+      0xFF17191D,
       0xFF363B42,
       0x66000000,
       0xFF7C8189,
@@ -125,7 +125,7 @@ void main() {
       0xFFD6D5D0,
       0xFFF0EFEC,
       0xFFE4E3DE,
-      0xFFF0EFEC,
+      0xFFFFFFFF,
       0xFFC8C7C1,
       0x18000000,
       0xFF6F6F6A,
@@ -146,7 +146,7 @@ void main() {
       0xFF454543,
       0xFF313131,
       0xFF3A3A39,
-      0xFF2B2B2A,
+      0xFF20201F,
       0xFF4B4B48,
       0x8A000000,
       0xFF91918C,
@@ -173,10 +173,46 @@ void main() {
 
   test('static control states freeze four paired mappings', () {
     const expected = <List<int>>[
-      [0xFF0065CC, 0xFFFFFFFF, 0xFF34C759, 0xFFFF9500, 0xFFFF3B30, 0xFFFFFFFF],
-      [0xFF67B0FF, 0xFF071521, 0xFF30D158, 0xFFFF9F0A, 0xFFFF453A, 0xFFFFFFFF],
-      [0xFF74665A, 0xFFFFFFFF, 0xFF34C759, 0xFFFF9500, 0xFFFF3B30, 0xFFFFFFFF],
-      [0xFFB7A796, 0xFF151515, 0xFF30D158, 0xFFFF9F0A, 0xFFFF453A, 0xFFFFFFFF],
+      [
+        0xFF0065CC,
+        0xFFFFFFFF,
+        0xFF34C759,
+        0xFFFF9500,
+        0xFFFF3B30,
+        0xFFFFFFFF,
+        0xFF31A864,
+        0xFF0065CC,
+      ],
+      [
+        0xFF67B0FF,
+        0xFF071521,
+        0xFF30D158,
+        0xFFFF9F0A,
+        0xFFFF453A,
+        0xFFFFFFFF,
+        0xFF63D58A,
+        0xFF67B0FF,
+      ],
+      [
+        0xFF74665A,
+        0xFFFFFFFF,
+        0xFF34C759,
+        0xFFFF9500,
+        0xFFFF3B30,
+        0xFFFFFFFF,
+        0xFF477A59,
+        0xFF74665A,
+      ],
+      [
+        0xFFB7A796,
+        0xFF151515,
+        0xFF30D158,
+        0xFFFF9F0A,
+        0xFFFF453A,
+        0xFFFFFFFF,
+        0xFF6BA37D,
+        0xFFB7A796,
+      ],
     ];
 
     for (var index = 0; index < StaticThemeSpec.values.length; index++) {
@@ -188,6 +224,8 @@ void main() {
         state.heroPause,
         state.heroStop,
         state.onHeroAction,
+        state.profileActive,
+        state.sheetActionTint,
       ];
       expect(values.map((color) => color.toARGB32()), expected[index]);
       _expectContrast(state.onToggleActive, state.toggleActive, 4.5);
@@ -214,7 +252,7 @@ void main() {
           final channels = [red, green, blue]..sort();
           expect(channels.last - channels.first, lessThanOrEqualTo(16));
         }
-        expect(HSVColor.fromColor(colors.navBar).saturation, greaterThan(0.10));
+        expect(colors.navBar, colors.card);
         expect(
           HSVColor.fromColor(colors.primary).saturation,
           greaterThan(0.45),

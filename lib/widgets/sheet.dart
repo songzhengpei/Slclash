@@ -317,11 +317,13 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
         leading = Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: type == SheetType.bottomSheet
-              ? SoftOsActionButton(
-                  icon: SurgeIcons.close,
-                  tooltip: materialLocalizations.closeButtonTooltip,
-                  onPressed: leadingOnPressed,
-                  compact: true,
+              ? SoftOsSheetActionTemplate(
+                  child: SoftOsActionButton(
+                    icon: SurgeIcons.close,
+                    tooltip: materialLocalizations.closeButtonTooltip,
+                    onPressed: leadingOnPressed,
+                    compact: true,
+                  ),
                 )
               : SlAppBarIconButton(
                   icon: SurgeIcons.close,
@@ -360,12 +362,15 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       );
     }
 
-    final trailing = widget.appBarActions.isNotEmpty
+    final rawTrailing = widget.appBarActions.isNotEmpty
         ? SlAppBarActionsRenderer(
             actions: widget.appBarActions,
             softOs: type == SheetType.bottomSheet,
           )
         : null;
+    final trailing = rawTrailing != null && type == SheetType.bottomSheet
+        ? SoftOsSheetActionTemplate(child: rawTrailing)
+        : rawTrailing;
 
     final reserveSlots = leading != null || trailing != null;
     const slotWidth = 72.0;

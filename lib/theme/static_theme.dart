@@ -104,7 +104,7 @@ class StaticThemeSpec {
       separator: Color(0xFFD8DBE0),
       fill: Color(0xFFEDEFF3),
       selectedFill: Color(0xFFE2EEFC),
-      navBar: Color(0xFFE2EEFC),
+      navBar: Color(0xFFFFFFFF),
       navBorder: Color(0xFFD3D7DD),
       shadow: Color(0x14000000),
       inactive: Color(0xFF6B7078),
@@ -117,6 +117,8 @@ class StaticThemeSpec {
       heroPause: Color(0xFFFF9500),
       heroStop: Color(0xFFFF3B30),
       onHeroAction: Color(0xFFFFFFFF),
+      profileActive: Color(0xFF31A864),
+      sheetActionTint: Color(0xFF0065CC),
     ),
   );
 
@@ -138,7 +140,7 @@ class StaticThemeSpec {
       separator: Color(0xFF34383E),
       fill: Color(0xFF292D32),
       selectedFill: Color(0xFF35414D),
-      navBar: Color(0xFF35414D),
+      navBar: Color(0xFF17191D),
       navBorder: Color(0xFF363B42),
       shadow: Color(0x66000000),
       inactive: Color(0xFF7C8189),
@@ -151,6 +153,8 @@ class StaticThemeSpec {
       heroPause: Color(0xFFFF9F0A),
       heroStop: Color(0xFFFF453A),
       onHeroAction: Color(0xFFFFFFFF),
+      profileActive: Color(0xFF63D58A),
+      sheetActionTint: Color(0xFF67B0FF),
     ),
   );
 
@@ -172,7 +176,7 @@ class StaticThemeSpec {
       separator: Color(0xFFD6D5D0),
       fill: Color(0xFFF0EFEC),
       selectedFill: Color(0xFFE4E3DE),
-      navBar: Color(0xFFF0EFEC),
+      navBar: Color(0xFFFFFFFF),
       navBorder: Color(0xFFC8C7C1),
       shadow: Color(0x18000000),
       inactive: Color(0xFF6F6F6A),
@@ -185,6 +189,8 @@ class StaticThemeSpec {
       heroPause: Color(0xFFFF9500),
       heroStop: Color(0xFFFF3B30),
       onHeroAction: Color(0xFFFFFFFF),
+      profileActive: Color(0xFF477A59),
+      sheetActionTint: Color(0xFF74665A),
     ),
   );
 
@@ -206,7 +212,7 @@ class StaticThemeSpec {
       separator: Color(0xFF454543),
       fill: Color(0xFF313131),
       selectedFill: Color(0xFF3A3A39),
-      navBar: Color(0xFF2B2B2A),
+      navBar: Color(0xFF20201F),
       navBorder: Color(0xFF4B4B48),
       shadow: Color(0x8A000000),
       inactive: Color(0xFF91918C),
@@ -219,6 +225,8 @@ class StaticThemeSpec {
       heroPause: Color(0xFFFF9F0A),
       heroStop: Color(0xFFFF453A),
       onHeroAction: Color(0xFFFFFFFF),
+      profileActive: Color(0xFF6BA37D),
+      sheetActionTint: Color(0xFFB7A796),
     ),
   );
 }
