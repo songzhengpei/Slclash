@@ -1,5 +1,6 @@
 package com.follow.clash.service
 
+import com.follow.clash.service.modules.PhysicalNetworkSnapshot
 import com.follow.clash.service.models.SessionState
 
 data class SmartPauseConfig(
@@ -32,8 +33,13 @@ internal class BoundedRetrySchedule(private val delays: LongArray) {
     }
 }
 
-internal fun PausedResumeSource.enablesManualOverride(): Boolean =
-    this == PausedResumeSource.USER
+internal fun manualResumeTrusted(
+    source: PausedResumeSource,
+    network: PhysicalNetworkSnapshot?,
+    config: SmartPauseConfig,
+): Boolean = source == PausedResumeSource.USER && network?.let {
+    it.isKnown && TrustedNetworkMatcher.matchesAny(it.ipv4Addresses, config.trustedNetworks)
+} == true
 
 object TrustedNetworkMatcher {
     fun matchesAny(addresses: List<String>, networks: List<String>): Boolean =

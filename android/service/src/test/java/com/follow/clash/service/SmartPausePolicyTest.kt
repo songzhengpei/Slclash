@@ -1,6 +1,7 @@
 package com.follow.clash.service
 
 import com.follow.clash.service.models.SessionState
+import com.follow.clash.service.modules.PhysicalNetworkSnapshot
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -8,6 +9,18 @@ import kotlin.test.assertTrue
 
 class SmartPausePolicyTest {
     private val enabled = SmartPauseConfig(true, listOf("192.168.1.0/24"), true)
+    private val trustedNetwork = PhysicalNetworkSnapshot(
+        generation = 1,
+        networkId = 10,
+        transport = "wifi",
+        ipv4Addresses = listOf("192.168.1.10"),
+        dnsServers = emptyList(),
+    )
+    private val untrustedNetwork = trustedNetwork.copy(
+        generation = 2,
+        networkId = 11,
+        ipv4Addresses = listOf("10.0.0.10"),
+    )
 
     @Test
     fun trustedMatcherSupportsExactCidrMultipleAndInvalidRules() {
@@ -103,10 +116,31 @@ class SmartPausePolicyTest {
     }
 
     @Test
-    fun onlyUserResumeEnablesManualOverride() {
-        assertTrue(PausedResumeSource.USER.enablesManualOverride())
-        assertFalse(PausedResumeSource.POLICY.enablesManualOverride())
-        assertFalse(PausedResumeSource.RECOVERY.enablesManualOverride())
+    fun userResumeOnTrustedNetworkEnablesManualOverride() {
+        assertTrue(manualResumeTrusted(PausedResumeSource.USER, trustedNetwork, enabled))
+    }
+
+    @Test
+    fun userResumeOnUntrustedNetworkDoesNotEnableManualOverride() {
+        assertFalse(manualResumeTrusted(PausedResumeSource.USER, untrustedNetwork, enabled))
+    }
+
+    @Test
+    fun policyResumeNeverEnablesManualOverride() {
+        assertFalse(manualResumeTrusted(PausedResumeSource.POLICY, trustedNetwork, enabled))
+    }
+
+    @Test
+    fun userResumeOffTrustedThenEnteringTrustedPauses() {
+        val policy = SmartPausePolicy()
+        policy.markManualResume(
+            manualResumeTrusted(PausedResumeSource.USER, untrustedNetwork, enabled),
+        )
+        assertFalse(policy.manualOverride)
+        assertEquals(
+            SmartPauseDecision.PAUSE,
+            policy.evaluate(enabled, SessionState.RUNNING, networkKnown = true, trusted = true),
+        )
     }
 
     @Test

@@ -315,7 +315,9 @@ class RemoteService : Service(), CoroutineScope {
             source = source.name.lowercase(),
         )
         if (!success) return false
-        smartPausePolicy.markManualResume(source.enablesManualOverride())
+        smartPausePolicy.markManualResume(
+            manualResumeTrusted(source, latestPhysicalNetwork, smartPauseConfig),
+        )
         Phase4Mark.emit(
             "smart_pause_override_changed",
             mapOf(
