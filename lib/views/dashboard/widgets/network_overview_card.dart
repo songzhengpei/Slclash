@@ -317,7 +317,7 @@ class _OverviewHeader extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             child: Icon(
               SurgeIcons.network,
-              color: isStart ? surge.primary : surge.inactive,
+              color: surge.primary,
               size: layout.textIcon(18),
             ),
           ),
@@ -484,7 +484,7 @@ class _OverviewTrafficTotals extends ConsumerWidget {
                 child: Icon(
                   SurgeIcons.traffic,
                   size: layout.textIcon(18),
-                  color: surge.textSecondary,
+                  color: surge.primary,
                 ),
               ),
             ),

@@ -724,12 +724,12 @@ class _HeroActionButton extends StatelessWidget {
     if (isSmartPaused ||
         isSmartResuming ||
         label == context.appLocalizations.pausing) {
-      baseColor = surge.semantic.state.heroPause;
+      baseColor = surge.orange;
     } else if ((isStart && !loading) ||
         label == context.appLocalizations.stopping) {
-      baseColor = surge.semantic.state.heroStop;
+      baseColor = surge.red;
     } else {
-      baseColor = surge.semantic.state.heroStart;
+      baseColor = surge.green;
     }
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -777,7 +777,7 @@ class _HeroActionButton extends StatelessWidget {
                       Text(
                         label,
                         style: context.typography.controlLabel.copyWith(
-                          color: surge.semantic.state.onHeroAction,
+                          color: Colors.white,
                         ),
                       ),
                       // Animated dots during loading

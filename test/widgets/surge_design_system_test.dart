@@ -154,63 +154,62 @@ void main() {
       }
     });
 
-    testWidgets(
-      'bottom navigation uses mode roles without a selected capsule',
-      (tester) async {
-        for (final spec in StaticThemeSpec.values) {
-          final surge = SurgeTheme.fromColors(
-            spec.colors,
-            stateColors: spec.stateColors,
-          );
-          await tester.pumpWidget(
-            _host(
-              SizedBox(
-                width: 360,
-                height: 100,
-                child: SurgeBottomNav(
-                  currentIndex: 0,
-                  items: const [
-                    SurgeBottomNavItem(
-                      icon: SurgeIcons.dashboardFilled,
-                      iconOutlined: SurgeIcons.dashboard,
-                      label: '仪表盘',
-                    ),
-                    SurgeBottomNavItem(
-                      icon: SurgeIcons.proxiesFilled,
-                      iconOutlined: SurgeIcons.proxiesOutlined,
-                      label: '代理',
-                    ),
-                  ],
-                  onTap: (_) {},
-                ),
+    testWidgets('bottom navigation retains the mainline selected capsule', (
+      tester,
+    ) async {
+      for (final spec in StaticThemeSpec.values) {
+        final surge = SurgeTheme.fromColors(
+          spec.colors,
+          stateColors: spec.stateColors,
+        );
+        await tester.pumpWidget(
+          _host(
+            SizedBox(
+              width: 360,
+              height: 100,
+              child: SurgeBottomNav(
+                currentIndex: 0,
+                items: const [
+                  SurgeBottomNavItem(
+                    icon: SurgeIcons.dashboardFilled,
+                    iconOutlined: SurgeIcons.dashboard,
+                    label: '仪表盘',
+                  ),
+                  SurgeBottomNavItem(
+                    icon: SurgeIcons.proxiesFilled,
+                    iconOutlined: SurgeIcons.proxiesOutlined,
+                    label: '代理',
+                  ),
+                ],
+                onTap: (_) {},
               ),
-              surge: surge,
             ),
-          );
-          await tester.pumpAndSettle();
+            surge: surge,
+          ),
+        );
+        await tester.pumpAndSettle();
 
-          expect(find.byType(AnimatedPositioned), findsNothing);
-          expect(
-            tester.widget<Icon>(find.byIcon(SurgeIcons.dashboardFilled)).color,
-            surge.primary,
-          );
-          expect(
-            tester.widget<Icon>(find.byIcon(SurgeIcons.proxiesOutlined)).color,
-            surge.textSecondary,
-          );
-          final navDecoration = tester
-              .widgetList<DecoratedBox>(find.byType(DecoratedBox))
-              .map((widget) => widget.decoration)
-              .whereType<BoxDecoration>()
-              .singleWhere(
-                (decoration) =>
-                    decoration.color ==
-                    Color.alphaBlend(surge.navBar, surge.background),
-              );
-          expect(navDecoration.border!.top.color, surge.navBorder);
-        }
-      },
-    );
+        expect(find.byType(AnimatedPositioned), findsOneWidget);
+        expect(
+          tester.widget<Icon>(find.byIcon(SurgeIcons.dashboardFilled)).color,
+          surge.textPrimary,
+        );
+        expect(
+          tester.widget<Icon>(find.byIcon(SurgeIcons.proxiesOutlined)).color,
+          surge.textSecondary,
+        );
+        final navDecoration = tester
+            .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+            .map((widget) => widget.decoration)
+            .whereType<BoxDecoration>()
+            .singleWhere(
+              (decoration) =>
+                  decoration.color ==
+                  Color.alphaBlend(surge.navBar, surge.background),
+            );
+        expect(navDecoration.border!.top.color, surge.separator);
+      }
+    });
 
     testWidgets('adaptive sheet can align its app bar and body surface', (
       tester,
@@ -548,8 +547,8 @@ void main() {
       final bottomNav = File(
         'lib/widgets/surge/surge_bottom_nav.dart',
       ).readAsStringSync();
-      expect(bottomNav, isNot(contains('AnimatedPositioned')));
-      expect(bottomNav, contains('selected ? surge.primary'));
+      expect(bottomNav, contains('AnimatedPositioned'));
+      expect(bottomNav, contains('selected ? surge.textPrimary'));
 
       final profiles = File(
         'lib/views/profiles/profiles.dart',
@@ -565,10 +564,22 @@ void main() {
       expect(application, contains('semantic.state.toggleActive'));
       expect(application, contains('semantic.state.onToggleActive'));
 
-      expect(dashboard, contains('semantic.state.heroStart'));
-      expect(dashboard, contains('semantic.state.heroPause'));
-      expect(dashboard, contains('semantic.state.heroStop'));
-      expect(dashboard, contains('semantic.state.onHeroAction'));
+      expect(dashboard, contains('baseColor = surge.green'));
+      expect(dashboard, contains('baseColor = surge.orange'));
+      expect(dashboard, contains('baseColor = surge.red'));
+      expect(dashboard, contains('color: Colors.white'));
+
+      final dashboardCard = File(
+        'lib/views/dashboard/widgets/surge_dashboard_card.dart',
+      ).readAsStringSync();
+      final overviewCard = File(
+        'lib/views/dashboard/widgets/network_overview_card.dart',
+      ).readAsStringSync();
+      expect(
+        dashboardCard,
+        contains('Icon(icon, size: 17, color: surge.primary)'),
+      );
+      expect(overviewCard, contains('color: surge.primary'));
     },
   );
 }

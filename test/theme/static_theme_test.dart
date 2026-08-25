@@ -114,7 +114,7 @@ void main() {
       0xFFF9F9F7,
       0xFFFFFFFF,
       0xFFFCFCFA,
-      0xFF2B2B2A,
+      0xFF74665A,
       0xFFFFFFFF,
       0xFF237A3B,
       0xFF6551A3,
@@ -135,7 +135,7 @@ void main() {
       0xFF151515,
       0xFF20201F,
       0xFF2B2B2A,
-      0xFFF9F9F7,
+      0xFFB7A796,
       0xFF151515,
       0xFF51B969,
       0xFFB9A0E8,
@@ -282,7 +282,7 @@ void main() {
     }
   });
 
-  test('gray-black decorative roles are neutral and contain no coral', () {
+  test('gray-black surfaces stay neutral while primary matches controls', () {
     for (final spec in StaticThemeSpec.values.where(
       (spec) => spec.preset == StaticThemePreset.grayBlack,
     )) {
@@ -291,7 +291,6 @@ void main() {
         colors.background,
         colors.card,
         colors.elevatedCard,
-        colors.primary,
         colors.onPrimary,
         colors.textPrimary,
         colors.textSecondary,
@@ -308,6 +307,8 @@ void main() {
         expect(HSVColor.fromColor(color).saturation, lessThan(0.08));
         expect(color, isNot(const Color(0xFFD97757)));
       }
+      expect(colors.primary, spec.stateColors.toggleActive);
+      expect(HSVColor.fromColor(colors.primary).saturation, greaterThan(0.10));
     }
   });
 

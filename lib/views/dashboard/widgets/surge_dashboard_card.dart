@@ -37,7 +37,7 @@ class SurgeDashboardCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 17, color: surge.textSecondary),
+                  Icon(icon, size: 17, color: surge.primary),
                   const SizedBox(width: 7),
                 ],
                 Expanded(
