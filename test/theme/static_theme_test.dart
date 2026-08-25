@@ -178,10 +178,9 @@ void main() {
         0xFFFFFFFF,
         0xFF34C759,
         0xFFFF9500,
-        0xFFFF3B30,
+        0xFFBA1A1A,
         0xFFFFFFFF,
-        0xFF31A864,
-        0xFF0065CC,
+        0xFF34C759,
       ],
       [
         0xFF67B0FF,
@@ -190,18 +189,16 @@ void main() {
         0xFFFF9F0A,
         0xFFFF453A,
         0xFFFFFFFF,
-        0xFF63D58A,
-        0xFF67B0FF,
+        0xFF30D158,
       ],
       [
         0xFF74665A,
         0xFFFFFFFF,
         0xFF34C759,
         0xFFFF9500,
-        0xFFFF3B30,
+        0xFFBA1A1A,
         0xFFFFFFFF,
-        0xFF477A59,
-        0xFF74665A,
+        0xFF34C759,
       ],
       [
         0xFFB7A796,
@@ -210,8 +207,7 @@ void main() {
         0xFFFF9F0A,
         0xFFFF453A,
         0xFFFFFFFF,
-        0xFF6BA37D,
-        0xFFB7A796,
+        0xFF30D158,
       ],
     ];
 
@@ -225,10 +221,29 @@ void main() {
         state.heroStop,
         state.onHeroAction,
         state.profileActive,
-        state.sheetActionTint,
       ];
       expect(values.map((color) => color.toARGB32()), expected[index]);
       _expectContrast(state.onToggleActive, state.toggleActive, 4.5);
+    }
+  });
+
+  test('static hero states exactly match dynamic-color state colors', () {
+    for (final spec in StaticThemeSpec.values) {
+      final state = spec.stateColors;
+      for (final variant in DynamicSchemeVariant.values) {
+        final dynamic = SurgeTheme.fromColorScheme(
+          ColorScheme.fromSeed(
+            seedColor: const Color(0xFF6750A4),
+            brightness: spec.brightness,
+            dynamicSchemeVariant: variant,
+          ),
+        ).semantic.state;
+        expect(state.heroStart, dynamic.heroStart);
+        expect(state.heroPause, dynamic.heroPause);
+        expect(state.heroStop, dynamic.heroStop);
+        expect(state.onHeroAction, dynamic.onHeroAction);
+        expect(state.profileActive, dynamic.profileActive);
+      }
     }
   });
 

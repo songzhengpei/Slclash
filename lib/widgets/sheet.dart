@@ -318,6 +318,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: type == SheetType.bottomSheet
               ? SoftOsSheetActionTemplate(
+                  surfaceColor: backgroundColor,
                   child: SoftOsActionButton(
                     icon: SurgeIcons.close,
                     tooltip: materialLocalizations.closeButtonTooltip,
@@ -369,7 +370,10 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
           )
         : null;
     final trailing = rawTrailing != null && type == SheetType.bottomSheet
-        ? SoftOsSheetActionTemplate(child: rawTrailing)
+        ? SoftOsSheetActionTemplate(
+            surfaceColor: backgroundColor,
+            child: rawTrailing,
+          )
         : rawTrailing;
 
     final reserveSlots = leading != null || trailing != null;

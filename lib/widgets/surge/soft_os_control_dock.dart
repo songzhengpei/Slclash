@@ -19,16 +19,23 @@ class SoftOsAppBarActionTemplate extends InheritedWidget {
 
 /// Marks the lightweight controls placed in a bottom sheet's title bar.
 class SoftOsSheetActionTemplate extends InheritedWidget {
-  const SoftOsSheetActionTemplate({super.key, required super.child});
+  const SoftOsSheetActionTemplate({
+    super.key,
+    required this.surfaceColor,
+    required super.child,
+  });
 
-  static bool active(BuildContext context) {
+  final Color surfaceColor;
+
+  static Color? surfaceOf(BuildContext context) {
     return context
-            .dependOnInheritedWidgetOfExactType<SoftOsSheetActionTemplate>() !=
-        null;
+        .dependOnInheritedWidgetOfExactType<SoftOsSheetActionTemplate>()
+        ?.surfaceColor;
   }
 
   @override
-  bool updateShouldNotify(SoftOsSheetActionTemplate oldWidget) => false;
+  bool updateShouldNotify(SoftOsSheetActionTemplate oldWidget) =>
+      oldWidget.surfaceColor != surfaceColor;
 }
 
 Color _softOsActionSurface(BuildContext context) {
@@ -40,11 +47,12 @@ Color _softOsActionSurface(BuildContext context) {
       surge.background,
     );
   }
-  final tint = SoftOsSheetActionTemplate.active(context)
-      ? surge.semantic.state.sheetActionTint
-      : surge.textPrimary;
+  final sheetSurface = SoftOsSheetActionTemplate.surfaceOf(context);
+  if (sheetSurface != null) {
+    return sheetSurface;
+  }
   return Color.alphaBlend(
-    tint.withValues(
+    surge.textPrimary.withValues(
       alpha: isDark
           ? surge.opacity.actionSurfaceDark
           : surge.opacity.actionSurfaceLight,
@@ -59,10 +67,7 @@ Color _softOsActionBorder(BuildContext context) {
   if (SoftOsAppBarActionTemplate.active(context)) {
     return surge.separator;
   }
-  final tint = SoftOsSheetActionTemplate.active(context)
-      ? surge.semantic.state.sheetActionTint
-      : surge.textPrimary;
-  return tint.withValues(
+  return surge.textPrimary.withValues(
     alpha: isDark
         ? surge.opacity.actionBorderDark
         : surge.opacity.actionBorderLight,

@@ -115,10 +115,8 @@ class StaticThemeSpec {
       onToggleActive: Color(0xFFFFFFFF),
       heroStart: Color(0xFF34C759),
       heroPause: Color(0xFFFF9500),
-      heroStop: Color(0xFFFF3B30),
+      heroStop: Color(0xFFBA1A1A),
       onHeroAction: Color(0xFFFFFFFF),
-      profileActive: Color(0xFF31A864),
-      sheetActionTint: Color(0xFF0065CC),
     ),
   );
 
@@ -153,8 +151,6 @@ class StaticThemeSpec {
       heroPause: Color(0xFFFF9F0A),
       heroStop: Color(0xFFFF453A),
       onHeroAction: Color(0xFFFFFFFF),
-      profileActive: Color(0xFF63D58A),
-      sheetActionTint: Color(0xFF67B0FF),
     ),
   );
 
@@ -187,10 +183,8 @@ class StaticThemeSpec {
       onToggleActive: Color(0xFFFFFFFF),
       heroStart: Color(0xFF34C759),
       heroPause: Color(0xFFFF9500),
-      heroStop: Color(0xFFFF3B30),
+      heroStop: Color(0xFFBA1A1A),
       onHeroAction: Color(0xFFFFFFFF),
-      profileActive: Color(0xFF477A59),
-      sheetActionTint: Color(0xFF74665A),
     ),
   );
 
@@ -225,8 +219,6 @@ class StaticThemeSpec {
       heroPause: Color(0xFFFF9F0A),
       heroStop: Color(0xFFFF453A),
       onHeroAction: Color(0xFFFFFFFF),
-      profileActive: Color(0xFF6BA37D),
-      sheetActionTint: Color(0xFFB7A796),
     ),
   );
 }

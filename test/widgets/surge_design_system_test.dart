@@ -35,8 +35,7 @@ void main() {
       expect(surge.semantic.dashboardDynamicActive, const Color(0xFFA06B3B));
       expect(surge.semantic.dashboardActiveGreen, const Color(0xFF5BA66A));
       expect(surge.semantic.paused, const Color(0xFFDC851B));
-      expect(surge.semantic.state.profileActive, const Color(0xFF31A864));
-      expect(surge.semantic.state.sheetActionTint, surge.primary);
+      expect(surge.semantic.state.profileActive, const Color(0xFF34C759));
       expect(surge.semantic.latencyGood, const Color(0xFFADDFAD));
       expect(surge.semantic.latencyMedium, const Color(0xFFF1C892));
       expect(surge.semantic.latencyBad, const Color(0xFFFFBBBD));
@@ -117,7 +116,6 @@ void main() {
       expect(dynamic.textPrimary, dynamicScheme.onSurface);
       expect(dynamic.semantic.error, const Color(0xFFFF453A));
       expect(dynamic.semantic.state.profileActive, dynamic.green);
-      expect(dynamic.semantic.state.sheetActionTint, dynamic.textPrimary);
       expect(dynamic.controls.minimumTapExtent, 44);
       expect(SurgeMotion.press, const Duration(milliseconds: 110));
       expect(SurgeMotion.container, const Duration(milliseconds: 220));
@@ -250,18 +248,11 @@ void main() {
             .where((widget) => widget.color == surface),
         hasLength(2),
       );
-      final surge = SurgeTheme.light();
-      final expectedActionSurface = Color.alphaBlend(
-        surge.semantic.state.sheetActionTint.withValues(
-          alpha: surge.opacity.actionSurfaceLight,
-        ),
-        surge.card,
-      );
       final sheetActionDecorations = tester
           .widgetList<DecoratedBox>(find.byType(DecoratedBox))
           .map((widget) => widget.decoration)
           .whereType<BoxDecoration>()
-          .where((decoration) => decoration.color == expectedActionSurface);
+          .where((decoration) => decoration.color == surface);
       expect(sheetActionDecorations, hasLength(2));
     });
 
