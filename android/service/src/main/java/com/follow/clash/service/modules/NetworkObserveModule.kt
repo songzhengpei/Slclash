@@ -196,18 +196,29 @@ class NetworkObserveModule(private val service: Service) : Module() {
         }
     }
 
-    private fun isDnsEligible(network: Network): Boolean {
+    private fun isGeneralPurposeNetwork(network: Network): Boolean {
         val capabilities = connectivity?.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
     }
+
+    private fun isDnsEligible(network: Network): Boolean = isGeneralPurposeNetwork(network)
+
+    private fun physicalSelectionKey(entry: Map.Entry<Network, NetworkInfo>) =
+        physicalNetworkSelectionKey(
+            transport = networkTransport(entry.key),
+            available = entry.value.isAvailable(),
+            generalPurpose = isGeneralPurposeNetwork(entry.key),
+            hasIpv4 = entry.value.ipv4List.isNotEmpty(),
+            networkHandle = entry.key.networkHandle,
+        )
 
     private fun applyNetworkUpdate(eventGeneration: Long): PhysicalNetworkSnapshot? {
         if (!generation.isCurrent(eventGeneration)) {
             Phase4Mark.emit("network_update_skipped", mapOf("reason" to "stale_generation"))
             return null
         }
-        val physicalPrimary = networkInfos.asSequence().minByOrNull { networkToInt(it) }
+        val physicalPrimary = networkInfos.asSequence().minByOrNull(::physicalSelectionKey)
         val dnsPrimary = networkInfos.asSequence()
             .filter { isDnsEligible(it.key) }
             .minByOrNull { networkToInt(it) }
@@ -235,6 +246,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 "network_known" to snapshot.isKnown,
                 "ip_count" to snapshot.ipv4Addresses.size,
                 "candidate_count" to networkInfos.size,
+                "general_purpose" to physicalPrimary?.key?.let(::isGeneralPurposeNetwork),
             ),
         )
         PhysicalNetworkControlPlane.publish(snapshot)

@@ -25,6 +25,36 @@ internal fun physicalNetworkRank(transport: String, available: Boolean): Int {
     return transportRank + if (available) 0 else 10
 }
 
+internal data class PhysicalNetworkSelectionKey(
+    val physicalRank: Int,
+    val generalPurposeRank: Int,
+    val ipv4ReadinessRank: Int,
+    val networkHandle: Long,
+) : Comparable<PhysicalNetworkSelectionKey> {
+    override fun compareTo(other: PhysicalNetworkSelectionKey): Int =
+        compareValuesBy(
+            this,
+            other,
+            PhysicalNetworkSelectionKey::physicalRank,
+            PhysicalNetworkSelectionKey::generalPurposeRank,
+            PhysicalNetworkSelectionKey::ipv4ReadinessRank,
+            PhysicalNetworkSelectionKey::networkHandle,
+        )
+}
+
+internal fun physicalNetworkSelectionKey(
+    transport: String,
+    available: Boolean,
+    generalPurpose: Boolean,
+    hasIpv4: Boolean,
+    networkHandle: Long,
+): PhysicalNetworkSelectionKey = PhysicalNetworkSelectionKey(
+    physicalRank = physicalNetworkRank(transport, available),
+    generalPurposeRank = if (generalPurpose) 0 else 1,
+    ipv4ReadinessRank = if (hasIpv4) 0 else 1,
+    networkHandle = networkHandle,
+)
+
 /**
  * Process-local fan-out for the single ConnectivityManager observer.
  * The remote service registers the lifecycle consumer; DNS remains local to
