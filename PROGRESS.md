@@ -1,0 +1,42 @@
+# PROGRESS
+
+- 2026-08-25 开工核验完成：分支 `beta`。
+- `git status --short` 仅有用户资产 `core/Clash.Meta` 脏状态，保持不动。
+- ADB 设备 `0604B44041A00540` 在线（1440×3200/600dpi 待截图复核）。
+- `surge_design_system_test.dart`：12/12 通过，skip=0。
+- `flutter test test\\theme`：13/13 通过，skip=0。
+- `flutter analyze`：71 info、0 warning、0 error，与任务基线一致。
+- 现有 debug APK 已 `adb install -r` 成功，仅启动 `com.slclash.app.dev`。
+- 用户新增订阅后明确要求重采；before 12/12 已覆盖为订阅已加载状态，代理页固定在列表顶部。
+- 首页公网 IP 区仍按四套同位置遮蔽；代理页未出现订阅 URL/账号等私人字段。
+- 设备原始设置已记录：夜间模式 `auto`、亮度 `153`；任务结束恢复/复核。
+- 下一项：查看 Claude 参考图并冻结 19 角色×4 套映射。
+- 任务 1 完成：`StaticThemeSpec` 以同一 resolver/结构冻结 4 套×19 角色；灰黑锚点为 `#F9F9F7/#FFFFFF/#F0EFEC` 与 `#151515/#20201F/#2B2B2A/#313131`。
+- 蓝白沿相同明度阶梯注入冷灰/蓝黑和克制蓝；绿/紫/橙/红只保留语义角色且两预设一致。
+- 对比测试首轮发现蓝白浅色次文字在 selectedFill 上 4.407:1，已将 `#5E6A76` 微调为 `#56636F`，7/7 全绿。
+- 下一项：完成集中接线与全量聚焦测试，然后执行指定的表面退化红→绿证明。
+- 任务 2 完成：静态预设直接产出完整 `ColorScheme + SurgeTheme`；灰黑不再进入 provider/fromSeed monochrome，动态 `SurgeColors.fromColorScheme` 映射未改。
+- 原设计系统 12/12、`test/theme` 20/20（合计 32、skip=0）通过；analyze 仍为 71 info、0 warning、0 error。
+- 红测证据：临时令 blue-light `card=background=#F7F9FC`，角色表与“5 个表面均不同”两项测试立即失败；还原后静态测试 7/7 全绿。
+- 下一项：arm64 debug 构建安装，采集订阅已加载状态的 12 张 after 并生成 12 组并排图。
+- 任务 3 完成：arm64 debug APK 构建成功、`adb install -r` 成功，仅安装/启动 `com.slclash.app.dev`。
+- after 12/12 与 `compare_*` 12/12 已生成于 `.dev-tools/theme-review/after/`；订阅列表顶部状态一致，首页 IP 同位置遮蔽。
+- 真机调色/对比共 1 轮；另重拍 1 次消除切换主题触发的持久提示，无需第二轮调色。
+- 已恢复 debug 包 `自动明暗 + 动态取色`；设备夜间模式复核为 `auto`（亮度由设备自动从记录时 153 变为 125，未人工修改）。
+- 最终测试：设计系统 12/12、theme 20/20，合计 32、skip=0；analyze 71 info、0 warning、0 error。
+- `BLOCKED.md`：无；最终审计白名单外 diff=0（仅保留任务前已有的 `core/Clash.Meta` 用户脏状态）。
+- 第二轮开工：用户批准 Surge iOS 式蓝白与状态控件方案；本轮计为第 2 次调色，最多再允许 1 次。
+- 第二轮基线：设备 `0604B44041A00540` 在线，1440×3200；夜间模式 `auto`、自动亮度开启、亮度读数 209，结束时恢复复核。
+- 第一版聚焦基线仍为设计系统 12/12、theme 20/20；旧 APK 保留至 round2 before 补采结束。
+- `.dev-tools/theme-review/before/round2/` 已建立；蓝白浅色首页/主题页沿用第一版 after，配置 pill 与 Provider 原始基线已补采，私人信息将在交付图中遮蔽。
+- 第二轮集中实现完成：蓝白 19 角色按批准值冻结；4 套新增集中式 Switch/首页动作状态映射，动态主题仍走原 `primary/onPrimary`。
+- 底栏改为 navBar/navBorder + primary/textSecondary 且移除选中胶囊；当前配置 pill 改用 primary；Provider 标题与内容统一 background、卡片保持 card。
+- 第二轮静态主题新增测试当前 9/9 全绿；下一项为设计系统测试、表面退化红→绿证明及剩余 before 真机采集。
+- 第二轮设计系统测试新增底栏与 Sheet 角色验证；修正测试主题切换动画后 14/14 全绿，skip=0。
+- 第二轮红测证据：临时令 blue-light `card=background=#F2F3F7`，冻结 19 角色与“5 个表面各异”两项立即失败（实际集合仅 4 项）；已还原 `card=#FFFFFF`，待复跑绿测。
+- 红测还原后 `static_theme_test.dart` 9/9、`test/theme` 22/22 全绿；与设计系统 14/14 合计 36、skip=0。
+- round2 before 已按 4 套×6 状态采齐 24 张（计划文字写“20 组”但逐项实际列出 6 状态，按更严格的 24 组执行）；运行态、配置订阅、Provider 名称/用量均已局部模糊遮蔽。
+- 下一项：analyze、arm64 debug 构建安装，然后按同状态采集 24 张 after 与并排图。
+- `flutter analyze` 首跑 73 info（新增 2 条 `prefer_const_declarations`）；改为 const 后复跑恢复 71 info、0 warning、0 error。
+- arm64 debug APK 构建成功并 `adb install -r` 成功；首轮 after 24/24 与 compare 24/24 已生成并完成隐私遮蔽。
+- 真机对照发现主题页自定义 `SurgeSwitch` 绕过 `SwitchThemeData`，灰黑开启态未进入棕褐映射；按批准的通用 Switch 范围补接同一集中状态映射，需复测/重建并只重拍受影响的 4 张开启态及对应 compare。

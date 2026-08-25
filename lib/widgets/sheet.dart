@@ -130,6 +130,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
   final bool sheetTransparentToolBar;
   final List<SlAppBarAction> appBarActions;
   final VoidCallback? backAction;
+  final Color? surfaceColor;
 
   const AdaptiveSheetScaffold({
     super.key,
@@ -138,6 +139,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     this.sheetTransparentToolBar = false,
     this.appBarActions = const [],
     this.backAction,
+    this.surfaceColor,
   });
 
   @override
@@ -190,9 +192,11 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     final nestedNavigatorPop = sheetProvider?.nestedNavigatorPop;
     final ModalRoute<dynamic>? route = ModalRoute.of(context);
     final type = sheetProvider?.type ?? SheetType.page;
-    final backgroundColor = type == SheetType.bottomSheet
-        ? context.colorScheme.surfaceContainerLow
-        : context.colorScheme.surface;
+    final backgroundColor =
+        widget.surfaceColor ??
+        (type == SheetType.bottomSheet
+            ? context.colorScheme.surfaceContainerLow
+            : context.colorScheme.surface);
     final useCloseIcon =
         type != SheetType.page &&
         (nestedNavigatorPop != null && route?.impliesAppBarDismissal == false ||

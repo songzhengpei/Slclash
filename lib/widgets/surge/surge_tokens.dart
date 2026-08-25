@@ -26,54 +26,6 @@ class SurgeColors {
     required this.inactiveVariant,
   });
 
-  factory SurgeColors.light() {
-    return const SurgeColors(
-      background: Color(0xFFF2F3F7),
-      card: Color(0xFFFFFFFF),
-      elevatedCard: Color(0xFFFFFFFF),
-      primary: Color(0xFF0A84FF),
-      onPrimary: Color(0xFFFFFFFF),
-      green: Color(0xFF34C759),
-      purple: Color(0xFFAF52DE),
-      orange: Color(0xFFFF9500),
-      red: Color(0xFFFF3B30),
-      textPrimary: Color(0xFF1C1C1E),
-      textSecondary: Color(0xFF8E8E93),
-      separator: Color(0xFFE5E5EA),
-      fill: Color(0xFFF1F2F5),
-      selectedFill: Color(0xFFE9EAEE),
-      navBar: Color(0xF0FFFFFF),
-      navBorder: Color(0x0D000000),
-      shadow: Color(0x14000000),
-      inactive: Color(0xFF858681),
-      inactiveVariant: Color(0xFFA5A6A1),
-    );
-  }
-
-  factory SurgeColors.dark() {
-    return const SurgeColors(
-      background: Color(0xFF08090B),
-      card: Color(0xFF17191D),
-      elevatedCard: Color(0xFF202328),
-      primary: Color(0xFF4DA3FF),
-      onPrimary: Color(0xFFFFFFFF),
-      green: Color(0xFF30D158),
-      purple: Color(0xFFBF5AF2),
-      orange: Color(0xFFFF9F0A),
-      red: Color(0xFFFF453A),
-      textPrimary: Color(0xFFF5F5F7),
-      textSecondary: Color(0xFF9A9AA0),
-      separator: Color(0xFF30343A),
-      fill: Color(0xFF22252A),
-      selectedFill: Color(0xFF2B2F35),
-      navBar: Color(0xF01B1D21),
-      navBorder: Color(0x26FFFFFF),
-      shadow: Color(0x66000000),
-      inactive: Color(0xFF777A7F),
-      inactiveVariant: Color(0xFF9B9EA3),
-    );
-  }
-
   factory SurgeColors.fromColorScheme(ColorScheme scheme) {
     final dark = scheme.brightness == Brightness.dark;
     return SurgeColors(
@@ -338,6 +290,40 @@ class SurgeSpacing {
 /// constants.  Keeping the original values makes this a rendering-equivalent
 /// refactor for fixed and dynamic themes.
 @immutable
+class SurgeStateColors {
+  const SurgeStateColors({
+    required this.toggleActive,
+    required this.onToggleActive,
+    required this.heroStart,
+    required this.heroPause,
+    required this.heroStop,
+    required this.onHeroAction,
+  });
+
+  final Color toggleActive;
+  final Color onToggleActive;
+  final Color heroStart;
+  final Color heroPause;
+  final Color heroStop;
+  final Color onHeroAction;
+
+  static SurgeStateColors lerp(
+    SurgeStateColors a,
+    SurgeStateColors b,
+    double t,
+  ) {
+    return SurgeStateColors(
+      toggleActive: Color.lerp(a.toggleActive, b.toggleActive, t)!,
+      onToggleActive: Color.lerp(a.onToggleActive, b.onToggleActive, t)!,
+      heroStart: Color.lerp(a.heroStart, b.heroStart, t)!,
+      heroPause: Color.lerp(a.heroPause, b.heroPause, t)!,
+      heroStop: Color.lerp(a.heroStop, b.heroStop, t)!,
+      onHeroAction: Color.lerp(a.onHeroAction, b.onHeroAction, t)!,
+    );
+  }
+}
+
+@immutable
 class SurgeSemanticColors {
   const SurgeSemanticColors({
     required this.connected,
@@ -355,9 +341,13 @@ class SurgeSemanticColors {
     required this.statusLightActive,
     required this.statusLightError,
     required this.profileSelectionBorderFixed,
+    required this.state,
   });
 
-  factory SurgeSemanticColors.regular(SurgeColors colors) {
+  factory SurgeSemanticColors.regular(
+    SurgeColors colors, {
+    SurgeStateColors? state,
+  }) {
     return SurgeSemanticColors(
       connected: const Color(0xFF2FAA67),
       connecting: const Color(0xFF2FAA67),
@@ -374,6 +364,16 @@ class SurgeSemanticColors {
       statusLightActive: const Color(0xFF7BFFB2),
       statusLightError: const Color(0xFFFF8A80),
       profileSelectionBorderFixed: const Color(0xFFD8DAE0),
+      state:
+          state ??
+          SurgeStateColors(
+            toggleActive: colors.primary,
+            onToggleActive: colors.onPrimary,
+            heroStart: colors.green,
+            heroPause: colors.orange,
+            heroStop: colors.red,
+            onHeroAction: Colors.white,
+          ),
     );
   }
 
@@ -392,6 +392,7 @@ class SurgeSemanticColors {
   final Color statusLightActive;
   final Color statusLightError;
   final Color profileSelectionBorderFixed;
+  final SurgeStateColors state;
 
   static SurgeSemanticColors lerp(
     SurgeSemanticColors a,
@@ -438,6 +439,7 @@ class SurgeSemanticColors {
         b.profileSelectionBorderFixed,
         t,
       )!,
+      state: SurgeStateColors.lerp(a.state, b.state, t),
     );
   }
 }

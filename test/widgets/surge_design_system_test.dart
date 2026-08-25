@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'dart:ui' show Tristate;
 import 'package:fl_clash/widgets/surge/surge.dart';
+import 'package:fl_clash/theme/static_theme.dart';
 import 'package:fl_clash/theme/typography/text_theme.dart';
+import 'package:fl_clash/widgets/list.dart';
+import 'package:fl_clash/widgets/sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,7 +103,9 @@ void main() {
       final dynamic = SurgeTheme.fromColorScheme(dynamicScheme);
 
       expect(dark.background, const Color(0xFF08090B));
-      expect(dark.primary, const Color(0xFF4DA3FF));
+      expect(dark.card, const Color(0xFF17191D));
+      expect(dark.elevatedCard, const Color(0xFF202328));
+      expect(dark.primary, const Color(0xFF67B0FF));
       expect(_typography().cardTitle.color, isNull);
       expect(dynamic.background, dynamicScheme.surface);
       expect(dynamic.card, dynamicScheme.surfaceContainerLow);
@@ -114,6 +119,125 @@ void main() {
   });
 
   group('Surge reusable controls', () {
+    testWidgets('custom switch consumes centralized active state colors', (
+      tester,
+    ) async {
+      for (final spec in StaticThemeSpec.values) {
+        final surge = SurgeTheme.fromColors(
+          spec.colors,
+          stateColors: spec.stateColors,
+        );
+        await tester.pumpWidget(
+          _host(SurgeSwitch(value: true, onChanged: (_) {}), surge: surge),
+        );
+        await tester.pumpAndSettle();
+
+        final decorations = tester
+            .widgetList<Container>(find.byType(Container))
+            .map((widget) => widget.decoration)
+            .whereType<BoxDecoration>()
+            .toList();
+        expect(
+          decorations.any(
+            (decoration) =>
+                decoration.color == surge.semantic.state.toggleActive,
+          ),
+          isTrue,
+        );
+        expect(
+          decorations.any(
+            (decoration) =>
+                decoration.color == surge.semantic.state.onToggleActive,
+          ),
+          isTrue,
+        );
+      }
+    });
+
+    testWidgets(
+      'bottom navigation uses mode roles without a selected capsule',
+      (tester) async {
+        for (final spec in StaticThemeSpec.values) {
+          final surge = SurgeTheme.fromColors(
+            spec.colors,
+            stateColors: spec.stateColors,
+          );
+          await tester.pumpWidget(
+            _host(
+              SizedBox(
+                width: 360,
+                height: 100,
+                child: SurgeBottomNav(
+                  currentIndex: 0,
+                  items: const [
+                    SurgeBottomNavItem(
+                      icon: SurgeIcons.dashboardFilled,
+                      iconOutlined: SurgeIcons.dashboard,
+                      label: '仪表盘',
+                    ),
+                    SurgeBottomNavItem(
+                      icon: SurgeIcons.proxiesFilled,
+                      iconOutlined: SurgeIcons.proxiesOutlined,
+                      label: '代理',
+                    ),
+                  ],
+                  onTap: (_) {},
+                ),
+              ),
+              surge: surge,
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.byType(AnimatedPositioned), findsNothing);
+          expect(
+            tester.widget<Icon>(find.byIcon(SurgeIcons.dashboardFilled)).color,
+            surge.primary,
+          );
+          expect(
+            tester.widget<Icon>(find.byIcon(SurgeIcons.proxiesOutlined)).color,
+            surge.textSecondary,
+          );
+          final navDecoration = tester
+              .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+              .map((widget) => widget.decoration)
+              .whereType<BoxDecoration>()
+              .singleWhere(
+                (decoration) =>
+                    decoration.color ==
+                    Color.alphaBlend(surge.navBar, surge.background),
+              );
+          expect(navDecoration.border!.top.color, surge.navBorder);
+        }
+      },
+    );
+
+    testWidgets('adaptive sheet can align its app bar and body surface', (
+      tester,
+    ) async {
+      const surface = Color(0xFF123456);
+      await tester.pumpWidget(
+        _host(
+          const AdaptiveSheetScaffold(
+            title: 'Provider',
+            surfaceColor: surface,
+            body: ColoredBox(color: surface),
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<AppBar>(find.byType(AppBar)).backgroundColor,
+        surface,
+      );
+      expect(
+        tester
+            .widgetList<ColoredBox>(find.byType(ColoredBox))
+            .any((widget) => widget.color == surface),
+        isTrue,
+      );
+    });
+
     testWidgets('list surface keeps the established card geometry', (
       tester,
     ) async {
@@ -420,6 +544,31 @@ void main() {
       ).readAsStringSync();
       expect(themeSource, isNot(contains('class SurgeTextStyles')));
       expect(themeSource, isNot(contains('SurgeTypography typography')));
+
+      final bottomNav = File(
+        'lib/widgets/surge/surge_bottom_nav.dart',
+      ).readAsStringSync();
+      expect(bottomNav, isNot(contains('AnimatedPositioned')));
+      expect(bottomNav, contains('selected ? surge.primary'));
+
+      final profiles = File(
+        'lib/views/profiles/profiles.dart',
+      ).readAsStringSync();
+      expect(profiles, contains('color = surge.primary'));
+
+      final providers = File(
+        'lib/views/proxies/providers.dart',
+      ).readAsStringSync();
+      expect(providers, contains('surfaceColor: surge.background'));
+
+      final application = File('lib/application.dart').readAsStringSync();
+      expect(application, contains('semantic.state.toggleActive'));
+      expect(application, contains('semantic.state.onToggleActive'));
+
+      expect(dashboard, contains('semantic.state.heroStart'));
+      expect(dashboard, contains('semantic.state.heroPause'));
+      expect(dashboard, contains('semantic.state.heroStop'));
+      expect(dashboard, contains('semantic.state.onHeroAction'));
     },
   );
 }

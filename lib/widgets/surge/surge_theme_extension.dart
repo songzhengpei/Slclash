@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/static_theme.dart';
+
 import 'surge_tokens.dart';
 
 export '../../theme/typography/typography_context.dart';
@@ -34,67 +36,23 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
   });
 
   factory SurgeTheme.light() {
-    final colors = SurgeColors.light();
-    return SurgeTheme(
-      background: colors.background,
-      card: colors.card,
-      elevatedCard: colors.elevatedCard,
-      primary: colors.primary,
-      onPrimary: colors.onPrimary,
-      green: colors.green,
-      purple: colors.purple,
-      orange: colors.orange,
-      red: colors.red,
-      textPrimary: colors.textPrimary,
-      textSecondary: colors.textSecondary,
-      separator: colors.separator,
-      fill: colors.fill,
-      selectedFill: colors.selectedFill,
-      navBar: colors.navBar,
-      navBorder: colors.navBorder,
-      shadow: colors.shadow,
-      inactive: colors.inactive,
-      inactiveVariant: colors.inactiveVariant,
-      radii: SurgeRadii.regular(),
-      spacing: SurgeSpacing.regular(),
-      semantic: SurgeSemanticColors.regular(colors),
-      controls: SurgeControlSizes.regular(),
-      opacity: SurgeOpacity.regular(),
-    );
+    const spec = StaticThemeSpec.blueWhiteLight;
+    return SurgeTheme.fromColors(spec.colors, stateColors: spec.stateColors);
   }
 
   factory SurgeTheme.dark() {
-    final colors = SurgeColors.dark();
-    return SurgeTheme(
-      background: colors.background,
-      card: colors.card,
-      elevatedCard: colors.elevatedCard,
-      primary: colors.primary,
-      onPrimary: colors.onPrimary,
-      green: colors.green,
-      purple: colors.purple,
-      orange: colors.orange,
-      red: colors.red,
-      textPrimary: colors.textPrimary,
-      textSecondary: colors.textSecondary,
-      separator: colors.separator,
-      fill: colors.fill,
-      selectedFill: colors.selectedFill,
-      navBar: colors.navBar,
-      navBorder: colors.navBorder,
-      shadow: colors.shadow,
-      inactive: colors.inactive,
-      inactiveVariant: colors.inactiveVariant,
-      radii: SurgeRadii.regular(),
-      spacing: SurgeSpacing.regular(),
-      semantic: SurgeSemanticColors.regular(colors),
-      controls: SurgeControlSizes.regular(),
-      opacity: SurgeOpacity.regular(),
-    );
+    const spec = StaticThemeSpec.blueWhiteDark;
+    return SurgeTheme.fromColors(spec.colors, stateColors: spec.stateColors);
   }
 
   factory SurgeTheme.fromColorScheme(ColorScheme colorScheme) {
-    final colors = SurgeColors.fromColorScheme(colorScheme);
+    return SurgeTheme.fromColors(SurgeColors.fromColorScheme(colorScheme));
+  }
+
+  factory SurgeTheme.fromColors(
+    SurgeColors colors, {
+    SurgeStateColors? stateColors,
+  }) {
     return SurgeTheme(
       background: colors.background,
       card: colors.card,
@@ -117,7 +75,7 @@ class SurgeTheme extends ThemeExtension<SurgeTheme> {
       inactiveVariant: colors.inactiveVariant,
       radii: SurgeRadii.regular(),
       spacing: SurgeSpacing.regular(),
-      semantic: SurgeSemanticColors.regular(colors),
+      semantic: SurgeSemanticColors.regular(colors, state: stateColors),
       controls: SurgeControlSizes.regular(),
       opacity: SurgeOpacity.regular(),
     );

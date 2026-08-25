@@ -578,13 +578,15 @@ class SurgeSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final surge = SurgeTheme.of(context);
     final enabled = onChanged != null;
-    final knobColor = enabled
-        ? surge.elevatedCard
-        : surge.textSecondary.withValues(alpha: 0.5);
+    final knobColor = !enabled
+        ? surge.textSecondary.withValues(alpha: 0.5)
+        : value
+        ? surge.semantic.state.onToggleActive
+        : surge.elevatedCard;
     final trackColor = !enabled
         ? surge.textSecondary.withValues(alpha: 0.1)
         : value
-        ? surge.primary
+        ? surge.semantic.state.toggleActive
         : surge.fill;
     final knobAlign = value ? Alignment.centerRight : Alignment.centerLeft;
 

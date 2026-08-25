@@ -630,14 +630,8 @@ class HeroActiveFillState extends State<HeroActiveFill>
   void initState() {
     super.initState();
     _displayed = widget.activeFill;
-    _controller = AnimationController(
-      vsync: this,
-      duration: _heroFillDuration,
-    );
-    _curve = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutCubic,
-    );
+    _controller = AnimationController(vsync: this, duration: _heroFillDuration);
+    _curve = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
     _controller.addStatusListener(_onStatus);
   }
 
@@ -730,12 +724,12 @@ class _HeroActionButton extends StatelessWidget {
     if (isSmartPaused ||
         isSmartResuming ||
         label == context.appLocalizations.pausing) {
-      baseColor = surge.orange;
+      baseColor = surge.semantic.state.heroPause;
     } else if ((isStart && !loading) ||
         label == context.appLocalizations.stopping) {
-      baseColor = surge.red;
+      baseColor = surge.semantic.state.heroStop;
     } else {
-      baseColor = surge.green;
+      baseColor = surge.semantic.state.heroStart;
     }
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -783,7 +777,7 @@ class _HeroActionButton extends StatelessWidget {
                       Text(
                         label,
                         style: context.typography.controlLabel.copyWith(
-                          color: Colors.white,
+                          color: surge.semantic.state.onHeroAction,
                         ),
                       ),
                       // Animated dots during loading

@@ -1024,7 +1024,7 @@ class _CurrentProfileStatusPill extends ConsumerWidget {
             (snapshot.freshness == ProxyGroupsFreshnessState.fresh ||
                 snapshot.freshness == ProxyGroupsFreshnessState.stale))) {
       label = context.appLocalizations.currentlyUsed;
-      color = surge.green;
+      color = surge.primary;
       loading = false;
     } else if (snapshot.freshness == ProxyGroupsFreshnessState.refreshing ||
         (groupsOwnerProfileId != null && groupsOwnerProfileId != profileId)) {
