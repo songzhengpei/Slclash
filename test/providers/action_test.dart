@@ -562,6 +562,62 @@ void main() {
       expect(shouldDeferInitCoreGroups('STARTING'), isFalse);
     });
 
+    test('cold explicit Start has exactly one profile activation actor', () {
+      var activationActors = 0;
+      if (shouldInitCoreForceApply(
+        wasInitialized: false,
+        deferGroupSetup: false,
+        callerOwnsProfileActivation: true,
+        hasCurrentProfile: true,
+        groupsNeedRefresh: true,
+      )) {
+        activationActors++;
+      }
+      activationActors++; // SetupAction.updateStatus owns explicit Start.
+      expect(activationActors, 1);
+    });
+
+    test('init side effect cannot supersede explicit Start activation', () {
+      expect(
+        shouldInitCoreForceApply(
+          wasInitialized: true,
+          deferGroupSetup: false,
+          callerOwnsProfileActivation: true,
+          hasCurrentProfile: true,
+          groupsNeedRefresh: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('non-Start init profile behavior is unchanged', () {
+      expect(
+        shouldInitCoreForceApply(
+          wasInitialized: false,
+          deferGroupSetup: false,
+          callerOwnsProfileActivation: false,
+          hasCurrentProfile: true,
+          groupsNeedRefresh: true,
+        ),
+        isTrue,
+      );
+      expect(
+        shouldInitCoreForceApply(
+          wasInitialized: true,
+          deferGroupSetup: false,
+          callerOwnsProfileActivation: false,
+          hasCurrentProfile: true,
+          groupsNeedRefresh: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('PAUSED display attach remains independently authoritative', () {
+      expect(shouldAttachCoreWithoutVpnSetup('PAUSED'), isTrue);
+      expect(shouldDeferInitCoreGroups('PAUSED'), isFalse);
+    });
+
     test('PAUSED restores smart-stop UI without the RUNNING fast path', () {
       expect(shouldRestoreSmartPaused('PAUSED'), isTrue);
       expect(shouldRestoreSmartPaused('STOPPED', smartPaused: true), isTrue);

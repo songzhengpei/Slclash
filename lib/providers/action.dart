@@ -229,6 +229,20 @@ bool shouldDeferInitCoreGroups(String? sessionState) {
   return sessionState == 'RUNNING';
 }
 
+@visibleForTesting
+bool shouldInitCoreForceApply({
+  required bool wasInitialized,
+  required bool deferGroupSetup,
+  required bool callerOwnsProfileActivation,
+  required bool hasCurrentProfile,
+  required bool groupsNeedRefresh,
+}) {
+  if (deferGroupSetup || callerOwnsProfileActivation || !hasCurrentProfile) {
+    return false;
+  }
+  return !wasInitialized || groupsNeedRefresh;
+}
+
 bool shouldRestoreSmartPaused(
   String? sessionState, {
   bool smartPaused = false,
@@ -2033,7 +2047,10 @@ class CoreAction extends _$CoreAction {
   @override
   void build() {}
 
-  Future<void> initCore({bool deferGroupSetup = false}) async {
+  Future<void> initCore({
+    bool deferGroupSetup = false,
+    bool callerOwnsProfileActivation = false,
+  }) async {
     final wasInitialized = await coreController.isInit;
     final ready = await ensureCoreReady();
     StartupTrace.mark('ensureCoreReady');
@@ -2043,8 +2060,14 @@ class CoreAction extends _$CoreAction {
     }
     if (!wasInitialized) {
       final profileId = ref.read(currentProfileIdProvider);
-      if (profileId != null) {
-        ref.invalidate(clashConfigProvider(profileId));
+      if (shouldInitCoreForceApply(
+        wasInitialized: false,
+        deferGroupSetup: false,
+        callerOwnsProfileActivation: callerOwnsProfileActivation,
+        hasCurrentProfile: profileId != null,
+        groupsNeedRefresh: true,
+      )) {
+        ref.invalidate(clashConfigProvider(profileId!));
         unawaited(
           ref
               .read(proxiesActionProvider.notifier)
@@ -2054,9 +2077,17 @@ class CoreAction extends _$CoreAction {
     } else {
       final profileId = ref.read(currentProfileIdProvider);
       final ownerId = ref.read(groupsOwnerProfileIdProvider);
-      if (profileId != null &&
-          (ownerId != profileId || ref.read(groupsProvider).isEmpty)) {
-        ref.invalidate(clashConfigProvider(profileId));
+      final groupsNeedRefresh =
+          profileId != null &&
+          (ownerId != profileId || ref.read(groupsProvider).isEmpty);
+      if (shouldInitCoreForceApply(
+        wasInitialized: true,
+        deferGroupSetup: false,
+        callerOwnsProfileActivation: callerOwnsProfileActivation,
+        hasCurrentProfile: profileId != null,
+        groupsNeedRefresh: groupsNeedRefresh,
+      )) {
+        ref.invalidate(clashConfigProvider(profileId!));
         unawaited(
           ref
               .read(proxiesActionProvider.notifier)
@@ -2185,8 +2216,9 @@ class CoreAction extends _$CoreAction {
     await coreController.shutdown(!isDisconnected);
     final connected = await connectCore();
     if (!connected) return false;
-    await initCore();
-    if (start || ref.read(isStartProvider)) {
+    final callerOwnsProfileActivation = start || ref.read(isStartProvider);
+    await initCore(callerOwnsProfileActivation: callerOwnsProfileActivation);
+    if (callerOwnsProfileActivation) {
       await ref
           .read(setupActionProvider.notifier)
           .updateStatus(true, isInit: true);
