@@ -502,6 +502,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('节点体检'), findsOneWidget);
+      expect(find.byKey(const Key('media-check-header-icon')), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('media-check-run-button'))),
+        const Size(48, 48),
+      );
       expect(find.text('Daily'), findsOneWidget);
       expect(find.text('GPT'), findsWidgets);
       expect(find.text('YouTube'), findsWidgets);
