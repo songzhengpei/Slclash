@@ -2,9 +2,9 @@
 
 > 版本：1.0
 > 日期：2026-07-19
-> 状态：供人工审核的实施冻结稿
+> 状态：已落地。本文件是当时的实施冻结稿；迁移结果见 `docs/design/typography-migration-report.md`。文中“本阶段不修改 Dart”只描述冻结当时的范围，不代表当前代码仍未迁移。
 > 范围：Android、简体中文与英文
-> 前置文档：`docs/typography-audit.md`
+> 前置文档：`docs/design/typography-audit.md`
 
 ## 1. 执行摘要
 

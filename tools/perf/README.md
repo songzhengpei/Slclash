@@ -44,7 +44,7 @@ Subcommands: `env`, `cold-start`, `memory`, `jank`, `vpn`, `background`, `power`
 
 ```powershell
 python tools/perf/phase4.py compare --baseline .perf-captures/phase4/old/result.json --current .perf-captures/phase4/latest.json
-python tools/perf/phase4.py navigation --build-mode profile --write-nav-baseline-doc docs/phase4-b0-navigation-baseline.md
+python tools/perf/phase4.py navigation --build-mode profile --write-nav-baseline-doc docs/phase4/phase4-b0-navigation-baseline.md
 python tools/perf/phase4.py navigation --build-mode profile --nav-session running
 python tools/perf/phase4.py proxy --build-mode profile --proxy-session idle --delay-max 20
 python tools/perf/phase4.py proxy --build-mode profile --proxy-session running --delay-max 20
@@ -76,25 +76,25 @@ Failures (`no_adb`, `no_device`, `multiple_devices`, `app_not_installed`, `pid_m
 
 Device runs write to `.perf-captures/phase4/` (`result.json`, `summary.md`, plus `latest.json` / `latest.md`). That directory is gitignored.
 
-Committed: `schema/result.schema.json`, `schema/example-result.json`, `docs/phase4-a0-baseline.md`, `docs/phase4-a1-startup.md`, `docs/phase4-a2-running-reattach.md`, `docs/phase4-b0-motion-navigation-audit.md`, `docs/phase4-b0-navigation-baseline.md`, `docs/phase4-b1-active-navigation.md`, `docs/phase4-b-final-closeout.md`, `docs/phase4-c0-proxy-group-baseline.md`, `docs/phase4-c1a-mihomo-group-correctness.md`, `docs/phase4-c1b-proxy-performance-evidence.md`, `docs/phase4-c-final-closeout.md`, `docs/phase4-d0-runtime-polling-ipc-baseline.md`, `docs/phase4-e0-vpn-lifecycle-baseline.md`.
+Committed with this harness: `schema/`, `results/` (selected captures), and `collect_android_perf.ps1` (one-shot dumpsys dump). Formal Phase 4 reports live in [`docs/phase4/`](../../docs/phase4/); index: [`docs/README.md`](../../docs/README.md).
 
 Phase status:
 
 - Phase 4A (Startup): **CLOSED**
-- Phase 4B (Navigation / Page Mounting): **CLOSED** — `docs/phase4-b-final-closeout.md`
-- Phase 4C (Proxy / Group UX): **CLOSED** — `docs/phase4-c-final-closeout.md`
-- Phase 4D (Runtime Polling / Core IPC): **CLOSED**
-- Phase 4E (VPN Lifecycle): **CLOSED** — `docs/phase4-e-final-closeout.md`
-- Phase 4F (Background / Power): **CURRENT — 4F.0 audit/instrumentation baseline only.**
+- Phase 4B (Navigation / Page Mounting): **CLOSED** — `docs/phase4/phase4-b-final-closeout.md`
+- Phase 4C (Proxy / Group UX): **CLOSED** — `docs/phase4/phase4-c-final-closeout.md`
+- Phase 4D (Runtime Polling / Core IPC): **CLOSED** — `docs/phase4/phase4-d-final-closeout.md`
+- Phase 4E (VPN Lifecycle): **CLOSED** — `docs/phase4/phase4-e-final-closeout.md`
+- Phase 4F (Background / Power): **CURRENT — 4F.0 audit/instrumentation baseline only.** — `docs/phase4/phase4-f0-background-power-baseline.md`
 - Phase 4G (Animation polish): **FUTURE**
 
 Phase 4D.0 IPC: `python tools/perf/phase4.py ipc --ipc-session idle|running`. Never force-stops. `all` does not include `ipc`.
 
 Phase 4E.0 VPN lifecycle: `python tools/perf/phase4.py vpn --build-mode profile --vpn-scenario all`. The command mutates only the selected profile/debug test package, begins from a known STOPPED state, and retains each state/TUN/PID observation plus filtered raw marks. It does not classify observation flags as product bugs. `all` does not include this scenario.
 
-Phase 4C.0 audit: `python tools/perf/phase4.py proxy`. Never force-stops. `all` does not include `proxy`. See `docs/phase4-c0-proxy-group-baseline.md`.
+Phase 4C.0 audit: `python tools/perf/phase4.py proxy`. Never force-stops. `all` does not include `proxy`. See `docs/phase4/phase4-c0-proxy-group-baseline.md`.
 
-Phase 4C.1B evidence: same `proxy` command. Extra event-scoped dumps and selection traces are on by default (`--proxy-evidence`). `--delay-sizes 20,100` for IDLE; RUNNING should stay at 20. See `docs/phase4-c1b-proxy-performance-evidence.md`. These commands remain as retained diagnostic infrastructure.
+Phase 4C.1B evidence: same `proxy` command. Extra event-scoped dumps and selection traces are on by default (`--proxy-evidence`). `--delay-sizes 20,100` for IDLE; RUNNING should stay at 20. See `docs/phase4/phase4-c1b-proxy-performance-evidence.md`. These commands remain as retained diagnostic infrastructure.
 
 ## App instrumentation
 

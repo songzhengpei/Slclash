@@ -66,7 +66,7 @@ foreach ($entry in @(
     }
 }
 
-Write-Section $summaryPath "cpuinfo" (Invoke-AdbText shell "dumpsys cpuinfo | grep follow.clash || true")
+Write-Section $summaryPath "cpuinfo" (Invoke-AdbText shell "dumpsys cpuinfo | grep '$Package' || true")
 
 if (!$SkipBatteryStats) {
     if ($ResetBatteryStats) {

@@ -37,9 +37,10 @@ Phase 4C does **not** cover:
 
 Authoritative slice docs:
 
-- 4C.0: `docs/phase4-c0-proxy-group-baseline.md`
-- 4C.1A: `docs/phase4-c1a-mihomo-group-correctness.md`
-- 4C.1B: `docs/phase4-c1b-proxy-performance-evidence.md`
+- 4C.0: `docs/phase4/phase4-c0-proxy-group-baseline.md`
+- 4C.1A: `docs/phase4/phase4-c1a-mihomo-group-correctness.md`
+- 4C.1B: `docs/phase4/phase4-c1b-proxy-performance-evidence.md`
+- Background scheduler audit: `docs/phase4/phase4-c-background-scheduler-audit.md`
 
 ## 3. What Phase 4C Fixed
 
@@ -58,7 +59,7 @@ Product correctness work (4C.1A + follow-ups), not 4C.1C performance rewrites:
 
 ## 4. Performance Result
 
-Source: 4C.1B IDLE profile capture (`docs/phase4-c1b-proxy-performance-evidence.md`). Device `25042PN24C` / Android 16. Package `com.slclash.app.profile`.
+Source: 4C.1B IDLE profile capture (`docs/phase4/phase4-c1b-proxy-performance-evidence.md`). Device `25042PN24C` / Android 16. Package `com.slclash.app.profile`.
 
 ### Selection
 

@@ -24,7 +24,7 @@ This phase does **not** change Motion tokens, Dashboard `keep:false`, scroll-to-
 
 AFTER captures were taken **before** this documentation commit. Do not treat the docs commit SHA as the tested tree. The tested source is fingerprint `9112320388da5bfc` on top of `577b01f8`.
 
-IDLE BEFORE (formal 4B.0.1, VPN OFF): `docs/phase4-b0-navigation-baseline.md`  
+IDLE BEFORE (formal 4B.0.1, VPN OFF): `docs/phase4/phase4-b0-navigation-baseline.md`  
 `git_head=9518d40d`, `dirty=False`, `dart refresh_hz=120.0`, same device / Profile package / 120 Hz dumpsys.
 
 There is **no** RUNNING FrameTiming capture on the unoptimized Dashboard tree. The first RUNNING navigation dataset is AFTER isolation (this fingerprint). Compare RUNNING AFTER to IDLE AFTER on the same APK, and use 4B.0.1 only as the idle historical baseline.
