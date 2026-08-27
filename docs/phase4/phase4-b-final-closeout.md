@@ -36,9 +36,9 @@ No 4B.2. No KeepAlive. No chart animation suppression.
 
 | Slice | Commit | Document | Outcome |
 |---|---|---|---|
-| 4B.0 Motion / navigation audit | `ee800121` | `docs/phase4-b0-motion-navigation-audit.md` | Inventory of SurgeMotion, Home tab switch, scroll-to-top, keep:false. Dirty 4B.0 capture is historical only. |
-| 4B.0.1 Measurement correction | `9518d40d` | `docs/phase4-b0-navigation-baseline.md` | Formal IDLE FrameTiming baseline. `target_first_build_latency_ms` is wait-until-`build()`, not CPU. D reselect awaits `animateTo` in the trace only. P7 `keep:true` experiment: no stable FrameTiming win. |
-| 4B.1 Active-session isolation | `8f2fbcab` | `docs/phase4-b1-active-navigation.md` | RUNNING nav workload + VPN continuity. Dashboard live-state rebuild isolation. Hero first-mount no-op ticker removed. |
+| 4B.0 Motion / navigation audit | `ee800121` | `docs/phase4/phase4-b0-motion-navigation-audit.md` | Inventory of SurgeMotion, Home tab switch, scroll-to-top, keep:false. Dirty 4B.0 capture is historical only. |
+| 4B.0.1 Measurement correction | `9518d40d` | `docs/phase4/phase4-b0-navigation-baseline.md` | Formal IDLE FrameTiming baseline. `target_first_build_latency_ms` is wait-until-`build()`, not CPU. D reselect awaits `animateTo` in the trace only. P7 `keep:true` experiment: no stable FrameTiming win. |
+| 4B.1 Active-session isolation | `8f2fbcab` | `docs/phase4/phase4-b1-active-navigation.md` | RUNNING nav workload + VPN continuity. Dashboard live-state rebuild isolation. Hero first-mount no-op ticker removed. |
 | 4B.1.1 Verification & cleanup | `c0bb11e6` | same 4B.1 doc, section 4B.1.1 | Refresh-rate provenance. Hero fill AnimationController lifecycle. LatencyHost reflow GlobalKey. |
 
 Named 4B.1 product SHA: `8f2fbcabb440be6d3793e5d9e3a8ee4d0044464a`.  

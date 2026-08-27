@@ -54,11 +54,13 @@ Android 上围绕 Mihomo 的客户端并不少，但数量不等于精品。我�
 <p align="center">
   <img src="docs/images/readme/proxies-light.jpg" width="30%" alt="代理组页面">
   <img src="docs/images/readme/profiles-light.jpg" width="30%" alt="订阅配置页面">
+  <img src="docs/images/readme/media-check.jpg" width="30%" alt="流媒体与健康检测页面">
 </p>
 
 <p align="center">
   <img src="docs/images/readme/backup-and-restore.jpg" width="30%" alt="备份与恢复页面">
   <img src="docs/images/readme/about.jpg" width="30%" alt="关于页面">
+  <img src="docs/images/readme/smart-auto-stop.png" width="30%" alt="智能暂停设置">
 </p>
 
 ## 统一订阅中心：把短期入口变成可长期维护的订阅资产
@@ -99,7 +101,7 @@ SlClash 做过的大量优化，并不是一句笼统的“轻量化”口号，
 - **VPN 生命周期少做无用功：** 原生层是 VPN 状态的权威来源。运行中重新连接会复用现有远程进程、会话与 TUN，避免重复启动；智能暂停只移除 TUN 并保留会话与核心，离开可信网络后无需完整冷启动。
 - **网络与检测有明确边界：** 网络切换会更新本地状态、清理陈旧连接并抑制短时间重复触发；健康检测使用并发上限、结果缓存和慢节点冷却，避免反复测试已经失效或处于冷却期的节点。
 
-项目提供基于真实 Android 设备的 Phase 4 性能审计工具，覆盖启动、内存、导航、代理组、IPC、VPN 生命周期和后台行为；详见 [性能测试说明](tools/perf/README.md)。
+项目提供基于真实 Android 设备的 Phase 4 性能审计工具，覆盖启动、内存、导航、代理组、IPC、VPN 生命周期和后台行为；详见 [性能测试说明](tools/perf/README.md)。兼容性报告、Phase 4 结项和字体系统记录见 [docs/README.md](docs/README.md)。
 
 ## 围绕真实使用场景的功能
 

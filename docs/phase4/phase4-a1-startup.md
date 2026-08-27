@@ -1,6 +1,6 @@
 # Phase 4A.1 — idle getRunTime probe skip
 
-Device: `25042PN24C` / Android 16 (sdk 36). Formal **profiling** APK (`com.slclash.app`, versionCode 1) with StartupTrace. Before numbers are the Phase 4A.0 profile baseline in `docs/phase4-a0-baseline.md`. After numbers are `.perf-captures/phase4/20260819T042530Z`.
+Device: `25042PN24C` / Android 16 (sdk 36). Formal **profiling** APK (`com.slclash.app`, versionCode 1) with StartupTrace. Before numbers are the Phase 4A.0 profile baseline in `docs/phase4/phase4-a0-baseline.md`. After numbers are `.perf-captures/phase4/20260819T042530Z`.
 
 ## Change
 

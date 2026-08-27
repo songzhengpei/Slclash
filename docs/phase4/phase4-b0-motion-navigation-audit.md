@@ -8,7 +8,7 @@ This document includes **4B.0.1 Navigation Measurement Correction**. Product Mot
 Motion token source of truth: `lib/widgets/surge/surge_motion.dart`  
 This phase does **not** create a new Motion System, rename SurgeMotion, or change product visuals.
 
-Related captures: `docs/phase4-b0-navigation-baseline.md`. Formal 4B.1 BEFORE requires `dirty=false`. Idle `dumpsys gfxinfo` is **not** a navigation baseline. 4B.0 dirty capture (`harness_commit=ae8e6811`) is historical only.
+Related captures: `docs/phase4/phase4-b0-navigation-baseline.md`. Formal 4B.1 BEFORE requires `dirty=false`. Idle `dumpsys gfxinfo` is **not** a navigation baseline. 4B.0 dirty capture (`harness_commit=ae8e6811`) is historical only.
 
 ---
 
@@ -120,7 +120,7 @@ Supporting pieces:
 
 **4B.0.1 measurement correction.** The 4B.0 capture (`2026-08-19T08:47:20Z`, dirty worktree, `harness_commit=ae8e6811`) is historical only. It must not be used as 4B.1 BEFORE.
 
-Formal 4B.1 BEFORE: `docs/phase4-b0-navigation-baseline.md`  
+Formal 4B.1 BEFORE: `docs/phase4/phase4-b0-navigation-baseline.md`  
 Capture `2026-08-19T09:24:39Z` / profile `com.slclash.app.profile` / `25042PN24C` / 120Hz / budget 8.33ms / `ok: true` / **`dirty: false`** / `formal: true`.  
 Measured `git_head=9518d40d` (this commit’s source SHA before docs were filled). `submodule_dirty=true` is Clash.Meta only and does not make the source tree dirty.
 
@@ -341,7 +341,7 @@ This commit used exported SMART_STOP only as a **device smoke** of the existing 
 
 - **Current product:** Dashboard remounts every visit (`keep: false` in `navigation.dart`). **Not changed.**
 - **Mount evidence:** Workload E mount counts prove remount. That does **not** prove remount is the largest CPU source.
-- **4B.0.1 experiment only** (profile/perf, `keep_dashboard` override, reset with `keep=clear`): compare product `keep:false` vs experimental `keep:true`. Measures FrameTiming build/raster, worst/over-budget, PSS delta, page revisit latency, offscreen Dashboard tickers/CPU, Hero/overview stale vs preserved. Results in `docs/phase4-b0-navigation-baseline.md`.
+- **4B.0.1 experiment only** (profile/perf, `keep_dashboard` override, reset with `keep=clear`): compare product `keep:false` vs experimental `keep:true`. Measures FrameTiming build/raster, worst/over-budget, PSS delta, page revisit latency, offscreen Dashboard tickers/CPU, Hero/overview stale vs preserved. Results in `docs/phase4/phase4-b0-navigation-baseline.md`.
 - **Why product (later):** Fresh dashboard vs memory / preserving Hero animation / scroll.
 - **Option A:** Keep remount (today).
 - **Option B:** `keep: true` like Proxies (may preserve stale charts/hero unless you reset).
@@ -414,7 +414,7 @@ Element DFS is not a 4B.1 hotspot. No scroll registry. Mount counts prove remoun
 | `flutter analyze` (touched Dart) | No issues |
 | Flutter tests (nav/hero/scroll + Phase 1–3 mihomo/action/media_check) | 182 pass, 3 skip |
 | `python -m unittest tools.perf.tests.test_harness` | 44 OK |
-| Clean Profile navigation benchmark | `ok: true`, `dirty: false`, `formal: true`. See `docs/phase4-b0-navigation-baseline.md` (`git_head=9518d40d`) |
+| Clean Profile navigation benchmark | `ok: true`, `dirty: false`, `formal: true`. See `docs/phase4/phase4-b0-navigation-baseline.md` (`git_head=9518d40d`) |
 | Idle cold-start | `ok: true`, 10× `core_skipped`, `main_ready` median 143ms |
 | RUNNING reattach | `ok: true` after VPN start; 9× `core_ready` with marks, 0× `core_skipped`; same `session_id`; `vpn_ready` true |
 | PAUSED reopen | SMART_STOP → UI kill → reopen: presence `state=PAUSED` `smartPaused=true` same `sessionId`/`remote` pid 19987; marks `smart_paused_restored` + `paused_core_attached` + `core_skipped` |

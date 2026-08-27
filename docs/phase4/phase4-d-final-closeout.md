@@ -1,6 +1,6 @@
 # Phase 4D Final Closeout
 
-Phase 4D is **CLOSED**. Do not create Phase 4D.3. Next major phase is **Phase 4E — VPN Lifecycle**; do not start it from this document.
+Phase 4D is **CLOSED**. Do not create Phase 4D.3. Phase 4E (VPN Lifecycle) is also **CLOSED**; current work is Phase 4F.0. See `docs/phase4/phase4-e-final-closeout.md` and `docs/phase4/phase4-f0-background-power-baseline.md`.
 
 Phase 4A / 4B / 4C remain CLOSED. Mihomo pin unchanged.
 

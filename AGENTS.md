@@ -90,6 +90,10 @@ Tag 格式：`v1.x.x` 或 `1.x.x`。构建完成后自动创建正式 Release。
 - Release 始终现场编译 Go core，审计可追溯 → **~9 min**（仅 Gradle 缓存）
 - 两个工作流都有 Gradle 缓存（key 含 version catalog）。
 
+## Docs
+
+Published notes live under `docs/`: `phase4/`, `mihomo/`, `design/`, `images/readme/`. Index: `docs/README.md`.
+
 ## Behavior Notes
 
 - Prefer runtime merged proxy data from `coreController.getRuntimeLeafProxies()`, including provider nodes.

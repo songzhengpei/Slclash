@@ -54,11 +54,13 @@ These screenshots come from a production Android build running on a real device.
 <p align="center">
   <img src="docs/images/readme/proxies-light.jpg" width="30%" alt="Proxy groups">
   <img src="docs/images/readme/profiles-light.jpg" width="30%" alt="Subscription profiles">
+  <img src="docs/images/readme/media-check.jpg" width="30%" alt="Media and health checks">
 </p>
 
 <p align="center">
   <img src="docs/images/readme/backup-and-restore.jpg" width="30%" alt="Backup and restore">
   <img src="docs/images/readme/about.jpg" width="30%" alt="About page">
+  <img src="docs/images/readme/smart-auto-stop.png" width="30%" alt="Smart Pause settings">
 </p>
 
 ## Unified Subscription Center: turn short-lived endpoints into durable subscription assets
@@ -99,7 +101,7 @@ The performance work in SlClash is not a vague claim of being “lightweight.”
 - **Less wasted VPN lifecycle work:** Native Android state is authoritative. Reattachment while running preserves the remote process, session, and TUN rather than launching duplicates. Smart Pause removes TUN while retaining the session and core, so leaving a trusted network does not require a full cold start.
 - **Explicit boundaries for transitions and checks:** Network changes update local state, clear stale connections, and suppress bursts of duplicate work. Health checks use bounded concurrency, cached results, and cooldowns instead of repeatedly testing nodes that are failing or already cooling down.
 
-A real-device Phase 4 harness audits startup, memory, navigation, proxy groups, IPC, VPN lifecycle, and background behavior. See the [performance harness documentation](tools/perf/README.md).
+A real-device Phase 4 harness audits startup, memory, navigation, proxy groups, IPC, VPN lifecycle, and background behavior. See the [performance harness documentation](tools/perf/README.md). Compatibility reports, Phase 4 closeouts, and typography records are indexed in [docs/README.md](docs/README.md).
 
 ## Features shaped by real usage
 
