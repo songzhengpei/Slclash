@@ -39,6 +39,7 @@ void main() {
       expect(surge.semantic.latencyGood, const Color(0xFFADDFAD));
       expect(surge.semantic.latencyMedium, const Color(0xFFF1C892));
       expect(surge.semantic.latencyBad, const Color(0xFFFFBBBD));
+      expect(surge.semantic.statusLightPaused, const Color(0xFFFF9500));
       expect(
         surge.semantic.profileSelectionBorderFixed,
         const Color(0xFFD8DAE0),

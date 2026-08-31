@@ -102,6 +102,7 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
         // RUNNING session while shutdown is still being dispatched.
         tunEstablished = false
         val revokedSessionId = State.snapshot.sessionId
+        VpnRecoveryStore(this).clear()
         GlobalState.launch {
             shutdown("vpn_revoked")
             var stoppedRevokedSession = false

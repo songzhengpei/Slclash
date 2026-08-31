@@ -342,6 +342,7 @@ class SurgeSemanticColors {
     required this.latencyMedium,
     required this.latencyBad,
     required this.statusLightActive,
+    required this.statusLightPaused,
     required this.statusLightError,
     required this.profileSelectionBorderFixed,
     required this.state,
@@ -365,6 +366,7 @@ class SurgeSemanticColors {
       latencyMedium: const Color(0xFFF1C892),
       latencyBad: const Color(0xFFFFBBBD),
       statusLightActive: const Color(0xFF7BFFB2),
+      statusLightPaused: const Color(0xFFFF9500),
       statusLightError: const Color(0xFFFF8A80),
       profileSelectionBorderFixed: const Color(0xFFD8DAE0),
       state:
@@ -393,6 +395,7 @@ class SurgeSemanticColors {
   final Color latencyMedium;
   final Color latencyBad;
   final Color statusLightActive;
+  final Color statusLightPaused;
   final Color statusLightError;
   final Color profileSelectionBorderFixed;
   final SurgeStateColors state;
@@ -434,6 +437,11 @@ class SurgeSemanticColors {
       statusLightActive: Color.lerp(
         a.statusLightActive,
         b.statusLightActive,
+        t,
+      )!,
+      statusLightPaused: Color.lerp(
+        a.statusLightPaused,
+        b.statusLightPaused,
         t,
       )!,
       statusLightError: Color.lerp(a.statusLightError, b.statusLightError, t)!,
