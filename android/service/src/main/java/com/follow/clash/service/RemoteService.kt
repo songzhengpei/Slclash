@@ -4,11 +4,13 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import com.follow.clash.common.BroadcastAction
 import com.follow.clash.common.GlobalState
 import com.follow.clash.common.Phase4Mark
 import com.follow.clash.common.ServiceDelegate
 import com.follow.clash.common.chunkedForAidl
 import com.follow.clash.common.intent
+import com.follow.clash.common.sendBroadcast
 import com.follow.clash.core.Core
 import com.follow.clash.service.State.delegate
 import com.follow.clash.service.State.intent
@@ -101,6 +103,10 @@ class RemoteService : Service(), CoroutineScope {
     private var unknownRetryJob: Job? = null
     private var transitionRetryJob: Job? = null
     private var lastStableNetworkId: Long? = null
+    private val recoveryStore by lazy { VpnRecoveryStore(this) }
+    @Volatile private var activeSetupPayload: QuickSetupPayload? = null
+    @Volatile private var forceNonSticky = false
+    private var recoveryJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -337,10 +343,30 @@ class RemoteService : Service(), CoroutineScope {
                 ),
             )
         }
-        val success = serviceResult.getOrNull() == true
-        if (success) applySession(
-            if (pause) SessionTransitions.paused(current) else SessionTransitions.running(current),
-        )
+        var success = serviceResult.getOrNull() == true
+        if (success) {
+            val next = if (pause) {
+                SessionTransitions.paused(current)
+            } else {
+                SessionTransitions.running(current)
+            }
+            if (State.options?.enable == true && !persistCheckpoint(next, next.state)) {
+                GlobalState.log("Smart-pause transition rolled back because recovery checkpoint commit failed")
+                val rolledBack = active.useService { service ->
+                    if (pause) {
+                        service.smartResume() && service.isOperational()
+                    } else {
+                        service.smartStop() && !service.isOperational()
+                    }
+                }.getOrNull() == true
+                if (!rolledBack) {
+                    clearRecoveryCheckpoint("smart_pause_checkpoint_rollback_failed")
+                }
+                success = false
+            } else {
+                applySession(next)
+            }
+        }
         Phase4Mark.emit(
             "smart_pause_transition_complete",
             mapOf("result" to success, "session_state" to State.snapshot.state, "source" to source),
@@ -403,6 +429,213 @@ class RemoteService : Service(), CoroutineScope {
         return true
     }
 
+    private fun checkpointFor(
+        snapshot: SessionSnapshot,
+        state: String,
+        options: VpnOptions,
+        setup: QuickSetupPayload,
+        recoveryFailures: Int = 0,
+    ) = VpnRecoveryCheckpoint(
+        installEpoch = recoveryStore.installEpoch,
+        sessionId = snapshot.sessionId,
+        startedAt = snapshot.startedAt,
+        state = state,
+        setup = setup,
+        options = options,
+        recoveryFailures = recoveryFailures,
+        updatedAt = System.currentTimeMillis(),
+    )
+
+    private fun persistCheckpoint(
+        snapshot: SessionSnapshot,
+        state: String,
+        options: VpnOptions? = State.options,
+        setup: QuickSetupPayload? = activeSetupPayload,
+    ): Boolean {
+        options ?: return false
+        val resolvedSetup = setup ?: loadPersistedQuickSetupPayload(this) ?: return false
+        activeSetupPayload = resolvedSetup
+        if (!options.enable) {
+            recoveryStore.clear()
+            return true
+        }
+        val saved = recoveryStore.save(checkpointFor(snapshot, state, options, resolvedSetup))
+        Phase4Mark.emit(
+            "vpn_recovery_checkpoint",
+            mapOf(
+                "operation" to "save",
+                "result" to saved,
+                "state" to state,
+                "session_id" to snapshot.sessionId,
+            ),
+        )
+        if (saved) forceNonSticky = false
+        return saved
+    }
+
+    private fun clearRecoveryCheckpoint(reason: String, preventSticky: Boolean = true): Boolean {
+        if (preventSticky) forceNonSticky = true
+        val cleared = recoveryStore.clear()
+        Phase4Mark.emit(
+            "vpn_recovery_checkpoint",
+            mapOf("operation" to "clear", "result" to cleared, "reason" to reason),
+        )
+        return cleared
+    }
+
+    private fun ensurePhysicalDelegateLocked(options: VpnOptions) {
+        val nextIntent = when (options.enable) {
+            true -> VpnService::class.intent
+            false -> CommonService::class.intent
+        }
+        if (intent == nextIntent && delegate != null) return
+        clearDelegate()
+        val generation = delegateGeneration
+        delegate = ServiceDelegate(
+            nextIntent,
+            { message -> handleServiceDisconnected(generation, message) },
+        ) { binder ->
+            when (binder) {
+                is VpnService.LocalBinder -> binder.getService()
+                is CommonService.LocalBinder -> binder.getService()
+                else -> throw IllegalArgumentException("Invalid binder type")
+            }
+        }
+        intent = nextIntent
+        delegate?.bind()
+    }
+
+    private suspend fun quickSetupAwait(payload: QuickSetupPayload): ServiceOperationResult =
+        suspendCancellableCoroutine { continuation ->
+            Core.quickSetup(payload.initParamsJson, payload.setupParamsJson) { message ->
+                if (continuation.isActive) {
+                    continuation.resume(quickSetupOperationResult(message))
+                }
+            }
+        }
+
+    private suspend fun cleanupRecoveryAttemptLocked(message: String) {
+        delegate?.useService(timeoutMillis = 3_000L) { service -> service.stop() }
+        clearDelegate()
+        State.options = null
+        State.snapshot = SessionSnapshot.stopped(
+            ServiceErrorCode.SERVICE_DISCONNECTED,
+            message,
+        )
+    }
+
+    private suspend fun attemptCheckpointRecoveryLocked(
+        checkpoint: VpnRecoveryCheckpoint,
+    ): Boolean {
+        if (State.snapshot.state != SessionState.STOPPED) return true
+        if (android.net.VpnService.prepare(this) != null) {
+            GlobalState.log("VPN recovery skipped because VPN ownership is unavailable")
+            return false
+        }
+
+        val setupResult = quickSetupAwait(checkpoint.setup)
+        if (!setupResult.success) {
+            GlobalState.log("VPN recovery quick setup failed: ${setupResult.message}")
+            return false
+        }
+
+        activeSetupPayload = checkpoint.setup
+        State.options = checkpoint.options
+        val starting = SessionTransitions.starting(checkpoint.sessionId, checkpoint.startedAt)
+        State.snapshot = starting
+        ensurePhysicalDelegateLocked(checkpoint.options)
+
+        val physicalReady = delegate?.useService(timeoutMillis = 5_000L) { true }
+            ?.getOrNull() == true
+        if (!physicalReady) {
+            cleanupRecoveryAttemptLocked("VPN recovery could not bind the physical service")
+            return false
+        }
+
+        val configEnablesSmartPause = smartPauseConfig.enabled &&
+            smartPauseConfig.trustedNetworks.isNotEmpty()
+        val network = latestPhysicalNetwork
+        val trusted = network?.let {
+            it.isKnown && TrustedNetworkMatcher.matchesAny(
+                it.ipv4Addresses,
+                smartPauseConfig.trustedNetworks,
+            )
+        } == true
+        val decision = recoveryNetworkDecision(
+            smartPauseEnabled = configEnablesSmartPause,
+            networkKnown = network?.isKnown == true,
+            networkTrusted = trusted,
+        )
+
+        if (decision == VpnRecoveryNetworkDecision.PAUSE ||
+            decision == VpnRecoveryNetworkDecision.WAIT
+        ) {
+            val paused = SessionTransitions.paused(starting)
+            if (!persistCheckpoint(paused, SessionState.PAUSED, checkpoint.options, checkpoint.setup)) {
+                cleanupRecoveryAttemptLocked("VPN recovery checkpoint commit failed")
+                return false
+            }
+            applySession(paused)
+            BroadcastAction.SERVICE_CREATED.sendBroadcast()
+            PhysicalNetworkControlPlane.refresh()
+            requestSmartPauseEvaluation("process_recovery")
+            return true
+        }
+
+        val startResult = delegate?.useService(timeoutMillis = 10_000L) { service ->
+            service.start()
+        }?.getOrNull() ?: ServiceOperationResult.failure(
+            ServiceErrorCode.SERVICE_DISCONNECTED,
+            "VPN recovery physical service is unavailable",
+        )
+        if (!startResult.success) {
+            cleanupRecoveryAttemptLocked(startResult.message ?: "VPN recovery start failed")
+            return false
+        }
+        val running = SessionTransitions.running(starting)
+        if (!persistCheckpoint(running, SessionState.RUNNING, checkpoint.options, checkpoint.setup)) {
+            cleanupRecoveryAttemptLocked("VPN recovery checkpoint commit failed")
+            return false
+        }
+        applySession(running)
+        BroadcastAction.SERVICE_CREATED.sendBroadcast()
+        requestSmartPauseEvaluation("process_recovery")
+        return true
+    }
+
+    private suspend fun recoverFromCheckpoint(initial: VpnRecoveryCheckpoint) {
+        var checkpoint = initial
+        var failures = initial.recoveryFailures
+        while (failures < VPN_RECOVERY_MAX_FAILURES) {
+            val success = runLock.withLock {
+                attemptCheckpointRecoveryLocked(checkpoint)
+            }
+            Phase4Mark.emit(
+                "vpn_process_recovery",
+                mapOf(
+                    "attempt" to (failures + 1),
+                    "result" to success,
+                    "checkpoint_state" to checkpoint.state,
+                ),
+            )
+            if (success) return
+
+            failures += 1
+            checkpoint = checkpoint.withFailureCount(failures, System.currentTimeMillis())
+            if (failures >= VPN_RECOVERY_MAX_FAILURES || !recoveryStore.save(checkpoint)) break
+            delay(RETRY_DELAYS[(failures - 1).coerceAtMost(RETRY_DELAYS.lastIndex)])
+        }
+        runLock.withLock {
+            clearRecoveryCheckpoint("recovery_exhausted")
+            applySession(
+                SessionSnapshot.stopped(
+                    ServiceErrorCode.SERVICE_DISCONNECTED,
+                    "VPN process recovery failed",
+                )
+            )
+        }
+    }
+
     private fun clearDelegate() {
         delegate?.unbind()
         delegate = null
@@ -438,12 +671,17 @@ class RemoteService : Service(), CoroutineScope {
 
     private fun handleStopService(result: IOperationResultInterface) {
         resetAllPolicyRetries()
+        clearRecoveryCheckpoint("explicit_stop")
         Phase4Mark.emit(
             "vpn_service_dispatch",
             mapOf("action" to "stop", "state" to State.snapshot.state),
         )
         launch {
             runLock.withLock {
+                // Recovery may have completed after the binder thread's first
+                // clear but before this lifecycle lock was acquired. Clear the
+                // intent again at the serialized stop commit point.
+                clearRecoveryCheckpoint("explicit_stop_commit")
                 val current = State.snapshot
                 if (current.state == SessionState.STOPPED) {
                     replyOperation(result, ServiceOperationResult.success())
@@ -475,6 +713,7 @@ class RemoteService : Service(), CoroutineScope {
                 // A disconnect from a service discarded during handover must
                 // not overwrite the replacement session that is now RUNNING.
                 if (!isCurrentDelegateGeneration(generation, delegateGeneration)) return@withLock
+                clearRecoveryCheckpoint("physical_service_disconnected")
                 clearDelegate()
                 // The bound physical service is gone and this delegate does
                 // not reconnect automatically. STOPPING would therefore be a
@@ -502,6 +741,17 @@ class RemoteService : Service(), CoroutineScope {
                         service.isOperational()
                     }?.getOrNull() == true
                     if (canReuseRunningSession(current.state, operational)) {
+                        State.options = options
+                        if (options.enable && !persistCheckpoint(current, SessionState.RUNNING, options)) {
+                            replyOperation(
+                                result,
+                                ServiceOperationResult.failure(
+                                    ServiceErrorCode.INTERNAL_ERROR,
+                                    "VPN recovery checkpoint update failed",
+                                ),
+                            )
+                            return@withLock
+                        }
                         applySession(current)
                         replyOperation(result, ServiceOperationResult.success(current.startedAt))
                         return@withLock
@@ -520,6 +770,7 @@ class RemoteService : Service(), CoroutineScope {
                     current = State.snapshot
                 }
                 if (current.state == SessionState.PAUSED) {
+                    State.options = options
                     val resumed = resumePausedSessionLocked(current, PausedResumeSource.USER)
                     if (resumed) {
                         replyOperation(result, ServiceOperationResult.success(current.startedAt))
@@ -544,31 +795,13 @@ class RemoteService : Service(), CoroutineScope {
                     )
                     return@withLock
                 }
+                clearRecoveryCheckpoint("explicit_start_reset")
                 val sessionId = sessionCounter.incrementAndGet()
                 val startedAt = runTime.takeIf { it > 0L } ?: System.currentTimeMillis()
                 State.options = options
                 applySession(SessionTransitions.starting(sessionId, startedAt))
                 try {
-                    val nextIntent = when (options.enable) {
-                        true -> VpnService::class.intent
-                        false -> CommonService::class.intent
-                    }
-                    if (intent != nextIntent) {
-                        clearDelegate()
-                        val generation = delegateGeneration
-                        delegate = ServiceDelegate(
-                            nextIntent,
-                            { message -> handleServiceDisconnected(generation, message) },
-                        ) { binder ->
-                            when (binder) {
-                                is VpnService.LocalBinder -> binder.getService()
-                                is CommonService.LocalBinder -> binder.getService()
-                                else -> throw IllegalArgumentException("Invalid binder type")
-                            }
-                        }
-                        intent = nextIntent
-                        delegate?.bind()
-                    }
+                    ensurePhysicalDelegateLocked(options)
 
                     var startResult: ServiceOperationResult? = null
                     delegate?.useService { service ->
@@ -586,7 +819,22 @@ class RemoteService : Service(), CoroutineScope {
                         return@withLock
                     }
 
-                    applySession(SessionTransitions.running(State.snapshot))
+                    val running = SessionTransitions.running(State.snapshot)
+                    if (options.enable && !persistCheckpoint(running, SessionState.RUNNING, options)) {
+                        rollbackStart(
+                            ServiceErrorCode.INTERNAL_ERROR,
+                            "VPN recovery checkpoint commit failed",
+                        )
+                        replyOperation(
+                            result,
+                            ServiceOperationResult.failure(
+                                ServiceErrorCode.INTERNAL_ERROR,
+                                "VPN recovery checkpoint commit failed",
+                            ),
+                        )
+                        return@withLock
+                    }
+                    applySession(running)
                     requestSmartPauseEvaluation("session_started")
                     replyOperation(result, ServiceOperationResult.success(startedAt))
                 } catch (e: Exception) {
@@ -678,7 +926,12 @@ class RemoteService : Service(), CoroutineScope {
                                 SessionSnapshot.stopped(
                                 operationResult.errorCode,
                                 operationResult.message,
+                                )
                             )
+                        } else {
+                            activeSetupPayload = QuickSetupPayload(
+                                initParamsJson = initParamsString,
+                                setupParamsJson = setupParamsString,
                             )
                         }
                         replyOperation(result, operationResult)
@@ -893,7 +1146,31 @@ class RemoteService : Service(), CoroutineScope {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return START_NOT_STICKY
+        if (!shouldKeepVpnServiceSticky(forceNonSticky, checkpointValid = true)) {
+            return START_NOT_STICKY
+        }
+        val checkpoint = recoveryStore.readValid()
+        if (checkpoint == null) {
+            if (intent == null) stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
+        if (shouldStartStickyRecovery(
+                intentIsNull = intent == null,
+                checkpointValid = true,
+                recoveryAlreadyActive = recoveryJob?.isActive == true,
+            )
+        ) {
+            Phase4Mark.emit(
+                "vpn_process_recovery",
+                mapOf(
+                    "phase" to "scheduled",
+                    "checkpoint_state" to checkpoint.state,
+                    "prior_failures" to checkpoint.recoveryFailures,
+                ),
+            )
+            recoveryJob = launch { recoverFromCheckpoint(checkpoint) }
+        }
+        return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder {

@@ -1193,7 +1193,7 @@ class _PillStatusLightState extends State<_PillStatusLight>
 
   Color _color(SurgeTheme surge) {
     if (widget.failed) return surge.semantic.statusLightError;
-    if (widget.isSmartPaused) return surge.orange;
+    if (widget.isSmartPaused) return surge.semantic.statusLightPaused;
     if (widget.connecting || widget.active) {
       return surge.semantic.statusLightActive;
     }
@@ -1275,7 +1275,7 @@ class _ModeSwitch extends StatelessWidget {
       padding: EdgeInsets.all(layout.legacy(3)),
       backgroundColor: surge.fill,
       selectedSurfaceColor: surge.elevatedCard,
-      selectedColor: surge.primary,
+      selectedColor: surge.textPrimary,
       unselectedColor: surge.textSecondary,
       outerRadius: layout.geometry(26),
       selectedRadius: layout.geometry(24),
