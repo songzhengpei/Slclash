@@ -17,6 +17,43 @@ int _regionPriority(String region) {
   return 0;
 }
 
+@visibleForTesting
+int compareMediaResultTiebreaker({
+  required String mode,
+  required MediaCheckResult? aResult,
+  required int aDelay,
+  required String aName,
+  required MediaCheckResult? bResult,
+  required int bDelay,
+  required String bName,
+}) {
+  if (mode == 'gpt') {
+    final bothUnlocked =
+        aResult?.chatGPT.isChatGPTAvailable == true &&
+        bResult?.chatGPT.isChatGPTAvailable == true;
+    if (bothUnlocked && aDelay != bDelay) {
+      return aDelay.compareTo(bDelay);
+    }
+    final aRegion = (aResult?.chatGPT.region ?? '').toUpperCase();
+    final bRegion = (bResult?.chatGPT.region ?? '').toUpperCase();
+    final aPriority = _regionPriority(aRegion);
+    final bPriority = _regionPriority(bRegion);
+    if (aPriority != bPriority) return bPriority.compareTo(aPriority);
+    if (aRegion != bRegion) return aRegion.compareTo(bRegion);
+    return aName.compareTo(bName);
+  }
+
+  if (mode == 'youtube') {
+    final bothYouTubeCN =
+        aResult?.youTube.isYouTubeCN == true &&
+        bResult?.youTube.isYouTubeCN == true;
+    if (bothYouTubeCN && aDelay != bDelay) {
+      return aDelay.compareTo(bDelay);
+    }
+  }
+  return aName.compareTo(bName);
+}
+
 // ── Page-local constants ──────────────────────────────────────────────────
 
 const _mediaCheckConcurrencyKey = 'media-check-concurrency-v1';
@@ -417,17 +454,25 @@ class _ProfileMediaCheckViewState extends ConsumerState<ProfileMediaCheckView> {
       // ── Within-group tiebreaker — per mode ───────────────────────────
       switch (_filter) {
         case _MediaCheckFilter.chatGPT:
-          // Unlocked group: SG/US first → region asc → name asc
-          final aR = (a.result?.chatGPT.region ?? '').toUpperCase();
-          final bR = (b.result?.chatGPT.region ?? '').toUpperCase();
-          final ap = _regionPriority(aR);
-          final bp = _regionPriority(bR);
-          if (ap != bp) return bp.compareTo(ap);
-          if (aR != bR) return aR.compareTo(bR);
-          return a.target.proxy.name.compareTo(b.target.proxy.name);
+          return compareMediaResultTiebreaker(
+            mode: 'gpt',
+            aResult: a.result,
+            aDelay: a.delay,
+            aName: a.target.proxy.name,
+            bResult: b.result,
+            bDelay: b.delay,
+            bName: b.target.proxy.name,
+          );
         case _MediaCheckFilter.youTubeCN:
-          // Same-group: by name asc
-          return a.target.proxy.name.compareTo(b.target.proxy.name);
+          return compareMediaResultTiebreaker(
+            mode: 'youtube',
+            aResult: a.result,
+            aDelay: a.delay,
+            aName: a.target.proxy.name,
+            bResult: b.result,
+            bDelay: b.delay,
+            bName: b.target.proxy.name,
+          );
         case _MediaCheckFilter.green:
           return a.target.proxy.name.compareTo(b.target.proxy.name);
       }

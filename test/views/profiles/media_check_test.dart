@@ -438,6 +438,133 @@ void main() {
     });
   });
 
+  group('media result sorting', () {
+    MediaCheckResult result({
+      required String name,
+      required MediaCheckItem chatGPT,
+      required MediaCheckItem youTube,
+      required int delay,
+    }) {
+      return MediaCheckResult(
+        name: name,
+        chatGPT: chatGPT,
+        youTube: youTube,
+        https: MediaHTTPSResult(delay: delay, success: 3, total: 3),
+        region: chatGPT.region,
+        score: 0,
+        checkedAt: 1,
+      );
+    }
+
+    test('GPT unlocked group sorts valid low latency first', () {
+      final fast = result(
+        name: 'JP-fast',
+        chatGPT: const MediaCheckItem(status: 'clean', region: 'JP'),
+        youTube: const MediaCheckItem(status: 'skipped'),
+        delay: 80,
+      );
+      final slow = result(
+        name: 'SG-slow',
+        chatGPT: const MediaCheckItem(status: 'clean', region: 'SG'),
+        youTube: const MediaCheckItem(status: 'skipped'),
+        delay: 320,
+      );
+
+      expect(
+        compareMediaResultTiebreaker(
+          mode: 'gpt',
+          aResult: fast,
+          aDelay: fast.https.normalizedDelay,
+          aName: fast.name,
+          bResult: slow,
+          bDelay: slow.https.normalizedDelay,
+          bName: slow.name,
+        ),
+        lessThan(0),
+      );
+    });
+
+    test('GPT blocked group keeps non-latency ordering', () {
+      final alphabeticalFirst = result(
+        name: 'A-slow',
+        chatGPT: const MediaCheckItem(status: 'blocked'),
+        youTube: const MediaCheckItem(status: 'skipped'),
+        delay: 400,
+      );
+      final fast = result(
+        name: 'B-fast',
+        chatGPT: const MediaCheckItem(status: 'blocked'),
+        youTube: const MediaCheckItem(status: 'skipped'),
+        delay: 40,
+      );
+
+      expect(
+        compareMediaResultTiebreaker(
+          mode: 'gpt',
+          aResult: alphabeticalFirst,
+          aDelay: alphabeticalFirst.https.normalizedDelay,
+          aName: alphabeticalFirst.name,
+          bResult: fast,
+          bDelay: fast.https.normalizedDelay,
+          bName: fast.name,
+        ),
+        lessThan(0),
+      );
+    });
+
+    test('YouTube CN-route group alone sorts by latency', () {
+      final slowCN = result(
+        name: 'A-slow-CN',
+        chatGPT: const MediaCheckItem(status: 'skipped'),
+        youTube: const MediaCheckItem(status: 'unavailable', region: 'US'),
+        delay: 420,
+      );
+      final fastCN = result(
+        name: 'B-fast-CN',
+        chatGPT: const MediaCheckItem(status: 'skipped'),
+        youTube: const MediaCheckItem(status: 'cn_confirmed', region: 'CN'),
+        delay: 60,
+      );
+      final availableA = result(
+        name: 'A-slow-available',
+        chatGPT: const MediaCheckItem(status: 'skipped'),
+        youTube: const MediaCheckItem(status: 'available', region: 'JP'),
+        delay: 420,
+      );
+      final availableB = result(
+        name: 'B-fast-available',
+        chatGPT: const MediaCheckItem(status: 'skipped'),
+        youTube: const MediaCheckItem(status: 'available', region: 'SG'),
+        delay: 60,
+      );
+
+      expect(
+        compareMediaResultTiebreaker(
+          mode: 'youtube',
+          aResult: fastCN,
+          aDelay: fastCN.https.normalizedDelay,
+          aName: fastCN.name,
+          bResult: slowCN,
+          bDelay: slowCN.https.normalizedDelay,
+          bName: slowCN.name,
+        ),
+        lessThan(0),
+      );
+      expect(
+        compareMediaResultTiebreaker(
+          mode: 'youtube',
+          aResult: availableA,
+          aDelay: availableA.https.normalizedDelay,
+          aName: availableA.name,
+          bResult: availableB,
+          bDelay: availableB.https.normalizedDelay,
+          bName: availableB.name,
+        ),
+        lessThan(0),
+      );
+    });
+  });
+
   group('ProfileMediaCheckView', () {
     testWidgets('renders control card and fixed filter grid', (tester) async {
       SharedPreferences.setMockInitialValues({});
