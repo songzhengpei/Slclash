@@ -12,6 +12,11 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.1.4',
+    date: '2026-09-01',
+    changes: ['优化流媒体检测YouTube检测结果'],
+  ),
+  AppChangelogEntry(
     version: 'v2.1.3',
     date: '2026-08-31',
     changes: ["优化代理留存能力", "优化仪表盘UI显示"],

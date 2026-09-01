@@ -26,7 +26,7 @@ import (
 const (
 	mediaCheckDefaultTimeout = 15 * time.Second
 	chatGPTBodyLimit         = 64 * 1024
-	youTubeBodyLimit         = 256 * 1024
+	youTubeBodyLimit         = 1024 * 1024
 	mediaCheckAttempts       = 1
 )
 
@@ -344,7 +344,7 @@ func checkYouTube(ctx context.Context, client *http.Client) MediaCheckItem {
 	body, err := mediaGetLimitedWithRetry(
 		ctx,
 		client,
-		"https://www.youtube.com/premium",
+		"https://m.youtube.com/premium",
 		youTubeBodyLimit,
 		8*time.Second,
 		mediaCheckAttempts,
@@ -547,6 +547,9 @@ func mediaGetLimited(ctx context.Context, client *http.Client, rawURL string, li
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	if strings.HasSuffix(strings.ToLower(req.URL.Hostname()), ".youtube.com") {
+		req.Header.Set("Cookie", "SOCS=CAI")
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -554,9 +557,12 @@ func mediaGetLimited(ctx context.Context, client *http.Client, rawURL string, li
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, limit))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return "", err
+	}
+	if int64(len(body)) > limit {
+		return string(body[:limit]), fmt.Errorf("response exceeds %d byte limit", limit)
 	}
 	if resp.StatusCode >= 500 {
 		return string(body), fmt.Errorf("http %d", resp.StatusCode)
