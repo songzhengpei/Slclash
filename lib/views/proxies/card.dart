@@ -49,42 +49,49 @@ class ProxyCard extends StatelessWidget {
           selectedProxyNameProvider(groupName),
         );
         final isSelected = selectedProxyName == proxy.name;
+        final fullName = proxyFullDisplayName(
+          visibleName: proxy.name,
+          resolved: ref.watch(realSelectedProxyStateProvider(proxy.name)),
+        );
         ProxyTrace.noteHotspotBuild('proxy_card');
-        return SurgeSelectableRow(
-          key: key,
-          selected: isSelected,
-          onTap: () => _changeProxy(ref),
-          position: switch (rowPosition) {
-            ProxyListRowPosition.single => SurgeSelectableRowPosition.single,
-            ProxyListRowPosition.first => SurgeSelectableRowPosition.first,
-            ProxyListRowPosition.middle => SurgeSelectableRowPosition.middle,
-            ProxyListRowPosition.last => SurgeSelectableRowPosition.last,
-          },
-          showBorder: true,
-          showDivider: showDivider,
-          dividerInsets: const EdgeInsets.only(left: 32, right: 16),
-          dividerOpacity: 0.35,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(32, 7, 12, 7),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _ProxyTextBlock(proxy: proxy, type: type),
-                ),
-                if (groupType.supportsFixedSelection) ...[
-                  const SizedBox(width: 8),
-                  _ProxyComputedMark(groupName: groupName, proxy: proxy),
-                ],
-                const SizedBox(width: 12),
-                Consumer(
-                  builder: (context, ref, child) => SurgeDelayPill(
-                    delay: ref.watch(
-                      delayProvider(proxyName: proxy.name, testUrl: testUrl),
-                    ),
-                    onTap: _handleTestCurrentDelay,
+        return LongPressFullText(
+          message: fullName,
+          child: SurgeSelectableRow(
+            key: key,
+            selected: isSelected,
+            onTap: () => _changeProxy(ref),
+            position: switch (rowPosition) {
+              ProxyListRowPosition.single => SurgeSelectableRowPosition.single,
+              ProxyListRowPosition.first => SurgeSelectableRowPosition.first,
+              ProxyListRowPosition.middle => SurgeSelectableRowPosition.middle,
+              ProxyListRowPosition.last => SurgeSelectableRowPosition.last,
+            },
+            showBorder: true,
+            showDivider: showDivider,
+            dividerInsets: const EdgeInsets.only(left: 32, right: 16),
+            dividerOpacity: 0.35,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(32, 7, 12, 7),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _ProxyTextBlock(proxy: proxy, type: type),
                   ),
-                ),
-              ],
+                  if (groupType.supportsFixedSelection) ...[
+                    const SizedBox(width: 8),
+                    _ProxyComputedMark(groupName: groupName, proxy: proxy),
+                  ],
+                  const SizedBox(width: 12),
+                  Consumer(
+                    builder: (context, ref, child) => SurgeDelayPill(
+                      delay: ref.watch(
+                        delayProvider(proxyName: proxy.name, testUrl: testUrl),
+                      ),
+                      onTap: _handleTestCurrentDelay,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

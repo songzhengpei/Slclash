@@ -449,7 +449,8 @@ class CommonAction extends _$CommonAction {
 
     final url = asset['browser_download_url']?.toString();
     final name = asset['name']?.toString() ?? 'SlClash-update.apk';
-    if (url == null || url.isEmpty) {
+    final expectedSha256 = githubAssetSha256(asset['digest']);
+    if (url == null || url.isEmpty || expectedSha256 == null) {
       launchUrl(Uri.parse('https://github.com/$repository/releases/latest'));
       return;
     }
@@ -485,9 +486,10 @@ class CommonAction extends _$CommonAction {
         }
 
         final apkPath = p.join(updateDir.path, name);
-        await request.dio.download(
-          url,
-          apkPath,
+        await request.downloadUpdate(
+          officialUrl: url,
+          savePath: apkPath,
+          expectedSha256: expectedSha256,
           onReceiveProgress: (received, total) {
             if (total > 0) {
               progress.value = (received / total).clamp(0, 1);

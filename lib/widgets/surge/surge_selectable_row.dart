@@ -15,6 +15,7 @@ class SurgeSelectableRow extends StatelessWidget {
     required this.child,
     required this.selected,
     this.onTap,
+    this.onLongPress,
     this.position = SurgeSelectableRowPosition.single,
     this.presentation = SurgeSelectionPresentation.list,
     this.showBorder = false,
@@ -38,6 +39,7 @@ class SurgeSelectableRow extends StatelessWidget {
   final Widget child;
   final bool selected;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final SurgeSelectableRowPosition position;
   final SurgeSelectionPresentation presentation;
   final bool showBorder;
@@ -126,6 +128,7 @@ class SurgeSelectableRow extends StatelessWidget {
           ),
           child: InkWell(
             onTap: onTap,
+            onLongPress: onLongPress,
             borderRadius: rowRadius,
             child: Stack(
               children: [

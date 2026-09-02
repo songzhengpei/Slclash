@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 private data class NetworkUpdateRequest(
     val generation: Long,
+    val reason: PhysicalNetworkUpdateReason,
     val refreshFromSystem: Boolean = false,
     val completion: CompletableDeferred<PhysicalNetworkSnapshot?>? = null,
     val mutation: (() -> Unit)? = null,
@@ -48,6 +49,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
         service.getSystemService<ConnectivityManager>()
     }
     private var preDnsList = listOf<String>()
+    @Volatile private var coreDnsUpdatesEnabled = false
     private val generation = NetworkUpdateGeneration()
     private val updates = Channel<NetworkUpdateRequest>(Channel.UNLIMITED)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -67,7 +69,9 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 "network_callback",
                 mapOf("callback" to "available", "network_id" to network.networkHandle),
             )
-            enqueueNetworkUpdate { networkInfos[network] = NetworkInfo() }
+            enqueueNetworkUpdate(PhysicalNetworkUpdateReason.NETWORK_AVAILABLE) {
+                networkInfos[network] = NetworkInfo()
+            }
             super.onAvailable(network)
         }
 
@@ -76,7 +80,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 "network_callback",
                 mapOf("callback" to "losing", "network_id" to network.networkHandle),
             )
-            enqueueNetworkUpdate {
+            enqueueNetworkUpdate(PhysicalNetworkUpdateReason.NETWORK_LOSING) {
                 networkInfos[network]?.losingMs = System.currentTimeMillis() + maxMsToLive
             }
             setUnderlyingNetworks(network)
@@ -88,7 +92,9 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 "network_callback",
                 mapOf("callback" to "lost", "network_id" to network.networkHandle),
             )
-            enqueueNetworkUpdate { networkInfos.remove(network) }
+            enqueueNetworkUpdate(PhysicalNetworkUpdateReason.NETWORK_LOST) {
+                networkInfos.remove(network)
+            }
             setUnderlyingNetworks(network)
             super.onLost(network)
         }
@@ -102,7 +108,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
                     "dns_count" to linkProperties.dnsServers.size,
                 ),
             )
-            enqueueNetworkUpdate {
+            enqueueNetworkUpdate(PhysicalNetworkUpdateReason.NETWORK_LINK_PROPERTIES_CHANGED) {
                 networkInfos.getOrPut(network, ::NetworkInfo).apply {
                     dnsList = linkProperties.dnsServers
                     ipv4List = linkProperties.linkAddresses.mapNotNull {
@@ -119,7 +125,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 "network_callback",
                 mapOf("callback" to "capabilities", "network_id" to network.networkHandle),
             )
-            enqueueNetworkUpdate()
+            enqueueNetworkUpdate(PhysicalNetworkUpdateReason.NETWORK_CAPABILITIES_CHANGED)
             super.onCapabilitiesChanged(network, capabilities)
         }
     }
@@ -131,7 +137,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 update.completion?.let(refreshWaiters::add)
                 update.mutation?.invoke()
                 if (update.refreshFromSystem) refreshNetworkInfosFromSystem()
-                val snapshot = applyNetworkUpdate(update.generation)
+                val snapshot = applyNetworkUpdate(update.generation, update.reason)
                 if (snapshot != null) {
                     refreshWaiters.forEach { it.complete(snapshot) }
                     refreshWaiters.clear()
@@ -140,7 +146,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
         }
         connectivity?.registerNetworkCallback(request, callback)
         PhysicalNetworkControlPlane.setRefresher(::requestPhysicalNetworkRefresh)
-        requestPhysicalNetworkRefresh()
+        requestPhysicalNetworkRefresh(PhysicalNetworkUpdateReason.OBSERVER_REGISTERED)
     }
 
     private fun refreshNetworkInfosFromSystem() {
@@ -161,16 +167,50 @@ class NetworkObserveModule(private val service: Service) : Module() {
         networkInfos.putAll(current)
     }
 
-    private suspend fun requestPhysicalNetworkRefresh(): PhysicalNetworkSnapshot? {
+    private suspend fun requestPhysicalNetworkRefresh(
+        reason: PhysicalNetworkUpdateReason,
+    ): PhysicalNetworkSnapshot? {
         val completion = CompletableDeferred<PhysicalNetworkSnapshot?>()
         val eventGeneration = generation.next()
-        updates.send(NetworkUpdateRequest(eventGeneration, refreshFromSystem = true, completion))
+        updates.send(
+            NetworkUpdateRequest(
+                eventGeneration,
+                reason,
+                refreshFromSystem = true,
+                completion = completion,
+            )
+        )
         return completion.await()
     }
 
-    private fun enqueueNetworkUpdate(mutation: (() -> Unit)? = null) {
-        Phase4Mark.emit("network_update_enqueued")
-        updates.trySend(NetworkUpdateRequest(generation.next(), mutation = mutation))
+    private fun enqueueNetworkUpdate(
+        reason: PhysicalNetworkUpdateReason,
+        mutation: (() -> Unit)? = null,
+    ) {
+        Phase4Mark.emit("network_update_enqueued", mapOf("reason" to reason.name))
+        updates.trySend(
+            NetworkUpdateRequest(
+                generation.next(),
+                reason,
+                mutation = mutation,
+            )
+        )
+    }
+
+    fun setCoreDnsUpdatesEnabled(enabled: Boolean) {
+        if (coreDnsUpdatesEnabled == enabled) return
+        enqueueNetworkUpdate(PhysicalNetworkUpdateReason.EXPLICIT_REFRESH) {
+            if (coreDnsUpdatesEnabled == enabled) return@enqueueNetworkUpdate
+            coreDnsUpdatesEnabled = enabled
+            if (!enabled && preDnsList.isNotEmpty()) {
+                preDnsList = emptyList()
+                Phase4Mark.emit(
+                    "core_update_dns",
+                    mapOf("dns_count" to 0, "reason" to "runtime_inactive"),
+                )
+                Core.updateDNS("")
+            }
+        }
     }
 
     private fun networkToInt(entry: Map.Entry<Network, NetworkInfo>): Int {
@@ -213,7 +253,10 @@ class NetworkObserveModule(private val service: Service) : Module() {
             networkHandle = entry.key.networkHandle,
         )
 
-    private fun applyNetworkUpdate(eventGeneration: Long): PhysicalNetworkSnapshot? {
+    private fun applyNetworkUpdate(
+        eventGeneration: Long,
+        updateReason: PhysicalNetworkUpdateReason,
+    ): PhysicalNetworkSnapshot? {
         if (!generation.isCurrent(eventGeneration)) {
             Phase4Mark.emit("network_update_skipped", mapOf("reason" to "stale_generation"))
             return null
@@ -230,6 +273,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
             transport = transport,
             ipv4Addresses = physicalPrimary?.value?.ipv4List ?: emptyList(),
             dnsServers = dnsList,
+            reason = updateReason,
         )
         // A callback can update generation while the snapshot is assembled.
         // Never publish that stale intermediate view.
@@ -250,6 +294,13 @@ class NetworkObserveModule(private val service: Service) : Module() {
             ),
         )
         PhysicalNetworkControlPlane.publish(snapshot)
+        if (!coreDnsUpdatesEnabled) {
+            Phase4Mark.emit(
+                "network_update_skipped",
+                mapOf("reason" to "runtime_inactive"),
+            )
+            return snapshot
+        }
         if (dnsList.isEmpty() || normalizeDnsServers(dnsList) == preDnsList) {
             Phase4Mark.emit(
                 "network_update_skipped",
@@ -281,6 +332,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
         refreshWaiters.clear()
         scope.cancel()
         networkInfos.clear()
+        coreDnsUpdatesEnabled = false
         if (preDnsList.isNotEmpty()) {
             preDnsList = emptyList()
             Phase4Mark.emit("core_update_dns", mapOf("dns_count" to 0, "reason" to "uninstall"))

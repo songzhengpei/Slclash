@@ -209,6 +209,18 @@ Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
   globalState.container.read(sortNumProvider.notifier).add();
 }
 
+String proxyFullDisplayName({
+  required String visibleName,
+  required SelectedProxyState resolved,
+}) {
+  if (resolved.group &&
+      resolved.proxyName.isNotEmpty &&
+      resolved.proxyName != visibleName) {
+    return '$visibleName: ${resolved.proxyName}';
+  }
+  return visibleName;
+}
+
 double getScrollToSelectedOffset({
   required String groupName,
   required List<Proxy> proxies,

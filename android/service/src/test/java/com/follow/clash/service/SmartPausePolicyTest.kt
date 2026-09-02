@@ -21,6 +21,28 @@ class SmartPausePolicyTest {
         networkId = 11,
         ipv4Addresses = listOf("10.0.0.10"),
     )
+    private val cellularNetwork = PhysicalNetworkSnapshot(
+        generation = 3,
+        networkId = 12,
+        transport = "cellular",
+        ipv4Addresses = emptyList(),
+        dnsServers = emptyList(),
+    )
+
+    private fun desired(
+        current: String,
+        network: SmartPausePhysicalNetwork,
+        unknownExhausted: Boolean = false,
+        recovering: Boolean = false,
+        policy: SmartPausePolicy = SmartPausePolicy(),
+        config: SmartPauseConfig = enabled,
+    ) = policy.desiredState(
+        config = config,
+        sessionState = current,
+        network = network,
+        unknownExhausted = unknownExhausted,
+        recovering = recovering,
+    )
 
     @Test
     fun trustedMatcherSupportsExactCidrMultipleAndInvalidRules() {
@@ -38,18 +60,156 @@ class SmartPausePolicyTest {
     }
 
     @Test
-    fun runningOnTrustedNetworkPauses() {
+    fun physicalNetworkClassificationRequiresConfirmedTrustedWifi() {
         assertEquals(
-            SmartPauseDecision.PAUSE,
-            SmartPausePolicy().evaluate(enabled, SessionState.RUNNING, true, true),
+            SmartPausePhysicalNetwork.TRUSTED_WIFI,
+            classifySmartPauseNetwork(trustedNetwork, enabled.trustedNetworks),
+        )
+        assertEquals(
+            SmartPausePhysicalNetwork.UNTRUSTED_WIFI,
+            classifySmartPauseNetwork(untrustedNetwork, enabled.trustedNetworks),
+        )
+        assertEquals(
+            SmartPausePhysicalNetwork.CELLULAR,
+            classifySmartPauseNetwork(cellularNetwork, enabled.trustedNetworks),
+        )
+        assertEquals(
+            SmartPausePhysicalNetwork.NO_NETWORK,
+            classifySmartPauseNetwork(cellularNetwork.copy(networkId = null), enabled.trustedNetworks),
+        )
+        assertEquals(
+            SmartPausePhysicalNetwork.UNKNOWN,
+            classifySmartPauseNetwork(null, enabled.trustedNetworks),
+        )
+        assertEquals(
+            SmartPausePhysicalNetwork.UNKNOWN,
+            classifySmartPauseNetwork(
+                trustedNetwork.copy(transport = "ethernet"),
+                enabled.trustedNetworks,
+            ),
         )
     }
 
     @Test
-    fun pausedOffTrustedNetworkResumes() {
+    fun runningToTrustedWifiPauses() {
+        val desired = desired(SessionState.RUNNING, SmartPausePhysicalNetwork.TRUSTED_WIFI)
+        assertEquals(SmartPauseDesiredState.PAUSED, desired)
+        assertEquals(SmartPauseAction.PAUSE, smartPauseActionFor(SessionState.RUNNING, desired))
+    }
+
+    @Test
+    fun pausedToCellularStartsEvenWithoutIpv4() {
+        val desired = desired(SessionState.PAUSED, SmartPausePhysicalNetwork.CELLULAR)
+        assertEquals(SmartPauseDesiredState.RUNNING, desired)
+        assertEquals(SmartPauseAction.START, smartPauseActionFor(SessionState.PAUSED, desired))
+    }
+
+    @Test
+    fun pausedToUntrustedWifiStarts() {
+        val desired = desired(SessionState.PAUSED, SmartPausePhysicalNetwork.UNTRUSTED_WIFI)
+        assertEquals(SmartPauseDesiredState.RUNNING, desired)
+        assertEquals(SmartPauseAction.START, smartPauseActionFor(SessionState.PAUSED, desired))
+    }
+
+    @Test
+    fun missedCallbackForegroundSnapshotStillStartsPausedSession() {
+        val foregroundTruth = classifySmartPauseNetwork(cellularNetwork, enabled.trustedNetworks)
+        val desired = desired(SessionState.PAUSED, foregroundTruth)
+        assertEquals(SmartPauseAction.START, smartPauseActionFor(SessionState.PAUSED, desired))
+    }
+
+    @Test
+    fun processRecoveryOnCellularStartsRegardlessOfPausedCheckpoint() {
+        val desired = desired(
+            current = SessionState.STARTING,
+            network = SmartPausePhysicalNetwork.CELLULAR,
+            recovering = true,
+        )
+        assertEquals(SmartPauseDesiredState.RUNNING, desired)
         assertEquals(
-            SmartPauseDecision.RESUME,
-            SmartPausePolicy().evaluate(enabled, SessionState.PAUSED, true, false),
+            SmartPauseAction.START,
+            smartPauseActionFor(SessionState.STARTING, desired, recovering = true),
+        )
+    }
+
+    @Test
+    fun processRecoveryStillOnTrustedWifiRemainsPaused() {
+        val desired = desired(
+            current = SessionState.STARTING,
+            network = SmartPausePhysicalNetwork.TRUSTED_WIFI,
+            recovering = true,
+        )
+        assertEquals(SmartPauseDesiredState.PAUSED, desired)
+        assertEquals(
+            SmartPauseAction.PAUSE,
+            smartPauseActionFor(SessionState.STARTING, desired, recovering = true),
+        )
+    }
+
+    @Test
+    fun unknownRetriesThenCellularStarts() {
+        assertEquals(
+            SmartPauseDesiredState.RETRY,
+            desired(SessionState.PAUSED, SmartPausePhysicalNetwork.UNKNOWN),
+        )
+        assertEquals(
+            SmartPauseDesiredState.RUNNING,
+            desired(SessionState.PAUSED, SmartPausePhysicalNetwork.CELLULAR),
+        )
+    }
+
+    @Test
+    fun repeatedUnknownFailsSafeToRunning() {
+        val desired = desired(
+            current = SessionState.PAUSED,
+            network = SmartPausePhysicalNetwork.UNKNOWN,
+            unknownExhausted = true,
+        )
+        assertEquals(SmartPauseDesiredState.RUNNING, desired)
+        assertEquals(SmartPauseAction.START, smartPauseActionFor(SessionState.PAUSED, desired))
+    }
+
+    @Test
+    fun repeatedRunningReconcileIsIdempotent() {
+        assertEquals(
+            SmartPauseAction.NO_ACTION,
+            smartPauseActionFor(SessionState.RUNNING, SmartPauseDesiredState.RUNNING),
+        )
+    }
+
+    @Test
+    fun repeatedPausedReconcileIsIdempotent() {
+        assertEquals(
+            SmartPauseAction.NO_ACTION,
+            smartPauseActionFor(SessionState.PAUSED, SmartPauseDesiredState.PAUSED),
+        )
+    }
+
+    @Test
+    fun disablingOrClearingRulesStartsPausedSession() {
+        assertEquals(
+            SmartPauseDesiredState.RUNNING,
+            desired(
+                SessionState.PAUSED,
+                SmartPausePhysicalNetwork.UNKNOWN,
+                config = enabled.copy(enabled = false),
+            ),
+        )
+        assertEquals(
+            SmartPauseDesiredState.RUNNING,
+            desired(
+                SessionState.PAUSED,
+                SmartPausePhysicalNetwork.UNKNOWN,
+                config = enabled.copy(trustedNetworks = emptyList()),
+            ),
+        )
+    }
+
+    @Test
+    fun stoppedSessionIsNeverStartedBySmartPausePolicy() {
+        assertEquals(
+            SmartPauseDesiredState.NO_ACTION,
+            desired(SessionState.STOPPED, SmartPausePhysicalNetwork.CELLULAR),
         )
     }
 
@@ -58,122 +218,54 @@ class SmartPausePolicyTest {
         val policy = SmartPausePolicy()
         policy.markManualResume(trusted = true)
         assertEquals(
-            SmartPauseDecision.NONE,
-            policy.evaluate(enabled, SessionState.RUNNING, true, true),
+            SmartPauseDesiredState.RUNNING,
+            desired(
+                SessionState.RUNNING,
+                SmartPausePhysicalNetwork.TRUSTED_WIFI,
+                policy = policy,
+            ),
         )
         assertTrue(policy.manualOverride)
-        assertEquals(
-            SmartPauseDecision.NONE,
-            policy.evaluate(enabled, SessionState.RUNNING, true, false),
+        desired(
+            SessionState.RUNNING,
+            SmartPausePhysicalNetwork.CELLULAR,
+            policy = policy,
         )
         assertFalse(policy.manualOverride)
         assertEquals(
-            SmartPauseDecision.PAUSE,
-            policy.evaluate(enabled, SessionState.RUNNING, true, true),
+            SmartPauseDesiredState.PAUSED,
+            desired(
+                SessionState.RUNNING,
+                SmartPausePhysicalNetwork.TRUSTED_WIFI,
+                policy = policy,
+            ),
         )
     }
 
     @Test
-    fun manualOverrideEndsWithSessionAndNextTrustedStartPauses() {
-        val policy = SmartPausePolicy()
-        policy.markManualResume(trusted = true)
-
-        policy.onSessionStopped()
-
-        assertFalse(policy.manualOverride)
-        assertEquals(
-            SmartPauseDecision.PAUSE,
-            policy.evaluate(enabled, SessionState.RUNNING, networkKnown = true, trusted = true),
+    fun manualResumeRequiresTrustedWifiNotJustMatchingIp() {
+        assertTrue(manualResumeTrusted(PausedResumeSource.USER, trustedNetwork, enabled))
+        assertFalse(
+            manualResumeTrusted(
+                PausedResumeSource.USER,
+                trustedNetwork.copy(transport = "ethernet"),
+                enabled,
+            ),
         )
-    }
-
-    @Test
-    fun disablingOrClearingRulesResumesPausedSession() {
-        val policy = SmartPausePolicy()
-        assertEquals(
-            SmartPauseDecision.RESUME,
-            policy.evaluate(enabled.copy(enabled = false), SessionState.PAUSED, false, false),
-        )
-        assertEquals(
-            SmartPauseDecision.RESUME,
-            policy.evaluate(enabled.copy(trustedNetworks = emptyList()), SessionState.PAUSED, false, false),
-        )
-    }
-
-    @Test
-    fun unknownNetworkNeverChangesLifecycle() {
-        val policy = SmartPausePolicy()
-        assertEquals(
-            SmartPauseDecision.NONE,
-            policy.evaluate(enabled, SessionState.PAUSED, false, false),
-        )
-        assertEquals(
-            SmartPauseDecision.NONE,
-            policy.evaluate(enabled, SessionState.RUNNING, false, true),
-        )
+        assertFalse(manualResumeTrusted(PausedResumeSource.USER, untrustedNetwork, enabled))
+        assertFalse(manualResumeTrusted(PausedResumeSource.POLICY, trustedNetwork, enabled))
     }
 
     @Test
     fun retryScheduleCountsOnlyExecutedRetries() {
         val retries = BoundedRetrySchedule(longArrayOf(500L, 1_500L, 3_000L))
-
-        // Repeated UNKNOWN events merely observe the same pending delay.
         repeat(4) { assertEquals(500L, retries.nextDelay()) }
         assertEquals(0, retries.executedAttempts)
-
         retries.markExecuted()
         assertEquals(1_500L, retries.nextDelay())
         retries.markExecuted()
         assertEquals(3_000L, retries.nextDelay())
         retries.markExecuted()
         assertEquals(null, retries.nextDelay())
-    }
-
-    @Test
-    fun userResumeOnTrustedNetworkEnablesManualOverride() {
-        assertTrue(manualResumeTrusted(PausedResumeSource.USER, trustedNetwork, enabled))
-    }
-
-    @Test
-    fun userResumeOnUntrustedNetworkDoesNotEnableManualOverride() {
-        assertFalse(manualResumeTrusted(PausedResumeSource.USER, untrustedNetwork, enabled))
-    }
-
-    @Test
-    fun policyResumeNeverEnablesManualOverride() {
-        assertFalse(manualResumeTrusted(PausedResumeSource.POLICY, trustedNetwork, enabled))
-    }
-
-    @Test
-    fun userResumeOffTrustedThenEnteringTrustedPauses() {
-        val policy = SmartPausePolicy()
-        policy.markManualResume(
-            manualResumeTrusted(PausedResumeSource.USER, untrustedNetwork, enabled),
-        )
-        assertFalse(policy.manualOverride)
-        assertEquals(
-            SmartPauseDecision.PAUSE,
-            policy.evaluate(enabled, SessionState.RUNNING, networkKnown = true, trusted = true),
-        )
-    }
-
-    @Test
-    fun transientTransitionFailureGetsOneBoundedReevaluationAndThenSucceeds() {
-        val retries = BoundedRetrySchedule(longArrayOf(500L, 1_500L, 3_000L))
-        var transitionCalls = 0
-
-        fun evaluateLatestPolicy(): Boolean {
-            transitionCalls += 1
-            return transitionCalls > 1
-        }
-
-        assertFalse(evaluateLatestPolicy())
-        assertEquals(500L, retries.nextDelay())
-        retries.markExecuted()
-        assertTrue(evaluateLatestPolicy())
-        retries.reset()
-
-        assertEquals(2, transitionCalls)
-        assertEquals(0, retries.executedAttempts)
     }
 }

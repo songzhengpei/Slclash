@@ -9,7 +9,17 @@ data class SmartPauseConfig(
     val closeConnections: Boolean = true,
 )
 
-enum class SmartPauseDecision { NONE, PAUSE, RESUME }
+enum class SmartPausePhysicalNetwork {
+    TRUSTED_WIFI,
+    UNTRUSTED_WIFI,
+    CELLULAR,
+    NO_NETWORK,
+    UNKNOWN,
+}
+
+enum class SmartPauseDesiredState { RUNNING, PAUSED, RETRY, NO_ACTION }
+
+enum class SmartPauseAction { NO_ACTION, PAUSE, START, RETRY }
 
 enum class PausedResumeSource { USER, POLICY, RECOVERY }
 
@@ -38,8 +48,52 @@ internal fun manualResumeTrusted(
     network: PhysicalNetworkSnapshot?,
     config: SmartPauseConfig,
 ): Boolean = source == PausedResumeSource.USER && network?.let {
-    it.isKnown && TrustedNetworkMatcher.matchesAny(it.ipv4Addresses, config.trustedNetworks)
+    it.transport == "wifi" &&
+        it.isKnown &&
+        TrustedNetworkMatcher.matchesAny(it.ipv4Addresses, config.trustedNetworks)
 } == true
+
+internal fun classifySmartPauseNetwork(
+    network: PhysicalNetworkSnapshot?,
+    trustedNetworks: List<String>,
+): SmartPausePhysicalNetwork {
+    if (network == null) return SmartPausePhysicalNetwork.UNKNOWN
+    if (network.networkId == null) return SmartPausePhysicalNetwork.NO_NETWORK
+    if (network.transport == "cellular" || network.transport == "satellite") {
+        return SmartPausePhysicalNetwork.CELLULAR
+    }
+    if (network.transport != "wifi" || network.ipv4Addresses.isEmpty()) {
+        return SmartPausePhysicalNetwork.UNKNOWN
+    }
+    return if (TrustedNetworkMatcher.matchesAny(network.ipv4Addresses, trustedNetworks)) {
+        SmartPausePhysicalNetwork.TRUSTED_WIFI
+    } else {
+        SmartPausePhysicalNetwork.UNTRUSTED_WIFI
+    }
+}
+
+internal fun smartPauseActionFor(
+    currentState: String,
+    desiredState: SmartPauseDesiredState,
+    recovering: Boolean = false,
+): SmartPauseAction {
+    if (desiredState == SmartPauseDesiredState.RETRY) return SmartPauseAction.RETRY
+    if (desiredState == SmartPauseDesiredState.NO_ACTION) return SmartPauseAction.NO_ACTION
+    if (recovering) {
+        return if (desiredState == SmartPauseDesiredState.PAUSED) {
+            SmartPauseAction.PAUSE
+        } else {
+            SmartPauseAction.START
+        }
+    }
+    return when {
+        currentState == SessionState.RUNNING && desiredState == SmartPauseDesiredState.PAUSED ->
+            SmartPauseAction.PAUSE
+        currentState == SessionState.PAUSED && desiredState == SmartPauseDesiredState.RUNNING ->
+            SmartPauseAction.START
+        else -> SmartPauseAction.NO_ACTION
+    }
+}
 
 object TrustedNetworkMatcher {
     fun matchesAny(addresses: List<String>, networks: List<String>): Boolean =
@@ -86,25 +140,42 @@ class SmartPausePolicy {
         manualOverride = false
     }
 
-    fun evaluate(
+    fun desiredState(
         config: SmartPauseConfig,
         sessionState: String,
-        networkKnown: Boolean,
-        trusted: Boolean,
-    ): SmartPauseDecision {
+        network: SmartPausePhysicalNetwork,
+        unknownExhausted: Boolean,
+        recovering: Boolean = false,
+    ): SmartPauseDesiredState {
+        if (!recovering && sessionState != SessionState.RUNNING && sessionState != SessionState.PAUSED) {
+            return SmartPauseDesiredState.NO_ACTION
+        }
         if (!config.enabled || config.trustedNetworks.isEmpty()) {
             manualOverride = false
-            return if (sessionState == SessionState.PAUSED) SmartPauseDecision.RESUME
-            else SmartPauseDecision.NONE
+            return SmartPauseDesiredState.RUNNING
         }
-        if (!networkKnown) return SmartPauseDecision.NONE
-        if (!trusted) {
-            manualOverride = false
-            return if (sessionState == SessionState.PAUSED) SmartPauseDecision.RESUME
-            else SmartPauseDecision.NONE
+        return when (network) {
+            SmartPausePhysicalNetwork.TRUSTED_WIFI -> {
+                if (manualOverride) SmartPauseDesiredState.RUNNING
+                else SmartPauseDesiredState.PAUSED
+            }
+            SmartPausePhysicalNetwork.UNKNOWN -> {
+                if (!recovering && sessionState == SessionState.RUNNING) {
+                    SmartPauseDesiredState.RUNNING
+                } else if (unknownExhausted) {
+                    manualOverride = false
+                    SmartPauseDesiredState.RUNNING
+                } else {
+                    SmartPauseDesiredState.RETRY
+                }
+            }
+            SmartPausePhysicalNetwork.UNTRUSTED_WIFI,
+            SmartPausePhysicalNetwork.CELLULAR,
+            SmartPausePhysicalNetwork.NO_NETWORK,
+            -> {
+                manualOverride = false
+                SmartPauseDesiredState.RUNNING
+            }
         }
-        return if (sessionState == SessionState.RUNNING && !manualOverride) {
-            SmartPauseDecision.PAUSE
-        } else SmartPauseDecision.NONE
     }
 }

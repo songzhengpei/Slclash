@@ -1,5 +1,20 @@
 package com.follow.clash.service.modules
 
+enum class PhysicalNetworkUpdateReason {
+    NETWORK_AVAILABLE,
+    NETWORK_LOSING,
+    NETWORK_LOST,
+    NETWORK_CAPABILITIES_CHANGED,
+    NETWORK_LINK_PROPERTIES_CHANGED,
+    OBSERVER_REGISTERED,
+    SERVICE_CREATED,
+    PROCESS_RECOVERY,
+    APP_FOREGROUND,
+    CONFIG_CHANGE,
+    UNKNOWN_RETRY,
+    EXPLICIT_REFRESH,
+}
+
 /** A privacy-preserving view of the current non-VPN network. */
 data class PhysicalNetworkSnapshot(
     val generation: Long,
@@ -7,6 +22,7 @@ data class PhysicalNetworkSnapshot(
     val transport: String,
     val ipv4Addresses: List<String>,
     val dnsServers: List<String>,
+    val reason: PhysicalNetworkUpdateReason = PhysicalNetworkUpdateReason.EXPLICIT_REFRESH,
     val timestamp: Long = System.currentTimeMillis(),
 ) {
     val isKnown: Boolean get() = networkId != null && ipv4Addresses.isNotEmpty()
@@ -57,13 +73,15 @@ internal fun physicalNetworkSelectionKey(
 
 /**
  * Process-local fan-out for the single ConnectivityManager observer.
- * The remote service registers the lifecycle consumer; DNS remains local to
- * NetworkObserveModule. The last snapshot is replayed after service recreation.
+ * RemoteService owns both the observer and lifecycle consumer so Smart Pause
+ * remains observable while the TUN/Core listener is paused. The last snapshot
+ * is replayed after service recreation and then replaced by a system refresh.
  */
 object PhysicalNetworkControlPlane {
     @Volatile private var latest: PhysicalNetworkSnapshot? = null
     @Volatile private var consumer: ((PhysicalNetworkSnapshot) -> Unit)? = null
-    @Volatile private var refresher: (suspend () -> PhysicalNetworkSnapshot?)? = null
+    @Volatile private var refresher:
+        (suspend (PhysicalNetworkUpdateReason) -> PhysicalNetworkSnapshot?)? = null
 
     fun publish(snapshot: PhysicalNetworkSnapshot) {
         latest = snapshot
@@ -79,9 +97,13 @@ object PhysicalNetworkControlPlane {
         consumer = null
     }
 
-    fun setRefresher(next: (suspend () -> PhysicalNetworkSnapshot?)?) {
+    fun setRefresher(
+        next: (suspend (PhysicalNetworkUpdateReason) -> PhysicalNetworkSnapshot?)?,
+    ) {
         refresher = next
     }
 
-    suspend fun refresh(): PhysicalNetworkSnapshot? = refresher?.invoke() ?: latest
+    suspend fun refresh(
+        reason: PhysicalNetworkUpdateReason = PhysicalNetworkUpdateReason.EXPLICIT_REFRESH,
+    ): PhysicalNetworkSnapshot? = refresher?.invoke(reason) ?: latest
 }

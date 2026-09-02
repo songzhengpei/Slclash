@@ -7,7 +7,9 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.Parcel
+import android.os.Process
 import android.os.RemoteException
+import android.os.UserManager
 import android.util.Log
 import androidx.core.content.getSystemService
 import com.follow.clash.common.AccessControlMode
@@ -22,8 +24,8 @@ import com.follow.clash.service.models.VpnOptions
 import com.follow.clash.service.models.getIpv4RouteAddress
 import com.follow.clash.service.models.getIpv6RouteAddress
 import com.follow.clash.service.models.toCIDR
+import com.follow.clash.service.models.shouldAttachVpnHttpProxy
 import com.follow.clash.service.models.tunDnsHijackServers
-import com.follow.clash.service.modules.NetworkObserveModule
 import com.follow.clash.service.modules.NotificationModule
 import com.follow.clash.service.modules.SuspendModule
 import com.follow.clash.service.modules.moduleLoader
@@ -64,7 +66,6 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
 
     private val loader = moduleLoader {
         install(NotificationModule(self))
-        install(NetworkObserveModule(self))
         install(SuspendModule(self))
     }
 
@@ -125,6 +126,18 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
     private val connectivity by lazy {
         getSystemService<ConnectivityManager>()
     }
+
+    private fun hasAssociatedUserProfiles(): Boolean =
+        runCatching {
+            val currentUser = Process.myUserHandle()
+            getSystemService<UserManager>()
+                ?.userProfiles
+                ?.any { it != currentUser }
+                ?: true
+        }.onFailure { error ->
+            GlobalState.log("Detect associated user profiles failed: ${error.message}")
+        }.getOrDefault(true)
+
     private val uidPageNameMap = object : LinkedHashMap<Int, String>(128, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, String>?): Boolean {
             return size > 256
@@ -314,12 +327,26 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             if (options.allowBypass) {
                 allowBypass()
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
+            val hasAssociatedProfiles =
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    options.systemProxy &&
+                    hasAssociatedUserProfiles()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                shouldAttachVpnHttpProxy(options.systemProxy, hasAssociatedProfiles)
+            ) {
                 GlobalState.log("Open http proxy")
                 setHttpProxy(
                     ProxyInfo.buildDirectProxy(
                         "127.0.0.1", options.port, options.bypassDomain
                     )
+                )
+            } else if (options.systemProxy) {
+                GlobalState.log(
+                    if (hasAssociatedProfiles) {
+                        "Skip localhost HTTP proxy for associated user profiles; use TUN capture"
+                    } else {
+                        "Skip HTTP proxy because this Android version does not support it"
+                    },
                 )
             }
             Phase4Mark.emit("vpn_tun_observed", mapOf("phase" to "builder_establish_begin"))
@@ -393,7 +420,15 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             "vpn_tun_observed",
             mapOf("phase" to "smart_stop_begin", "shutdown_complete" to shutdownComplete),
         )
-        if (shutdownComplete || !tunEstablished) return@withLock false
+        if (shutdownComplete) return@withLock false
+        if (!tunEstablished && State.snapshot.state == SessionState.STARTING) {
+            // Checkpoint recovery may establish a PAUSED session without ever
+            // creating TUN. Keep notification/suspend modules alive while
+            // confirming that the runtime is already physically paused.
+            loader.load()
+            return@withLock true
+        }
+        if (!tunEstablished) return@withLock false
         clearResolverCache()
         Core.stopTun()
         tunEstablished = false
@@ -412,6 +447,9 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
         if (shutdownComplete) return@withLock false
         return@withLock try {
             State.options?.let {
+                // A checkpoint can restore PAUSED without ever calling start().
+                // Load the runtime modules before recreating TUN in that path.
+                loader.load()
                 handleStart(it)
                 Phase4Mark.emit(
                     "vpn_tun_observed",
