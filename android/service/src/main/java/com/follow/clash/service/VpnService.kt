@@ -22,6 +22,7 @@ import com.follow.clash.service.models.VpnOptions
 import com.follow.clash.service.models.getIpv4RouteAddress
 import com.follow.clash.service.models.getIpv6RouteAddress
 import com.follow.clash.service.models.toCIDR
+import com.follow.clash.service.models.shouldAttachVpnHttpProxy
 import com.follow.clash.service.models.tunDnsHijackServers
 import com.follow.clash.service.modules.NotificationModule
 import com.follow.clash.service.modules.SuspendModule
@@ -312,12 +313,18 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             if (options.allowBypass) {
                 allowBypass()
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && options.systemProxy) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                shouldAttachVpnHttpProxy(options.systemProxy)
+            ) {
                 GlobalState.log("Open http proxy")
                 setHttpProxy(
                     ProxyInfo.buildDirectProxy(
                         "127.0.0.1", options.port, options.bypassDomain
                     )
+                )
+            } else if (options.systemProxy) {
+                GlobalState.log(
+                    "Skip localhost HTTP proxy; TUN already captures clone/work-profile traffic",
                 )
             }
             Phase4Mark.emit("vpn_tun_observed", mapOf("phase" to "builder_establish_begin"))
