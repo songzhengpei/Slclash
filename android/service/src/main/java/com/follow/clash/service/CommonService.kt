@@ -6,7 +6,6 @@ import android.os.Binder
 import android.os.IBinder
 import com.follow.clash.common.GlobalState
 import com.follow.clash.core.Core
-import com.follow.clash.service.modules.NetworkObserveModule
 import com.follow.clash.service.modules.NotificationModule
 import com.follow.clash.service.modules.SuspendModule
 import com.follow.clash.service.modules.moduleLoader
@@ -37,7 +36,6 @@ class CommonService : Service(), IBaseService, CoroutineScope {
 
     private val loader = moduleLoader {
         install(NotificationModule(self))
-        install(NetworkObserveModule(self))
         install(SuspendModule(self))
     }
 

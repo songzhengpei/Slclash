@@ -23,7 +23,6 @@ import com.follow.clash.service.models.getIpv4RouteAddress
 import com.follow.clash.service.models.getIpv6RouteAddress
 import com.follow.clash.service.models.toCIDR
 import com.follow.clash.service.models.tunDnsHijackServers
-import com.follow.clash.service.modules.NetworkObserveModule
 import com.follow.clash.service.modules.NotificationModule
 import com.follow.clash.service.modules.SuspendModule
 import com.follow.clash.service.modules.moduleLoader
@@ -64,7 +63,6 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
 
     private val loader = moduleLoader {
         install(NotificationModule(self))
-        install(NetworkObserveModule(self))
         install(SuspendModule(self))
     }
 
@@ -393,7 +391,15 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             "vpn_tun_observed",
             mapOf("phase" to "smart_stop_begin", "shutdown_complete" to shutdownComplete),
         )
-        if (shutdownComplete || !tunEstablished) return@withLock false
+        if (shutdownComplete) return@withLock false
+        if (!tunEstablished && State.snapshot.state == SessionState.STARTING) {
+            // Checkpoint recovery may establish a PAUSED session without ever
+            // creating TUN. Keep notification/suspend modules alive while
+            // confirming that the runtime is already physically paused.
+            loader.load()
+            return@withLock true
+        }
+        if (!tunEstablished) return@withLock false
         clearResolverCache()
         Core.stopTun()
         tunEstablished = false
@@ -412,6 +418,9 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
         if (shutdownComplete) return@withLock false
         return@withLock try {
             State.options?.let {
+                // A checkpoint can restore PAUSED without ever calling start().
+                // Load the runtime modules before recreating TUN in that path.
+                loader.load()
                 handleStart(it)
                 Phase4Mark.emit(
                     "vpn_tun_observed",

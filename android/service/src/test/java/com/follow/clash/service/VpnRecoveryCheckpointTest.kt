@@ -116,26 +116,6 @@ class VpnRecoveryCheckpointTest {
     }
 
     @Test
-    fun recoveryNetworkDecisionIsFailClosedWhileNetworkIsUnknown() {
-        assertEquals(
-            VpnRecoveryNetworkDecision.RUN,
-            recoveryNetworkDecision(false, networkKnown = false, networkTrusted = false),
-        )
-        assertEquals(
-            VpnRecoveryNetworkDecision.WAIT,
-            recoveryNetworkDecision(true, networkKnown = false, networkTrusted = false),
-        )
-        assertEquals(
-            VpnRecoveryNetworkDecision.PAUSE,
-            recoveryNetworkDecision(true, networkKnown = true, networkTrusted = true),
-        )
-        assertEquals(
-            VpnRecoveryNetworkDecision.RUN,
-            recoveryNetworkDecision(true, networkKnown = true, networkTrusted = false),
-        )
-    }
-
-    @Test
     fun persistedSharedStateSuppliesSetupWhenCoreWasAlreadyInitialized() {
         val payload = quickSetupPayloadFromSharedState(
             rawSharedState = """{"setupParams":{"selected-map":{"GLOBAL":"Proxy"},"test-url":"https://example.com"},"vpnOptions":{}}""",

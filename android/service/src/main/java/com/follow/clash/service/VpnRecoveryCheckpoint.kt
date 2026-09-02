@@ -41,12 +41,6 @@ internal data class VpnRecoveryCheckpoint(
     )
 }
 
-internal enum class VpnRecoveryNetworkDecision {
-    RUN,
-    PAUSE,
-    WAIT,
-}
-
 internal fun shouldKeepVpnServiceSticky(
     forceNonSticky: Boolean,
     checkpointValid: Boolean,
@@ -63,17 +57,6 @@ internal fun isCheckpointCompatible(
     installEpoch: Long,
 ): Boolean = checkpoint.installEpoch == installEpoch &&
     checkpoint.recoveryFailures < VPN_RECOVERY_MAX_FAILURES
-
-internal fun recoveryNetworkDecision(
-    smartPauseEnabled: Boolean,
-    networkKnown: Boolean,
-    networkTrusted: Boolean,
-): VpnRecoveryNetworkDecision = when {
-    !smartPauseEnabled -> VpnRecoveryNetworkDecision.RUN
-    !networkKnown -> VpnRecoveryNetworkDecision.WAIT
-    networkTrusted -> VpnRecoveryNetworkDecision.PAUSE
-    else -> VpnRecoveryNetworkDecision.RUN
-}
 
 internal fun quickSetupPayloadFromSharedState(
     rawSharedState: String,

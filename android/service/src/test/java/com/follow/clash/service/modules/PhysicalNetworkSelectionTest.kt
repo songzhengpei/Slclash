@@ -1,9 +1,11 @@
 package com.follow.clash.service.modules
 
 import com.follow.clash.service.SmartPauseConfig
-import com.follow.clash.service.SmartPauseDecision
+import com.follow.clash.service.SmartPauseDesiredState
+import com.follow.clash.service.SmartPausePhysicalNetwork
 import com.follow.clash.service.SmartPausePolicy
 import com.follow.clash.service.TrustedNetworkMatcher
+import com.follow.clash.service.classifySmartPauseNetwork
 import com.follow.clash.service.models.SessionState
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -120,12 +122,12 @@ class PhysicalNetworkSelectionTest {
         assertEquals(wifi, selected)
         assertTrue(trusted)
         assertEquals(
-            SmartPauseDecision.PAUSE,
-            SmartPausePolicy().evaluate(
+            SmartPauseDesiredState.PAUSED,
+            SmartPausePolicy().desiredState(
                 SmartPauseConfig(enabled = true, trustedNetworks = trustedNetworks),
                 SessionState.RUNNING,
-                networkKnown = true,
-                trusted = trusted,
+                network = SmartPausePhysicalNetwork.TRUSTED_WIFI,
+                unknownExhausted = false,
             ),
         )
     }
@@ -147,12 +149,12 @@ class PhysicalNetworkSelectionTest {
         assertTrue(snapshot.isKnown)
         assertFalse(trusted)
         assertEquals(
-            SmartPauseDecision.RESUME,
-            SmartPausePolicy().evaluate(
+            SmartPauseDesiredState.RUNNING,
+            SmartPausePolicy().desiredState(
                 SmartPauseConfig(enabled = true, trustedNetworks = trustedNetworks),
                 SessionState.PAUSED,
-                networkKnown = snapshot.isKnown,
-                trusted = trusted,
+                network = classifySmartPauseNetwork(snapshot, trustedNetworks),
+                unknownExhausted = false,
             ),
         )
     }
