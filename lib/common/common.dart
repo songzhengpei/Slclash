@@ -58,6 +58,7 @@ export 'string.dart';
 export 'system.dart';
 export 'task.dart';
 export 'text.dart';
+export 'update.dart';
 export 'utils.dart';
 export 'yaml.dart';
 export '../theme/typography/typography_context.dart';

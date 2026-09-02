@@ -89,23 +89,88 @@ class Request {
   }
 
   Future<Map<String, dynamic>?> checkForUpdate() async {
-    try {
-      final response = await dio.get(
-        'https://api.github.com/repos/$repository/releases/latest',
-        options: Options(responseType: ResponseType.json),
-      );
-      if (response.statusCode != 200) return null;
-      final data = response.data as Map<String, dynamic>;
-      final remoteVersion = data['tag_name'];
-      final version = globalState.packageInfo.version;
-      final hasUpdate =
-          utils.compareVersions(remoteVersion.replaceAll('v', ''), version) > 0;
-      if (!hasUpdate) return null;
-      return data;
-    } catch (e) {
-      commonPrint.log('checkForUpdate failed', logLevel: LogLevel.warning);
-      return null;
+    final mirrorUrl = githubProxyUrl(githubUpdateApiUrl);
+    final sources = <({Dio client, String url, String route})>[
+      (client: _clashDio, url: githubUpdateApiUrl, route: 'official'),
+      if (mirrorUrl != null) (client: dio, url: mirrorUrl, route: 'gh-proxy'),
+    ];
+    for (final source in sources) {
+      try {
+        final response = await source.client.get<Map<String, dynamic>>(
+          source.url,
+          options: Options(
+            responseType: ResponseType.json,
+            sendTimeout: const Duration(seconds: 8),
+            receiveTimeout: const Duration(seconds: 8),
+          ),
+        );
+        final data = response.data;
+        if (response.statusCode != HttpStatus.ok || data == null) {
+          continue;
+        }
+        commonPrint.log(
+          'checkForUpdate succeeded route=${source.route}',
+          logLevel: LogLevel.info,
+        );
+        final remoteVersion = data['tag_name']?.toString();
+        if (remoteVersion == null || remoteVersion.isEmpty) return null;
+        final version = globalState.packageInfo.version;
+        final hasUpdate =
+            utils.compareVersions(remoteVersion.replaceAll('v', ''), version) >
+            0;
+        if (!hasUpdate) return null;
+        return data;
+      } catch (_) {
+        commonPrint.log(
+          'checkForUpdate failed route=${source.route}',
+          logLevel: LogLevel.warning,
+        );
+      }
     }
+    return null;
+  }
+
+  Future<void> downloadUpdate({
+    required String officialUrl,
+    required String savePath,
+    required String expectedSha256,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final urls = githubReleaseDownloadUrls(officialUrl);
+    Object? lastError;
+    for (final url in urls) {
+      final mirrored = url.startsWith(githubProxyPrefix);
+      try {
+        final file = File(savePath);
+        if (file.existsSync()) file.deleteSync();
+        await (mirrored ? dio : _clashDio).download(
+          url,
+          savePath,
+          onReceiveProgress: onReceiveProgress,
+          options: Options(
+            sendTimeout: const Duration(seconds: 8),
+            receiveTimeout: const Duration(seconds: 30),
+          ),
+        );
+        if (!await fileMatchesSha256(savePath, expectedSha256)) {
+          throw StateError('APK integrity verification failed');
+        }
+        commonPrint.log(
+          'update-download:succeeded route=${mirrored ? 'gh-proxy' : 'official'}',
+          logLevel: LogLevel.info,
+        );
+        return;
+      } catch (error) {
+        lastError = error;
+        final file = File(savePath);
+        if (file.existsSync()) file.deleteSync();
+        commonPrint.log(
+          'update-download:failed route=${mirrored ? 'gh-proxy' : 'official'}',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
+    throw lastError ?? StateError('No update download URL is available');
   }
 
   final Map<String, IpInfo Function(Map<String, dynamic>)> _ipInfoSources = {
