@@ -9,6 +9,7 @@ import 'package:fl_clash/state.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'card.dart';
@@ -63,7 +64,6 @@ class _ProxiesListViewState extends State<ProxiesListView> {
   }
 
   void _adjustHeader() {
-    _labelPlaybackCoordinator.cancelActive();
     _headerStateNotifier.value = _getProxiesListHeaderSelectorState(
       !_controller.hasClients ? 0 : _controller.offset,
     );
@@ -88,15 +88,15 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     super.dispose();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _labelPlaybackCoordinator.setPageActive(
-      TickerMode.valuesOf(context).enabled,
-    );
+  bool _onUserScroll(UserScrollNotification notification) {
+    if (notification.direction != ScrollDirection.idle) {
+      _labelPlaybackCoordinator.cancelActive();
+    }
+    return false;
   }
 
   void _handleChange(Set<String> currentUnfoldSet, String groupName) {
+    _labelPlaybackCoordinator.requestReplayFor(groupName);
     _autoScrollToGroup(groupName);
     final tempUnfoldSet = Set<String>.from(currentUnfoldSet);
     if (tempUnfoldSet.contains(groupName)) {
@@ -171,7 +171,9 @@ class _ProxiesListViewState extends State<ProxiesListView> {
 
       items.add(
         ListHeader(
+          key: ValueKey('proxy-header-$groupName'),
           labelPlaybackCoordinator: _labelPlaybackCoordinator,
+          playbackOrder: groupIndex,
           onScrollToSelected: _scrollToGroupSelected,
           isExpand: isExpand,
           rowPosition: headerPosition,
@@ -221,6 +223,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     WidgetRef ref, {
     required Group group,
     required Set<String> currentUnfoldSet,
+    required int playbackOrder,
     ProxyListRowPosition? rowPosition,
   }) {
     final groupName = group.name;
@@ -229,6 +232,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
       height: listHeaderHeight,
       child: ListHeader(
         labelPlaybackCoordinator: _labelPlaybackCoordinator,
+        playbackOrder: playbackOrder,
         enterAnimated: false,
         onScrollToSelected: _scrollToGroupSelected,
         key: Key(groupName),
@@ -340,6 +344,12 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     return Consumer(
       builder: (_, ref, _) {
         ProxyTrace.noteHotspotBuild('proxies_list');
+        ref.listen<PageLabel>(currentPageLabelProvider, (previous, next) {
+          _labelPlaybackCoordinator.setPageActive(next == PageLabel.proxies);
+        });
+        _labelPlaybackCoordinator.setPageActive(
+          ref.read(currentPageLabelProvider) == PageLabel.proxies,
+        );
         final state = ref.watch(proxiesListStateProvider);
         final snapshotState = ref.watch(proxyGroupsSnapshotProvider);
         ref.watch(themeSettingProvider.select((state) => state.textScale));
@@ -437,23 +447,30 @@ class _ProxiesListViewState extends State<ProxiesListView> {
               Positioned.fill(
                 child: ScrollConfiguration(
                   behavior: HiddenBarScrollBehavior(),
-                  child: ListView.builder(
-                    key: proxiesListStoreKey,
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      16,
-                      16,
-                      SurgeBottomNavLayout.mainPageBottomPadding(context),
+                  child: NotificationListener<UserScrollNotification>(
+                    onNotification: _onUserScroll,
+                    child: ListView.builder(
+                      key: proxiesListStoreKey,
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        SurgeBottomNavLayout.mainPageBottomPadding(context),
+                      ),
+                      controller: _controller,
+                      itemCount: items.length,
+                      itemBuilder: (_, index) {
+                        final item = items[index];
+                        if (item is ListHeader) {
+                          return SizedBox(
+                            key: ValueKey(item.group.name),
+                            height: listHeaderHeight,
+                            child: item,
+                          );
+                        }
+                        return item;
+                      },
                     ),
-                    controller: _controller,
-                    itemCount: items.length,
-                    itemBuilder: (_, index) {
-                      final item = items[index];
-                      if (item is ListHeader) {
-                        return SizedBox(height: listHeaderHeight, child: item);
-                      }
-                      return item;
-                    },
                   ),
                 ),
               ),
@@ -498,6 +515,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
                                       ref,
                                       group: group,
                                       currentUnfoldSet: state.currentUnfoldSet,
+                                      playbackOrder: index,
                                       rowPosition: ProxyListRowPosition.first,
                                     ),
                                   ),
@@ -529,6 +547,7 @@ class ListHeader extends StatefulWidget {
   final bool showDivider;
 
   final bool enterAnimated;
+  final int playbackOrder;
   final ProxyLabelPlaybackCoordinator labelPlaybackCoordinator;
 
   const ListHeader({
@@ -536,6 +555,7 @@ class ListHeader extends StatefulWidget {
     this.enterAnimated = true,
     this.rowPosition = ProxyListRowPosition.single,
     this.showDivider = false,
+    this.playbackOrder = 0,
     required this.group,
     required this.onChange,
     required this.onScrollToSelected,
@@ -698,142 +718,106 @@ class _ListHeaderState extends State<ListHeader> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Flexible(
-                      child: Row(
-                        children: [
-                          _buildIcon(),
-                          Flexible(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Consumer(
+                        builder: (_, ref, _) {
+                          final proxyName = ref
+                              .watch(selectedProxyNameProvider(groupName))
+                              .takeFirstValid([]);
+                          final displayLabel = proxyName.isEmpty
+                              ? ''
+                              : proxyFullDisplayName(
+                                  visibleName: proxyName,
+                                  resolved: ref.watch(
+                                    realSelectedProxyStateProvider(proxyName),
+                                  ),
+                                );
+                          final tooltipMessage = displayLabel.isNotEmpty
+                              ? displayLabel
+                              : groupName;
+                          return LongPressFullText(
+                            message: tooltipMessage,
+                            onLongPress: () {
+                              widget.labelPlaybackCoordinator.requestReplayFor(
+                                groupName,
+                              );
+                            },
+                            child: Row(
                               children: [
-                                EmojiText(
-                                  groupName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: context.typography.proxyGroupTitle
-                                      .copyWith(color: surge.textPrimary),
-                                ),
-                                const SizedBox(height: 4),
+                                _buildIcon(),
                                 Flexible(
-                                  flex: 1,
-                                  child: Row(
+                                  child: Column(
                                     mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.start,
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.center,
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        groupType,
+                                      EmojiText(
+                                        groupName,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: context
                                             .typography
-                                            .proxySelectorLabel
+                                            .proxyGroupTitle
                                             .copyWith(
-                                              color: surge.textSecondary,
+                                              color: surge.textPrimary,
                                             ),
                                       ),
+                                      const SizedBox(height: 4),
                                       Flexible(
                                         flex: 1,
-                                        child: Consumer(
-                                          builder: (_, ref, _) {
-                                            final proxyName = ref
-                                                .watch(
-                                                  selectedProxyNameProvider(
-                                                    groupName,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              groupType,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: context
+                                                  .typography
+                                                  .proxySelectorLabel
+                                                  .copyWith(
+                                                    color:
+                                                        surge.textSecondary,
                                                   ),
-                                                )
-                                                .takeFirstValid([]);
-                                            if (proxyName.isEmpty) {
-                                              return const SizedBox();
-                                            }
-                                            final groups = ref.watch(
-                                              groupsProvider,
-                                            );
-                                            final nestedGroup = groups.getGroup(
-                                              proxyName,
-                                            );
-                                            String displayLabel;
-                                            if (nestedGroup != null) {
-                                              // Resolve to leaf node
-                                              String leafName;
-                                              if (nestedGroup
-                                                  .type
-                                                  .isComputedSelected) {
-                                                final computedMap = ref.read(
-                                                  computedSelectedMapProvider,
-                                                );
-                                                leafName = nestedGroup
-                                                    .getCurrentSelectedName(
-                                                      '',
-                                                      cachedComputedNow:
-                                                          computedMap[proxyName],
-                                                    );
-                                              } else {
-                                                leafName = nestedGroup.realNow;
-                                              }
-                                              int depth = 0;
-                                              while (leafName.isNotEmpty &&
-                                                  groups.getGroup(leafName) !=
-                                                      null &&
-                                                  depth < 4) {
-                                                final nextGroup = groups
-                                                    .getGroup(leafName)!;
-                                                leafName = nextGroup
-                                                    .getCurrentSelectedName(
-                                                      '',
-                                                      cachedComputedNow: ref.read(
-                                                        computedSelectedMapProvider,
-                                                      )[leafName],
-                                                    );
-                                                depth++;
-                                              }
-                                              displayLabel = leafName.isNotEmpty
-                                                  ? '${nestedGroup.name}: $leafName'
-                                                  : nestedGroup.name;
-                                            } else {
-                                              displayLabel = proxyName;
-                                            }
-                                            return Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.center,
-                                              children: [
-                                                Flexible(
-                                                  flex: 1,
-                                                  child: ScrollingProxyLabel(
-                                                    text: displayLabel,
-                                                    leading: '  ',
-                                                    coordinator: widget
-                                                        .labelPlaybackCoordinator,
-                                                    replayToken: isExpand,
-                                                    style: context
-                                                        .typography
-                                                        .proxySelectorLabel
-                                                        .copyWith(
-                                                          color: surge
-                                                              .textPrimary
-                                                              .withValues(
-                                                                alpha: 0.78,
-                                                              ),
-                                                        ),
-                                                  ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            if (displayLabel.isNotEmpty)
+                                              Flexible(
+                                                flex: 1,
+                                                child: ScrollingProxyLabel(
+                                                  text: displayLabel,
+                                                  ownerKey: groupName,
+                                                  order: widget.playbackOrder,
+                                                  enableInternalLongPress:
+                                                      false,
+                                                  coordinator: widget
+                                                      .labelPlaybackCoordinator,
+                                                  replayToken: isExpand,
+                                                  style: context
+                                                      .typography
+                                                      .proxySelectorLabel
+                                                      .copyWith(
+                                                        color: surge
+                                                            .textPrimary
+                                                            .withValues(
+                                                              alpha: 0.78,
+                                                            ),
+                                                      ),
                                                 ),
-                                              ],
-                                            );
-                                          },
+                                              ),
+                                          ],
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 4),
                               ],
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ),
                     _buildActions(context),

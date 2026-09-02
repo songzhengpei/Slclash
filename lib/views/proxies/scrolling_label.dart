@@ -1,9 +1,28 @@
 import 'dart:async';
 
 import 'package:fl_clash/widgets/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 typedef ProxyLabelPlayback = Future<void> Function();
+
+class _QueuedPlayback {
+  _QueuedPlayback({
+    required this.owner,
+    required this.playback,
+    required this.stop,
+    required this.order,
+    required this.ownerKey,
+    required this.initial,
+  });
+
+  final Object owner;
+  final ProxyLabelPlayback playback;
+  final VoidCallback stop;
+  final int order;
+  final String? ownerKey;
+  final bool initial;
+}
 
 /// Keeps proxy-name motion sparse: one label per page, one finite playback.
 class ProxyLabelPlaybackCoordinator {
@@ -12,17 +31,58 @@ class ProxyLabelPlaybackCoordinator {
   var _generation = 0;
   var _initialPlaybackClaimed = false;
   var _pageActive = false;
+  var _visit = 0;
+  String? _pendingReplayOwnerKey;
+  var _flushScheduled = false;
+  final _queued = <_QueuedPlayback>[];
+  final _visitListeners = ObserverList<VoidCallback>();
+  final _replayListeners = ObserverList<void Function(String ownerKey)>();
 
   @visibleForTesting
   bool get hasActivePlayback => _activeOwner != null;
 
+  @visibleForTesting
+  int get pageVisit => _visit;
+
+  void addVisitListener(VoidCallback listener) {
+    _visitListeners.add(listener);
+  }
+
+  void removeVisitListener(VoidCallback listener) {
+    _visitListeners.remove(listener);
+  }
+
+  void addReplayListener(void Function(String ownerKey) listener) {
+    _replayListeners.add(listener);
+  }
+
+  void removeReplayListener(void Function(String ownerKey) listener) {
+    _replayListeners.remove(listener);
+  }
+
   void setPageActive(bool active) {
     if (_pageActive == active) return;
     _pageActive = active;
+    _queued.clear();
+    _flushScheduled = false;
     if (active) {
       _initialPlaybackClaimed = false;
+      _pendingReplayOwnerKey = null;
+      _visit++;
+      for (final listener in List<VoidCallback>.of(_visitListeners)) {
+        listener();
+      }
     } else {
+      _pendingReplayOwnerKey = null;
       cancelActive();
+    }
+  }
+
+  /// Lets a specific header replay after expand/collapse, even if it remounts.
+  void requestReplayFor(String ownerKey) {
+    _pendingReplayOwnerKey = ownerKey;
+    for (final listener in List<void Function(String)>.of(_replayListeners)) {
+      listener(ownerKey);
     }
   }
 
@@ -31,19 +91,79 @@ class ProxyLabelPlaybackCoordinator {
     required ProxyLabelPlayback playback,
     required VoidCallback stop,
     bool initial = false,
+    String? ownerKey,
+    int order = 0,
   }) {
     if (!_pageActive) return;
-    if (initial) {
-      if (_initialPlaybackClaimed) return;
-      _initialPlaybackClaimed = true;
+    final queued = _QueuedPlayback(
+      owner: owner,
+      playback: playback,
+      stop: stop,
+      order: order,
+      ownerKey: ownerKey,
+      initial: initial,
+    );
+    if (initial ||
+        (_pendingReplayOwnerKey != null && ownerKey == _pendingReplayOwnerKey)) {
+      _queued.add(queued);
+      _scheduleFlush();
+      return;
     }
+    if (initial && _initialPlaybackClaimed) {
+      return;
+    }
+    _start(queued);
+  }
+
+  void _scheduleFlush() {
+    if (_flushScheduled) return;
+    _flushScheduled = true;
+    scheduleMicrotask(() {
+      _flushScheduled = false;
+      _flush();
+    });
+  }
+
+  void _flush() {
+    if (!_pageActive || _queued.isEmpty) return;
+    _queued.sort((a, b) => a.order.compareTo(b.order));
+    final remaining = List<_QueuedPlayback>.of(_queued);
+    _queued.clear();
+
+    _QueuedPlayback? chosen;
+    if (_pendingReplayOwnerKey != null) {
+      for (final request in remaining) {
+        if (request.ownerKey == _pendingReplayOwnerKey) {
+          chosen = request;
+          _pendingReplayOwnerKey = null;
+          break;
+        }
+      }
+    }
+    if (chosen == null) {
+      if (_initialPlaybackClaimed) return;
+      for (final request in remaining) {
+        if (request.initial) {
+          chosen = request;
+          _initialPlaybackClaimed = true;
+          break;
+        }
+      }
+    }
+    if (chosen == null) return;
+    _start(chosen);
+  }
+
+  void _start(_QueuedPlayback request) {
     cancelActive();
     final generation = ++_generation;
-    _activeOwner = owner;
-    _activeStop = stop;
+    _activeOwner = request.owner;
+    _activeStop = request.stop;
     unawaited(
-      playback().whenComplete(() {
-        if (generation != _generation || _activeOwner != owner) return;
+      request.playback().whenComplete(() {
+        if (generation != _generation || _activeOwner != request.owner) {
+          return;
+        }
         _activeOwner = null;
         _activeStop = null;
       }),
@@ -65,6 +185,9 @@ class ProxyLabelPlaybackCoordinator {
 
   void dispose() {
     _pageActive = false;
+    _queued.clear();
+    _visitListeners.clear();
+    _replayListeners.clear();
     cancelActive();
   }
 }
@@ -77,16 +200,22 @@ class ScrollingProxyLabel extends StatefulWidget {
     required this.style,
     required this.coordinator,
     required this.replayToken,
+    this.ownerKey,
+    this.order = 0,
     this.leading = '',
+    this.enableInternalLongPress = true,
   });
 
   final String text;
+  final String? ownerKey;
+  final int order;
   final String leading;
   final TextStyle style;
   final ProxyLabelPlaybackCoordinator coordinator;
 
   /// Changing this token replays the label even when its text is unchanged.
   final Object replayToken;
+  final bool enableInternalLongPress;
 
   @override
   State<ScrollingProxyLabel> createState() => _ScrollingProxyLabelState();
@@ -98,6 +227,7 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
   static const _minimumTravel = Duration(milliseconds: 900);
   static const _maximumTravel = Duration(seconds: 4);
   static const _pixelsPerSecond = 30.0;
+  static const _edgeFadeWidth = 24.0;
 
   final _scrollController = ScrollController();
   final _tooltipKey = GlobalKey<TooltipState>();
@@ -112,20 +242,43 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
   String get _displayText => '${widget.leading}${widget.text}';
 
   @override
+  void initState() {
+    super.initState();
+    widget.coordinator.addVisitListener(_onPageVisit);
+    widget.coordinator.addReplayListener(_onReplayRequested);
+  }
+
+  void _onPageVisit() {
+    if (!mounted || _disposing) return;
+    _stopPlayback();
+    _needsInitialPlayback = true;
+    _needsPriorityPlayback = false;
+    setState(() {});
+  }
+
+  void _onReplayRequested(String ownerKey) {
+    if (!mounted || _disposing || widget.ownerKey != ownerKey) return;
+    _stopPlayback();
+    _needsPriorityPlayback = true;
+    _needsInitialPlayback = false;
+    setState(() {});
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final tickerEnabled = TickerMode.valuesOf(context).enabled;
-    if (tickerEnabled && _tickerEnabled == false) {
-      _needsInitialPlayback = true;
-    }
-    _tickerEnabled = tickerEnabled;
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
   }
 
   @override
   void didUpdateWidget(covariant ScrollingProxyLabel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.coordinator != widget.coordinator) {
+      oldWidget.coordinator.removeVisitListener(_onPageVisit);
+      oldWidget.coordinator.removeReplayListener(_onReplayRequested);
       oldWidget.coordinator.release(this);
+      widget.coordinator.addVisitListener(_onPageVisit);
+      widget.coordinator.addReplayListener(_onReplayRequested);
     }
     if (oldWidget.text != widget.text ||
         oldWidget.leading != widget.leading ||
@@ -208,6 +361,8 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
       playback: _play,
       stop: _stopPlayback,
       initial: initial,
+      ownerKey: widget.ownerKey,
+      order: widget.order,
     );
   }
 
@@ -224,28 +379,56 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
     });
   }
 
+  bool _measureOverflow(BoxConstraints constraints) {
+    if (!constraints.hasBoundedWidth || constraints.maxWidth <= 0) {
+      return false;
+    }
+    final painter = TextPainter(
+      text: buildEmojiTextSpan(_displayText, widget.style),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: double.infinity);
+    return painter.width > constraints.maxWidth + 0.5;
+  }
+
+  Widget _maybeFadeLeft(Widget child) {
+    if (!_isPlaying) return child;
+    return ShaderMask(
+      shaderCallback: (bounds) {
+        final fade = bounds.width <= 0
+            ? 0.0
+            : (_edgeFadeWidth / bounds.width).clamp(0.0, 0.35);
+        return LinearGradient(
+          colors: const [
+            Color(0x00FFFFFF),
+            Color(0xFFFFFFFF),
+            Color(0xFFFFFFFF),
+          ],
+          stops: [0, fade, 1],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final textScaler = MediaQuery.textScalerOf(context);
-        final painter = TextPainter(
-          text: buildEmojiTextSpan(_displayText, widget.style),
-          maxLines: 1,
-          textDirection: Directionality.of(context),
-          textScaler: textScaler,
-          ellipsis: '…',
-        )..layout(maxWidth: constraints.maxWidth);
-        final overflowing = painter.didExceedMaxLines;
+        final canMeasure =
+            constraints.hasBoundedWidth && constraints.maxWidth > 0;
+        final overflowing = canMeasure && _measureOverflow(constraints);
         _isOverflowing = overflowing;
-        if (!overflowing) {
+        if (canMeasure && !overflowing) {
           _needsInitialPlayback = false;
           _needsPriorityPlayback = false;
-        } else if (_needsPriorityPlayback) {
+        } else if (overflowing && _needsPriorityPlayback) {
           _needsPriorityPlayback = false;
           _needsInitialPlayback = false;
           _schedulePlayback(initial: false);
-        } else if (_needsInitialPlayback) {
+        } else if (overflowing && _needsInitialPlayback) {
           _needsInitialPlayback = false;
           _schedulePlayback(initial: true);
         }
@@ -269,18 +452,25 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
                 style: widget.style,
               );
 
-        return Semantics(
+        final painted = Semantics(
           label: _displayText,
           excludeSemantics: true,
-          child: Tooltip(
-            key: _tooltipKey,
-            message: _displayText,
-            triggerMode: TooltipTriggerMode.manual,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onLongPress: overflowing ? _handleLongPress : null,
-              child: RepaintBoundary(child: label),
-            ),
+          child: RepaintBoundary(child: _maybeFadeLeft(label)),
+        );
+
+        if (!widget.enableInternalLongPress) {
+          return painted;
+        }
+
+        return Tooltip(
+          key: _tooltipKey,
+          message: _displayText,
+          preferBelow: false,
+          triggerMode: TooltipTriggerMode.manual,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onLongPress: overflowing ? _handleLongPress : null,
+            child: painted,
           ),
         );
       },
@@ -290,6 +480,8 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
   @override
   void dispose() {
     _disposing = true;
+    widget.coordinator.removeVisitListener(_onPageVisit);
+    widget.coordinator.removeReplayListener(_onReplayRequested);
     widget.coordinator.release(this);
     _playbackGeneration++;
     _scrollController.dispose();

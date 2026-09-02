@@ -4,6 +4,51 @@ import 'package:flutter/material.dart';
 
 import '../state.dart';
 
+/// Long-press shows [message] above the widget without stealing taps.
+class LongPressFullText extends StatefulWidget {
+  const LongPressFullText({
+    super.key,
+    required this.message,
+    required this.child,
+    this.onLongPress,
+  });
+
+  final String message;
+  final Widget child;
+  final VoidCallback? onLongPress;
+
+  @override
+  State<LongPressFullText> createState() => _LongPressFullTextState();
+}
+
+class _LongPressFullTextState extends State<LongPressFullText> {
+  final _tooltipKey = GlobalKey<TooltipState>();
+
+  void _handleLongPress() {
+    if (widget.message.isEmpty) return;
+    _tooltipKey.currentState?.ensureTooltipVisible();
+    widget.onLongPress?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.message.isEmpty) {
+      return widget.child;
+    }
+    return Tooltip(
+      key: _tooltipKey,
+      message: widget.message,
+      preferBelow: false,
+      triggerMode: TooltipTriggerMode.manual,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onLongPress: _handleLongPress,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class TooltipText extends StatelessWidget {
   final Text text;
 

@@ -19,11 +19,15 @@ Widget _label(
   ProxyLabelPlaybackCoordinator coordinator, {
   required String text,
   required Object replayToken,
+  String? ownerKey,
+  int order = 0,
 }) {
   return SizedBox(
     width: 90,
     child: ScrollingProxyLabel(
       text: text,
+      ownerKey: ownerKey,
+      order: order,
       style: const TextStyle(fontSize: 14),
       coordinator: coordinator,
       replayToken: replayToken,
@@ -136,6 +140,132 @@ void main() {
 
     expect(
       find.byKey(const ValueKey('scrolling-proxy-label-active')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('re-entering the page replays the first overflowing label', (
+    tester,
+  ) async {
+    final coordinator = ProxyLabelPlaybackCoordinator()..setPageActive(true);
+    addTearDown(coordinator.dispose);
+
+    await tester.pumpWidget(
+      _app(
+        child: _label(
+          coordinator,
+          text: 'Hong Kong premium streaming node number one',
+          replayToken: false,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 801));
+    await tester.pump();
+    await _finishPlayback(tester);
+
+    expect(
+      find.byKey(const ValueKey('scrolling-proxy-label-active')),
+      findsNothing,
+    );
+
+    coordinator.setPageActive(false);
+    await tester.pump();
+    coordinator.setPageActive(true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 801));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('scrolling-proxy-label-active')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'a remounted later label can replay after a targeted collapse',
+    (tester) async {
+      final coordinator = ProxyLabelPlaybackCoordinator()..setPageActive(true);
+      addTearDown(coordinator.dispose);
+
+      await tester.pumpWidget(
+        _app(
+          child: _label(
+            coordinator,
+            text: 'Hong Kong premium streaming node number one',
+            replayToken: false,
+            ownerKey: 'first',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 801));
+      await tester.pump();
+      await _finishPlayback(tester);
+
+      coordinator.requestReplayFor('later');
+      await tester.pumpWidget(
+        _app(
+          child: _label(
+            coordinator,
+            text: 'Singapore premium streaming node number two',
+            replayToken: false,
+            ownerKey: 'later',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 801));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('scrolling-proxy-label-active')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('lowest list order wins even if a later label builds first', (
+    tester,
+  ) async {
+    final coordinator = ProxyLabelPlaybackCoordinator()..setPageActive(true);
+    addTearDown(coordinator.dispose);
+
+    await tester.pumpWidget(
+      _app(
+        child: Column(
+          children: [
+            _label(
+              coordinator,
+              text: 'Singapore premium streaming node number two',
+              replayToken: false,
+              ownerKey: 'later',
+              order: 5,
+            ),
+            _label(
+              coordinator,
+              text: 'Hong Kong premium streaming node number one',
+              replayToken: false,
+              ownerKey: 'first',
+              order: 0,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 801));
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('scrolling-proxy-label-active')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().contains('Hong Kong'),
+        ),
+      ),
       findsOneWidget,
     );
   });
