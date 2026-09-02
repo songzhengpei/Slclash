@@ -227,7 +227,7 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
   static const _minimumTravel = Duration(milliseconds: 900);
   static const _maximumTravel = Duration(seconds: 4);
   static const _pixelsPerSecond = 30.0;
-  static const _edgeFadeWidth = 24.0;
+  static const _edgeFadeWidth = 12.0;
 
   final _scrollController = ScrollController();
   final _tooltipKey = GlobalKey<TooltipState>();
@@ -392,20 +392,21 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
     return painter.width > constraints.maxWidth + 0.5;
   }
 
-  Widget _maybeFadeLeft(Widget child) {
+  Widget _maybeFadeEdges(Widget child) {
     if (!_isPlaying) return child;
     return ShaderMask(
       shaderCallback: (bounds) {
         final fade = bounds.width <= 0
             ? 0.0
-            : (_edgeFadeWidth / bounds.width).clamp(0.0, 0.35);
+            : (_edgeFadeWidth / bounds.width).clamp(0.0, 0.15);
         return LinearGradient(
           colors: const [
             Color(0x00FFFFFF),
             Color(0xFFFFFFFF),
             Color(0xFFFFFFFF),
+            Color(0x00FFFFFF),
           ],
-          stops: [0, fade, 1],
+          stops: [0, fade, 1 - fade, 1],
         ).createShader(bounds);
       },
       blendMode: BlendMode.dstIn,
@@ -455,7 +456,7 @@ class _ScrollingProxyLabelState extends State<ScrollingProxyLabel> {
         final painted = Semantics(
           label: _displayText,
           excludeSemantics: true,
-          child: RepaintBoundary(child: _maybeFadeLeft(label)),
+          child: RepaintBoundary(child: _maybeFadeEdges(label)),
         );
 
         if (!widget.enableInternalLongPress) {

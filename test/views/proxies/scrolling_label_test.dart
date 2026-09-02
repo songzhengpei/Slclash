@@ -95,6 +95,7 @@ void main() {
       find.byKey(const ValueKey('scrolling-proxy-label-active')),
       findsOneWidget,
     );
+    expect(find.byType(ShaderMask), findsOneWidget);
     expect(coordinator.hasActivePlayback, isTrue);
 
     await _finishPlayback(tester);
@@ -103,6 +104,7 @@ void main() {
       find.byKey(const ValueKey('scrolling-proxy-label-active')),
       findsNothing,
     );
+    expect(find.byType(ShaderMask), findsNothing);
     expect(coordinator.hasActivePlayback, isFalse);
   });
 
