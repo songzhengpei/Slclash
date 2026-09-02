@@ -91,44 +91,44 @@ class EmojiText extends StatelessWidget {
     this.style,
   });
 
-  List<TextSpan> _buildTextSpans(String emojis) {
-    final List<TextSpan> spans = [];
-    final matches = emojiRegex().allMatches(text);
-
-    int lastMatchEnd = 0;
-    for (final match in matches) {
-      if (match.start > lastMatchEnd) {
-        spans.add(
-          TextSpan(
-            text: text.substring(lastMatchEnd, match.start),
-            style: style,
-          ),
-        );
-      }
-      spans.add(
-        TextSpan(
-          text: match.group(0),
-          style: style?.copyWith(fontFamily: FontFamily.twEmoji.value),
-        ),
-      );
-      lastMatchEnd = match.end;
-    }
-    if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastMatchEnd), style: style));
-    }
-
-    return spans;
-  }
-
   @override
   Widget build(BuildContext context) {
     return RichText(
       textScaler: MediaQuery.of(context).textScaler,
       maxLines: maxLines,
       overflow: overflow ?? TextOverflow.clip,
-      text: TextSpan(children: _buildTextSpans(text)),
+      text: buildEmojiTextSpan(text, style),
     );
   }
+}
+
+/// Builds the same emoji-aware span tree used by [EmojiText].
+///
+/// Keeping this public lets constrained text widgets measure and paint the
+/// exact same glyphs instead of approximating emoji widths with the body font.
+TextSpan buildEmojiTextSpan(String text, TextStyle? style) {
+  final spans = <TextSpan>[];
+  final matches = emojiRegex().allMatches(text);
+
+  var lastMatchEnd = 0;
+  for (final match in matches) {
+    if (match.start > lastMatchEnd) {
+      spans.add(
+        TextSpan(text: text.substring(lastMatchEnd, match.start), style: style),
+      );
+    }
+    spans.add(
+      TextSpan(
+        text: match.group(0),
+        style: style?.copyWith(fontFamily: FontFamily.twEmoji.value),
+      ),
+    );
+    lastMatchEnd = match.end;
+  }
+  if (lastMatchEnd < text.length) {
+    spans.add(TextSpan(text: text.substring(lastMatchEnd), style: style));
+  }
+  return TextSpan(children: spans);
 }
 
 // class HighlightText extends StatelessWidget {

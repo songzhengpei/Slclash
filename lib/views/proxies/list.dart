@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'card.dart';
 import 'common.dart';
 import 'empty.dart';
+import 'scrolling_label.dart';
 
 typedef GroupNameProxiesMap = Map<String, List<Proxy>>;
 
@@ -26,6 +27,7 @@ class ProxiesListView extends StatefulWidget {
 
 class _ProxiesListViewState extends State<ProxiesListView> {
   final _controller = ScrollController();
+  final _labelPlaybackCoordinator = ProxyLabelPlaybackCoordinator();
   final _headerStateNotifier = ValueNotifier<ProxiesListHeaderSelectorState?>(
     null,
   );
@@ -61,6 +63,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
   }
 
   void _adjustHeader() {
+    _labelPlaybackCoordinator.cancelActive();
     _headerStateNotifier.value = _getProxiesListHeaderSelectorState(
       !_controller.hasClients ? 0 : _controller.offset,
     );
@@ -78,10 +81,19 @@ class _ProxiesListViewState extends State<ProxiesListView> {
 
   @override
   void dispose() {
+    _labelPlaybackCoordinator.dispose();
     _headerStateNotifier.dispose();
     _controller.removeListener(_adjustHeader);
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _labelPlaybackCoordinator.setPageActive(
+      TickerMode.valuesOf(context).enabled,
+    );
   }
 
   void _handleChange(Set<String> currentUnfoldSet, String groupName) {
@@ -159,6 +171,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
 
       items.add(
         ListHeader(
+          labelPlaybackCoordinator: _labelPlaybackCoordinator,
           onScrollToSelected: _scrollToGroupSelected,
           isExpand: isExpand,
           rowPosition: headerPosition,
@@ -215,6 +228,7 @@ class _ProxiesListViewState extends State<ProxiesListView> {
     return SizedBox(
       height: listHeaderHeight,
       child: ListHeader(
+        labelPlaybackCoordinator: _labelPlaybackCoordinator,
         enterAnimated: false,
         onScrollToSelected: _scrollToGroupSelected,
         key: Key(groupName),
@@ -515,6 +529,7 @@ class ListHeader extends StatefulWidget {
   final bool showDivider;
 
   final bool enterAnimated;
+  final ProxyLabelPlaybackCoordinator labelPlaybackCoordinator;
 
   const ListHeader({
     super.key,
@@ -525,6 +540,7 @@ class ListHeader extends StatefulWidget {
     required this.onChange,
     required this.onScrollToSelected,
     required this.isExpand,
+    required this.labelPlaybackCoordinator,
   });
 
   @override
@@ -787,11 +803,12 @@ class _ListHeaderState extends State<ListHeader> {
                                               children: [
                                                 Flexible(
                                                   flex: 1,
-                                                  child: EmojiText(
-                                                    '  $displayLabel',
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                  child: ScrollingProxyLabel(
+                                                    text: displayLabel,
+                                                    leading: '  ',
+                                                    coordinator: widget
+                                                        .labelPlaybackCoordinator,
+                                                    replayToken: isExpand,
                                                     style: context
                                                         .typography
                                                         .proxySelectorLabel
