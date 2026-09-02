@@ -47,16 +47,19 @@ fun tunDnsHijackServers(ipv6: Boolean): String {
     return parts.joinToString(",")
 }
 
-/// VpnService must not publish `127.0.0.1` as the VPN HTTP proxy.
+/// Decide whether VpnService may publish `127.0.0.1` as the VPN HTTP proxy.
 ///
 /// [android.net.VpnService.Builder.setHttpProxy] attaches one ProxyInfo to
-/// every UID on the VPN, including Xiaomi XSpace / clone apps. Those users
-/// receive `127.0.0.1:mixed-port` but cannot connect to the owner user's
-/// loopback, so OkHttp / WebView / XWeb hang in SYN_SENT. TUN already
-/// intercepts the same traffic. The in-app system-proxy switch is left
-/// unchanged; this only skips attaching localhost on the VPN builder.
-@Suppress("UNUSED_PARAMETER")
-fun shouldAttachVpnHttpProxy(systemProxyRequested: Boolean): Boolean = false
+/// every UID on the VPN. Associated users such as Xiaomi XSpace, clone apps,
+/// and work profiles can receive `127.0.0.1:mixed-port` without being able to
+/// connect to the owner user's loopback, so OkHttp / WebView / XWeb hang in
+/// SYN_SENT. TUN already intercepts their traffic. Keep the requested proxy on
+/// ordinary single-user devices and fall back to TUN-only capture only when an
+/// associated profile is present.
+fun shouldAttachVpnHttpProxy(
+    systemProxyRequested: Boolean,
+    hasAssociatedProfiles: Boolean,
+): Boolean = systemProxyRequested && !hasAssociatedProfiles
 
 fun VpnOptions.getIpv4RouteAddress(): List<CIDR> {
     return routeAddress.filter {

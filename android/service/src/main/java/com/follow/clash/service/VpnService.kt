@@ -7,7 +7,9 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.Parcel
+import android.os.Process
 import android.os.RemoteException
+import android.os.UserManager
 import android.util.Log
 import androidx.core.content.getSystemService
 import com.follow.clash.common.AccessControlMode
@@ -124,6 +126,18 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
     private val connectivity by lazy {
         getSystemService<ConnectivityManager>()
     }
+
+    private fun hasAssociatedUserProfiles(): Boolean =
+        runCatching {
+            val currentUser = Process.myUserHandle()
+            getSystemService<UserManager>()
+                ?.userProfiles
+                ?.any { it != currentUser }
+                ?: true
+        }.onFailure { error ->
+            GlobalState.log("Detect associated user profiles failed: ${error.message}")
+        }.getOrDefault(true)
+
     private val uidPageNameMap = object : LinkedHashMap<Int, String>(128, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, String>?): Boolean {
             return size > 256
@@ -313,8 +327,12 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             if (options.allowBypass) {
                 allowBypass()
             }
+            val hasAssociatedProfiles =
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    options.systemProxy &&
+                    hasAssociatedUserProfiles()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                shouldAttachVpnHttpProxy(options.systemProxy)
+                shouldAttachVpnHttpProxy(options.systemProxy, hasAssociatedProfiles)
             ) {
                 GlobalState.log("Open http proxy")
                 setHttpProxy(
@@ -324,7 +342,11 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
                 )
             } else if (options.systemProxy) {
                 GlobalState.log(
-                    "Skip localhost HTTP proxy; TUN already captures clone/work-profile traffic",
+                    if (hasAssociatedProfiles) {
+                        "Skip localhost HTTP proxy for associated user profiles; use TUN capture"
+                    } else {
+                        "Skip HTTP proxy because this Android version does not support it"
+                    },
                 )
             }
             Phase4Mark.emit("vpn_tun_observed", mapOf("phase" to "builder_establish_begin"))
