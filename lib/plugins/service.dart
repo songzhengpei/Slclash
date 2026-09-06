@@ -65,6 +65,10 @@ class Service {
     return await methodChannel.invokeMethod<bool>('start') ?? false;
   }
 
+  Future<bool> clearTaskRemovalStop() async {
+    return await methodChannel.invokeMethod<bool>('clearTaskRemovalStop') ?? false;
+  }
+
   Future<bool> stop() async {
     return await methodChannel.invokeMethod<bool>('stop') ?? false;
   }

@@ -8,6 +8,7 @@ import com.follow.clash.common.BroadcastAction
 import com.follow.clash.common.GlobalState
 import com.follow.clash.common.Phase4Mark
 import com.follow.clash.common.ServiceDelegate
+import com.follow.clash.common.TaskRemovalStopStore
 import com.follow.clash.common.chunkedForAidl
 import com.follow.clash.common.intent
 import com.follow.clash.common.sendBroadcast
@@ -114,9 +115,15 @@ class RemoteService : Service(), CoroutineScope {
     @Volatile private var activeSetupPayload: QuickSetupPayload? = null
     @Volatile private var forceNonSticky = false
     private var recoveryJob: Job? = null
+    private var recoveryWatchdogJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
+        recoveryStore.readValid()?.let { checkpoint ->
+            if (TaskRemovalExitGuard.applyIfNeeded(this, checkpoint)) {
+                forceNonSticky = true
+            }
+        }
         val preferences = getSharedPreferences(SMART_PAUSE_PREFERENCES, Context.MODE_PRIVATE)
         smartPauseConfig = SmartPauseConfig(
             enabled = preferences.getBoolean(KEY_ENABLED, false),
@@ -555,12 +562,56 @@ class RemoteService : Service(), CoroutineScope {
                 "session_id" to snapshot.sessionId,
             ),
         )
-        if (saved) forceNonSticky = false
-        return saved
+        if (!saved) return false
+
+        forceNonSticky = false
+        startRecoveryWatchdog()
+        val restartAnchorArmed = runCatching {
+            // VpnService is already alive and foreground by the time a RUNNING
+            // checkpoint is committed. Starting it as well as binding it gives
+            // Android a foreground, sticky service record that can recreate the
+            // process even when a vendor low-memory policy kills the whole UID.
+            startService(VpnService::class.intent)
+        }.onFailure { error ->
+            GlobalState.log("Failed to arm VPN restart anchor: ${error.message}")
+        }.isSuccess
+        Phase4Mark.emit(
+            "vpn_recovery_anchor",
+            mapOf("operation" to "arm", "result" to restartAnchorArmed),
+        )
+        // The checkpoint is already durable. Anchor arming is a best-effort
+        // reliability enhancement and must not turn a healthy VPN start into
+        // an application-visible failure.
+        return true
+    }
+
+    private fun startRecoveryWatchdog() {
+        VpnRecoveryWatchdog.arm(this)
+        if (recoveryWatchdogJob?.isActive == true) return
+        recoveryWatchdogJob = launch {
+            while (true) {
+                delay(VpnRecoveryWatchdog.HEARTBEAT_INTERVAL_MILLIS)
+                if (
+                    TaskRemovalStopStore.isRequested(this@RemoteService) ||
+                    recoveryStore.readValid() == null
+                ) {
+                    VpnRecoveryWatchdog.cancel(this@RemoteService)
+                    break
+                }
+                VpnRecoveryWatchdog.arm(this@RemoteService)
+            }
+        }
+    }
+
+    private fun stopRecoveryWatchdog() {
+        recoveryWatchdogJob?.cancel()
+        recoveryWatchdogJob = null
+        VpnRecoveryWatchdog.cancel(this)
     }
 
     private fun clearRecoveryCheckpoint(reason: String, preventSticky: Boolean = true): Boolean {
         if (preventSticky) forceNonSticky = true
+        stopRecoveryWatchdog()
         val cleared = recoveryStore.clear()
         Phase4Mark.emit(
             "vpn_recovery_checkpoint",
@@ -742,22 +793,50 @@ class RemoteService : Service(), CoroutineScope {
                 // clear but before this lifecycle lock was acquired. Clear the
                 // intent again at the serialized stop commit point.
                 clearRecoveryCheckpoint("explicit_stop_commit")
-                val current = State.snapshot
-                if (current.state == SessionState.STOPPED) {
-                    replyOperation(result, ServiceOperationResult.success())
-                    return@withLock
-                }
-                applySession(SessionTransitions.stopping(current))
-                val stopResult = delegate?.useService(timeoutMillis = 10_000L) { service ->
-                    service.stop()
-                }?.getOrNull() ?: ServiceOperationResult.failure(
-                    ServiceErrorCode.SERVICE_DISCONNECTED,
-                    "Background service is unavailable during stop",
-                )
-                val resolution = cleanupResolution(State.snapshot, stopResult)
-                if (resolution.clearDelegate) clearDelegate()
-                applySession(resolution.snapshot)
+                val stopResult = stopActiveSessionLocked()
                 replyOperation(result, stopResult)
+            }
+        }
+    }
+
+    private suspend fun stopActiveSessionLocked(): ServiceOperationResult {
+        val current = State.snapshot
+        if (current.state == SessionState.STOPPED) {
+            clearDelegate()
+            applySession(SessionSnapshot.stopped())
+            return ServiceOperationResult.success()
+        }
+        applySession(SessionTransitions.stopping(current))
+        val stopResult = delegate?.useService(timeoutMillis = 10_000L) { service ->
+            service.stop()
+        }?.getOrNull() ?: ServiceOperationResult.failure(
+            ServiceErrorCode.SERVICE_DISCONNECTED,
+            "Background service is unavailable during stop",
+        )
+        val resolution = cleanupResolution(State.snapshot, stopResult)
+        if (resolution.clearDelegate) clearDelegate()
+        applySession(resolution.snapshot)
+        return stopResult
+    }
+
+    private fun requestTaskRemovalStop() {
+        resetAllPolicyRetries()
+        TaskRemovalStopStore.mark(this)
+        // These commits are synchronous so a vendor task cleaner cannot race
+        // process death against durable user intent.
+        clearRecoveryCheckpoint("task_removed")
+        Phase4Mark.emit(
+            "vpn_task_removed",
+            mapOf("phase" to "stop_requested", "state" to State.snapshot.state),
+        )
+        launch {
+            runLock.withLock {
+                clearRecoveryCheckpoint("task_removed_commit")
+                val result = stopActiveSessionLocked()
+                Phase4Mark.emit(
+                    "vpn_task_removed",
+                    mapOf("phase" to "stop_complete", "success" to result.success),
+                )
             }
         }
     }
@@ -788,6 +867,16 @@ class RemoteService : Service(), CoroutineScope {
         runTime: Long,
         result: IOperationResultInterface,
     ) {
+        if (TaskRemovalStopStore.isRequested(this)) {
+            replyOperation(
+                result,
+                ServiceOperationResult.failure(
+                    ServiceErrorCode.INTERNAL_ERROR,
+                    "VPN start is suppressed after the app task was removed",
+                ),
+            )
+            return
+        }
         resetAllPolicyRetries()
         Phase4Mark.emit(
             "vpn_service_dispatch",
@@ -1018,6 +1107,10 @@ class RemoteService : Service(), CoroutineScope {
             handleStopService(result)
         }
 
+        override fun clearTaskRemovalStop() {
+            TaskRemovalStopStore.clear(this@RemoteService)
+        }
+
         override fun setEventListener(eventListener: IEventInterface?) {
             GlobalState.log("RemoveEventListener ${eventListener == null}")
             when (eventListener != null) {
@@ -1216,6 +1309,13 @@ class RemoteService : Service(), CoroutineScope {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (
+            intent?.action == ACTION_STOP_AFTER_TASK_REMOVED ||
+            TaskRemovalStopStore.isRequested(this)
+        ) {
+            requestTaskRemovalStop()
+            return START_NOT_STICKY
+        }
         if (!shouldKeepVpnServiceSticky(forceNonSticky, checkpointValid = true)) {
             return START_NOT_STICKY
         }
@@ -1225,7 +1325,8 @@ class RemoteService : Service(), CoroutineScope {
             return START_NOT_STICKY
         }
         if (shouldStartStickyRecovery(
-                intentIsNull = intent == null,
+                recoveryRequested = intent == null ||
+                    intent.action == ACTION_RECOVER_FROM_VPN_SERVICE,
                 checkpointValid = true,
                 recoveryAlreadyActive = recoveryJob?.isActive == true,
             )
@@ -1245,6 +1346,11 @@ class RemoteService : Service(), CoroutineScope {
 
     override fun onBind(intent: Intent?): IBinder {
         return binder
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        requestTaskRemovalStop()
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
@@ -1299,6 +1405,10 @@ class RemoteService : Service(), CoroutineScope {
     }
 
     companion object {
+        internal const val ACTION_RECOVER_FROM_VPN_SERVICE =
+            "com.follow.clash.service.action.RECOVER_VPN"
+        internal const val ACTION_STOP_AFTER_TASK_REMOVED =
+            "com.follow.clash.service.action.STOP_AFTER_TASK_REMOVED"
         private const val SMART_PAUSE_PREFERENCES = "smart_pause_control"
         private const val KEY_ENABLED = "enabled"
         private const val KEY_NETWORKS = "trusted_networks"

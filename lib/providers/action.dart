@@ -217,6 +217,13 @@ bool shouldFullSetupOnInit({required bool isRunning, required bool autoRun}) {
   return isRunning || autoRun;
 }
 
+bool shouldClearTaskRemovalStop({
+  required bool isStart,
+  required bool isInit,
+}) {
+  return isStart && !isInit;
+}
+
 bool sessionRequiresFullSetup(String? sessionState) {
   return sessionState == 'RUNNING' || sessionState == 'STARTING';
 }
@@ -1264,6 +1271,10 @@ class SetupAction extends _$SetupAction {
     );
     if (isStart) {
       if (!isInit) {
+        if (system.isAndroid &&
+            shouldClearTaskRemovalStop(isStart: isStart, isInit: isInit)) {
+          await service?.clearTaskRemovalStop();
+        }
         final res = await ref
             .read(coreActionProvider.notifier)
             .tryStartCore(true);

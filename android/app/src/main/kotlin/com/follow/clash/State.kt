@@ -57,7 +57,6 @@ internal fun canAttemptExplicitStartAfterReconcile(
 internal fun isTerminalSessionState(state: String): Boolean =
     state != SessionState.STARTING && state != SessionState.STOPPING
 
-
 object State {
 
     val runLock = Mutex()
@@ -173,6 +172,8 @@ object State {
     }
 
     suspend fun handleStartServiceAction() {
+        Service.bind()
+        Service.clearTaskRemovalStop()
         Phase4Mark.emit(
             "vpn_action_requested",
             mapOf("action" to "start", "source" to "android_action", "run_state" to runStateFlow.value),

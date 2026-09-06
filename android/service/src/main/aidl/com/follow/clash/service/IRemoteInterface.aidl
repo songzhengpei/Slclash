@@ -16,6 +16,7 @@ interface IRemoteInterface {
     void updateNotificationParams(in NotificationParams params);
     void startService(in VpnOptions options, in long runTime, in IOperationResultInterface result);
     void stopService(in IOperationResultInterface result);
+    void clearTaskRemovalStop();
     void setEventListener(in IEventInterface event);
     long getRunTime();
     SessionSnapshot getSessionSnapshot();

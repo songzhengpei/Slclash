@@ -83,6 +83,10 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             handleStart(result)
         }
 
+        "clearTaskRemovalStop" -> {
+            handleClearTaskRemovalStop(result)
+        }
+
         "stop" -> {
             handleStop(result)
         }
@@ -134,6 +138,13 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         launch {
             val success = State.handleStartService()
             result.success(success)
+        }
+    }
+
+    private fun handleClearTaskRemovalStop(result: MethodChannel.Result) {
+        launch {
+            Service.bind()
+            result.success(Service.clearTaskRemovalStop())
         }
     }
 

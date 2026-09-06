@@ -91,24 +91,31 @@ class VpnRecoveryCheckpointTest {
     }
 
     @Test
-    fun onlyNullIntentSchedulesOneRecoveryActor() {
+    fun systemOrVpnAnchorRequestSchedulesOnlyOneRecoveryActor() {
         assertTrue(
             shouldStartStickyRecovery(
-                intentIsNull = true,
+                recoveryRequested = true,
                 checkpointValid = true,
                 recoveryAlreadyActive = false,
             )
         )
         assertFalse(
             shouldStartStickyRecovery(
-                intentIsNull = false,
+                recoveryRequested = false,
                 checkpointValid = true,
                 recoveryAlreadyActive = false,
             )
         )
         assertFalse(
             shouldStartStickyRecovery(
-                intentIsNull = true,
+                recoveryRequested = true,
+                checkpointValid = false,
+                recoveryAlreadyActive = false,
+            )
+        )
+        assertFalse(
+            shouldStartStickyRecovery(
+                recoveryRequested = true,
                 checkpointValid = true,
                 recoveryAlreadyActive = true,
             )

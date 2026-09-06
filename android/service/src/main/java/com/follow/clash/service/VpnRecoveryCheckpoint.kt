@@ -47,10 +47,10 @@ internal fun shouldKeepVpnServiceSticky(
 ): Boolean = !forceNonSticky && checkpointValid
 
 internal fun shouldStartStickyRecovery(
-    intentIsNull: Boolean,
+    recoveryRequested: Boolean,
     checkpointValid: Boolean,
     recoveryAlreadyActive: Boolean,
-): Boolean = intentIsNull && checkpointValid && !recoveryAlreadyActive
+): Boolean = recoveryRequested && checkpointValid && !recoveryAlreadyActive
 
 internal fun isCheckpointCompatible(
     checkpoint: VpnRecoveryCheckpoint,

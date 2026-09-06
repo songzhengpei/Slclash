@@ -15,6 +15,7 @@ import androidx.core.content.getSystemService
 import com.follow.clash.common.AccessControlMode
 import com.follow.clash.common.GlobalState
 import com.follow.clash.common.Phase4Mark
+import com.follow.clash.common.TaskRemovalStopStore
 import com.follow.clash.core.Core
 import com.follow.clash.service.models.ServiceErrorCode
 import com.follow.clash.service.models.ServiceOperationResult
@@ -81,6 +82,53 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             ServiceOperationResult.failure(ServiceErrorCode.FOREGROUND_SERVICE_FAILED, it.message)
         }
         handleCreate()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (TaskRemovalStopStore.isRequested(this)) {
+            VpnRecoveryStore(this).clear()
+            stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
+        val checkpoint = VpnRecoveryStore(this).readValid()
+        if (checkpoint == null) {
+            // A bound VpnService can be promoted to a started service only after
+            // the session checkpoint commits. Do not retain a failed or
+            // explicitly stopped session merely because onStartCommand ran.
+            if (intent == null) stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
+
+        if (intent == null || intent.action == VpnRecoveryWatchdog.ACTION_RECOVER) {
+            val recoveryRequested = runCatching {
+                startService(
+                    Intent(this, RemoteService::class.java).setAction(
+                        RemoteService.ACTION_RECOVER_FROM_VPN_SERVICE,
+                    )
+                )
+            }.onFailure { error ->
+                GlobalState.log("VpnService failed to request process recovery: ${error.message}")
+            }.isSuccess
+            Phase4Mark.emit(
+                "vpn_recovery_anchor",
+                mapOf("operation" to "restore", "result" to recoveryRequested),
+            )
+        }
+        return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        TaskRemovalStopStore.mark(this)
+        VpnRecoveryStore(this).clear()
+        runCatching {
+            startService(
+                Intent(this, RemoteService::class.java).setAction(
+                    RemoteService.ACTION_STOP_AFTER_TASK_REMOVED,
+                )
+            )
+        }
+        GlobalState.launch { shutdown("task_removed") }
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
