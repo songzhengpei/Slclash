@@ -3,7 +3,6 @@ package com.follow.clash
 import android.net.VpnService
 import com.follow.clash.common.GlobalState
 import com.follow.clash.common.Phase4Mark
-import com.follow.clash.common.TaskRemovalStopStore
 import com.follow.clash.models.SharedState
 import com.follow.clash.plugins.AppPlugin
 import com.follow.clash.plugins.TilePlugin
@@ -173,7 +172,6 @@ object State {
     }
 
     suspend fun handleStartServiceAction() {
-        TaskRemovalStopStore.clear(GlobalState.application)
         Service.bind()
         Service.clearTaskRemovalStop()
         Phase4Mark.emit(
