@@ -12,6 +12,26 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.1.7',
+    date: '2026-09-06',
+    changes: ["提升代理留存能力，优化后台低内存回收"],
+  ),
+  AppChangelogEntry(
+    version: 'v2.1.6',
+    date: '2026-09-06',
+    changes: ["提升代理留存能力，阻止应用低内存后台回收"],
+  ),
+  AppChangelogEntry(
+    version: 'v2.1.5',
+    date: '2026-09-02',
+    changes: [
+      "优化代理页超长节点名称显示，卡片折叠展开滚动动画，节点卡片长按显示叶子节点全称",
+      "修复双开、分身应用网络受限",
+      "更新版本号",
+      "优化应用内更新检查与下载，GitHub 访问受限时自动使用加速线路并校验 APK 完整性",
+    ],
+  ),
+  AppChangelogEntry(
     version: 'v2.1.4',
     date: '2026-09-01',
     changes: ['优化流媒体检测YouTube检测结果'],
