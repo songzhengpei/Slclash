@@ -8,6 +8,7 @@ import com.follow.clash.common.QuickAction
 import com.follow.clash.common.Phase4Mark
 import com.follow.clash.common.quickIntent
 import com.follow.clash.common.toPendingIntent
+import com.follow.clash.service.VpnProcessRecovery
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,8 +32,14 @@ class TileService : TileService() {
         }
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        VpnProcessRecovery.request(this, "tile_create")
+    }
+
     override fun onStartListening() {
         super.onStartListening()
+        VpnProcessRecovery.request(this, "tile_listen")
         scope?.cancel()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope?.launch {
