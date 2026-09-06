@@ -3,6 +3,7 @@ package com.follow.clash
 import android.net.VpnService
 import com.follow.clash.common.GlobalState
 import com.follow.clash.common.Phase4Mark
+import com.follow.clash.common.TaskRemovalStopStore
 import com.follow.clash.models.SharedState
 import com.follow.clash.plugins.AppPlugin
 import com.follow.clash.plugins.TilePlugin
@@ -56,7 +57,6 @@ internal fun canAttemptExplicitStartAfterReconcile(
 
 internal fun isTerminalSessionState(state: String): Boolean =
     state != SessionState.STARTING && state != SessionState.STOPPING
-
 
 object State {
 
@@ -173,6 +173,9 @@ object State {
     }
 
     suspend fun handleStartServiceAction() {
+        TaskRemovalStopStore.clear(GlobalState.application)
+        Service.bind()
+        Service.clearTaskRemovalStop()
         Phase4Mark.emit(
             "vpn_action_requested",
             mapOf("action" to "start", "source" to "android_action", "run_state" to runStateFlow.value),

@@ -542,6 +542,23 @@ void main() {
     });
   });
 
+  group('task removal stop intent', () {
+    test('only an explicit start clears the stop intent', () {
+      expect(
+        shouldClearTaskRemovalStop(isStart: true, isInit: false),
+        isTrue,
+      );
+      expect(
+        shouldClearTaskRemovalStop(isStart: true, isInit: true),
+        isFalse,
+      );
+      expect(
+        shouldClearTaskRemovalStop(isStart: false, isInit: false),
+        isFalse,
+      );
+    });
+  });
+
   group('running session reattach helpers', () {
     test('RUNNING and STARTING require full setup', () {
       expect(sessionRequiresFullSetup('RUNNING'), isTrue);

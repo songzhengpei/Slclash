@@ -9,6 +9,7 @@ import com.follow.clash.common.Phase4Mark
 import com.follow.clash.invokeMethodOnMainThread
 import com.follow.clash.models.SharedState
 import com.follow.clash.common.SessionPresence
+import com.follow.clash.common.TaskRemovalStopStore
 import com.follow.clash.service.models.SessionSnapshot
 import com.follow.clash.service.models.SessionState
 import com.google.gson.Gson
@@ -79,9 +80,13 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             handleSyncState(call, result)
         }
 
-        "start" -> {
-            handleStart(result)
-        }
+            "start" -> {
+                handleStart(result)
+            }
+
+            "clearTaskRemovalStop" -> {
+                handleClearTaskRemovalStop(result)
+            }
 
         "stop" -> {
             handleStop(result)
@@ -134,6 +139,14 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         launch {
             val success = State.handleStartService()
             result.success(success)
+        }
+    }
+
+    private fun handleClearTaskRemovalStop(result: MethodChannel.Result) {
+        launch {
+            TaskRemovalStopStore.clear(GlobalState.application)
+            Service.bind()
+            result.success(Service.clearTaskRemovalStop())
         }
     }
 

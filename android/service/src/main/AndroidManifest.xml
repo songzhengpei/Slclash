@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application>
         <service
@@ -30,6 +31,12 @@
 
         <service
             android:name=".RemoteService"
+            android:enabled="true"
+            android:exported="false"
+            android:process=":remote" />
+
+        <receiver
+            android:name=".VpnRecoveryReceiver"
             android:enabled="true"
             android:exported="false"
             android:process=":remote" />

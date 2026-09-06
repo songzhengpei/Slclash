@@ -180,6 +180,12 @@ object Service {
             ServiceOperationResult.failure(ServiceErrorCode.SERVICE_DISCONNECTED, it.message)
         }
     }
+    suspend fun clearTaskRemovalStop(): Boolean {
+        return delegate.useService {
+            it.clearTaskRemovalStop()
+            true
+        }.getOrDefault(false)
+    }
     suspend fun getRunTime(): Long {
         return delegate.useService {
             it.runTime
