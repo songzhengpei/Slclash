@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/metacubex/mihomo/config"
+	"github.com/metacubex/mihomo/constant"
 	_ "github.com/metacubex/mihomo/hub/executor"
 )
 
@@ -23,6 +24,9 @@ func TestBundledMihomoAcceptsCompatibilityFixtures(t *testing.T) {
 		"e2e_standard.yaml", "e2e_script.yaml",
 	}
 	fixtureDir := filepath.Join("..", "..", "build", "mihomo-runtime-fixtures")
+	if _, supportsMips := constant.StackTypeMapping["mips"]; supportsMips {
+		fixtures = append(fixtures, "e2e_mips.yaml")
+	}
 	if _, err := os.Stat(fixtureDir); os.IsNotExist(err) {
 		t.Fatal("processed runtime fixtures are missing; run the Flutter Mihomo regression test first")
 	}

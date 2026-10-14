@@ -137,10 +137,15 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
       final prevNetworks = prev?.smartAutoStopNetworks ?? [];
       final nextEnabled = next.smartAutoStop;
       final nextNetworks = next.smartAutoStopNetworks;
+      final applicationsChanged = !_listEquals(
+        prev?.smartAutoStopApplications ?? [],
+        next.smartAutoStopApplications,
+      );
 
       final configChanged =
           prevEnabled != nextEnabled ||
-          !_listEquals(prevNetworks, nextNetworks);
+          !_listEquals(prevNetworks, nextNetworks) ||
+          applicationsChanged;
 
       if (!configChanged) return;
 
@@ -225,6 +230,7 @@ class SmartAutoStopManager extends _$SmartAutoStopManager {
     await native.updateSmartPauseConfig(
       enabled: vpn.smartAutoStop,
       trustedNetworks: vpn.smartAutoStopNetworks,
+      triggerApplications: vpn.smartAutoStopApplications,
       closeConnections: ref.read(appSettingProvider).closeConnections,
     );
   }

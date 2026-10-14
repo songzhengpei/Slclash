@@ -7,6 +7,7 @@ data class SmartPauseConfig(
     val enabled: Boolean = false,
     val trustedNetworks: List<String> = emptyList(),
     val closeConnections: Boolean = true,
+    val triggerApplications: List<String> = emptyList(),
 )
 
 enum class SmartPausePhysicalNetwork {
@@ -146,11 +147,19 @@ class SmartPausePolicy {
         network: SmartPausePhysicalNetwork,
         unknownExhausted: Boolean,
         recovering: Boolean = false,
+        applicationMatched: Boolean = false,
     ): SmartPauseDesiredState {
         if (!recovering && sessionState != SessionState.RUNNING && sessionState != SessionState.PAUSED) {
             return SmartPauseDesiredState.NO_ACTION
         }
-        if (!config.enabled || config.trustedNetworks.isEmpty()) {
+        if (!config.enabled || (config.trustedNetworks.isEmpty() && config.triggerApplications.isEmpty())) {
+            manualOverride = false
+            return SmartPauseDesiredState.RUNNING
+        }
+        if (config.triggerApplications.isNotEmpty() && applicationMatched) {
+            return if (manualOverride) SmartPauseDesiredState.RUNNING else SmartPauseDesiredState.PAUSED
+        }
+        if (config.trustedNetworks.isEmpty()) {
             manualOverride = false
             return SmartPauseDesiredState.RUNNING
         }

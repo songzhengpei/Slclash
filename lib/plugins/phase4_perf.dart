@@ -108,6 +108,7 @@ class Phase4PerfCommands {
         return _smartAutoStopConfig(
           args['enabled'] ?? args['value'],
           args['network'],
+          args['applications'],
         );
       case 'health_test_config':
         return _healthTestConfig(args['action'] ?? args['value']);
@@ -412,7 +413,9 @@ class Phase4PerfCommands {
 
   /// Profile/debug harness only; uses the same committed providers as the UI.
   /// Never accepts arbitrary config, profile content, or executable code.
-  static Future<Map<String, Object?>> _settingsProbe(Map<String, String> args) async {
+  static Future<Map<String, Object?>> _settingsProbe(
+    Map<String, String> args,
+  ) async {
     final container = globalState.container;
     container.read(settingsApplyProvider);
     final current = container.read(configProvider);
@@ -424,14 +427,22 @@ class Phase4PerfCommands {
       final enabled = value == 'true';
       next = switch (args['field']) {
         'allowLan' => current.copyWith.patchClashConfig(allowLan: enabled),
-        'mixedPort' => current.copyWith.patchClashConfig(mixedPort: int.parse(value)),
+        'mixedPort' => current.copyWith.patchClashConfig(
+          mixedPort: int.parse(value),
+        ),
         'coreIpv6' => current.copyWith.patchClashConfig(ipv6: enabled),
         'dnsIpv6' => current.copyWith.patchClashConfig.dns(ipv6: enabled),
         'dnsListen' => current.copyWith.patchClashConfig.dns(listen: value),
         'overrideDns' => current.copyWith(overrideDns: enabled),
-        'stack' => current.copyWith.patchClashConfig.tun(stack: TunStack.values.byName(value)),
-        'route' => current.copyWith.networkProps(routeMode: RouteMode.config)
-            .copyWith.patchClashConfig.tun(routeAddress: value.isEmpty ? [] : value.split(';')),
+        'stack' => current.copyWith.patchClashConfig.tun(
+          stack: TunStack.values.byName(value),
+        ),
+        'route' =>
+          current.copyWith
+              .networkProps(routeMode: RouteMode.config)
+              .copyWith
+              .patchClashConfig
+              .tun(routeAddress: value.isEmpty ? [] : value.split(';')),
         'vpnIpv6' => current.copyWith.vpnProps(ipv6: enabled),
         'systemProxy' => current.copyWith.vpnProps(systemProxy: enabled),
         _ => throw ArgumentError('Unsupported settings probe field'),
@@ -443,7 +454,8 @@ class Phase4PerfCommands {
       container.read(settingsApplyProvider.notifier).retry();
     }
     if (next != current) {
-      container.read(patchClashConfigProvider.notifier).value = next.patchClashConfig;
+      container.read(patchClashConfigProvider.notifier).value =
+          next.patchClashConfig;
       container.read(vpnSettingProvider.notifier).value = next.vpnProps;
       container.read(networkSettingProvider.notifier).value = next.networkProps;
       container.read(overrideDnsProvider.notifier).value = next.overrideDns;
@@ -507,17 +519,34 @@ class Phase4PerfCommands {
   static Map<String, Object?> _smartAutoStopConfig(
     String? enabledRaw,
     String? network,
+    String? applications,
   ) {
     final enabled = enabledRaw == 'true' || enabledRaw == '1';
     final container = globalState.container;
     final current = container.read(vpnSettingProvider);
     container.read(vpnSettingProvider.notifier).value = current.copyWith(
       smartAutoStop: enabled,
-      smartAutoStopNetworks: enabled ? [network ?? '0.0.0.0/0'] : const [],
+      smartAutoStopNetworks: enabled && network != ''
+          ? [network ?? '0.0.0.0/0']
+          : const [],
+      smartAutoStopApplications: applications == null
+          ? current.smartAutoStopApplications
+          : applications
+                .split(',')
+                .map((name) => name.trim())
+                .where((name) => name.isNotEmpty)
+                .toSet()
+                .toList(),
     );
     return {
       'enabled': enabled,
       'networks': enabled ? (network ?? '0.0.0.0/0') : '',
+      'application_count': applications == null
+          ? current.smartAutoStopApplications.length
+          : applications
+                .split(',')
+                .where((name) => name.trim().isNotEmpty)
+                .length,
     };
   }
 

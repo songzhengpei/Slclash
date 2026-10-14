@@ -21,8 +21,7 @@ index 01e00798..5565f7ac 100644
  // AppendToChains implements C.Connection
  func (c *conn) AppendToChains(a C.ProxyAdapter) {
  	c.chain = append(c.chain, a.Name())
-@@ -278,7 +283,11 @@ func NewConn(c net.Conn, a C.ProxyAdapter) C.Conn {
- 	if _, ok := c.(syscall.Conn); !ok { // exclusion system conn like *net.TCPConn
+@@ -279,6 +284,10 @@ func NewConn(c net.Conn, a C.ProxyAdapter) C.Conn {
  		c = N.NewDeadlineConn(c) // most conn from outbound can't handle readDeadline correctly
  	}
 -	cc := &conn{N.NewExtendedConn(c), nil, nil, a.Addr()}
@@ -53,8 +52,7 @@ index 01e00798..5565f7ac 100644
  // AppendToChains implements C.Connection
  func (c *packetConn) AppendToChains(a C.ProxyAdapter) {
  	c.chain = append(c.chain, a.Name())
-@@ -344,7 +358,14 @@ func NewPacketConn(pc net.PacketConn, a ProxyAdapter) C.PacketConn {
- 	if _, ok := pc.(syscall.Conn); !ok { // exclusion system conn like *net.UDPConn
+@@ -345,6 +359,13 @@ func NewPacketConn(pc net.PacketConn, a ProxyAdapter) C.PacketConn {
  		epc = N.NewDeadlineEnhancePacketConn(epc) // most conn from outbound can't handle readDeadline correctly
  	}
 -	cpc := &packetConn{epc, nil, nil, a.Name(), utils.NewUUIDV4().String(), a.Addr(), a.ResolveUDP}

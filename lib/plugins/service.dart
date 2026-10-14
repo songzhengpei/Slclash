@@ -66,7 +66,8 @@ class Service {
   }
 
   Future<bool> clearTaskRemovalStop() async {
-    return await methodChannel.invokeMethod<bool>('clearTaskRemovalStop') ?? false;
+    return await methodChannel.invokeMethod<bool>('clearTaskRemovalStop') ??
+        false;
   }
 
   Future<bool> stop() async {
@@ -75,9 +76,10 @@ class Service {
 
   Future<String> reconfigureSettings(VpnOptions options, int sessionId) async {
     return await methodChannel.invokeMethod<String>('reconfigureSettings', {
-      'options': json.encode(options),
-      'sessionId': sessionId,
-    }) ?? 'VPN settings application was not acknowledged';
+          'options': json.encode(options),
+          'sessionId': sessionId,
+        }) ??
+        'VPN settings application was not acknowledged';
   }
 
   Future<String?> init() async {
@@ -134,11 +136,13 @@ class Service {
   Future<bool> updateSmartPauseConfig({
     required bool enabled,
     required List<String> trustedNetworks,
+    List<String> triggerApplications = const [],
     required bool closeConnections,
   }) async {
     return await methodChannel.invokeMethod<bool>('updateSmartPauseConfig', {
           'enabled': enabled,
           'trustedNetworks': trustedNetworks,
+          'triggerApplications': triggerApplications,
           'closeConnections': closeConnections,
         }) ??
         false;
@@ -148,6 +152,13 @@ class Service {
     return await methodChannel.invokeMethod<bool>('reevaluateSmartPause') ??
         false;
   }
+
+  Future<bool> hasUsageAccess() async =>
+      await methodChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
+
+  Future<bool> openUsageAccessSettings() async =>
+      await methodChannel.invokeMethod<bool>('openUsageAccessSettings') ??
+      false;
 
   bool get hasListeners {
     return _listeners.isNotEmpty;

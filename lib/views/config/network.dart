@@ -2,7 +2,10 @@ import 'package:fl_clash/services/settings/settings_contract.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/config.dart';
+import 'package:fl_clash/state.dart';
+import 'package:fl_clash/views/smart_pause_applications.dart';
 import 'package:fl_clash/widgets/widgets.dart';
+import 'package:fl_clash/widgets/surge/surge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -137,9 +140,11 @@ class Ipv6Item extends ConsumerWidget {
     final ipv6 = ref.watch(vpnSettingProvider.select((state) => state.ipv6));
     return ListItem.switchItem(
       title: const Text('IPv6'),
-      subtitle: Text(Localizations.localeOf(context).languageCode == 'zh'
-          ? '允许 IPv6 入站，接管应用 IPv6 流量'
-          : 'Accept and capture app IPv6 traffic'),
+      subtitle: Text(
+        Localizations.localeOf(context).languageCode == 'zh'
+            ? '允许 IPv6 入站，接管应用 IPv6 流量'
+            : 'Accept and capture app IPv6 traffic',
+      ),
       delegate: SwitchDelegate(
         value: ipv6,
         onChanged: (bool value) async {
@@ -190,7 +195,7 @@ class TunStackItem extends ConsumerWidget {
       subtitle: Text(stack.name),
       delegate: OptionsDelegate<TunStack>(
         value: stack,
-        options: TunStack.values,
+        options: tunStacksForMihomoVersion(globalState.mihomoVersion),
         textBuilder: (value) => value.name,
         onChanged: (value) {
           if (value == null) {
@@ -245,9 +250,11 @@ class DNSHijackingItem extends ConsumerWidget {
     final appLocalizations = context.appLocalizations;
     return ListItem(
       title: Text(appLocalizations.dnsHijacking),
-      subtitle: Text(Localizations.localeOf(context).languageCode == 'zh'
-          ? '自动接管 · VPN 运行时接管常规 DNS'
-          : 'Automatic · captures ordinary DNS while VPN is active'),
+      subtitle: Text(
+        Localizations.localeOf(context).languageCode == 'zh'
+            ? '自动接管 · VPN 运行时接管常规 DNS'
+            : 'Automatic · captures ordinary DNS while VPN is active',
+      ),
     );
   }
 }
@@ -337,7 +344,11 @@ class SmartAutoStopItem extends ConsumerWidget {
     );
     return ListItem.switchItem(
       title: Text(appLocalizations.smartAutoStop),
-      subtitle: Text(appLocalizations.smartAutoStopDesc),
+      subtitle: Text(
+        Localizations.localeOf(context).languageCode == 'zh'
+            ? '任一触发条件命中时暂停整机代理'
+            : 'Pause the device proxy when either condition matches',
+      ),
       delegate: SwitchDelegate(
         value: smartAutoStop,
         onChanged: (bool value) async {
@@ -392,6 +403,51 @@ class SmartAutoStopNetworksItem extends ConsumerWidget {
   }
 }
 
+class SmartAutoStopSection extends ConsumerWidget {
+  const SmartAutoStopSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(
+      vpnSettingProvider.select((vpn) => vpn.smartAutoStop),
+    );
+    final surge = SurgeTheme.of(context);
+    return Column(
+      key: const Key('smart-pause-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SmartAutoStopItem(),
+        if (enabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 16, 12),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: surge.background,
+                borderRadius: BorderRadius.circular(surge.radii.list),
+                border: Border.all(
+                  color: surge.separator,
+                  width: surge.spacing.hairline,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SmartAutoStopNetworksItem(),
+                  Divider(
+                    height: 0,
+                    thickness: surge.spacing.hairline,
+                    color: surge.separator,
+                  ),
+                  const SmartAutoStopApplicationsItem(),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class NetworkListView extends StatelessWidget {
   const NetworkListView({super.key});
 
@@ -400,35 +456,28 @@ class NetworkListView extends StatelessWidget {
     final appLocalizations = context.appLocalizations;
     return generateListView([
       if (system.isAndroid) const VPNItem(),
-      if (system.isAndroid)
-        ...generateSection(
-          items: [
-            const VpnSystemProxyItem(),
-            const BypassDomainItem(),
-            const SmartAutoStopItem(),
-            const SmartAutoStopNetworksItem(),
-            const AllowBypassItem(),
-            const Ipv6Item(),
-            const DNSHijackingItem(),
-          ],
-        ),
+      if (system.isAndroid) ...[
+        const VpnSystemProxyItem(),
+        const BypassDomainItem(),
+        const SmartAutoStopSection(),
+        const AllowBypassItem(),
+        const Ipv6Item(),
+        const DNSHijackingItem(),
+      ],
       if (system.isDesktop)
         ...generateSection(
           title: appLocalizations.system,
           items: [const SystemProxyItem(), const BypassDomainItem()],
         ),
-      ...generateSection(
-        title: appLocalizations.options,
-        items: [
-          if (system.isDesktop) const TUNItem(),
-          if (system.isMacOS) const AutoSetSystemDnsItem(),
-          const TunStackItem(),
-          if (!system.isDesktop) ...[
-            const RouteModeItem(),
-            const RouteAddressItem(),
-          ],
+      ...[
+        if (system.isDesktop) const TUNItem(),
+        if (system.isMacOS) const AutoSetSystemDnsItem(),
+        const TunStackItem(),
+        if (!system.isDesktop) ...[
+          const RouteModeItem(),
+          const RouteAddressItem(),
         ],
-      ),
+      ],
     ]);
   }
 }

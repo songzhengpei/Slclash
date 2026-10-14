@@ -69,6 +69,9 @@ class MihomoPatcher {
       stdoutEncoding: systemEncoding,
       stderrEncoding: systemEncoding,
     );
+    if (result.exitCode != 0 && !reverse) {
+      _log.severe('git apply --check failed: ${(result.stderr as String).trim()}');
+    }
     return result.exitCode == 0;
   }
 }

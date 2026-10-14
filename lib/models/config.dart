@@ -181,6 +181,7 @@ abstract class VpnProps with _$VpnProps {
     @Default(defaultAccessControlProps) AccessControlProps accessControlProps,
     @Default(false) bool smartAutoStop,
     @Default([]) List<String> smartAutoStopNetworks,
+    @Default([]) List<String> smartAutoStopApplications,
   }) = _VpnProps;
 
   factory VpnProps.fromJson(Map<String, Object?>? json) =>

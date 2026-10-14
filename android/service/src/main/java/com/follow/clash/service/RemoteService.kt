@@ -105,6 +105,12 @@ class RemoteService : Service(), CoroutineScope {
     private val smartPausePolicy = SmartPausePolicy()
     @Volatile private var smartPauseConfig = SmartPauseConfig()
     @Volatile private var latestPhysicalNetwork: PhysicalNetworkSnapshot? = null
+    private val foregroundAppObserver by lazy {
+        ForegroundAppObserver(this, this) {
+            invalidateTransitionRetry()
+            requestSmartPauseEvaluation("foreground_application")
+        }
+    }
     private lateinit var policyExecutor: ConflatedPolicyExecutor<String>
     private val retryEpoch = AtomicLong(0L)
     private val unknownRetrySchedule = BoundedRetrySchedule(RETRY_DELAYS)
@@ -115,6 +121,8 @@ class RemoteService : Service(), CoroutineScope {
     private val networkObserveModule by lazy { NetworkObserveModule(this) }
     private var networkObserverJob: Job? = null
     private var previousDesiredState: SmartPauseDesiredState? = null
+    private var previousPolicyConfig: SmartPauseConfig? = null
+    private var latestApplicationMatched = false
     private var pendingRecovery: VpnRecoveryCheckpoint? = null
     private val recoveryStore by lazy { VpnRecoveryStore(this) }
     @Volatile private var activeSetupPayload: QuickSetupPayload? = null
@@ -136,6 +144,7 @@ class RemoteService : Service(), CoroutineScope {
             enabled = preferences.getBoolean(KEY_ENABLED, false),
             trustedNetworks = preferences.getStringSet(KEY_NETWORKS, emptySet()).orEmpty().toList(),
             closeConnections = preferences.getBoolean(KEY_CLOSE_CONNECTIONS, true),
+            triggerApplications = preferences.getStringSet(KEY_APPLICATIONS, emptySet()).orEmpty().toList(),
         )
         policyExecutor = ConflatedPolicyExecutor(
             scope = this,
@@ -194,20 +203,35 @@ class RemoteService : Service(), CoroutineScope {
         val network = latestPhysicalNetwork
         val current = State.snapshot
         val config = smartPauseConfig
+        val previousConfig = previousPolicyConfig
+        if (previousConfig != null && (previousConfig.enabled != config.enabled ||
+                previousConfig.trustedNetworks != config.trustedNetworks ||
+                previousConfig.triggerApplications != config.triggerApplications)) {
+            smartPausePolicy.onSessionStopped()
+        }
+        previousPolicyConfig = config
         val recovering = pendingRecovery != null && current.state == SessionState.STARTING
         val networkState = classifySmartPauseNetwork(network, config.trustedNetworks)
         val previousOverride = smartPausePolicy.manualOverride
         val policyConfig = config.copy(
             enabled = config.enabled && State.options?.enable == true,
         )
+        latestApplicationMatched = policyConfig.enabled && foregroundAppObserver.matched()
         val desired = smartPausePolicy.desiredState(
             config = policyConfig,
             sessionState = current.state,
             network = networkState,
             unknownExhausted = unknownRetrySchedule.nextDelay() == null,
             recovering = recovering,
+            applicationMatched = latestApplicationMatched,
         )
         val action = smartPauseActionFor(current.state, desired, recovering)
+        if (current.state == SessionState.PAUSED && action == SmartPauseAction.NO_ACTION) {
+            recoveryStore.readValid()?.takeIf { it.applicationPauseActive != latestApplicationMatched }?.let {
+                recoveryStore.save(it.copy(applicationPauseActive = latestApplicationMatched,
+                    updatedAt = System.currentTimeMillis()))
+            }
+        }
         if (previousOverride != smartPausePolicy.manualOverride) {
             Phase4Mark.emit(
                 "smart_pause_override_changed",
@@ -513,7 +537,8 @@ class RemoteService : Service(), CoroutineScope {
             return false
         }
         smartPausePolicy.markManualResume(
-            manualResumeTrusted(source, latestPhysicalNetwork, smartPauseConfig),
+            manualResumeTrusted(source, latestPhysicalNetwork, smartPauseConfig) ||
+                (source == PausedResumeSource.USER && foregroundAppObserver.matched()),
         )
         Phase4Mark.emit(
             "smart_pause_override_changed",
@@ -551,6 +576,7 @@ class RemoteService : Service(), CoroutineScope {
         options = options,
         recoveryFailures = recoveryFailures,
         updatedAt = System.currentTimeMillis(),
+        applicationPauseActive = state == SessionState.PAUSED && latestApplicationMatched,
     )
 
     private fun persistCheckpoint(
@@ -724,6 +750,7 @@ class RemoteService : Service(), CoroutineScope {
             ServiceErrorCode.SERVICE_DISCONNECTED,
             message,
         )
+        updateForegroundAppObserver()
         networkObserveModule.setCoreDnsUpdatesEnabled(false)
     }
 
@@ -763,6 +790,7 @@ class RemoteService : Service(), CoroutineScope {
         )
         pendingRecovery = checkpoint
         activeRecoveryGeneration = generation
+        updateForegroundAppObserver()
         val reconciled = reconcileSmartPauseStateLocked(
             PhysicalNetworkUpdateReason.PROCESS_RECOVERY.name,
         )
@@ -861,11 +889,24 @@ class RemoteService : Service(), CoroutineScope {
             )
         }
         State.snapshot = snapshot
+        updateForegroundAppObserver()
         if (SessionState.keepsRemoteService(snapshot.state)) {
             runCatching { startService(Intent(this, RemoteService::class.java)) }
         } else {
             stopSelf()
         }
+    }
+    private fun updateForegroundAppObserver() {
+        val state = State.snapshot.state
+        foregroundAppObserver.update(
+            smartPauseConfig.enabled && State.options?.enable == true &&
+                (state == SessionState.RUNNING || state == SessionState.PAUSED ||
+                    (state == SessionState.STARTING && pendingRecovery != null)),
+            smartPauseConfig.triggerApplications,
+            keepPausedOnLock = pendingRecovery?.let {
+                it.state == SessionState.PAUSED && it.applicationPauseActive
+            } == true,
+        )
     }
     private fun replyOperation(
         callback: IOperationResultInterface,
@@ -1464,15 +1505,20 @@ class RemoteService : Service(), CoroutineScope {
             enabled: Boolean,
             trustedNetworks: MutableList<String>?,
             closeConnections: Boolean,
+            triggerApplications: MutableList<String>?,
         ) {
             resetAllPolicyRetries()
             val networks = trustedNetworks.orEmpty().map(String::trim).filter(String::isNotEmpty)
-            smartPauseConfig = SmartPauseConfig(enabled, networks, closeConnections)
+            val applications = triggerApplications.orEmpty().map(String::trim).filter(String::isNotEmpty).distinct()
+            val nextConfig = SmartPauseConfig(enabled, networks, closeConnections, applications)
+            smartPauseConfig = nextConfig
             getSharedPreferences(SMART_PAUSE_PREFERENCES, Context.MODE_PRIVATE).edit()
                 .putBoolean(KEY_ENABLED, enabled)
                 .putStringSet(KEY_NETWORKS, networks.toSet())
+                .putStringSet(KEY_APPLICATIONS, applications.toSet())
                 .putBoolean(KEY_CLOSE_CONNECTIONS, closeConnections)
                 .apply()
+            updateForegroundAppObserver()
             requestSmartPauseEvaluation(PhysicalNetworkUpdateReason.CONFIG_CHANGE.name)
             launch {
                 PhysicalNetworkControlPlane.refresh(
@@ -1553,6 +1599,7 @@ class RemoteService : Service(), CoroutineScope {
     }
 
     override fun onDestroy() {
+        foregroundAppObserver.close()
         PhysicalNetworkControlPlane.detach()
         resetAllPolicyRetries()
         policyExecutor.close()
@@ -1611,6 +1658,7 @@ class RemoteService : Service(), CoroutineScope {
         private const val SMART_PAUSE_PREFERENCES = "smart_pause_control"
         private const val KEY_ENABLED = "enabled"
         private const val KEY_NETWORKS = "trusted_networks"
+        private const val KEY_APPLICATIONS = "trigger_applications"
         private const val KEY_CLOSE_CONNECTIONS = "close_connections"
         private val RETRY_DELAYS = longArrayOf(500L, 1_500L, 3_000L)
     }
