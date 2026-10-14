@@ -11,6 +11,11 @@ import com.follow.clash.models.SharedState
 import com.follow.clash.common.SessionPresence
 import com.follow.clash.service.models.SessionSnapshot
 import com.follow.clash.service.models.SessionState
+import com.follow.clash.service.UsageAccess
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import com.google.gson.Gson
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
@@ -70,9 +75,11 @@ internal suspend fun forwardCoreInvocation(
 class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
     private lateinit var flutterMethodChannel: MethodChannel
+    private lateinit var applicationContext: Context
     private val pendingCoreInvocations = PendingCoreInvocations()
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        applicationContext = flutterPluginBinding.applicationContext
         flutterMethodChannel = MethodChannel(
             flutterPluginBinding.binaryMessenger,
             Components.SERVICE_CHANNEL
@@ -155,6 +162,20 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         }
         "updateSmartPauseConfig" -> handleUpdateSmartPauseConfig(call, result)
         "reevaluateSmartPause" -> handleReevaluateSmartPause(result)
+        "hasUsageAccess" -> result.success(UsageAccess.granted(applicationContext))
+        "openUsageAccessSettings" -> {
+            val opened = runCatching {
+                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                    .setData(Uri.parse("package:${applicationContext.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                runCatching { applicationContext.startActivity(intent) }.getOrElse {
+                    applicationContext.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                true
+            }.getOrDefault(false)
+            result.success(opened)
+        }
 
         else -> {
             result.notImplemented()
@@ -349,7 +370,8 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             val enabled = args["enabled"] as? Boolean ?: false
             val networks = (args["trustedNetworks"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
             val closeConnections = args["closeConnections"] as? Boolean ?: true
-            result.success(Service.updateSmartPauseConfig(enabled, networks, closeConnections))
+            val applications = (args["triggerApplications"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            result.success(Service.updateSmartPauseConfig(enabled, networks, closeConnections, applications))
         }
     }
 

@@ -240,8 +240,9 @@ object Service {
         enabled: Boolean,
         trustedNetworks: List<String>,
         closeConnections: Boolean,
+        triggerApplications: List<String>,
     ): Boolean = delegate.useService {
-        it.updateSmartPauseConfig(enabled, trustedNetworks, closeConnections)
+        it.updateSmartPauseConfig(enabled, trustedNetworks, closeConnections, triggerApplications)
         true
     }.getOrDefault(false)
 

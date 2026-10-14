@@ -267,50 +267,11 @@ class _AccessViewState extends ConsumerState<AccessView> {
         }
         return packages.isEmpty
             ? NullStatus(label: appLocalizations.noData)
-            : CommonScrollBar(
+            : PackageSelectionList(
                 controller: _controller,
-                child: ListView.separated(
-                  controller: _controller,
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    12,
-                    16,
-                    32 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  itemCount: packages.length,
-                  separatorBuilder: (_, _) {
-                    final surge = SurgeTheme.of(context);
-                    return ColoredBox(
-                      color: surge.card,
-                      child: Divider(height: 0, color: surge.separator),
-                    );
-                  },
-                  itemBuilder: (_, index) {
-                    final surge = SurgeTheme.of(context);
-                    final package = packages[index];
-                    final isFirst = index == 0;
-                    final isLast = index == packages.length - 1;
-                    return ClipRRect(
-                      borderRadius: BorderRadius.vertical(
-                        top: isFirst ? const Radius.circular(18) : Radius.zero,
-                        bottom: isLast
-                            ? const Radius.circular(18)
-                            : Radius.zero,
-                      ),
-                      child: ColoredBox(
-                        color: surge.card,
-                        child: PackageListItem(
-                          key: Key(package.packageName),
-                          package: package,
-                          value: valueList.contains(package.packageName),
-                          onChanged: (value) {
-                            _handleSelected(package.packageName);
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                packages: packages,
+                selected: valueList,
+                onChanged: (packageName, _) => _handleSelected(packageName),
               );
       },
     );
@@ -412,22 +373,23 @@ class _AccessViewState extends ConsumerState<AccessView> {
         ),
         title: context.appLocalizations.accessControl,
         appBarActions: [
-          _buildAction(
-            enable: accessControl.enable,
-            hasChanges: hasChanges,
-          ),
+          _buildAction(enable: accessControl.enable, hasChanges: hasChanges),
         ],
         body: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildBannerBar(mode, valueList.length, hasChanges: hasChanges),
-            if (hiddenAccessSelectionCount(accessControl, viewPackageNameList) > 0)
+            if (hiddenAccessSelectionCount(accessControl, viewPackageNameList) >
+                0)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 child: Text(
                   Localizations.localeOf(context).languageCode == 'zh'
-                    ? '已保留 ${hiddenAccessSelectionCount(accessControl, viewPackageNameList)} 个未显示的已选应用'
-                    : '${hiddenAccessSelectionCount(accessControl, viewPackageNameList)} hidden selections retained',
+                      ? '已保留 ${hiddenAccessSelectionCount(accessControl, viewPackageNameList)} 个未显示的已选应用'
+                      : '${hiddenAccessSelectionCount(accessControl, viewPackageNameList)} hidden selections retained',
                 ),
               ),
             const SizedBox(height: 6),
@@ -481,6 +443,67 @@ class _SelectedPill extends StatelessWidget {
   }
 }
 
+/// The same grouped app list surface is used by access control and smart pause.
+class PackageSelectionList extends StatelessWidget {
+  const PackageSelectionList({
+    super.key,
+    required this.controller,
+    required this.packages,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final ScrollController controller;
+  final List<Package> packages;
+  final List<String> selected;
+  final void Function(String packageName, bool? checked) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final surge = SurgeTheme.of(context);
+    if (packages.isEmpty) {
+      return NullStatus(label: context.appLocalizations.noData);
+    }
+    return CommonScrollBar(
+      controller: controller,
+      child: ListView.separated(
+        controller: controller,
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          32 + MediaQuery.paddingOf(context).bottom,
+        ),
+        itemCount: packages.length,
+        separatorBuilder: (_, _) => ColoredBox(
+          color: surge.card,
+          child: Divider(height: 0, color: surge.separator),
+        ),
+        itemBuilder: (_, index) {
+          final package = packages[index];
+          return ClipRRect(
+            borderRadius: BorderRadius.vertical(
+              top: index == 0 ? Radius.circular(surge.radii.list) : Radius.zero,
+              bottom: index == packages.length - 1
+                  ? Radius.circular(surge.radii.list)
+                  : Radius.zero,
+            ),
+            child: ColoredBox(
+              color: surge.card,
+              child: PackageListItem(
+                key: Key(package.packageName),
+                package: package,
+                value: selected.contains(package.packageName),
+                onChanged: (checked) => onChanged(package.packageName, checked),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class PackageListItem extends StatelessWidget {
   final Package package;
   final bool value;
@@ -515,14 +538,8 @@ class PackageListItem extends StatelessWidget {
           },
         ),
       ),
-      title: Text(
-        package.label,
-        maxLines: 1,
-      ),
-      subtitle: Text(
-        package.packageName,
-        maxLines: 1,
-      ),
+      title: Text(package.label, maxLines: 1),
+      subtitle: Text(package.packageName, maxLines: 1),
       delegate: CheckboxDelegate(value: value, onChanged: onChanged),
     );
   }

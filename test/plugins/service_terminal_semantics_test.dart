@@ -51,4 +51,34 @@ void main() {
   test('shutdown transport null fails closed', () async {
     expect(await service.shutdown(), isFalse);
   });
+
+  test('smart pause sends independent application and network lists', () async {
+    MethodCall? captured;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          captured = call;
+          return true;
+        });
+    expect(
+      await service.updateSmartPauseConfig(
+        enabled: true,
+        trustedNetworks: const [],
+        triggerApplications: const ['app.a', 'app.b'],
+        closeConnections: true,
+      ),
+      isTrue,
+    );
+    expect(captured?.method, 'updateSmartPauseConfig');
+    expect(captured?.arguments, {
+      'enabled': true,
+      'trustedNetworks': <String>[],
+      'triggerApplications': ['app.a', 'app.b'],
+      'closeConnections': true,
+    });
+  });
+
+  test('missing usage permission response is not treated as granted', () async {
+    expect(await service.hasUsageAccess(), isFalse);
+    expect(await service.openUsageAccessSettings(), isFalse);
+  });
 }

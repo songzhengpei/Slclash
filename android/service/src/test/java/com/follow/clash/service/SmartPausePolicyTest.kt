@@ -8,6 +8,85 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SmartPausePolicyTest {
+    @Test
+    fun applicationWindowExpiryOrPermissionResetCannotResumeTrustedNetwork() {
+        val config = SmartPauseConfig(true, listOf("192.168.100.0/24"),
+            triggerApplications = listOf("app.a"))
+        val condition = ForegroundAppCondition()
+        val policy = SmartPausePolicy()
+        condition.resumed("app.a", 0, config.triggerApplications.toSet(), 0)
+        condition.resumed("other", 100, config.triggerApplications.toSet(), 100)
+        fun evaluate(network: SmartPausePhysicalNetwork, at: Long) = policy.desiredState(
+            config, SessionState.PAUSED, network, false,
+            applicationMatched = condition.matches(config.triggerApplications.toSet(), at),
+        )
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SmartPausePhysicalNetwork.CELLULAR, 30_099))
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SmartPausePhysicalNetwork.TRUSTED_WIFI, 30_100))
+        assertEquals(SmartPauseDesiredState.RUNNING, evaluate(SmartPausePhysicalNetwork.CELLULAR, 30_100))
+        condition.resumed("app.a", 40_000, config.triggerApplications.toSet(), 40_000)
+        condition.reset() // permission revoked / selections removed
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SmartPausePhysicalNetwork.TRUSTED_WIFI, 40_001))
+    }
+
+    @Test
+    fun stoppedOrStoppingSessionRemainsStoppedDuringHoldLockAndExpiry() {
+        val config = SmartPauseConfig(true, triggerApplications = listOf("app.a"))
+        val condition = ForegroundAppCondition()
+        val policy = SmartPausePolicy()
+        condition.resumed("app.a", 0, config.triggerApplications.toSet(), 0)
+        condition.resumed("other", 100, config.triggerApplications.toSet(), 100)
+        for (state in listOf(SessionState.STOPPED, SessionState.STOPPING)) {
+            for (at in listOf(10_000L, 30_100L)) {
+                assertEquals(SmartPauseDesiredState.NO_ACTION, policy.desiredState(config, state,
+                    SmartPausePhysicalNetwork.CELLULAR, false,
+                    applicationMatched = condition.matches(config.triggerApplications.toSet(), at)))
+            }
+            condition.freeze(40_000)
+            assertEquals(SmartPauseDesiredState.NO_ACTION, policy.desiredState(config, state,
+                SmartPausePhysicalNetwork.TRUSTED_WIFI, false, applicationMatched = true))
+            condition.thaw(50_000)
+        }
+    }
+
+    @Test
+    fun applicationOnlyAndCombinedConditionsUseSamePolicy() {
+        val policy = SmartPausePolicy()
+        val appsOnly = SmartPauseConfig(enabled = true, triggerApplications = listOf("app.a", "app.b"))
+        fun evaluate(state: String, matched: Boolean, config: SmartPauseConfig = appsOnly,
+            network: SmartPausePhysicalNetwork = SmartPausePhysicalNetwork.UNKNOWN) =
+            policy.desiredState(config, state, network, false, applicationMatched = matched)
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SessionState.RUNNING, true))
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SessionState.PAUSED, true))
+        assertEquals(SmartPauseDesiredState.RUNNING, evaluate(SessionState.PAUSED, false))
+        assertEquals(SmartPauseDesiredState.NO_ACTION, evaluate(SessionState.STOPPED, true))
+        assertEquals(SmartPauseDesiredState.NO_ACTION, evaluate(SessionState.STOPPING, true))
+        assertEquals(SmartPauseDesiredState.PAUSED, policy.desiredState(appsOnly, SessionState.STARTING,
+            SmartPausePhysicalNetwork.UNKNOWN, false, recovering = true, applicationMatched = true))
+        val combined = appsOnly.copy(trustedNetworks = listOf("192.168.100.0/24"))
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SessionState.PAUSED, false, combined,
+            SmartPausePhysicalNetwork.TRUSTED_WIFI))
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SessionState.RUNNING, true, combined,
+            SmartPausePhysicalNetwork.CELLULAR))
+        assertEquals(SmartPauseDesiredState.RUNNING, evaluate(SessionState.PAUSED, false, combined,
+            SmartPausePhysicalNetwork.CELLULAR))
+        assertEquals(SmartPauseDesiredState.RUNNING, evaluate(SessionState.PAUSED, true, appsOnly.copy(enabled = false)))
+    }
+
+    @Test
+    fun applicationManualResumeOverrideLastsUntilAllTriggersClear() {
+        val policy = SmartPausePolicy()
+        val config = SmartPauseConfig(true, listOf("192.168.100.0/24"), triggerApplications = listOf("app.a"))
+        policy.markManualResume(true)
+        assertEquals(SmartPauseDesiredState.RUNNING, policy.desiredState(config, SessionState.RUNNING,
+            SmartPausePhysicalNetwork.CELLULAR, false, applicationMatched = true))
+        assertTrue(policy.manualOverride)
+        policy.desiredState(config, SessionState.RUNNING, SmartPausePhysicalNetwork.TRUSTED_WIFI, false)
+        assertTrue(policy.manualOverride)
+        policy.desiredState(config, SessionState.RUNNING, SmartPausePhysicalNetwork.CELLULAR, false)
+        assertFalse(policy.manualOverride)
+        assertEquals(SmartPauseDesiredState.PAUSED, policy.desiredState(config, SessionState.RUNNING,
+            SmartPausePhysicalNetwork.CELLULAR, false, applicationMatched = true))
+    }
     private val enabled = SmartPauseConfig(true, listOf("192.168.1.0/24"), true)
     private val trustedNetwork = PhysicalNetworkSnapshot(
         generation = 1,

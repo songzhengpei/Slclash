@@ -5,6 +5,17 @@ import 'package:fl_clash/services/settings/settings_contract.dart';
 
 void main() {
   const initial = Config(currentProfileId: 1, themeProps: defaultThemeProps);
+  test(
+    'application pause selection does not rebuild a VPN or reload the core',
+    () {
+      final selected = initial.copyWith.vpnProps(
+        smartAutoStop: true,
+        smartAutoStopApplications: ['app.a', 'app.b'],
+      );
+      expect(settingsApplyKind(initial, selected), SettingsApplyKind.none);
+      expect(settingsVpnOptions(selected), settingsVpnOptions(initial));
+    },
+  );
   test('route modes reach Android options, including both IP families', () {
     final custom = initial.copyWith.patchClashConfig.tun(
       routeAddress: ['10.0.0.0/8', '2001:db8::/32'],

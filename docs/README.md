@@ -33,6 +33,8 @@ Phase 1–2CD 报告已冻结，作为配置管线与 CI 门禁的说明，不�
 
 ## Design
 
+- [智能暂停：应用触发条件](design/smart-pause-applications.md)
+
 字体系统已落地。以迁移报告为准；审计稿和冻结规范保留为当时的依据，不再描述当前未迁移状态。
 
 - [迁移报告](design/typography-migration-report.md)

@@ -11,6 +11,16 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class VpnRecoveryCheckpointTest {
+    @Test
+    fun applicationPauseReasonIsCompatibleWithOldNetworkOnlyCheckpoint() {
+        val source = checkpoint(state = SessionState.PAUSED).copy(applicationPauseActive = true)
+        assertEquals(source, VpnRecoveryCheckpointCodec.decode(VpnRecoveryCheckpointCodec.encode(source)))
+        val legacy = com.google.gson.JsonParser.parseString(VpnRecoveryCheckpointCodec.encode(source)).asJsonObject
+        legacy.remove("applicationPauseActive")
+        assertFalse(VpnRecoveryCheckpointCodec.decode(legacy.toString())!!.applicationPauseActive)
+        assertFalse(checkpoint(state = SessionState.PAUSED).applicationPauseActive)
+        assertFalse(source.withState(SessionState.RUNNING, 100).applicationPauseActive)
+    }
     private val options = VpnOptions(
         enable = true,
         port = 7890,
