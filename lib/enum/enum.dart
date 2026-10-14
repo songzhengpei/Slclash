@@ -132,7 +132,25 @@ enum Network { tcp, udp }
 
 enum ProxiesSortType { none, delay, name }
 
-enum TunStack { gvisor, system, mixed }
+enum TunStack { gvisor, system, mixed, mips }
+
+// Mips was introduced in Mihomo 1.19.31. Unknown build metadata must not
+// offer a stack that an older bundled core cannot start.
+List<TunStack> tunStacksForMihomoVersion(String version) {
+  final match = RegExp(r'^v?(\d+)\.(\d+)\.(\d+)$').firstMatch(version);
+  final parts = match == null
+      ? null
+      : [for (var i = 1; i <= 3; i++) int.parse(match.group(i)!)];
+  final supportsMips =
+      parts != null &&
+      (parts[0] > 1 ||
+          (parts[0] == 1 &&
+              (parts[1] > 19 || (parts[1] == 19 && parts[2] >= 31))));
+  return [
+    for (final stack in TunStack.values)
+      if (stack != TunStack.mips || supportsMips) stack,
+  ];
+}
 
 enum AccessControlMode { acceptSelected, rejectSelected }
 

@@ -12,6 +12,14 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.2.4',
+    date: '2026-10-14',
+    changes: [
+      '新增按应用触发的智能暂停，兼容少数启动时检测 VPN 环境的应用。',
+      '更新 Mihomo 内核至最新稳定版 v1.19.32。',
+    ],
+  ),
+  AppChangelogEntry(
     version: 'v2.1.9',
     date: '2026-09-07',
     changes: ['降低订阅同步内存占用', '优化代理被回收后的恢复'],

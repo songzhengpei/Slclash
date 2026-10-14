@@ -2,6 +2,7 @@ import 'package:fl_clash/services/settings/settings_contract.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/config.dart';
+import 'package:fl_clash/state.dart';
 import 'package:fl_clash/views/smart_pause_applications.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:fl_clash/widgets/surge/surge.dart';
@@ -194,7 +195,7 @@ class TunStackItem extends ConsumerWidget {
       subtitle: Text(stack.name),
       delegate: OptionsDelegate<TunStack>(
         value: stack,
-        options: TunStack.values,
+        options: tunStacksForMihomoVersion(globalState.mihomoVersion),
         textBuilder: (value) => value.name,
         onChanged: (value) {
           if (value == null) {

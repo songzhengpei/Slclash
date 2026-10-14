@@ -36,12 +36,22 @@ jobs:
           filters: |
             core:
               - 'core/**'
+              - 'scripts/*mihomo*'
+              - '.github/workflows/mihomo-*.yml'
+              - 'test/fixtures/mihomo/**'
+              - 'test/mihomo/**'
+              - 'test/models/tun_stack_test.dart'
+              - 'lib/enum/enum.dart'
               - 'lib/core/**'
               - 'lib/providers/action.dart'
               - 'lib/common/task.dart'
               - 'lib/models/clash_config.dart'
               - 'lib/models/profile.dart'
               - 'lib/services/mihomo_config/**'
+
+      - name: Verify updater reporting
+        shell: bash
+        run: python3 scripts/test_mihomo_update_reporting.py
 
       - name: Set up Go
         if: steps.sensitive.outputs.core == 'true'
@@ -95,6 +105,7 @@ jobs:
           flutter test test/mihomo/script_source_preservation_test.dart
           flutter test test/mihomo/e2e_compatibility_test.dart
           flutter test test/models/clash_config_rule_test.dart
+          flutter test test/models/tun_stack_test.dart
 
       - name: Go bridge compatibility tests
         if: steps.sensitive.outputs.core == 'true'

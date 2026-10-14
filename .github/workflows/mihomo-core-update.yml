@@ -23,6 +23,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  statuses: write
 
 jobs:
   update-core:
@@ -44,7 +45,9 @@ jobs:
 
       - name: Verify updater relationship contract
         shell: bash
-        run: bash scripts/test_mihomo_core_relationship_contract.sh
+        run: |
+          bash scripts/test_mihomo_core_relationship_contract.sh
+          python3 scripts/test_mihomo_update_reporting.py
 
       - name: Fetch submodule tags
         shell: bash
@@ -111,14 +114,6 @@ jobs:
             "No submodule change, push, or PR was performed. Manual review required."
           exit 1
 
-      - name: Setup Go for validation
-        if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24.0"
-          cache-dependency-path: |
-            core/go.sum
-
       - name: Update Mihomo submodule to stable
         if: ${{ steps.decision.outputs.action == 'upgrade_stable' }}
         id: update
@@ -138,13 +133,13 @@ jobs:
             git -C core/Clash.Meta remote set-url metacubex https://github.com/MetaCubeX/mihomo.git
           git -C core/Clash.Meta fetch --tags --force metacubex
 
-          git -C core/Clash.Meta checkout -q "$LATEST_TAG"
-
-          (cd core && go mod tidy)
+          # Keep the proposal tied to the SHA that was actually resolved,
+          # even if an upstream tag moves between fetches.
+          git -C core/Clash.Meta checkout -q "${{ steps.rel.outputs.latest_stable_sha }}"
 
           NEW_COMMIT="$(git -C core/Clash.Meta rev-parse --short=12 HEAD)"
 
-          git add core/Clash.Meta core/go.mod core/go.sum
+          git add core/Clash.Meta
           if git diff --cached --quiet; then
             echo "No update changes were produced."
             echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
@@ -166,7 +161,35 @@ jobs:
           echo "mihomo_commit=$NEW_COMMIT" >> "$GITHUB_OUTPUT"
           echo "dry_run=false" >> "$GITHUB_OUTPUT"
 
+      - name: Setup Go for validation
+        id: setup_go
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: core/go.sum
+
+      - name: Tidy core dependencies
+        id: dependencies
+        if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
+        shell: bash
+        env:
+          ACTION: ${{ steps.decision.outputs.action }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          (cd core && go mod tidy)
+          if [ "$ACTION" = "upgrade_stable" ]; then
+            git add core/go.mod core/go.sum
+            if [ "$DRY_RUN" != "true" ] && ! git diff --cached --quiet; then
+              git commit --amend --no-edit
+            fi
+          else
+            git diff --exit-code -- core/go.mod core/go.sum
+          fi
+
       - name: Set up Java for validation
+        id: setup_java
         if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
         uses: actions/setup-java@v4
         with:
@@ -174,6 +197,7 @@ jobs:
           java-version: "21"
 
       - name: Set up Flutter for validation
+        id: setup_flutter
         if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
         uses: subosito/flutter-action@v2
         with:
@@ -195,6 +219,7 @@ jobs:
       # validate_current. Never checks out an older stable when current is
       # ahead, and never overwrites a diverged current.
       - name: Validate core
+        id: validation
         if: ${{ steps.decision.outputs.action == 'upgrade_stable' || steps.decision.outputs.action == 'validate_current' }}
         shell: bash
         env:
@@ -204,58 +229,11 @@ jobs:
           ACTION: ${{ steps.decision.outputs.action }}
           CURRENT_SHA: ${{ steps.rel.outputs.current_sha }}
           LATEST_TAG: ${{ steps.rel.outputs.latest_stable_tag }}
+          LATEST_SHA: ${{ steps.rel.outputs.latest_stable_sha }}
         run: |
           set -euo pipefail
 
-          flutter pub get
-          (
-            cd plugins/setup/buildkit/build_tool
-            dart pub get
-            dart run bin/build_tool.dart \
-              --root-dir "$GITHUB_WORKSPACE" patch-mihomo
-          )
-          # Keep analyzer errors blocking while allowing the repository's existing
-          # warning/info baseline to be handled independently of core updates.
-          flutter analyze --no-fatal-warnings --no-fatal-infos
-          flutter test test/mihomo/runtime_config_regression_test.dart
-          flutter test test/mihomo/source_config_preservation_test.dart
-          flutter test test/mihomo/runtime_config_ownership_test.dart
-          flutter test test/models/profile_atomic_write_test.dart
-          flutter test test/core/controller_test.dart
-          flutter test test/mihomo/structural_config_diff_test.dart
-          flutter test test/mihomo/script_source_preservation_test.dart
-          flutter test test/mihomo/e2e_compatibility_test.dart
-
-          cd core
-          go mod tidy
-          git diff --exit-code go.mod go.sum
-          cd ..
-
-          # The wrapper is Android-specific and cannot be tested as a Linux
-          # executable. Test the patched Mihomo package here; the arm64 build
-          # below validates the complete wrapper and native library.
-          (cd core/Clash.Meta && go test ./tunnel/statistic)
-          (cd core && go test ./providerbridge ./configfixture)
-
-          flutter build apk --debug --target-platform android-arm64
-
-          CHECKED_OUT="$(git -C core/Clash.Meta rev-parse HEAD)"
-          if [ "$ACTION" = "upgrade_stable" ]; then
-            ACTUAL_VERSION="$(git -C core/Clash.Meta describe --tags --abbrev=0)"
-            if [ "$ACTUAL_VERSION" != "$LATEST_TAG" ]; then
-              echo "Core version mismatch: expected $LATEST_TAG, got $ACTUAL_VERSION"
-              exit 1
-            fi
-            echo "Core update validation completed for $ACTUAL_VERSION."
-          else
-            # validate_current: the submodule must still be the current SHA,
-            # proving no downgrade or overwrite happened.
-            if [ "$CHECKED_OUT" != "$CURRENT_SHA" ]; then
-              echo "Core changed during validate_current: expected $CURRENT_SHA, got $CHECKED_OUT"
-              exit 1
-            fi
-            echo "Current core validation completed for $CHECKED_OUT."
-          fi
+          bash scripts/validate_mihomo_core.sh 2>&1 | tee "$RUNNER_TEMP/mihomo-core-validation.log"
 
       - name: 生成内核升级评估
         if: ${{ steps.decision.outputs.action == 'upgrade_stable' }}
@@ -374,47 +352,27 @@ jobs:
 
           echo "report_file=$REPORT_FILE" >> "$GITHUB_OUTPUT"
 
-      - name: Push validated update branch
-        if: ${{ steps.update.outputs.branch != '' && inputs.dry_run != true }}
-        shell: bash
-        run: |
-          git push --force-with-lease origin "${{ steps.update.outputs.branch }}"
-
-      - name: Open pull request
-        if: ${{ steps.update.outputs.branch != '' && inputs.dry_run != true }}
+      - name: Publish update review
+        if: ${{ !cancelled() && steps.update.outputs.branch != '' && inputs.dry_run != true }}
         id: pr
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          BRANCH="${{ steps.update.outputs.branch }}"
-          TITLE="Mihomo 内核更新 ${{ steps.rel.outputs.latest_stable_tag }}：${{ steps.review.outputs.conclusion }}"
-
-          BODY_FILE="$(mktemp)"
-          cat > "$BODY_FILE" <<EOF
-          ## Mihomo 内核更新
-
-          - 当前版本：${{ steps.rel.outputs.nearest_release_tag }}（${{ steps.rel.outputs.current_sha }}）
-          - 目标版本：${{ steps.rel.outputs.latest_stable_tag }}（${{ steps.update.outputs.mihomo_commit }}）
-          - 关系：当前 Core 落后于最新稳定版，目标版本是当前版本的后继提交
-
-          本次更新直接使用官方 `MetaCubeX/mihomo` 稳定版 tag。
-          在创建这个 Draft PR 之前，已经完成 Slclash 配置兼容性测试、Script preservation、RawConfig E2E、Go 检查和 Android arm64 构建验证。
-
-          EOF
-          cat "${{ steps.review.outputs.report_file }}" >> "$BODY_FILE"
-
-          EXISTING_PR="$(gh pr list --head "$BRANCH" --base beta --state open --json number --jq '.[0].number // empty')"
-          if [ -n "$EXISTING_PR" ]; then
-            PR_NUMBER="$EXISTING_PR"
-            gh pr edit "$PR_NUMBER" --title "$TITLE" --body-file "$BODY_FILE"
-          else
-            PR_URL="$(gh pr create --draft --base beta --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE")"
-            PR_NUMBER="$(echo "$PR_URL" | grep -oE '[0-9]+$')"
-          fi
-
-          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "PR #$PR_NUMBER 已创建或更新"
+          BRANCH: ${{ steps.update.outputs.branch }}
+          LATEST_TAG: ${{ steps.rel.outputs.latest_stable_tag }}
+          LATEST_SHA: ${{ steps.rel.outputs.latest_stable_sha }}
+          CURRENT_TAG: ${{ steps.rel.outputs.nearest_release_tag }}
+          CURRENT_SHA: ${{ steps.rel.outputs.current_sha }}
+          VALIDATION_OUTCOME: ${{ steps.validation.outcome }}
+          DEPENDENCIES_OUTCOME: ${{ steps.dependencies.outcome }}
+          REVIEW_OUTCOME: ${{ steps.review.outcome }}
+          REVIEW_CONCLUSION: ${{ steps.review.outputs.conclusion }}
+          REVIEW_FILE: ${{ steps.review.outputs.report_file }}
+          SETUP_GO_OUTCOME: ${{ steps.setup_go.outcome }}
+          SETUP_JAVA_OUTCOME: ${{ steps.setup_java.outcome }}
+          SETUP_FLUTTER_OUTCOME: ${{ steps.setup_flutter.outcome }}
+          SETUP_NDK_OUTCOME: ${{ steps.setup_ndk.outcome }}
+        run: bash scripts/publish_mihomo_update.sh
 
       - name: Summary
         if: always()
@@ -429,42 +387,10 @@ jobs:
           REL_ALPHA: ${{ steps.rel.outputs.relationship_to_alpha }}
           REVIEW: ${{ steps.review.outputs.conclusion }}
           REVIEW_RISK: ${{ steps.review.outputs.risk }}
-        run: |
-          {
-            echo "## Mihomo 内核更新摘要"
-            echo ""
-            echo "- 当前 Core：$CURRENT_SHA"
-            echo "- 最新稳定版：$STABLE_TAG ($STABLE_SHA)"
-            echo "- 与稳定版关系：$REL"
-            echo "- 最新 Alpha：$ALPHA_SHA"
-            echo "- 与 Alpha 关系：$REL_ALPHA"
-            echo ""
-            case "$ACTION" in
-              fail_closed)
-                echo "- 状态：已阻塞。Core 历史与稳定版分叉，未修改 submodule、未 push、未创建 PR，需要人工审查。"
-                ;;
-              noop)
-                echo "- 状态：无需更新。"
-                if [ "$REL" = "AHEAD_OF_STABLE" ]; then
-                  echo "- 当前 Core 领先于最新稳定版，已拒绝自动降级。"
-                fi
-                ;;
-              validate_current)
-                echo "- 状态：当前 Core 已重新验证 ($CURRENT_SHA)。"
-                echo "- 未降级、未创建 PR。"
-                ;;
-              upgrade_stable)
-                echo "- 状态：目标稳定版已通过自动验证。"
-                if [ -n "$REVIEW" ]; then
-                  echo "- 自动评估：$REVIEW"
-                  echo "- 风险等级：$REVIEW_RISK"
-                fi
-                if [ "${{ inputs.dry_run }}" = "true" ]; then
-                  echo "- Dry run：仅验证，不 push、不创建 PR、不打 tag、不发布。"
-                else
-                  echo "- PR：#${{ steps.pr.outputs.pr_number }}"
-                  echo "- 下一步：按 PR 中的中文结论决定直接合并、先修改，或先做产品/界面决策。"
-                fi
-                ;;
-            esac
-          } >> "$GITHUB_STEP_SUMMARY"
+          VALIDATION_OUTCOME: ${{ steps.validation.outcome }}
+          REVIEW_OUTCOME: ${{ steps.review.outcome }}
+          PUBLICATION_OUTCOME: ${{ steps.pr.outcome }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          JOB_STATUS: ${{ job.status }}
+        run: bash scripts/mihomo_update_summary.sh >> "$GITHUB_STEP_SUMMARY"

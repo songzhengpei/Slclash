@@ -203,13 +203,19 @@ abstract class SnifferConfig with _$SnifferConfig {
       _$SnifferConfigFromJson(json);
 }
 
+TunStack _tunStackFromJson(String? value) => value == null
+    ? TunStack.mixed
+    : TunStack.values.byName(value.toLowerCase());
+
 @freezed
 abstract class Tun with _$Tun {
   const factory Tun({
     @Default(false) bool enable,
     @Default(appName) String device,
     @JsonKey(name: 'auto-route') @Default(false) bool autoRoute,
-    @Default(TunStack.mixed) TunStack stack,
+    @JsonKey(fromJson: _tunStackFromJson)
+    @Default(TunStack.mixed)
+    TunStack stack,
     @JsonKey(name: 'dns-hijack') @Default(['any:53']) List<String> dnsHijack,
     @JsonKey(name: 'route-address') @Default([]) List<String> routeAddress,
   }) = _Tun;

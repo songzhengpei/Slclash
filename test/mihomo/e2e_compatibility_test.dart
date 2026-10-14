@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fl_clash/common/task.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/services/mihomo_config/source_config.dart';
 import 'package:fl_clash/services/mihomo_config/structural_config_diff.dart';
@@ -10,9 +11,9 @@ import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 /// Reads a checked-in E2E fixture pair.
-Map<String, dynamic> _readRawConfigJson(String fixture) {
+Map<String, dynamic> _readRawConfigJson(String fixture, String baseline) {
   final raw = File(
-    p.join('test', 'fixtures', 'mihomo', 'e2e', fixture, 'rawconfig.json'),
+    p.join('test', 'fixtures', 'mihomo', 'e2e', fixture, 'rawconfig$baseline.json'),
   ).readAsStringSync();
   return Map<String, dynamic>.from(json.decode(raw) as Map);
 }
@@ -78,11 +79,30 @@ dynamic _plainYaml(dynamic value) {
 }
 
 void main() {
+  test('selected Mips stack reaches reparsable runtime YAML', () async {
+    final runtime = await _materialize(
+      _bridgeToDart(_readRawConfigJson('bridge_contract', '-v1.19.32')),
+      patch: const PatchClashConfig(tun: Tun(enable: true, stack: TunStack.mips)),
+      writeTo: p.join('build', 'mihomo-runtime-fixtures', 'e2e_mips.yaml'),
+    );
+    expect(runtime['tun']['stack'], 'mips');
+    expect(runtime['tun']['processors-per-channel'], 1);
+  });
+  for (final baseline in ['', '-v1.19.31', '-v1.19.32']) {
+    group('reviewed bridge ${baseline.isEmpty ? 'v1.19.30' : baseline.substring(1)}', () {
+      _testBaseline(baseline);
+    });
+  }
+}
+
+void _testBaseline(String baseline) {
+  Map<String, dynamic> readBridge(String fixture) =>
+      _readRawConfigJson(fixture, baseline);
   group('standard E2E (source -> RawConfig -> JSON -> Dart -> runtime)', () {
     test('full pipeline preserves real fields and canonicalizes rule -> rules',
         () async {
       final source = _readSourceYaml('standard_real_fields');
-      final bridge = _readRawConfigJson('standard_real_fields');
+      final bridge = readBridge('standard_real_fields');
       final normalized = _bridgeToDart(bridge);
 
       // The bridge key is 'rule'; Dart canonicalization must produce 'rules'.
@@ -131,7 +151,7 @@ void main() {
 
     test('materialized runtime YAML reparses and keeps real fields', () async {
       final source = _readSourceYaml('standard_real_fields');
-      final bridge = _readRawConfigJson('standard_real_fields');
+      final bridge = readBridge('standard_real_fields');
       final runtimeBase = mergeSourceWithNormalized(
         source,
         _bridgeToDart(bridge),
@@ -162,7 +182,7 @@ void main() {
     test('script transform diff applies onto the source-preserved base',
         () async {
       final source = _readSourceYaml('script_real_fields');
-      final bridge = _readRawConfigJson('script_real_fields');
+      final bridge = readBridge('script_real_fields');
       final normalized = _bridgeToDart(bridge);
 
       // Simulated Script transform (no QuickJS on the host): mode update,
@@ -199,7 +219,7 @@ void main() {
 
     test('whole-map delete removes source-only descendants', () async {
       final source = _readSourceYaml('script_real_fields');
-      final bridge = _readRawConfigJson('script_real_fields');
+      final bridge = readBridge('script_real_fields');
       final normalized = _bridgeToDart(bridge);
 
       final before = Map<String, dynamic>.from(
@@ -221,7 +241,7 @@ void main() {
     test('materialized script runtime YAML reparses and keeps real fields',
         () async {
       final source = _readSourceYaml('script_real_fields');
-      final bridge = _readRawConfigJson('script_real_fields');
+      final bridge = readBridge('script_real_fields');
       final normalized = _bridgeToDart(bridge);
 
       final before = Map<String, dynamic>.from(
@@ -254,7 +274,7 @@ void main() {
 
     test('bridge contract fixture canonicalizes rule -> rules mechanically',
         () async {
-      final bridge = _readRawConfigJson('bridge_contract');
+      final bridge = readBridge('bridge_contract');
       expect(bridge.containsKey('rule'), isTrue);
       expect(bridge['tun']['auto-detect-interface'], isTrue);
       expect(bridge['experimental']['quic-go-disable-gso'], isTrue);
@@ -270,7 +290,7 @@ void main() {
       final source = _readSourceYaml('standard_real_fields')
         ..['x-slclash-future-field'] = 'top-level'
         ..['dns']['future-field'] = 'dns-sibling';
-      final bridge = _readRawConfigJson('standard_real_fields');
+      final bridge = readBridge('standard_real_fields');
       // The real bridge output has no trace of the synthetic keys.
       expect(bridge.containsKey('x-slclash-future-field'), isFalse);
       expect((bridge['dns'] as Map).containsKey('future-field'), isFalse);
