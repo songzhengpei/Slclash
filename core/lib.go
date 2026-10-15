@@ -58,18 +58,26 @@ func (th *TunHandler) start(fd int, stack, address, dns string) bool {
 }
 
 func (th *TunHandler) close() {
+	tunCloseTrace("callback_drain", "begin")
 	_ = th.limit.Acquire(context.TODO(), 4)
+	tunCloseTrace("callback_drain", "complete")
 	defer th.limit.Release(4)
 	th.clear()
 }
 
 func (th *TunHandler) clear() {
+	tunCloseTrace("remove_hooks", "begin")
 	th.removeHook()
+	tunCloseTrace("remove_hooks", "complete")
 	if th.listener != nil {
+		tunCloseTrace("listener_close", "begin")
 		_ = th.listener.Close()
+		tunCloseTrace("listener_close", "complete")
 	}
 	if th.callback != nil {
+		tunCloseTrace("jni_release", "begin")
 		releaseObject(th.callback)
+		tunCloseTrace("jni_release", "complete")
 	}
 	th.callback = nil
 	th.listener = nil
@@ -142,7 +150,9 @@ var (
 )
 
 func handleStopTun() {
+	tunCloseTrace("tun_lock", "begin")
 	tunLock.Lock()
+	tunCloseTrace("tun_lock", "complete")
 	defer tunLock.Unlock()
 	handler := tunHandler
 	tunHandler = nil

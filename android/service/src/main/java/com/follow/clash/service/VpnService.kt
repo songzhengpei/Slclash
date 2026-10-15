@@ -450,18 +450,47 @@ class VpnService : SystemVpnService(), IBaseService, CoroutineScope {
             // creating TUN. Keep notification/suspend modules alive while
             // confirming that the runtime is already physically paused.
             loader.load()
-            return@withLock setCoreListeners(false)
+            return@withLock stopListenersForSmartPause()
         }
         if (!tunEstablished) return@withLock false
-        if (!setCoreListeners(false)) return@withLock false
+        if (!stopListenersForSmartPause()) return@withLock false
+        Phase4Mark.emit(
+            "smart_pause_stop_stage",
+            mapOf("stage" to "resolver_cache", "phase" to "begin"),
+        )
         clearResolverCache()
+        Phase4Mark.emit(
+            "smart_pause_stop_stage",
+            mapOf("stage" to "resolver_cache", "phase" to "complete"),
+        )
+        Phase4Mark.emit(
+            "smart_pause_stop_stage",
+            mapOf("stage" to "tun", "phase" to "begin"),
+        )
         Core.stopTun()
+        Phase4Mark.emit(
+            "smart_pause_stop_stage",
+            mapOf("stage" to "tun", "phase" to "complete"),
+        )
         tunEstablished = false
         Phase4Mark.emit(
             "vpn_tun_observed",
             mapOf("phase" to "smart_stop_complete", "tun_present" to false),
         )
         true
+    }
+
+    private suspend fun stopListenersForSmartPause(): Boolean {
+        Phase4Mark.emit(
+            "smart_pause_stop_stage",
+            mapOf("stage" to "listeners", "phase" to "begin"),
+        )
+        val stopped = setCoreListeners(false)
+        Phase4Mark.emit(
+            "smart_pause_stop_stage",
+            mapOf("stage" to "listeners", "phase" to "complete", "result" to stopped),
+        )
+        return stopped
     }
 
     override suspend fun smartResume(): Boolean = lifecycleMutex.withLock {

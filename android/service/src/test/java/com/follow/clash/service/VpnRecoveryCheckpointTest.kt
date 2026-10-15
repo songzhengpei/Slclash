@@ -12,6 +12,16 @@ import kotlin.test.assertTrue
 
 class VpnRecoveryCheckpointTest {
     @Test
+    fun applicationSessionBoundarySurvivesRecoveryAndDefaultsForLegacyRecords() {
+        val source = checkpoint().copy(applicationRetentionStartedAt = 12L)
+        assertEquals(source, VpnRecoveryCheckpointCodec.decode(VpnRecoveryCheckpointCodec.encode(source)))
+        assertEquals(12L, source.withState(SessionState.PAUSED, 100).applicationRetentionStartedAt)
+        assertEquals(12L, source.withFailureCount(1, 101).applicationRetentionStartedAt)
+        val legacy = com.google.gson.JsonParser.parseString(VpnRecoveryCheckpointCodec.encode(source)).asJsonObject
+        legacy.remove("applicationRetentionStartedAt")
+        assertEquals(0L, VpnRecoveryCheckpointCodec.decode(legacy.toString())!!.applicationRetentionStartedAt)
+    }
+    @Test
     fun applicationPauseReasonIsCompatibleWithOldNetworkOnlyCheckpoint() {
         val source = checkpoint(state = SessionState.PAUSED).copy(applicationPauseActive = true)
         assertEquals(source, VpnRecoveryCheckpointCodec.decode(VpnRecoveryCheckpointCodec.encode(source)))

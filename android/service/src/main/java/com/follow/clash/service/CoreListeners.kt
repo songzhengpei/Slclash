@@ -1,6 +1,7 @@
 package com.follow.clash.service
 
 import com.follow.clash.core.Core
+import com.follow.clash.common.Phase4Mark
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import kotlinx.coroutines.NonCancellable
@@ -19,18 +20,31 @@ internal suspend fun coreLifecycleAction(
         Core.invokeAction(data, callback)
     },
 ): Boolean = withContext(NonCancellable) {
-    suspendCoroutine { continuation ->
+    val confirmed = suspendCoroutine { continuation ->
         val action = JsonObject().apply {
             addProperty("id", "native-$method")
             addProperty("method", method)
             add("data", com.google.gson.JsonNull.INSTANCE)
         }.toString()
+        Phase4Mark.emit(
+            "core_listener_action",
+            mapOf("method" to method, "phase" to "dispatch"),
+        )
         invoke(action) { result ->
             val success = runCatching {
                 val value = JsonParser.parseString(result).asJsonObject
                 value.get("code").asInt == 0 && value.get("data").asBoolean
             }.getOrDefault(false)
+            Phase4Mark.emit(
+                "core_listener_action",
+                mapOf("method" to method, "phase" to "callback", "result" to success),
+            )
             continuation.resume(success)
         }
     }
+    Phase4Mark.emit(
+        "core_listener_action",
+        mapOf("method" to method, "phase" to "complete", "result" to confirmed),
+    )
+    confirmed
 }
