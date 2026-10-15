@@ -12,6 +12,11 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.2.5',
+    date: '2026-10-15',
+    changes: ["修复v2.2.4引入的bug，完善智能暂停体验。"],
+  ),
+  AppChangelogEntry(
     version: 'v2.2.4',
     date: '2026-10-14',
     changes: [
