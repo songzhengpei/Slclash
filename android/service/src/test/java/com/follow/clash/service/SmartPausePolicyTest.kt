@@ -9,6 +9,25 @@ import kotlin.test.assertTrue
 
 class SmartPausePolicyTest {
     @Test
+    fun explicitRestartDiscardsOldApplicationGraceWithoutBypassingLiveTriggers() {
+        val config = SmartPauseConfig(true, listOf("192.168.100.0/24"),
+            triggerApplications = listOf("app.a"))
+        val condition = ForegroundAppCondition(retentionNotBeforeElapsed = 1_000)
+        val selected = config.triggerApplications.toSet()
+        condition.resumed("app.a", 100, selected, 100)
+        condition.resumed("other", 500, selected, 500)
+        val policy = SmartPausePolicy()
+        fun evaluate(network: SmartPausePhysicalNetwork) = policy.desiredState(
+            config, SessionState.RUNNING, network, false,
+            applicationMatched = condition.matches(selected, 1_001),
+        )
+        assertEquals(SmartPauseDesiredState.RUNNING, evaluate(SmartPausePhysicalNetwork.CELLULAR))
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SmartPausePhysicalNetwork.TRUSTED_WIFI))
+        condition.reset()
+        condition.resumed("app.a", 100, selected, 100)
+        assertEquals(SmartPauseDesiredState.PAUSED, evaluate(SmartPausePhysicalNetwork.CELLULAR))
+    }
+    @Test
     fun applicationWindowExpiryOrPermissionResetCannotResumeTrustedNetwork() {
         val config = SmartPauseConfig(true, listOf("192.168.100.0/24"),
             triggerApplications = listOf("app.a"))

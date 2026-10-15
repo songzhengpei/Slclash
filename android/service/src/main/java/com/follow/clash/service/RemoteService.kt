@@ -123,6 +123,7 @@ class RemoteService : Service(), CoroutineScope {
     private var previousDesiredState: SmartPauseDesiredState? = null
     private var previousPolicyConfig: SmartPauseConfig? = null
     private var latestApplicationMatched = false
+    private var applicationRetentionStartedAt = 0L
     private var pendingRecovery: VpnRecoveryCheckpoint? = null
     private val recoveryStore by lazy { VpnRecoveryStore(this) }
     @Volatile private var activeSetupPayload: QuickSetupPayload? = null
@@ -577,6 +578,7 @@ class RemoteService : Service(), CoroutineScope {
         recoveryFailures = recoveryFailures,
         updatedAt = System.currentTimeMillis(),
         applicationPauseActive = state == SessionState.PAUSED && latestApplicationMatched,
+        applicationRetentionStartedAt = applicationRetentionStartedAt,
     )
 
     private fun persistCheckpoint(
@@ -790,6 +792,8 @@ class RemoteService : Service(), CoroutineScope {
         )
         pendingRecovery = checkpoint
         activeRecoveryGeneration = generation
+        applicationRetentionStartedAt = checkpoint.applicationRetentionStartedAt
+        foregroundAppObserver.beginSession(applicationRetentionStartedAt)
         updateForegroundAppObserver()
         val reconciled = reconcileSmartPauseStateLocked(
             PhysicalNetworkUpdateReason.PROCESS_RECOVERY.name,
@@ -906,6 +910,7 @@ class RemoteService : Service(), CoroutineScope {
             keepPausedOnLock = pendingRecovery?.let {
                 it.state == SessionState.PAUSED && it.applicationPauseActive
             } == true,
+            sessionPaused = state == SessionState.PAUSED,
         )
     }
     private fun replyOperation(
@@ -1127,6 +1132,11 @@ class RemoteService : Service(), CoroutineScope {
                     }
 
                     val running = SessionTransitions.running(State.snapshot)
+                    // Explicit STOPPED -> RUNNING creates a fresh application window.
+                    // Automatic recovery restores this boundary from its checkpoint.
+                    applicationRetentionStartedAt = System.currentTimeMillis()
+                    latestApplicationMatched = false
+                    foregroundAppObserver.beginSession(applicationRetentionStartedAt)
                     if (options.enable && !persistCheckpoint(running, SessionState.RUNNING, options)) {
                         rollbackStart(
                             ServiceErrorCode.INTERNAL_ERROR,

@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
+import com.follow.clash.common.Phase4Mark
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -27,7 +28,10 @@ object UsageAccess {
 }
 
 /** Only the current foreground candidate is retained; no usage history or package logging. */
-internal class ForegroundAppCondition(private val releaseDelayMillis: Long = 30_000L) {
+internal class ForegroundAppCondition(
+    private val releaseDelayMillis: Long = 30_000L,
+    private val retentionNotBeforeElapsed: Long = Long.MIN_VALUE,
+) {
     private var foreground: String? = null
     private var lastResumeAt = Long.MIN_VALUE
     private var releaseAt: Long? = null
@@ -40,7 +44,13 @@ internal class ForegroundAppCondition(private val releaseDelayMillis: Long = 30_
         if (timestamp == lastResumeAt && packageName == foreground) return
         lastResumeAt = timestamp
         foreground = packageName
-        if (packageName in selected) {
+        if (eventElapsed < retentionNotBeforeElapsed && packageName !in selected) {
+            // History still identifies the current foreground, but a fresh user
+            // session must not inherit the previous session's background grace.
+            held = false
+            releaseAt = null
+            triggerPackage = null
+        } else if (packageName in selected) {
             triggerPackage = packageName
             held = true
             releaseAt = null
@@ -55,6 +65,7 @@ internal class ForegroundAppCondition(private val releaseDelayMillis: Long = 30_
         if (selected.isEmpty()) { reset(); return false }
         if (frozenAt != null) return held
         if (foreground in selected) {
+            triggerPackage = foreground
             held = true
             releaseAt = null
         } else if (held) {
@@ -63,6 +74,9 @@ internal class ForegroundAppCondition(private val releaseDelayMillis: Long = 30_
         }
         return held
     }
+
+    fun nextPollDelayMillis(selected: Set<String>, sessionPaused: Boolean): Long =
+        if (sessionPaused && foreground in selected) 1_000L else 250L
 
     fun freeze(now: Long) {
         if (frozenAt == null) frozenAt = now
@@ -73,7 +87,7 @@ internal class ForegroundAppCondition(private val releaseDelayMillis: Long = 30_
         frozenAt = null
     }
 
-    fun copy(): ForegroundAppCondition = ForegroundAppCondition(releaseDelayMillis).also {
+    fun copy(): ForegroundAppCondition = ForegroundAppCondition(releaseDelayMillis, retentionNotBeforeElapsed).also {
         it.foreground = foreground
         it.lastResumeAt = lastResumeAt
         it.releaseAt = releaseAt
@@ -136,6 +150,8 @@ internal class ForegroundAppObserver(
     private var wasLocked = false
     private var published = false
     private var keepPausedOnLock = false
+    private var sessionPaused = false
+    private var usageAccessAvailable = false
     @Volatile private var readFailureSince: Long? = null
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -157,8 +173,29 @@ internal class ForegroundAppObserver(
         }
     }
 
+    /** Called while inactive, before enabling a new or recovered session. */
     @Synchronized
-    fun update(active: Boolean, applications: List<String>, keepPausedOnLock: Boolean = false) {
+    fun beginSession(retentionStartedAt: Long) {
+        val floor = if (retentionStartedAt > 0L) {
+            SystemClock.elapsedRealtime() - (System.currentTimeMillis() - retentionStartedAt).coerceAtLeast(0L)
+        } else Long.MIN_VALUE // Older recovery records retain their original semantics.
+        condition = ForegroundAppCondition(retentionNotBeforeElapsed = floor)
+        queryWindow.reset()
+        readFailureSince = null
+        wasLocked = false
+        published = false
+        keepPausedOnLock = false
+    }
+
+    @Synchronized
+    fun update(
+        active: Boolean,
+        applications: List<String>,
+        keepPausedOnLock: Boolean = false,
+        sessionPaused: Boolean = false,
+    ) {
+        // Session transitions must refresh cadence even when the selection is unchanged.
+        this.sessionPaused = active && sessionPaused
         val next = if (active) applications.toSet() else emptySet()
         if (next == configured && job?.isActive == next.isNotEmpty()) return
         job?.cancel()
@@ -186,13 +223,23 @@ internal class ForegroundAppObserver(
         queryWindow.reset()
         published = false
         if (next.isNotEmpty()) job = scope.launch {
+            var previousPollDelay: Long? = null
             while (isActive) {
-                val changed = synchronized(this@ForegroundAppObserver) {
+                val (changed, pollDelay) = synchronized(this@ForegroundAppObserver) {
                     val current = sampleLocked()
-                    (current != published).also { published = current }
+                    val changed = (current != published).also { published = current }
+                    val unavailable = wasLocked || !usageAccessAvailable ||
+                        readFailureSince != null || selected.isEmpty()
+                    val interval = if (unavailable) 1_000L else
+                        condition.nextPollDelayMillis(selected, this@ForegroundAppObserver.sessionPaused)
+                    changed to interval
+                }
+                if (pollDelay != previousPollDelay) {
+                    Phase4Mark.emit("foreground_poll_interval", mapOf("interval_ms" to pollDelay))
+                    previousPollDelay = pollDelay
                 }
                 if (changed) onChanged()
-                delay(if (isLocked() || !UsageAccess.granted(context) || readFailureSince != null || selected.isEmpty()) 1_000L else 250L)
+                delay(pollDelay)
             }
         }
     }
@@ -205,7 +252,9 @@ internal class ForegroundAppObserver(
             context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
 
     private fun sampleLocked(): Boolean {
-        if (selected.isEmpty() || !UsageAccess.granted(context)) {
+        // Reuse this check for scheduling; do not make a second AppOps call per poll.
+        usageAccessAvailable = selected.isNotEmpty() && UsageAccess.granted(context)
+        if (!usageAccessAvailable) {
             keepPausedOnLock = false
             condition.reset()
             readFailureSince = null

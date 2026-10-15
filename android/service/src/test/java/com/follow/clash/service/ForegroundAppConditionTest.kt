@@ -9,6 +9,107 @@ class ForegroundAppConditionTest {
     private val selected = setOf("app.a", "app.b")
     private fun ForegroundAppCondition.visit(name: String, at: Long) = resumed(name, at, selected, at)
 
+    @Test fun pollingSlowsOnlyAfterPauseIsConfirmedWithSelectedForeground() {
+        val condition = ForegroundAppCondition()
+        assertEquals(250L, condition.nextPollDelayMillis(selected, sessionPaused = false))
+        // Trusted-network pause without a selected foreground retains normal detection.
+        assertEquals(250L, condition.nextPollDelayMillis(selected, sessionPaused = true))
+        condition.visit("app.a", 100)
+        assertTrue(condition.matches(selected, 100))
+        assertEquals(250L, condition.nextPollDelayMillis(selected, sessionPaused = false))
+        assertEquals(1_000L, condition.nextPollDelayMillis(selected, sessionPaused = true))
+        // A manual resume must keep normal cadence despite the retained app condition.
+        assertEquals(250L, condition.nextPollDelayMillis(selected, sessionPaused = false))
+    }
+
+    @Test fun slowerDepartureObservationDoesNotExtendThirtySecondWindow() {
+        val condition = ForegroundAppCondition()
+        condition.visit("app.a", 100)
+        assertEquals(1_000L, condition.nextPollDelayMillis(selected, sessionPaused = true))
+        // The exit event is read almost a second late; its actual timestamp owns the deadline.
+        condition.visit("other", 200)
+        assertTrue(condition.matches(selected, 1_100))
+        assertEquals(250L, condition.nextPollDelayMillis(selected, sessionPaused = true))
+        assertTrue(condition.matches(selected, 30_199))
+        assertFalse(condition.matches(selected, 30_200))
+    }
+
+    @Test fun selectedSwitchesTransientWindowsAndShortReturnsPreserveCadenceAndGrace() {
+        val condition = ForegroundAppCondition()
+        condition.visit("app.a", 100)
+        condition.visit("app.b", 200)
+        condition.visit("com.android.systemui", 300)
+        assertEquals(1_000L, condition.nextPollDelayMillis(selected, sessionPaused = true))
+        condition.visit("other", 400)
+        condition.visit("app.a", 600)
+        condition.visit("other", 700)
+        assertEquals(250L, condition.nextPollDelayMillis(selected, sessionPaused = true))
+        assertTrue(condition.matches(selected, 30_699))
+        assertFalse(condition.matches(selected, 30_700))
+        condition.reset()
+        assertEquals(250L, condition.nextPollDelayMillis(selected, sessionPaused = true))
+        condition.visit("app.a", 40_000)
+        condition.removeApp("app.a")
+        assertEquals(250L, condition.nextPollDelayMillis(selected, sessionPaused = true))
+    }
+
+    @Test fun explicitRestartDoesNotReplayPreviousBackgroundWindow() {
+        val condition = ForegroundAppCondition(retentionNotBeforeElapsed = 1_000)
+        condition.visit("app.a", 100)
+        condition.visit("other", 500)
+        assertFalse(condition.matches(selected, 1_001))
+        // Overlapping queries, unlock reseeding and permission resets keep the boundary.
+        val replay = condition.copy()
+        replay.reset()
+        replay.visit("app.a", 100)
+        replay.visit("other", 500)
+        replay.freeze(1_002)
+        assertFalse(replay.matches(selected, 2_000))
+        replay.thaw(2_001)
+        assertFalse(replay.matches(selected, 2_001))
+        replay.visit("app.b", 2_100)
+        replay.visit("other", 2_200)
+        assertTrue(replay.matches(selected, 32_199))
+        assertFalse(replay.matches(selected, 32_200))
+    }
+
+    @Test fun selectedAppStillForegroundAtRestartRemainsATrigger() {
+        val condition = ForegroundAppCondition(retentionNotBeforeElapsed = 1_000)
+        condition.visit("app.a", 100)
+        assertTrue(condition.matches(selected, 1_001))
+        condition.removeApp("app.a")
+        assertFalse(condition.matches(selected - "app.a", 1_002))
+    }
+
+    @Test fun departureAtOrAfterRestartStartsANewWindowEvenInInitialQuery() {
+        for (departure in listOf(1_000L, 1_001L)) {
+            val condition = ForegroundAppCondition(retentionNotBeforeElapsed = 1_000)
+            condition.visit("app.a", 100)
+            condition.visit("other", departure)
+            assertTrue(condition.matches(selected, departure + 29_999))
+            assertFalse(condition.matches(selected, departure + 30_000))
+        }
+    }
+
+    @Test fun delayedPreRestartDepartureCannotCreateWindowAfterForegroundSeed() {
+        val condition = ForegroundAppCondition(retentionNotBeforeElapsed = 1_000)
+        condition.visit("app.a", 100)
+        assertTrue(condition.matches(selected, 1_001))
+        condition.visit("other", 999)
+        assertFalse(condition.matches(selected, 1_002))
+    }
+
+    @Test fun automaticRecoveryKeepsSameSessionWindowButExcludesPreviousSession() {
+        val recovered = ForegroundAppCondition(retentionNotBeforeElapsed = 1_000)
+        recovered.visit("app.a", 100)
+        recovered.visit("other", 500)
+        assertFalse(recovered.matches(selected, 2_000))
+        recovered.visit("app.b", 2_100)
+        recovered.visit("other", 2_200)
+        assertTrue(recovered.matches(selected, 3_000))
+        assertFalse(recovered.matches(selected, 32_200))
+    }
+
     @Test fun selectedToSelectedAndTransientDialogsKeepPause() {
         val condition = ForegroundAppCondition()
         condition.visit("app.a", 0)

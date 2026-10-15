@@ -29,6 +29,7 @@ internal data class VpnRecoveryCheckpoint(
     val recoveryFailures: Int = 0,
     val updatedAt: Long,
     val applicationPauseActive: Boolean = false,
+    val applicationRetentionStartedAt: Long = 0L,
 ) {
     fun withState(nextState: String, now: Long) = copy(
         state = nextState,
@@ -104,6 +105,7 @@ internal object VpnRecoveryCheckpointCodec {
         addProperty("recoveryFailures", checkpoint.recoveryFailures)
         addProperty("updatedAt", checkpoint.updatedAt)
         addProperty("applicationPauseActive", checkpoint.applicationPauseActive)
+        addProperty("applicationRetentionStartedAt", checkpoint.applicationRetentionStartedAt)
         add("options", encodeOptions(checkpoint.options))
     }.toString()
 
@@ -124,6 +126,7 @@ internal object VpnRecoveryCheckpointCodec {
             recoveryFailures = root.requiredInt("recoveryFailures"),
             updatedAt = root.requiredLong("updatedAt"),
             applicationPauseActive = root.get("applicationPauseActive")?.asBoolean ?: false,
+            applicationRetentionStartedAt = root.get("applicationRetentionStartedAt")?.asLong ?: 0L,
         )
     }.getOrNull()?.takeIf(::isStructurallyValid)
 
