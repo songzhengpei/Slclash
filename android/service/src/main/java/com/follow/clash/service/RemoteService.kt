@@ -26,6 +26,7 @@ import com.follow.clash.service.models.VpnOptions
 import com.follow.clash.service.models.getIpv4RouteAddress
 import com.follow.clash.service.models.getIpv6RouteAddress
 import com.follow.clash.service.modules.NetworkObserveModule
+import com.follow.clash.service.modules.NetworkConnectionRecoveryPolicy
 import com.follow.clash.service.modules.PhysicalNetworkControlPlane
 import com.follow.clash.service.modules.PhysicalNetworkSnapshot
 import com.follow.clash.service.modules.PhysicalNetworkUpdateReason
@@ -117,7 +118,7 @@ class RemoteService : Service(), CoroutineScope {
     private val transitionRetrySchedule = BoundedRetrySchedule(RETRY_DELAYS)
     private var unknownRetryJob: Job? = null
     private var transitionRetryJob: Job? = null
-    private var lastStableNetworkId: Long? = null
+    private val networkConnectionRecovery = NetworkConnectionRecoveryPolicy()
     private val networkObserveModule by lazy { NetworkObserveModule(this) }
     private var networkObserverJob: Job? = null
     private var previousDesiredState: SmartPauseDesiredState? = null
@@ -276,7 +277,7 @@ class RemoteService : Service(), CoroutineScope {
             )
         }
         previousDesiredState = desired
-        maybeCloseConnectionsForHandover(network, config, current)
+        maybeRecoverNetworkConnections(network, config, current)
 
         if (action == SmartPauseAction.RETRY) {
             scheduleUnknownRetry()
@@ -399,23 +400,27 @@ class RemoteService : Service(), CoroutineScope {
         unknownRetrySchedule.reset()
     }
 
-    private suspend fun maybeCloseConnectionsForHandover(
+    private suspend fun maybeRecoverNetworkConnections(
         network: PhysicalNetworkSnapshot?, config: SmartPauseConfig, session: SessionSnapshot,
     ) {
-        val networkId = network?.takeIf { it.isKnown }?.networkId ?: return
-        val previous = lastStableNetworkId
-        lastStableNetworkId = networkId
-        if (previous == null || previous == networkId || !config.closeConnections ||
-            (session.state != SessionState.RUNNING && session.state != SessionState.PAUSED)
-        ) return
+        val reason = networkConnectionRecovery.observe(
+            network,
+            closeConnections = config.closeConnections,
+            sessionActive = session.state == SessionState.RUNNING || session.state == SessionState.PAUSED,
+        ) ?: return
         Phase4Mark.emit(
             "network_handover_close_connections",
-            mapOf("network_generation" to network.generation, "network_type" to network.transport),
+            mapOf("network_generation" to network?.generation, "network_type" to network?.transport,
+                "reason" to reason.name),
         )
+        // The portal can recover without changing its DNS list or Android network ID.
+        // Reset resolver transports as well as tracked application connections.
+        val resolverReset = coreLifecycleAction("resetConnections")
         val closed = coreLifecycleAction("closeConnections")
+        GlobalState.log("Network connection recovery reason=${reason.name} resolver=$resolverReset connections=$closed")
         Phase4Mark.emit(
             "network_handover_close_connections_complete",
-            mapOf("result" to closed),
+            mapOf("result" to closed, "resolver_reset" to resolverReset, "reason" to reason.name),
         )
     }
 
@@ -881,6 +886,7 @@ class RemoteService : Service(), CoroutineScope {
         if (snapshot.state == SessionState.STOPPED) {
             pendingRecovery = null
             previousDesiredState = null
+            networkConnectionRecovery.reset()
         }
         if (snapshot.state == SessionState.STOPPED && smartPausePolicy.manualOverride) {
             smartPausePolicy.onSessionStopped()
