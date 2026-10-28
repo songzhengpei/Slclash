@@ -12,12 +12,53 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.2.6',
+    date: '2026-10-28',
+    changes: [
+      '更新 Mihomo 内核至最新稳定版 v1.19.33。',
+      '优化公共 Wi-Fi 认证完成及网络恢复后的连接清理，减少失效连接残留。',
+      '统一节点与策略组面板样式，修复访问控制设置对齐问题。',
+    ],
+  ),
+  AppChangelogEntry(
+    version: 'v2.2.5',
+    date: '2026-10-15',
+    changes: ["修复v2.2.4引入的bug，完善智能暂停体验。"],
+  ),
+  AppChangelogEntry(
     version: 'v2.2.4',
     date: '2026-10-14',
     changes: [
       '新增按应用触发的智能暂停，兼容少数启动时检测 VPN 环境的应用。',
       '更新 Mihomo 内核至最新稳定版 v1.19.32。',
     ],
+  ),
+  AppChangelogEntry(
+    version: 'v2.2.3',
+    date: '2026-09-12',
+    changes: ['优化界面长按反馈显示'],
+  ),
+  AppChangelogEntry(
+    version: 'v2.2.2',
+    date: '2026-09-11',
+    changes: [
+      "解决了一些影响使用体验的bug",
+      "修复订阅排序偶发失效",
+      "调整主题色彩预设",
+      "优化首次订阅导入的内核预热",
+      "优化UI文案显示",
+      "减少弹窗噪音",
+    ],
+  ),
+  AppChangelogEntry(
+    version: 'v2.2.1',
+    date: '2026-09-10',
+    changes: ["修复网络、DNS、自定义规则等设置未正确生效的问题；优化仪表盘延迟数值显示，避免文字拥挤或裁切。"],
+  ),
+  AppChangelogEntry(
+    version: 'v2.2.0',
+    date: '2026-09-09',
+    changes: ["优化大量订阅下代理界面卡顿问题", "整理了一些启动链路上的时序问题"],
   ),
   AppChangelogEntry(
     version: 'v2.1.9',

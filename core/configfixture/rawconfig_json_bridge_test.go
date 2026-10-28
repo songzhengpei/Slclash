@@ -21,6 +21,7 @@ func TestRawConfigJSONBridgeContract(t *testing.T) {
 tun:
   enable: true
   auto-detect-interface: true
+  dns-mode: native
 experimental:
   quic-go-disable-gso: true
   quic-go-disable-ecn: true
@@ -52,6 +53,9 @@ rules:
 	}
 	if _, ok := tun["AutoDetectInterface"]; ok {
 		t.Fatal("json bridge: Go field name AutoDetectInterface leaked into JSON")
+	}
+	if tun["dns-mode"] != "native" {
+		t.Fatal("json bridge: tun.dns-mode must preserve the configured DNS mode")
 	}
 
 	experimental, ok := decoded["experimental"].(map[string]any)

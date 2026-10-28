@@ -24,6 +24,7 @@ data class PhysicalNetworkSnapshot(
     val dnsServers: List<String>,
     val reason: PhysicalNetworkUpdateReason = PhysicalNetworkUpdateReason.EXPLICIT_REFRESH,
     val timestamp: Long = System.currentTimeMillis(),
+    val validation: NetworkValidationState = NetworkValidationState(),
 ) {
     val isKnown: Boolean get() = networkId != null && ipv4Addresses.isNotEmpty()
 }

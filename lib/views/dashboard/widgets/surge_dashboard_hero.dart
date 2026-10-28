@@ -1436,9 +1436,12 @@ class _HeroProxySelectorBar extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => SizedBox(
         height: MediaQuery.of(context).size.height * 0.65,
-        child: _NodeSelectionSheet(
-          group: group,
-          currentProxyName: currentProxyName,
+        child: SheetProvider(
+          type: SheetType.bottomSheet,
+          child: _NodeSelectionSheet(
+            group: group,
+            currentProxyName: currentProxyName,
+          ),
         ),
       ),
     );
@@ -1506,54 +1509,10 @@ class _NodeSelectionSheetState extends ConsumerState<_NodeSelectionSheet> {
         )
         .toList();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
+    return AdaptiveSheetScaffold(
+      title: context.appLocalizations.nodes,
+      body: Column(
         children: [
-          // Drag handle
-          Container(
-            width: 28,
-            height: 4,
-            margin: const EdgeInsets.only(top: 6),
-            decoration: ShapeDecoration(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              shape: RoundedSuperellipseBorder(
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          // Title bar: same structure as AdaptiveSheetScaffold bottomSheet
-          SizedBox(
-            height: 48,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                children: [
-                  SoftOsActionButton(
-                    icon: SurgeIcons.close,
-                    onPressed: () => Navigator.of(context).pop(),
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).closeButtonTooltip,
-                    compact: true,
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        context.appLocalizations.nodes,
-                        style: context.typography.sheetTitle,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
           // Search field with embedded action buttons
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

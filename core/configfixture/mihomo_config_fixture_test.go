@@ -22,6 +22,7 @@ func TestBundledMihomoAcceptsCompatibilityFixtures(t *testing.T) {
 		"mihomo_current_features.yaml", "real_source_preservation.yaml",
 		"tun_ownership.yaml", "dns_ownership.yaml",
 		"e2e_standard.yaml", "e2e_script.yaml",
+		"e2e_dns_mode_native.yaml", "e2e_dns_mode_hijack.yaml", "e2e_dns_mode_disabled.yaml",
 	}
 	fixtureDir := filepath.Join("..", "..", "build", "mihomo-runtime-fixtures")
 	if _, supportsMips := constant.StackTypeMapping["mips"]; supportsMips {

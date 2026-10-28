@@ -2,12 +2,14 @@ import 'package:fl_clash/common/app_changelog.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('latest changelog matches the v2.2.4 release', () {
-    expect(appChangelogEntries.first.version, 'v2.2.4');
+  test('latest changelog matches the v2.2.6 release', () {
+    expect(appChangelogEntries.first.version, 'v2.2.6');
     expect(appChangelogEntries.first.changes, [
-      '新增按应用触发的智能暂停，兼容少数启动时检测 VPN 环境的应用。',
-      '更新 Mihomo 内核至最新稳定版 v1.19.32。',
+      '更新 Mihomo 内核至最新稳定版 v1.19.33。',
+      '优化公共 Wi-Fi 认证完成及网络恢复后的连接清理，减少失效连接残留。',
+      '统一节点与策略组面板样式，修复访问控制设置对齐问题。',
     ]);
+    expect(appChangelogEntries[1].version, 'v2.2.5');
     expect(
       appChangelogEntries.map((entry) => entry.version),
       isNot(contains('v2.1.6')),
