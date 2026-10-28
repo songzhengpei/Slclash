@@ -38,6 +38,7 @@ private data class NetworkInfo(
     @Volatile var losingMs: Long = 0,
     @Volatile var dnsList: List<InetAddress> = emptyList(),
     @Volatile var ipv4List: List<String> = emptyList(),
+    val validation: NetworkValidationTracker = NetworkValidationTracker(),
 ) {
     fun isAvailable(): Boolean = losingMs < System.currentTimeMillis()
 }
@@ -70,7 +71,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 mapOf("callback" to "available", "network_id" to network.networkHandle),
             )
             enqueueNetworkUpdate(PhysicalNetworkUpdateReason.NETWORK_AVAILABLE) {
-                networkInfos[network] = NetworkInfo()
+                networkInfos.getOrPut(network, ::NetworkInfo).losingMs = 0
             }
             super.onAvailable(network)
         }
@@ -125,7 +126,11 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 "network_callback",
                 mapOf("callback" to "capabilities", "network_id" to network.networkHandle),
             )
-            enqueueNetworkUpdate(PhysicalNetworkUpdateReason.NETWORK_CAPABILITIES_CHANGED)
+            val validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            val captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
+            enqueueNetworkUpdate(PhysicalNetworkUpdateReason.NETWORK_CAPABILITIES_CHANGED) {
+                networkInfos.getOrPut(network, ::NetworkInfo).validation.update(validated, captivePortal)
+            }
             super.onCapabilitiesChanged(network, capabilities)
         }
     }
@@ -156,12 +161,18 @@ class NetworkObserveModule(private val service: Service) : Module() {
             val capabilities = manager.getNetworkCapabilities(network) ?: return@forEach
             if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) return@forEach
             val properties = manager.getLinkProperties(network)
-            current[network] = NetworkInfo(
-                dnsList = properties?.dnsServers.orEmpty(),
+            // Keep validation history across explicit refreshes (including app foreground).
+            current[network] = (networkInfos[network] ?: NetworkInfo()).apply {
+                losingMs = 0
+                dnsList = properties?.dnsServers.orEmpty()
                 ipv4List = properties?.linkAddresses.orEmpty().mapNotNull {
                     (it.address as? Inet4Address)?.hostAddress
-                },
-            )
+                }
+                validation.update(
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
+                )
+            }
         }
         networkInfos.clear()
         networkInfos.putAll(current)
@@ -274,6 +285,7 @@ class NetworkObserveModule(private val service: Service) : Module() {
             ipv4Addresses = physicalPrimary?.value?.ipv4List ?: emptyList(),
             dnsServers = dnsList,
             reason = updateReason,
+            validation = physicalPrimary?.value?.validation?.state ?: NetworkValidationState(),
         )
         // A callback can update generation while the snapshot is assembled.
         // Never publish that stale intermediate view.
@@ -291,6 +303,9 @@ class NetworkObserveModule(private val service: Service) : Module() {
                 "ip_count" to snapshot.ipv4Addresses.size,
                 "candidate_count" to networkInfos.size,
                 "general_purpose" to physicalPrimary?.key?.let(::isGeneralPurposeNetwork),
+                "validated" to snapshot.validation.validated,
+                "captive_portal" to snapshot.validation.captivePortal,
+                "validation_recovery_revision" to snapshot.validation.recoveryRevision,
             ),
         )
         PhysicalNetworkControlPlane.publish(snapshot)

@@ -54,6 +54,7 @@ class SurgeListTile extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: minHeight),
         child: Stack(
+          alignment: Alignment.centerLeft,
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 16),
