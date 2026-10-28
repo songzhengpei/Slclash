@@ -88,7 +88,8 @@ void main() {
       (
         SlclashTypeScale.dashboardLatencyValue,
         12,
-        1.3333,
+        // The latency badge's compact line height moved into the scale in 1f4c60db.
+        0,
         FontWeight.w500,
         null,
       ),
