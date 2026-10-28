@@ -88,7 +88,25 @@ void main() {
     expect(runtime['tun']['stack'], 'mips');
     expect(runtime['tun']['processors-per-channel'], 1);
   });
-  for (final baseline in ['', '-v1.19.31', '-v1.19.32']) {
+  for (final dnsMode in ['native', 'hijack', 'disabled']) {
+    test('TUN dns-mode $dnsMode survives the runtime overlay', () async {
+      final config = _bridgeToDart(
+        _readRawConfigJson('bridge_contract', '-v1.19.33'),
+      );
+      (config['tun'] as Map)['dns-mode'] = dnsMode;
+      final runtime = await _materialize(
+        config,
+        patch: const PatchClashConfig(tun: Tun(enable: true)),
+        writeTo: p.join(
+          'build',
+          'mihomo-runtime-fixtures',
+          'e2e_dns_mode_$dnsMode.yaml',
+        ),
+      );
+      expect(runtime['tun']['dns-mode'], dnsMode);
+    });
+  }
+  for (final baseline in ['', '-v1.19.31', '-v1.19.32', '-v1.19.33']) {
     group('reviewed bridge ${baseline.isEmpty ? 'v1.19.30' : baseline.substring(1)}', () {
       _testBaseline(baseline);
     });
