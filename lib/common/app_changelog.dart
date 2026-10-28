@@ -12,6 +12,15 @@ class AppChangelogEntry {
 
 const appChangelogEntries = <AppChangelogEntry>[
   AppChangelogEntry(
+    version: 'v2.2.6',
+    date: '2026-10-28',
+    changes: [
+      '更新 Mihomo 内核至最新稳定版 v1.19.33。',
+      '优化公共 Wi-Fi 认证完成及网络恢复后的连接清理，减少失效连接残留。',
+      '统一节点与策略组面板样式，修复访问控制设置对齐问题。',
+    ],
+  ),
+  AppChangelogEntry(
     version: 'v2.2.5',
     date: '2026-10-15',
     changes: ["修复v2.2.4引入的bug，完善智能暂停体验。"],
